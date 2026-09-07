@@ -2,6 +2,7 @@ import QtQuick
 import qs.Commons
 import "../lib/MediaBins.js" as Bins
 import "../lib/MediaDates.js" as Dates
+import "../theme"
 
 FocusScope {
   id: timeline
@@ -197,7 +198,7 @@ FocusScope {
       color: Color.muted
       elide: Text.ElideRight
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
     }
 
     Row {
@@ -231,7 +232,7 @@ FocusScope {
             text: button.index === 0 ? "▴" : "▾"
             color: button.enabled ? Color.bar.text : Color.muted
             opacity: button.enabled ? 1 : 0.45
-            font.pixelSize: Style.font.body
+            font.pixelSize: Typography.body
           }
           MouseArea {
             anchors.fill: parent
@@ -272,7 +273,7 @@ FocusScope {
         text: timeline.label(mark.modelData, !timeline.sparseRows)
         color: timeline.sparseRows && timeline.activePeriod === mark.index ? timeline.lightBlue : Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         elide: Text.ElideRight
       }
       Rectangle {
@@ -306,9 +307,9 @@ FocusScope {
         color: mark.inViewport ? timeline.lightBlue : Color.muted
         horizontalAlignment: Text.AlignRight
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         fontSizeMode: Text.HorizontalFit
-        minimumPixelSize: Style.font.caption * 0.8
+        minimumPixelSize: Typography.caption * 0.8
       }
     }
   }

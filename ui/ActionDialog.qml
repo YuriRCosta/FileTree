@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: dialog
@@ -157,7 +158,7 @@ Item {
         color: dialog.foreground
         elide: Text.ElideMiddle
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
 
       Repeater {
@@ -173,7 +174,7 @@ Item {
           elide: pathLike ? Text.ElideMiddle : Text.ElideNone
           wrapMode: pathLike ? Text.NoWrap : Text.WordWrap
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Typography.caption
         }
       }
 
@@ -204,7 +205,7 @@ Item {
           textFormat: Text.PlainText
           color: dialog.dim
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Typography.caption
           elide: Text.ElideRight
         }
         MouseArea {
@@ -244,7 +245,7 @@ Item {
               text: String(modelData.label || "")
               color: option.active ? option.tone : Util.alpha(option.tone, 0.72)
               font.family: Style.font.family
-              font.pixelSize: Style.font.caption
+              font.pixelSize: Typography.caption
               font.weight: option.active ? Font.DemiBold : Font.Normal
               font.letterSpacing: 0.3
             }

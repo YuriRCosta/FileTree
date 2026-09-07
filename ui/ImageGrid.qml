@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../lib/ImageGallery.js" as ImageGallery
+import "../theme"
 
 FocusScope {
   id: grid
@@ -171,7 +172,7 @@ FocusScope {
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         font.weight: Font.DemiBold
         font.letterSpacing: 0.6
       }
@@ -255,6 +256,6 @@ FocusScope {
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
   }
 }

@@ -8,6 +8,7 @@ import "../lib/KeyRouter.js" as KeyRouter
 import "../lib/Highlight.js" as Highlight
 import "../lib/PathText.js" as PathText
 import "../modules/files/MediaModel.js" as MediaModel
+import "../theme"
 
 FocusScope {
   id: root
@@ -314,7 +315,7 @@ FocusScope {
       text: button.label
       color: button.primary ? Color.background : Color.bar.text
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
       font.weight: button.primary ? Font.DemiBold : Font.Normal
     }
 
@@ -342,7 +343,7 @@ FocusScope {
       text: glyphButton.glyph
       color: glyphPointer.containsMouse ? Color.accent : Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.pixelSize: Typography.body
     }
 
     MouseArea {
@@ -400,7 +401,7 @@ FocusScope {
         color: Util.alpha(Color.muted, 0.8)
         horizontalAlignment: Text.AlignHCenter
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
 
       Text {
@@ -408,7 +409,7 @@ FocusScope {
         text: detail.label.toUpperCase()
         color: Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         font.letterSpacing: 0.4
       }
     }
@@ -420,7 +421,7 @@ FocusScope {
       color: detail.label === "Branch" ? Color.muted : Color.bar.text
       wrapMode: detail.label === "Path" || detail.label === "Target" ? Text.WrapAnywhere : Text.Wrap
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
     }
   }
 
@@ -491,7 +492,7 @@ FocusScope {
         color: Color.muted
         wrapMode: Text.WordWrap
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.pixelSize: Typography.body
       }
 
       Item {
@@ -510,7 +511,7 @@ FocusScope {
           text: root.entryGlyph()
           color: root.entryGlyphColor()
           font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          font.pixelSize: Typography.body
         }
 
         Text {
@@ -526,7 +527,7 @@ FocusScope {
           color: Color.bar.text
           elide: Text.ElideRight
           font.family: Style.font.family
-          font.pixelSize: Style.font.title
+          font.pixelSize: Typography.title
           font.weight: Font.DemiBold
         }
 
@@ -563,7 +564,7 @@ FocusScope {
           + controller.selectedCount + " items"
         color: Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
 
       PluginUi.FilePreview {
@@ -590,7 +591,7 @@ FocusScope {
         color: Color.muted
         elide: Text.ElideRight
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
 
       Flow {
@@ -628,7 +629,7 @@ FocusScope {
         TextMetrics {
           id: sample
           font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Typography.bodySmall
           text: "2026-09-02 16:31:27"
         }
 

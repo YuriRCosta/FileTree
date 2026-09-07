@@ -5,6 +5,7 @@ import qs.Commons
 import qs.Ui
 import "../ui" as PluginUi
 import "../lib/PathText.js" as PathText
+import "../theme"
 
 Popup {
   id: root
@@ -260,7 +261,7 @@ Popup {
         ? (more.custom && more.swatch !== "" ? more.swatch : Color.menu.selectedText)
         : Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.title
+      font.pixelSize: Typography.title
       font.weight: Font.DemiBold
     }
 
@@ -307,7 +308,7 @@ Popup {
       text: dot.glyph
       color: Color.menu.text
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
       font.weight: Font.DemiBold
     }
 
@@ -424,7 +425,7 @@ Popup {
               color: Color.bar.text
               elide: Text.ElideRight
               font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
+              font.pixelSize: Typography.bodySmall
               font.weight: Font.DemiBold
               font.letterSpacing: 0.5
             }
@@ -437,7 +438,7 @@ Popup {
               text: "×"
               color: closePointer.containsMouse ? Color.bar.text : Color.muted
               font.family: Style.font.family
-              font.pixelSize: Style.font.title
+              font.pixelSize: Typography.title
 
               MouseArea {
                 id: closePointer
@@ -490,7 +491,7 @@ Popup {
             elide: root.archiveMode || root.permissionsMode ? Text.ElideNone : Text.ElideMiddle
             wrapMode: root.archiveMode || root.permissionsMode ? Text.WordWrap : Text.NoWrap
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Typography.caption
           }
 
           Text {
@@ -502,7 +503,7 @@ Popup {
             color: Color.muted
             wrapMode: Text.WordWrap
             font.family: Style.font.family
-            font.pixelSize: Style.font.caption
+            font.pixelSize: Typography.caption
           }
 
           Flow {
@@ -545,7 +546,7 @@ Popup {
             selectionColor: Util.alpha(Color.accent, 0.38)
             selectedTextColor: Color.bar.text
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: Typography.body
             background: Rectangle {
               radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))
               color: Util.alpha(Color.bar.text, actionField.activeFocus ? 0.10 : 0.06)
@@ -617,7 +618,7 @@ Popup {
             color: Color.urgent
             wrapMode: Text.WordWrap
             font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
+            font.pixelSize: Typography.bodySmall
           }
 
           Text {
@@ -627,7 +628,7 @@ Popup {
             text: "Finding compatible applications…"
             color: Color.muted
             font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
+            font.pixelSize: Typography.bodySmall
           }
 
           Repeater {
@@ -831,7 +832,7 @@ Popup {
               text: (root.entriesAllFolders ? "FOLDER COLOR" : "COLOR") + "   ↓ ← →  ENTER"
               color: Color.muted
               font.family: Style.font.family
-              font.pixelSize: Style.font.caption
+              font.pixelSize: Typography.caption
               font.weight: Font.DemiBold
               font.letterSpacing: 0.4
             }

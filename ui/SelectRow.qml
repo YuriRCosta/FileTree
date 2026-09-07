@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../lib/SettingsForm.js" as Form
+import "../theme"
 
 Item {
   id: control
@@ -22,7 +23,7 @@ Item {
     color: Color.bar.text
     elide: Text.ElideRight
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
   }
 
   Rectangle {
@@ -46,7 +47,7 @@ Item {
       color: Color.bar.text
       elide: Text.ElideRight
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
     }
 
     ChevronHit {

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: row
@@ -34,7 +35,7 @@ Item {
     color: Color.bar.text
     elide: Text.ElideRight
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
   }
 
   Rectangle {
@@ -55,7 +56,7 @@ Item {
       text: row.currentLabel
       color: Color.bar.text
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
     }
 
     ChevronHit {

@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../lib/ImageGallery.js" as ImageGallery
+import "../theme"
 
 Item {
   id: rail
@@ -71,7 +72,7 @@ Item {
       color: rail.activeSection && rail.activeSection.year === Number(modelData.label) ? Color.accent : Color.muted
       horizontalAlignment: Text.AlignRight
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
     }
   }
 
@@ -105,7 +106,7 @@ Item {
       text: rail.pointerSection ? String(rail.pointerSection.shortLabel) : ""
       color: Color.tooltip.text
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
     }
   }
 

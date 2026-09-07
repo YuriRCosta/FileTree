@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../../lib/Format.js" as Format
+import "../../theme"
 
 FocusScope {
   id: module
@@ -307,6 +308,6 @@ FocusScope {
     text: module.loadError !== "" ? module.loadError : (module.busy ? "Loading branches…" : (module.query ? "No match" : "No branches found"))
     color: module.loadError !== "" ? Color.urgent : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
   }
 }

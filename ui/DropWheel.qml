@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import "../lib/FileIcons.js" as FileIcons
+import "../theme"
 
 PanelWindow {
   id: overlay
@@ -227,7 +228,7 @@ PanelWindow {
       text: overlay.entryGlyph(ghost.entry)
       color: Color.accent
       font.family: Style.font.family
-      font.pixelSize: Style.font.body + 3
+      font.pixelSize: Typography.body + 3
     }
 
     Text {
@@ -242,7 +243,7 @@ PanelWindow {
       color: Color.bar.text
       elide: Text.ElideMiddle
       font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.pixelSize: Typography.body
       font.weight: Font.Medium
     }
 
@@ -266,7 +267,7 @@ PanelWindow {
         text: String(overlay.controller.count)
         color: Color.popups.background
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         font.weight: Font.Bold
       }
     }
@@ -379,10 +380,10 @@ PanelWindow {
         monochrome: !wedge.active || monochromeMask !== "alpha"
         monochromeMask: String(wedge.modelData.icon_mask || "alpha")
         iconColor: wedge.active ? Qt.lighter(Color.accent, 1.5) : Color.accent
-        iconSize: Style.font.body + 8
+        iconSize: Typography.body + 8
         fallbackGlyph: String(wedge.applicationIcon.glyph || "") || String(wedge.modelData.key || "").toUpperCase()
         fallbackColor: Color.accent
-        fallbackSize: Style.font.body + 6
+        fallbackSize: Typography.body + 6
       }
 
       WheelKeyLetter {
@@ -402,7 +403,7 @@ PanelWindow {
         text: "󰅂"
         color: Color.popups.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
     }
   }
@@ -436,10 +437,10 @@ PanelWindow {
         monochrome: !child.active || monochromeMask !== "alpha"
         monochromeMask: String(child.modelData.icon_mask || "alpha")
         iconColor: Qt.lighter(Color.accent, child.active ? 1.75 : 1.45)
-        iconSize: Style.font.body + 7
+        iconSize: Typography.body + 7
         fallbackGlyph: String(child.applicationIcon.glyph || "") || String(child.modelData.key || "").toUpperCase()
         fallbackColor: Qt.lighter(Color.accent, 1.45)
-        fallbackSize: Style.font.body + 4
+        fallbackSize: Typography.body + 4
       }
 
       Text {
@@ -452,7 +453,7 @@ PanelWindow {
         text: "󰅂"
         color: Color.popups.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
 
       WheelKeyLetter {
@@ -478,7 +479,7 @@ PanelWindow {
       text: overlay.controller.loading ? "…" : String(overlay.controller.count)
       color: Color.accent
       font.family: Style.font.family
-      font.pixelSize: Style.font.body + 2
+      font.pixelSize: Typography.body + 2
       font.weight: Font.Bold
     }
 
@@ -489,7 +490,7 @@ PanelWindow {
       text: overlay.controller.count === 1 ? "item" : "items"
       color: Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
     }
   }
 
@@ -538,7 +539,7 @@ PanelWindow {
         text: caption.headline
         color: caption.failed ? Color.urgent : Color.popups.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
         font.weight: Font.DemiBold
       }
 
@@ -548,7 +549,7 @@ PanelWindow {
         text: caption.detail
         color: Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
 
       Text {
@@ -561,7 +562,7 @@ PanelWindow {
         elide: Text.ElideRight
         color: Color.urgent
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
     }
   }

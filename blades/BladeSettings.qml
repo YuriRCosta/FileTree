@@ -4,6 +4,7 @@ import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 import "../ui" as PluginUi
+import "../theme"
 
 Item {
   id: root
@@ -233,7 +234,7 @@ Item {
     color: Color.muted
     elide: Text.ElideRight
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
     font.letterSpacing: 0.4
   }
 
@@ -260,7 +261,7 @@ Item {
       text: action.glyph
       color: action.danger && actionPointer.containsMouse ? Color.urgent : (actionPointer.containsMouse ? Color.bar.text : Color.muted)
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
     }
 
     MouseArea {
@@ -285,7 +286,7 @@ Item {
     textFormat: Text.PlainText
     color: linkPointer.containsMouse ? Color.bar.text : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
 
     MouseArea {
       id: linkPointer
@@ -429,7 +430,7 @@ Item {
               color: handlePointer.containsMouse || tabRow.lifted ? Color.accent : Color.muted
               horizontalAlignment: Text.AlignHCenter
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: Typography.body
 
               MouseArea {
                 id: handlePointer
@@ -464,7 +465,7 @@ Item {
               glyph: root.moduleGlyph(tabRow.moduleId)
               iconUrl: root.moduleIconUrl(tabRow.moduleId)
               color: Color.accent
-              size: Style.font.body
+              size: Typography.body
             }
 
             Text {
@@ -478,7 +479,7 @@ Item {
               color: Color.bar.text
               elide: Text.ElideRight
               font.family: Style.font.family
-              font.pixelSize: Style.font.bodySmall
+              font.pixelSize: Typography.bodySmall
             }
 
             Row {
@@ -608,7 +609,7 @@ Item {
           text: "SETTINGS"
           color: Color.bar.text
           font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Typography.bodySmall
           font.weight: Font.DemiBold
           font.letterSpacing: 0.5
         }
@@ -620,7 +621,7 @@ Item {
           text: "×"
           color: closePointer.containsMouse ? Color.bar.text : Color.muted
           font.family: Style.font.family
-          font.pixelSize: Style.font.title
+          font.pixelSize: Typography.title
 
           MouseArea {
             id: closePointer
@@ -719,7 +720,8 @@ Item {
           readonly property bool animateShown: root.matches("general animate blades motion")
           readonly property bool monitorsShown: root.matches("general monitors screens display active primary all")
           readonly property bool managementShown: root.matches("general manage agent files skills memory permissions")
-          readonly property bool shown: animateShown || monitorsShown || managementShown
+          readonly property bool fontScaleShown: root.matches("general font size text scale typography percent")
+          readonly property bool shown: animateShown || monitorsShown || managementShown || fontScaleShown
           width: parent.width
           spacing: Style.space(5)
           visible: shown
@@ -747,6 +749,15 @@ Item {
             options: MonitorMode.choices(root.host.screenNames)
             value: MonitorMode.choiceKey(root.host.monitorMode, root.host.monitorLock)
             onChosen: function(key) { var choice = MonitorMode.parseChoice(key); root.host.setMonitorMode(choice.mode, choice.lock) }
+          }
+
+          PluginUi.NumberRow {
+            width: parent.width
+            visible: general.fontScaleShown
+            row: ({ key: "fontScale", type: "integer", label: "Font size %", glyph: "󰛖",
+                    min: Typography.minimumPercent, max: Typography.maximumPercent,
+                    step: Typography.percentStep, defaultValue: 100, value: Typography.percent })
+            onCommitted: function(value) { root.host.setFontScale(Typography.scaleFromPercent(value)) }
           }
         }
 
@@ -813,7 +824,7 @@ Item {
           color: Color.muted
           elide: Text.ElideRight
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Typography.caption
         }
       }
     }
@@ -842,7 +853,7 @@ Item {
         text: "new slot"
         color: Color.accent
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
     }
 
@@ -867,7 +878,7 @@ Item {
         text: (root.drag ? root.drag.glyph + "  " + root.drag.title : "")
         color: Color.bar.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
     }
   }

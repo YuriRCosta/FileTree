@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import "../lib/PathText.js" as PathText
 import "../lib/LayoutInventory.js" as LayoutInventory
+import "../theme"
 
 Item {
   id: host
@@ -73,6 +74,7 @@ Item {
   property alias monitorMode: persisted.monitorMode
   property alias monitorLock: persisted.monitorLock
   property alias animateBlades: persisted.animateBlades
+  property alias fontScale: persisted.fontScale
   property bool layoutReady: false
   property bool pressActive: false
   property bool pointerHeld: false
@@ -147,6 +149,13 @@ Item {
     property string monitorMode: "active"
     property string monitorLock: ""
     property bool animateBlades: true
+    property real fontScale: 1.0
+  }
+
+  Binding {
+    target: Typography
+    property: "scale"
+    value: host.fontScale
   }
 
   BladeFocusController {
@@ -230,7 +239,11 @@ Item {
   function normalizePlacement(value) { return bladeLayout.normalizePlacement(value) }
   function legacyLayout(legacy) { return bladeLayout.legacyLayout(legacy) }
   function defaultLayout() { return bladeLayout.defaultLayout() }
-  function resetLayout() { applyLayout(defaultLayout(), config.monitorMode, true, config.animateBlades); return true }
+  function resetLayout() {
+    fontScale = Typography.clamp(config.fontScale)
+    applyLayout(defaultLayout(), config.monitorMode, true, config.animateBlades)
+    return true
+  }
   function revertDefaults() {
     if (service && typeof service.resetSettings === "function") service.resetSettings()
     return resetLayout()
@@ -604,6 +617,12 @@ Item {
     return animateBlades
   }
 
+  function setFontScale(value) {
+    fontScale = Typography.clamp(value)
+    scheduleSave()
+    return fontScale
+  }
+
   function focusBlade(edge, targetScreen, slotIndex, part, openIfClosed) { return focusController.focusBlade(edge, targetScreen, slotIndex, part, openIfClosed) }
   function focusSlot(edge, slotIndex, targetScreen, part) { return focusController.focusSlot(edge, slotIndex, targetScreen, part) }
   function focusModule(moduleId, targetScreen, part) { return focusController.focusModule(moduleId, targetScreen, part) }
@@ -862,6 +881,7 @@ Item {
     layoutWritable = true
     if (layoutReady) return applyLiveLayout(parsed)
     if (typeof parsed.monitorLock === "string") monitorLock = parsed.monitorLock
+    if (typeof parsed.fontScale === "number") fontScale = Typography.clamp(parsed.fontScale)
     applyLayout(parsed, parsed.monitorMode || config.monitorMode, false, parsed.animations)
   }
   function applyLayoutResponse(response) {
@@ -886,12 +906,15 @@ Item {
     var desiredMonitorMode = normalizeMonitorMode(parsed.monitorMode || monitorMode)
     var desiredMonitorLock = typeof parsed.monitorLock === "string" ? parsed.monitorLock : monitorLock
     var desiredAnimations = typeof parsed.animations === "boolean" ? parsed.animations : animateBlades
+    var desiredFontScale = typeof parsed.fontScale === "number" ? Typography.clamp(parsed.fontScale) : fontScale
     var unchanged = JSON.stringify(incoming) === JSON.stringify(normalizeLayout(layout))
       && desiredMonitorMode === monitorMode && desiredMonitorLock === monitorLock && desiredAnimations === animateBlades
+      && desiredFontScale === fontScale
     if (unchanged) return
     monitorMode = desiredMonitorMode
     monitorLock = desiredMonitorLock
     animateBlades = desiredAnimations
+    fontScale = desiredFontScale
     if (typeof parsed.animations === "boolean") animationsExplicit = true
     replaceLayout(incoming, false)
     layoutApplied()

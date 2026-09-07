@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as QQC
 import qs.Commons
 import qs.Ui
+import "../theme"
 
 QQC.Popup {
   id: popup
@@ -107,7 +108,7 @@ QQC.Popup {
         text: popup.heading
         color: Color.bar.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
         font.weight: Font.DemiBold
       }
 
@@ -120,7 +121,7 @@ QQC.Popup {
         text: "×"
         color: closePointer.containsMouse ? Color.bar.text : Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.pixelSize: Typography.body
 
         MouseArea {
           id: closePointer
@@ -202,7 +203,7 @@ QQC.Popup {
           color: Color.muted
           elide: Text.ElideRight
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Typography.caption
           font.letterSpacing: 0.4
         }
 
@@ -218,7 +219,7 @@ QQC.Popup {
           fallbackGlyph: ""
           iconUrl: optionRow.separator ? "" : String(optionRow.modelData.iconUrl || "")
           color: optionRow.modelData.danger ? Color.urgent : (optionRow.enabled ? Color.muted : Util.alpha(Color.popups.text, 0.3))
-          size: Style.font.bodySmall
+          size: Typography.bodySmall
         }
 
         Text {
@@ -233,7 +234,7 @@ QQC.Popup {
           color: optionRow.modelData.danger && optionRow.enabled ? Color.urgent : (optionRow.enabled ? Color.popups.text : Util.alpha(Color.popups.text, 0.4))
           elide: Text.ElideRight
           font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Typography.bodySmall
         }
 
         Text {
@@ -245,7 +246,7 @@ QQC.Popup {
           text: optionRow.separator ? "" : (optionRow.modelData.checked ? "✓" : String(optionRow.modelData.hint || ""))
           color: optionRow.modelData.checked ? Color.accent : Color.muted
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: Typography.caption
         }
 
         MouseArea {

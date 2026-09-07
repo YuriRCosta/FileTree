@@ -291,6 +291,7 @@ flags (read only, bind to them for styling):
   context.bladeOpen, bladeFocused, slotFocused, collapsed, docked, dragging
   context.inPopout:                       true when a bar widget hosts the module (see Popping a module out of the bar)
   context.definition:                     the normalized definition; `definition.iconUrl` is the file URL of a declared `icon`
+  context.host.fontScale:                 the Font size the user chose, 0.75 to 2.0; multiply your own Style.font sizes by it to follow FileBlade
 state:
   context.state.get(key, fallback):       per-tab state, persisted in blades.json
   context.state.set(key, value):          same; keep it small, it's saved with the layout

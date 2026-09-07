@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "KeyPlan.js" as KeyPlan
+import "../../../theme"
 
 FocusScope {
   id: module
@@ -260,7 +261,7 @@ FocusScope {
       text: "Name"
       color: Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
       font.weight: Font.DemiBold
       font.letterSpacing: 0.4
     }
@@ -276,7 +277,7 @@ FocusScope {
       selectionColor: Util.alpha(Color.accent, 0.35)
       selectedTextColor: Color.popups.text
       font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.pixelSize: Typography.body
       maximumLength: 80
       clip: true
       Keys.onReturnPressed: module.commitName(text)
@@ -439,6 +440,6 @@ FocusScope {
       : (module.busy ? "Scanning hooks…" : (module.query ? "No match" : "No configured hooks found"))
     color: module.loadError !== "" ? Color.urgent : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
   }
 }

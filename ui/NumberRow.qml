@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../lib/SettingsForm.js" as Form
+import "../theme"
 
 Item {
   id: control
@@ -57,7 +58,7 @@ Item {
       text: button.glyph
       color: buttonPointer.containsMouse && button.enabled ? Color.bar.text : Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
     }
 
     MouseArea {
@@ -76,11 +77,11 @@ Item {
     anchors.right: rangeText.visible ? rangeText.left : minus.left
     anchors.rightMargin: Style.space(8)
     anchors.verticalCenter: parent.verticalCenter
-    text: String(control.row.label || "")
+    text: (control.row.glyph ? control.row.glyph + "  " : "") + String(control.row.label || "")
     color: Color.bar.text
     elide: Text.ElideRight
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
   }
 
   Text {
@@ -93,7 +94,7 @@ Item {
     text: control.range
     color: Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
   }
 
   StepButton {
@@ -134,7 +135,7 @@ Item {
       selectByMouse: true
       clip: true
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
       onAccepted: control.commitText()
       onActiveFocusChanged: if (!activeFocus) control.commitText()
       Keys.onEscapePressed: function(event) {

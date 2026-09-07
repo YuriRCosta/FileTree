@@ -5,6 +5,7 @@ import "../lib/DragPlan.js" as DragPlan
 import "../lib/FileIcons.js" as FileIcons
 import "../lib/Highlight.js" as Highlight
 import "../lib/GitSummary.js" as GitSummary
+import "../theme"
 
 Rectangle {
   id: row
@@ -212,7 +213,7 @@ Rectangle {
     text: row.favorite ? "" : "☆"
     color: row.favorite ? Color.accent : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Math.max(1, Math.round((Style.font.bodySmall) * row.densityScale))
+    font.pixelSize: Math.max(1, Math.round((Typography.bodySmall) * row.densityScale))
   }
 
   Text {
@@ -226,7 +227,7 @@ Rectangle {
     text: row.loading ? "󰇘" : FileIcons.expanderIcon(row.expanded)
     color: row.error ? Color.urgent : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Math.max(1, Math.round((Style.font.body) * row.densityScale))
+    font.pixelSize: Math.max(1, Math.round((Typography.body) * row.densityScale))
   }
 
   Text {
@@ -253,7 +254,7 @@ Rectangle {
             ? row.mutedEntryColor
             : (row.entryColor || (row.isDir ? Color.accent : Color.muted))))))
     font.family: Style.font.family
-    font.pixelSize: Math.max(1, Math.round((Style.font.body) * row.densityScale))
+    font.pixelSize: Math.max(1, Math.round((Typography.body) * row.densityScale))
   }
 
   Text {
@@ -266,7 +267,7 @@ Rectangle {
     text: "󰈉"
     color: row.mutedEntryColor
     font.family: Style.font.family
-    font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
+    font.pixelSize: Math.max(1, Math.round((Typography.caption) * row.densityScale))
   }
 
   Column {
@@ -296,7 +297,7 @@ Rectangle {
               : (row.colorsName ? row.entryColor : (row.selected && row.isDir ? Color.accent : Color.bar.text))))))
       elide: Text.ElideRight
       font.family: Style.font.family
-      font.pixelSize: Math.max(1, Math.round((Style.font.body) * row.densityScale))
+      font.pixelSize: Math.max(1, Math.round((Typography.body) * row.densityScale))
       font.weight: row.selected && row.isDir ? Font.DemiBold : Font.Normal
       font.strikeout: row.gitDeleted
     }
@@ -311,7 +312,7 @@ Rectangle {
       color: row.mutedEntryColor
       elide: Text.ElideMiddle
       font.family: Style.font.family
-      font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
+      font.pixelSize: Math.max(1, Math.round((Typography.caption) * row.densityScale))
     }
   }
 
@@ -342,7 +343,7 @@ Rectangle {
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
         font.family: Style.font.family
-        font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
+        font.pixelSize: Math.max(1, Math.round((Typography.caption) * row.densityScale))
         font.weight: row.selected ? Font.Medium : Font.Normal
       }
     }
@@ -376,7 +377,7 @@ Rectangle {
           horizontalAlignment: Text.AlignRight
           verticalAlignment: Text.AlignVCenter
           font.family: Style.font.family
-          font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
+          font.pixelSize: Math.max(1, Math.round((Typography.caption) * row.densityScale))
           font.weight: Font.Bold
         }
       }
@@ -391,7 +392,7 @@ Rectangle {
       horizontalAlignment: Text.AlignHCenter
       verticalAlignment: Text.AlignVCenter
       font.family: Style.font.family
-      font.pixelSize: Math.max(1, Math.round((row.error ? Style.font.bodySmall : Style.font.caption) * row.densityScale))
+      font.pixelSize: Math.max(1, Math.round((row.error ? Typography.bodySmall : Typography.caption) * row.densityScale))
       font.weight: Font.Bold
     }
 
@@ -431,7 +432,7 @@ Rectangle {
       text: row.repositorySummary.identity || ""
       color: branchPointer.containsMouse ? Color.bar.text : Color.accent
       font.family: Style.font.family
-      font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
+      font.pixelSize: Math.max(1, Math.round((Typography.caption) * row.densityScale))
       elide: Text.ElideMiddle
 
       MouseArea {
@@ -456,7 +457,7 @@ Rectangle {
       textFormat: Text.StyledText
       text: row.repositorySummaryMarkup()
       font.family: Style.font.family
-      font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
+      font.pixelSize: Math.max(1, Math.round((Typography.caption) * row.densityScale))
       font.weight: Font.Bold
       horizontalAlignment: Text.AlignRight
       elide: Text.ElideRight

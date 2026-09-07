@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import qs.Commons
+import "../theme"
 
 FocusScope {
   id: control
@@ -53,7 +54,7 @@ FocusScope {
     verticalAlignment: Text.AlignVCenter
     color: control.clamped > 0 ? Color.bar.text : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
     Accessible.role: Accessible.Button
     Accessible.name: "Decrease " + control.label
     Accessible.onPressAction: { control.takeFocus(); control.request(control.clamped - 1) }
@@ -152,7 +153,7 @@ FocusScope {
     verticalAlignment: Text.AlignVCenter
     color: control.clamped < control.steps - 1 ? Color.bar.text : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
     Accessible.role: Accessible.Button
     Accessible.name: "Increase " + control.label
     Accessible.onPressAction: { control.takeFocus(); control.request(control.clamped + 1) }
@@ -175,7 +176,7 @@ FocusScope {
     verticalAlignment: Text.AlignVCenter
     color: valuePointer.containsMouse && control.editableValue ? Color.bar.text : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
     Accessible.ignored: true
 
     MouseArea {
@@ -207,7 +208,7 @@ FocusScope {
     selectByMouse: true
     maximumLength: 6
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
     onAccepted: {
       control.valueEntered(text)
       visible = false

@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Ui
 import "../../ui" as PluginUi
 import "WelcomePlan.js" as WelcomePlan
+import "../../theme"
 
 FocusScope {
   id: module
@@ -111,7 +112,7 @@ FocusScope {
             color: action.enabled ? Color.bar.text : Color.muted
             wrapMode: action.inline ? Text.NoWrap : Text.WordWrap
             font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            font.pixelSize: Typography.body
           }
           Text {
             id: detailInline
@@ -122,7 +123,7 @@ FocusScope {
             text: action.detail
             color: Color.muted
             font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
+            font.pixelSize: Typography.bodySmall
           }
         }
         Text {
@@ -133,7 +134,7 @@ FocusScope {
           color: Color.muted
           wrapMode: Text.WordWrap
           font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Typography.bodySmall
         }
       }
     }
@@ -159,7 +160,7 @@ FocusScope {
         text: WelcomePlan.HEADING
         color: Color.bar.text
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.pixelSize: Typography.body
         font.weight: Font.DemiBold
       }
       Text {
@@ -169,7 +170,7 @@ FocusScope {
         color: Color.muted
         wrapMode: Text.WordWrap
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
       PluginUi.SettingsGroup { visible: module.updated; title: "What's new" }
       Text {
@@ -180,7 +181,7 @@ FocusScope {
         color: Color.muted
         wrapMode: Text.WordWrap
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
       Column {
         width: parent.width
@@ -234,7 +235,7 @@ FocusScope {
         color: Color.muted
         wrapMode: Text.WordWrap
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
       Column {
         width: parent.width
@@ -258,7 +259,7 @@ FocusScope {
         color: Color.urgent
         wrapMode: Text.WordWrap
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
       Item { width: parent.width; height: Style.space(4) }
       Button {
@@ -275,7 +276,7 @@ FocusScope {
         color: Color.muted
         wrapMode: Text.WordWrap
         font.family: Style.font.family
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
       }
     }
   }

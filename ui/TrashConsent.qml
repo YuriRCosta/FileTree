@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import qs.Commons
 import qs.Ui
+import "../theme"
 
 FocusScope {
   id: dialog
@@ -82,7 +83,7 @@ FocusScope {
           textFormat: Text.PlainText
           wrapMode: Text.Wrap
           color: Color.bar.text
-          font.pixelSize: Style.font.title
+          font.pixelSize: Typography.title
           font.family: Style.font.family
         }
       }
@@ -92,7 +93,7 @@ FocusScope {
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
         color: Color.bar.text
-        font.pixelSize: Style.font.body
+        font.pixelSize: Typography.body
         font.family: Style.font.family
       }
       Repeater {
@@ -113,7 +114,7 @@ FocusScope {
             text: modelData.label
             textFormat: Text.PlainText
             color: Color.bar.text
-            font.pixelSize: Style.font.body
+            font.pixelSize: Typography.body
             font.family: Style.font.family
           }
           MouseArea { anchors.fill: parent; onClicked: { dialog.forceActiveFocus(); dialog.choose(index) } }
@@ -125,7 +126,7 @@ FocusScope {
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
         color: Color.bar.text
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
         font.family: Style.font.family
       }
       Text {
@@ -135,7 +136,7 @@ FocusScope {
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
         color: Color.urgent
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Typography.bodySmall
         font.family: Style.font.family
       }
       Button {

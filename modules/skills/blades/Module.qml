@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "KeyMap.js" as KeyMap
+import "../../../theme"
 
 FocusScope {
   id: module
@@ -440,6 +441,6 @@ FocusScope {
       : (module.query ? "No match for the current filter" : "No skills found"))
     color: module.loadError ? Color.urgent : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
   }
 }

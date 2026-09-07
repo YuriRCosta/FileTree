@@ -12,6 +12,7 @@ import "../lib/FileIcons.js" as FileIcons
 import "../lib/FooterFields.js" as FooterFields
 import "../lib/GitSummary.js" as GitSummary
 import "../lib/ToolbarFields.js" as ToolbarFields
+import "../theme"
 
 FocusScope {
   id: root
@@ -255,7 +256,7 @@ FocusScope {
   FontMetrics {
     id: footerFont
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
   }
   readonly property var footerLayout: {
     var parts = root.footerParts()
@@ -1070,7 +1071,7 @@ FocusScope {
       placeholderText: "/path/to/folder"
       placeholderTextColor: Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
 
       background: Rectangle {
         color: Util.alpha(Color.bar.text, locationField.activeFocus ? 0.10 : 0.06)
@@ -1089,7 +1090,7 @@ FocusScope {
         text: ""
         color: controller.locationValidationError ? Color.urgent : Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
 
       Text {
@@ -1101,7 +1102,7 @@ FocusScope {
         text: "checking…"
         color: Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
 
       onTextEdited: controller.clearLocationValidationError()
@@ -1173,7 +1174,7 @@ FocusScope {
       : (controller.rootRecoveryNotice ? Color.accent : Color.muted)
     elide: Text.ElideRight
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
   }
 
   Loader {
@@ -1198,7 +1199,7 @@ FocusScope {
     TextMetrics {
       id: footerSeparator
       font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      font.pixelSize: Typography.caption
       text: "    "
     }
 
@@ -1218,7 +1219,7 @@ FocusScope {
         text: "‹"
         color: rewindPointer.containsMouse ? Color.accent : Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         font.weight: Font.Bold
         MouseArea {
           id: rewindPointer
@@ -1236,7 +1237,7 @@ FocusScope {
         color: Color.muted
         elide: Text.ElideRight
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
       Text {
         id: footerDetail
@@ -1249,7 +1250,7 @@ FocusScope {
         color: root.branchError || (mediaProvider && mediaProvider.error) ? Color.urgent : Color.muted
         elide: Text.ElideRight
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
       Text {
         id: footerPager
@@ -1259,7 +1260,7 @@ FocusScope {
         text: "›"
         color: pagerPointer.containsMouse ? Color.accent : Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
         font.weight: Font.Bold
         MouseArea {
           id: pagerPointer
@@ -1386,7 +1387,7 @@ FocusScope {
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
   }
 
   TrashView {
@@ -1546,7 +1547,7 @@ FocusScope {
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
   }
 
   PluginUi.ActionDialog {

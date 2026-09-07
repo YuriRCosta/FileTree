@@ -485,6 +485,10 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      mode badge leaves the header and sits at the bottom-left of the blade, left
      of the folder name; Hidden removes it, Header puts it back, and the choice
      survives a restart.
+147b. **E-17-13** If I type a Font size percentage in the General settings, the
+     text in every blade grows or shrinks by that amount while the blade widths
+     stay where I put them, a value outside the range settles on the nearest
+     end, and the choice survives a restart.
 
 ## 18. Persistence
 

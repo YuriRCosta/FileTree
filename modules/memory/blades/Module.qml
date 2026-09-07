@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "KeyPlan.js" as KeyPlan
+import "../../../theme"
 
 FocusScope {
   id: module
@@ -355,6 +356,6 @@ FocusScope {
       : (module.busy ? "Scanning memory…" : (module.query ? "No match" : "No memory files found"))
     color: module.loadError !== "" ? Color.urgent : Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: Typography.body
   }
 }

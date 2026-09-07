@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: icon
@@ -8,7 +9,7 @@ Item {
   property string glyph: ""
   property string fallbackGlyph: "󰏗"
   property color color: Color.muted
-  property real size: Style.font.body
+  property real size: Typography.body
   readonly property bool pictorial: iconUrl !== ""
 
   implicitWidth: Math.round(size * 1.15)

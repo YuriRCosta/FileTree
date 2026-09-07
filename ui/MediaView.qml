@@ -4,6 +4,7 @@ import "../lib/ImageGallery.js" as ImageGallery
 import "../lib/DragPlan.js" as DragPlan
 import "../lib/MediaDates.js" as MediaDates
 import "../lib/MediaBins.js" as MediaBins
+import "../theme"
 
 FocusScope {
   id: media
@@ -230,6 +231,6 @@ FocusScope {
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
   }
 }

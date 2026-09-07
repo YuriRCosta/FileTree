@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: tile
@@ -104,7 +105,7 @@ Item {
       horizontalAlignment: Text.AlignHCenter
       elide: Text.ElideRight
       font.family: Style.font.family
-      font.pixelSize: Style.font.body
+      font.pixelSize: Typography.body
     }
   }
 
@@ -122,7 +123,7 @@ Item {
     elide: Text.ElideMiddle
     verticalAlignment: Text.AlignVCenter
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
   }
 
   HoverHandler { id: hover }

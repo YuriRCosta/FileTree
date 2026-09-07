@@ -152,6 +152,7 @@ version: 1
 monitorMode: active | all | locked
 monitorLock: ""  # named output when locked
 animations: true
+fontScale: 1.0
 blades:
   left:
     open: true

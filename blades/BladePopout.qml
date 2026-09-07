@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 FocusScope {
   id: popoutHost
@@ -118,6 +119,6 @@ FocusScope {
     horizontalAlignment: Text.AlignHCenter
     wrapMode: Text.WordWrap
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
   }
 }

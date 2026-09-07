@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 MouseArea {
   readonly property real glyphWidth: glyph.implicitWidth
@@ -16,6 +17,6 @@ MouseArea {
     text: "󰅀"
     color: Color.muted
     font.family: Style.font.family
-    font.pixelSize: Style.font.caption
+    font.pixelSize: Typography.caption
   }
 }

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
+import "../theme"
 
 PanelWindow {
   id: overlay
@@ -67,7 +68,7 @@ PanelWindow {
           text: overlay.host.dragGlyph
           color: Color.accent
           font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          font.pixelSize: Typography.body
         }
 
         Text {
@@ -75,7 +76,7 @@ PanelWindow {
           text: overlay.host.dragTitle
           color: Color.bar.text
           font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: Typography.bodySmall
           font.weight: Font.DemiBold
           font.letterSpacing: 0.4
         }
@@ -86,7 +87,7 @@ PanelWindow {
         text: overlay.host.dropLabel
         color: overlay.host.dropEdge !== "" && !overlay.host.dropNoop ? Color.accent : Color.muted
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Typography.caption
       }
     }
   }

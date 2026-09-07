@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import qs.Commons
+import "../theme"
 
 FocusScope {
   id: form
@@ -64,7 +65,7 @@ FocusScope {
     color: Color.bar.text
     selectByMouse: true
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: Typography.bodySmall
     selectionColor: Util.alpha(Color.accent, 0.38)
     background: Rectangle { color: Util.alpha(Color.bar.text, 0.06); border.color: parent.activeFocus ? Color.accent : Color.popups.border; radius: 0 }
   }
@@ -75,7 +76,7 @@ FocusScope {
       textFormat: Text.PlainText
       color: parent.enabled ? Color.bar.text : Color.muted
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
       horizontalAlignment: Text.AlignHCenter
       verticalAlignment: Text.AlignVCenter
     }
@@ -94,7 +95,7 @@ FocusScope {
       wrapMode: Text.WrapAnywhere
       color: Color.bar.text
       font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Typography.bodySmall
     }
     Label { text: "SSH user"; color: Color.muted; font.family: Style.font.family }
     Field { id: userField; objectName: "tailnetUser"; maximumLength: 128; onAccepted: pathField.text.charAt(0) === "/" ? form.submit() : pathField.forceActiveFocus() }
