@@ -44,10 +44,18 @@ TestCase {
     compare(Typography.px(12, "large"), 12)
   }
 
-  function test_unusable_token_size_stays_renderable() {
+  function test_a_mistyped_theme_token_degrades_to_readable_body_text() {
+    compare(Typography.px(undefined, 1.0, 12), 12)
+    compare(Typography.px(undefined, 1.25, 12), 15)
+    compare(Typography.px(0, 1.5, 12), 18)
+    compare(Typography.px(-4, 1.5, 12), 18)
+  }
+
+  function test_unusable_token_size_without_a_usable_fallback_stays_renderable() {
     compare(Typography.px(undefined, 1.5), 1)
     compare(Typography.px(0, 1.5), 1)
     compare(Typography.px(-4, 1.5), 1)
+    compare(Typography.px(undefined, 1.5, "body"), 1)
     compare(Typography.px(1, 0.75), 1)
   }
 

@@ -16,7 +16,7 @@ QtObject {
 
   function clamp(value) { return Typography.clamp(value) }
   function scaleFromPercent(value) { return Typography.scaleFromPercent(value) }
-  function px(size) { return Typography.px(size, scale) }
+  function px(size) { return Typography.px(size, scale, Style.font.body) }
 
   readonly property int caption: px(Style.font.caption)
   readonly property int bodySmall: px(Style.font.bodySmall)
