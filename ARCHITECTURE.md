@@ -591,8 +591,9 @@ versions get versionless notices. SemVer precedence distinguishes newer, same an
 older versions, including prereleases and build metadata.
 
 The footer's Update available chip opens a notice naming the FileBlade version
-and one compact line of companion versions, without commit counts. Local work
-and ahead commits remain skipped; CLI history fields use existing objects only.
+followed by a Companion updates heading and one version bullet per extension,
+ordered by name, without commit counts. Local work and ahead commits remain
+skipped; CLI history fields use existing objects only.
 The notice keeps Close and Check again, and explains that FileBlade checks only:
 stop the shell before running `omarchy plugin update`, then run
 `omarchy restart shell`. Disabling a pane does not stop the plugin watcher.

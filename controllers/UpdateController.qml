@@ -72,8 +72,13 @@ Item {
   function summaryLines() {
     var lines = []
     if (coreUpdatable) lines.push(coreNotice())
-    if (updatableSatellites.length)
-      lines.push("Companion updates: " + updatableSatellites.map(companionNotice).join(", ") + ".")
+    if (updatableSatellites.length) {
+      lines.push("Companion updates:")
+      var companions = updatableSatellites.slice().sort(function(a, b) {
+        return companionName(a).localeCompare(companionName(b))
+      })
+      for (var i = 0; i < companions.length; i++) lines.push("• " + companionNotice(companions[i]))
+    }
     for (var j = 0; j < blockedSatellites.length; j++) {
       var blocked = blockedSatellites[j]
       var reason = blocked.error ? blocked.error : (blocked.dirty ? "local changes" : "local commits ahead")

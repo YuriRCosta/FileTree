@@ -811,8 +811,11 @@ shared there.
 This file was written by an agent.
 
 236. **E-27-02** The update notice names the available FileBlade version, for
-     example "Version 0.1.2 of FileBlade is now available!", and puts companion
-     versions on one compact line. It shows no commit counts. If a version cannot
+     example "Version 0.1.2 of FileBlade is now available!", followed by a
+     Companion updates heading and one bullet per extension, ordered by name.
+     The version headline, bullets and instructions stay readable at the minimum
+     280-pixel blade width, and both buttons remain visible. It shows no commit
+     counts. If a version cannot
      be determined, it says so; changes within the same version or to an older
      version are described accurately. A release tag names the update only when
      it is the highest valid version and resolves to the checked branch tip;
