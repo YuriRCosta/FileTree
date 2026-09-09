@@ -828,6 +828,7 @@ Item {
   function bootstrap(legacy) {
     legacyDefaults = legacy && typeof legacy === "object" ? legacy : ({})
     if (persisted.hydrated) {
+      fontScale = Typography.clamp(fontScale)
       layoutReady = true
       layoutApplied()
       return
