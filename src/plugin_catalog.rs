@@ -1,6 +1,7 @@
 use crate::actions::{MAX_MANIFEST_BYTES, plugin_root, read_manifest};
 use crate::command::{CommandSpec, which};
 use crate::common::path_text;
+use crate::paths::xdg_home;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
@@ -266,20 +267,95 @@ fn enabled_ids() -> (BTreeMap<String, bool>, &'static str) {
     if rows.len() > MAX_ROWS {
         return (BTreeMap::new(), "unknown");
     }
+    match merge_activation(&rows, shell_activation().as_ref()) {
+        Some(activation) => (activation, "known"),
+        None => (BTreeMap::new(), "unknown"),
+    }
+}
+
+const SHELL_CONFIG_LIMIT: u64 = 1024 * 1024;
+const BAR_SECTIONS: [&str; 3] = ["left", "center", "right"];
+
+struct ShellActivation {
+    listed: HashSet<String>,
+    disabled: HashSet<String>,
+}
+
+impl ShellActivation {
+    fn parse(config: &Value) -> Self {
+        let mut listed = HashSet::new();
+        let mut disabled = HashSet::new();
+        for row in config["plugins"].as_array().into_iter().flatten() {
+            if let Some(id) = row["id"].as_str() {
+                listed.insert(id.to_string());
+            }
+        }
+        for section in BAR_SECTIONS {
+            for row in config["bar"]["layout"][section]
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                if let Some(id) = row["id"].as_str() {
+                    listed.insert(id.to_string());
+                }
+            }
+        }
+        for id in config["disabledPlugins"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            disabled.insert(id.to_string());
+        }
+        Self { listed, disabled }
+    }
+
+    fn enabled(&self, id: &str) -> bool {
+        !self.disabled.contains(id) && self.listed.contains(id)
+    }
+}
+
+fn shell_activation() -> Option<ShellActivation> {
+    let path = xdg_home("XDG_CONFIG_HOME", "~/.config").join("omarchy/shell.json");
+    let metadata = std::fs::metadata(&path).ok()?;
+    if !metadata.is_file() || metadata.len() > SHELL_CONFIG_LIMIT {
+        return None;
+    }
+    let bytes = std::fs::read(&path).ok()?;
+    let config: Value = serde_json::from_slice(&bytes).ok()?;
+    config.is_object().then(|| ShellActivation::parse(&config))
+}
+
+fn listed_by_bar_only(row: &Value) -> bool {
+    let kinds: Vec<&str> = row["kinds"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    kinds.contains(&"bar-widget") && kinds.iter().any(|kind| *kind != "bar-widget")
+}
+
+fn merge_activation(
+    rows: &[Value],
+    shell: Option<&ShellActivation>,
+) -> Option<BTreeMap<String, bool>> {
     let mut activation = BTreeMap::new();
     for row in rows {
         let id = row.get("id").and_then(Value::as_str).unwrap_or_default();
         let enabled = row.get("enabled").and_then(Value::as_bool);
-        match (id.is_empty(), enabled) {
-            (false, Some(enabled)) => {
-                if activation.insert(id.to_string(), enabled).is_some() {
-                    return (BTreeMap::new(), "unknown");
-                }
-            }
-            _ => return (BTreeMap::new(), "unknown"),
+        let (false, Some(listed)) = (id.is_empty(), enabled) else {
+            return None;
+        };
+        let enabled =
+            listed || (listed_by_bar_only(row) && shell.is_some_and(|config| config.enabled(id)));
+        if activation.insert(id.to_string(), enabled).is_some() {
+            return None;
         }
     }
-    (activation, "known")
+    Some(activation)
 }
 
 fn note(diagnostics: &mut Vec<Value>, source: &str, error: &str) {
@@ -320,5 +396,57 @@ pub fn require_enabled(provider: &str, directory: &std::path::Path) -> crate::Ap
         Err(crate::AppError::invalid(
             "the helper provider must be installed and explicitly enabled; enable its Omarchy plugin and retry",
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(id: &str, enabled: bool, kinds: &[&str]) -> Value {
+        json!({ "id": id, "enabled": enabled, "kinds": kinds })
+    }
+
+    fn shell() -> ShellActivation {
+        ShellActivation::parse(&json!({
+            "plugins": [{ "id": "a.service" }, { "id": "a.both" }, { "id": "a.dropped" }],
+            "bar": { "layout": { "left": [{ "id": "a.widget" }], "center": [], "right": [] } },
+            "disabledPlugins": ["a.dropped"]
+        }))
+    }
+
+    #[test]
+    fn plain_rows_keep_the_listed_answer() {
+        let rows = [
+            row("a.service", true, &["service"]),
+            row("a.other", false, &["service"]),
+        ];
+        let merged = merge_activation(&rows, Some(&shell())).unwrap();
+        assert!(merged["a.service"]);
+        assert!(!merged["a.other"]);
+    }
+
+    #[test]
+    fn a_service_that_also_offers_a_bar_widget_is_enabled_from_the_plugin_list() {
+        let rows = [
+            row("a.both", false, &["service", "bar-widget"]),
+            row("a.dropped", false, &["service", "bar-widget"]),
+            row("a.absent", false, &["service", "bar-widget"]),
+            row("a.widget", false, &["bar-widget"]),
+        ];
+        let merged = merge_activation(&rows, Some(&shell())).unwrap();
+        assert!(merged["a.both"]);
+        assert!(!merged["a.dropped"]);
+        assert!(!merged["a.absent"]);
+        assert!(!merged["a.widget"]);
+        let without_config = merge_activation(&rows, None).unwrap();
+        assert!(!without_config["a.both"]);
+    }
+
+    #[test]
+    fn malformed_rows_leave_activation_unknown() {
+        assert!(merge_activation(&[json!({ "enabled": true })], None).is_none());
+        assert!(merge_activation(&[json!({ "id": "a.b" })], None).is_none());
+        assert!(merge_activation(&[row("a.b", true, &[]), row("a.b", true, &[])], None).is_none());
     }
 }
