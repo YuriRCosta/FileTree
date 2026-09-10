@@ -15,7 +15,7 @@ is maintained separately.
   folding, search and help
 - [Git status](git-status.md): status markers and repository summary preferences
 - [Extensions](../../EXTENSIONS.md): the public contract for blade modules and
-  other FileBlade extension points
+  other FileBlade extension points, including image galleries and bar popouts
 - [Security](../../SECURITY.md): trust boundaries, filesystem protections,
   command execution, previews, IPC, and known limits
 - [Build provenance](build-provenance.md): manual GitHub delivery builds,

@@ -128,7 +128,7 @@ FocusScope {
         section = category
         rows.push({ kind: "separator", label: category })
       }
-      rows.push({ key: module.id, glyph: String(module.glyph || "󰏗"), label: String(module.name || module.id), section: category })
+      rows.push({ key: module.id, glyph: String(module.glyph || "󰏗"), iconUrl: String(module.iconUrl || ""), label: String(module.name || module.id), section: category })
     }
     return rows
   }

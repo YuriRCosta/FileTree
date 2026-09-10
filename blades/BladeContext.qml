@@ -27,13 +27,15 @@ QtObject {
   property var slotState: ({})
   property var definition: null
   property var modulePickerRequested: null
+  property var popout: null
   property bool retired: false
 
   readonly property int contractVersion: host ? host.moduleContractVersion : 0
   readonly property int surfaceOriginX: hostWindow ? Number(hostWindow.surfaceOriginX) || 0 : 0
   readonly property int surfaceOriginY: hostWindow ? Number(hostWindow.surfaceOriginY) || 0 : 0
   readonly property string dragScope: hostWindow && hostWindow.dragScope ? String(hostWindow.dragScope) : "screen"
-  readonly property bool docked: dragScope === "screen"
+  readonly property bool docked: !popout && dragScope === "screen"
+  readonly property bool inPopout: !!popout
   readonly property int cornerReserveRight: 0
   readonly property int cornerReserveLeft: 0
   readonly property bool dragging: handleDragging
@@ -53,7 +55,9 @@ QtObject {
     }
 
     function set(key, value) {
-      if (!context.host || context.retired) return false
+      if (context.retired) return false
+      if (context.popout) return context.popout.setState(String(key), value)
+      if (!context.host) return false
       var index = context.host.findSlotId(context.edge, context.slotId)
       if (index < 0 || context.host.slotModuleAt(context.edge, index, context.tabIndex) !== context.moduleId) return false
       return context.host.setTabStateValue(context.edge, index, context.tabIndex, String(key), value)
@@ -123,15 +127,17 @@ QtObject {
   }
 
   function requestFocus(part) {
-    if (host && !retired) host.focusBlade(edge, screen, slotIndex, part || "", false)
+    if (retired) return
+    if (popout) popout.focusModule(part || "")
+    else if (host) host.focusBlade(edge, screen, slotIndex, part || "", false)
   }
 
   function focusNext() {
-    if (host && !retired) host.focusRelativeSlot(edge, slotIndex, 1, screen)
+    if (host && !retired && !popout) host.focusRelativeSlot(edge, slotIndex, 1, screen)
   }
 
   function focusPrevious() {
-    if (host && !retired) host.focusRelativeSlot(edge, slotIndex, -1, screen)
+    if (host && !retired && !popout) host.focusRelativeSlot(edge, slotIndex, -1, screen)
   }
 
   function openSettings() {
@@ -143,11 +149,12 @@ QtObject {
   }
 
   function closeBlade() {
-    if (host) host.setOpen(edge, false, true)
+    if (popout) popout.close()
+    else if (host) host.setOpen(edge, false, true)
   }
 
   function setCollapsed(value) {
-    if (!host) return false
+    if (!host || popout) return false
     var desired = !!value
     if (!host.setSlotCollapsed(edge, slotIndex, desired)) return false
     if (desired && slotFocused) host.focusExpandedNeighbor(edge, slotIndex, screen)
@@ -159,10 +166,11 @@ QtObject {
   }
 
   function reportFocus(focused) {
-    if (host && !retired) host.reportSlotFocus(edge, slotIndex, !!focused)
+    if (host && !retired && !popout) host.reportSlotFocus(edge, slotIndex, !!focused)
   }
 
   function handlePressed(item, x, y, tab) {
+    if (popout) return
     var point = item.mapToItem(null, x, y)
     handleStartX = point.x
     handleStartY = point.y
@@ -189,7 +197,7 @@ QtObject {
   }
 
   function handleMoved(item, x, y) {
-    if (!host) return
+    if (!host || popout) return
     var point = item.mapToItem(null, x, y)
     if (!handleDragging) {
       if (Math.abs(point.x - handleStartX) < host.dragThreshold && Math.abs(point.y - handleStartY) < host.dragThreshold) return
@@ -206,6 +214,10 @@ QtObject {
   }
 
   function handleReleased(item, x, y) {
+    if (popout) {
+      requestFocus("")
+      return
+    }
     if (host) host.pressActive = false
     if (handleDragging && host) {
       handleMoved(item, x, y)
@@ -217,6 +229,7 @@ QtObject {
   }
 
   function handleCanceled() {
+    if (popout) return
     if (host) host.pressActive = false
     if (handleDragging && host) host.endSlotDrag(false)
     handleDragging = false

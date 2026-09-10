@@ -50,10 +50,12 @@ QtObject {
     var directory = String(sourceDir || "").replace(/\/$/, "")
     if (!directory) return null
     var hostContract = Math.max(1, Math.floor(Number(raw.hostContract) || 1))
+    var icon = typeof raw.icon === "string" && isSafeRelativePath(raw.icon) ? String(raw.icon).trim() : ""
     return {
       id: id,
       name: boundedText(raw.name, raw.id, maximumTextLength),
       glyph: boundedText(raw.glyph, "", 16),
+      iconUrl: icon !== "" ? Util.fileUrl(directory + "/" + icon) : "",
       description: boundedText(raw.description, "", maximumTextLength),
       entryUrl: Util.fileUrl(directory + "/" + entry),
       sourceDir: directory,
@@ -250,6 +252,7 @@ QtObject {
         id: found.id,
         name: found.name,
         glyph: found.glyph,
+        icon: found.iconUrl !== "" ? found.iconUrl : null,
         description: found.description,
         category: found.category,
         source: found.source,

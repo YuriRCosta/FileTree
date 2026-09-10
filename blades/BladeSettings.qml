@@ -141,6 +141,11 @@ Item {
     return module && module.glyph ? String(module.glyph) : "󰏗"
   }
 
+  function moduleIconUrl(moduleId) {
+    var module = registry.module(moduleId)
+    return module && module.iconUrl ? String(module.iconUrl) : ""
+  }
+
   function availableModules() {
     var revision = registry.revision
     var groups = []
@@ -456,18 +461,17 @@ Item {
               }
             }
 
-            Text {
-              textFormat: Text.PlainText
+            PluginUi.ModuleIcon {
               id: tabGlyph
               anchors.left: handle.right
               anchors.leftMargin: Style.space(2)
               anchors.verticalCenter: parent.verticalCenter
               width: Style.space(18)
-              text: root.moduleGlyph(tabRow.moduleId)
+              height: Style.space(18)
+              glyph: root.moduleGlyph(tabRow.moduleId)
+              iconUrl: root.moduleIconUrl(tabRow.moduleId)
               color: Color.accent
-              horizontalAlignment: Text.AlignHCenter
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              size: Style.font.body
             }
 
             Text {

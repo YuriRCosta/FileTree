@@ -32,7 +32,8 @@ blades/BladeSettings.qml:    the per-blade slot editor (the gear in the blade, o
 modules/files, properties, notes, welcome:  the bundled modules; welcome is seeded into the right blade on first launch until installed or dismissed
 controllers/*.qml:           state machines: tree, search, selection, operations, watches, trash, config, updates
 panes/*.qml:                 the views the files module is made of (tree, trash, favorites, picker, actions menu)
-ui/*.qml:                    shared widgets; PaneHeader, HintTip, ActionDialog, ArtifactBin, and so on
+ui/*.qml:                    shared widgets; PaneHeader, HintTip, ActionDialog, ArtifactBin, ImageGrid, TimelineScrubber, and so on
+blades/BladePopout.qml:      hosts one module outside a blade, for a bar widget's dropdown
 lib/*.js:                    pure helpers: key routing, search syntax, icons, formatting, tree order
 ```
 
@@ -208,6 +209,17 @@ chosen once when entering window mode from the edge's invocation or lock
 target. Later compositor movement is retained, and focus reports use the
 native window's actual screen. Removing an output cancels its transient
 menus, wheels, drags and keyboard ownership; the saved lock is retained.
+
+### Popouts
+
+A module can also live under a bar icon. `blades/BladePopout.qml` builds a
+`BladeContext` with `popout` set, so the module sees `edge: "popout"`, keeps its
+state in memory for the shell session, and closes the popout instead of a blade.
+The widget belongs to the plugin that wants it; FileBlade only supplies the
+host, because a `bar-widget` kind on FileBlade itself would make Omarchy report
+it as disabled to every satellite's host guard unless a bar entry named it.
+`src/plugin_catalog.rs` reads `shell.json` for plugins that carry `bar-widget`
+beside another kind and treats a `plugins[]` or bar-layout entry as enabled.
 
 ## Focus and keybindings
 

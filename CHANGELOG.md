@@ -2,6 +2,13 @@ This file was written by an agent.
 
 # Changelog
 
+## Unreleased
+
+- Image gallery primitives for modules: `ImageGrid` with month sections and a cursor, `ThumbnailCache` over the backend thumbnail request, a right-hand `TimelineScrubber` with years, month dots and a scrub pill, and a five-step `ImageSizeControl`.
+- Module definitions accept an `icon` image; the picker, the settings sheet and `PaneHeader` draw it tinted through `ModuleIcon`.
+- `BladePopout` hosts any module under a bar icon through a `BladeContext` popout seam.
+- The plugin catalog treats a companion that also declares `bar-widget` as enabled when `shell.json` lists it, not only when a bar entry names it.
+
 ## 0.1.0-beta.1 (unreleased)
 
 - Install the Welcome extensions at reviewed commits and refuse installation if a pin is unavailable.
