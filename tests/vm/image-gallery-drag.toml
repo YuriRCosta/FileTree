@@ -1,0 +1,29 @@
+[demo]
+name = "gallery-pointer"
+output = "Virtual-1"
+capture = "screencopy"
+screen = [1920, 1080]
+region = { x = 0, y = 0, w = 1920, h = 1080 }
+portal = false
+leading_blank_ms = 0
+show_keys = false
+fps = 10
+settle_ms = 100
+[points]
+start = [START_X, START_Y]
+end = [END_X, END_Y]
+[[step]]
+kind = "hold"
+ms = 1000
+[[step]]
+kind = "move"
+to = "start"
+ms = 100
+[[step]]
+kind = "drag"
+to = "end"
+ms = 4500
+hold_ms = 200
+[[step]]
+kind = "hold"
+ms = 500

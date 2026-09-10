@@ -22,7 +22,7 @@ Item {
   readonly property real thumbY: trackTop + Math.max(0, Math.min(1, fraction)) * Math.max(0, trackHeight - thumbLength)
   readonly property real pointerFraction: Math.max(0, Math.min(1, (pointer.mouseY - trackTop) / trackHeight))
   readonly property var pointerSection: engaged ? ImageGallery.sectionAtFraction(sections, contentHeight, pointerFraction) : null
-  readonly property var activeSection: ImageGallery.sectionAtFraction(sections, contentHeight, fraction)
+  readonly property var activeSection: ImageGallery.sectionAtFraction(sections, contentHeight, fraction * Math.max(0, contentHeight - viewportHeight) / Math.max(1, contentHeight))
 
   signal scrubbed(real fraction)
   signal scrubEnded()

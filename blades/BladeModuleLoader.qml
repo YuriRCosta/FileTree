@@ -22,8 +22,9 @@ Loader {
       edge: liveContext.edge, slotIndex: liveContext.slotIndex,
       slotId: liveContext.slotId, tabIndex: liveContext.tabIndex,
       moduleId: liveContext.moduleId, moduleDir: liveContext.moduleDir,
-      providerId: liveContext.providerId, definition: liveContext.definition
+      providerId: liveContext.providerId
     })
+    moduleContext.definition = liveContext.definition
     setSource(url, { context: moduleContext })
   }
 

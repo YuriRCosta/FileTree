@@ -42,7 +42,7 @@ FocusScope {
     if (index < 0) return list.contentY <= 0 ? 0 : 1
     var item = list.itemAtIndex(index)
     var offset = item ? list.contentY - item.y : 0
-    return ImageGallery.fractionOf(layout, rows[index].y + offset)
+    return Math.max(0, Math.min(1, (rows[index].y + offset) / Math.max(1, layout.height - list.height)))
   }
   readonly property alias flickable: list
 
@@ -89,9 +89,11 @@ FocusScope {
   }
 
   function scrubTo(fraction) {
-    var row = ImageGallery.rowAt(layout, ImageGallery.positionOf(layout, fraction))
+    var position = Math.max(0, Math.min(1, fraction)) * Math.max(0, layout.height - list.height)
+    var row = ImageGallery.rowAt(layout, position)
     if (row < 0) return
     list.positionViewAtIndex(row, ListView.Beginning)
+    list.contentY += position - layout.rows[row].y
   }
 
   function page(direction) {

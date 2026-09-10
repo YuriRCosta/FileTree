@@ -1,6 +1,7 @@
 use crate::actions::{MAX_MANIFEST_BYTES, plugin_root, read_manifest};
 use crate::command::{CommandSpec, which};
 use crate::common::path_text;
+use crate::filesystem::read_regular_file;
 use crate::paths::xdg_home;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashSet};
@@ -273,7 +274,7 @@ fn enabled_ids() -> (BTreeMap<String, bool>, &'static str) {
     }
 }
 
-const SHELL_CONFIG_LIMIT: u64 = 1024 * 1024;
+const SHELL_CONFIG_LIMIT: usize = 1024 * 1024;
 const BAR_SECTIONS: [&str; 3] = ["left", "center", "right"];
 
 struct ShellActivation {
@@ -319,11 +320,7 @@ impl ShellActivation {
 
 fn shell_activation() -> Option<ShellActivation> {
     let path = xdg_home("XDG_CONFIG_HOME", "~/.config").join("omarchy/shell.json");
-    let metadata = std::fs::metadata(&path).ok()?;
-    if !metadata.is_file() || metadata.len() > SHELL_CONFIG_LIMIT {
-        return None;
-    }
-    let bytes = std::fs::read(&path).ok()?;
+    let bytes = read_regular_file(&path, SHELL_CONFIG_LIMIT).ok()?;
     let config: Value = serde_json::from_slice(&bytes).ok()?;
     config.is_object().then(|| ShellActivation::parse(&config))
 }

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "../lib/PathText.js" as PathText
 
 Item {
   id: host
@@ -354,6 +355,10 @@ Item {
     for (var i = 0; i < keys.length; i++) next[keys[i]] = windowAddresses[keys[i]]
     next[normalizeEdge(edge)] = String(address || "")
     windowAddresses = next
+  }
+
+  function componentUrl(relativePath) {
+    return PathText.fileUrl(PathText.join(pluginDir, relativePath))
   }
 
   function maximumWidth(screenWidth) {

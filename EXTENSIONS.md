@@ -453,6 +453,13 @@ Thumbnails come from the backend `thumbnail` request through `ThumbnailCache`,
 so they land in `~/.cache/fileblade/thumbnails/` beside the Properties previews
 and are shared between screens and between a blade and a bar popout.
 
+`ImageTile` releases its thumbnail subscription when recycled or destroyed.
+Custom consumers of `ThumbnailCache.request` must call `cancel(callback)` when
+that callback is no longer useful; the last subscriber cancels the backend
+request. The cache retains at most 4,096 results and 1,024 pending keys, with
+at most 128 subscribers per key. `reset()` invalidates cached results and
+cancels pending work.
+
 ## Popping a module out of the bar
 
 This file was written by an agent.
@@ -463,7 +470,15 @@ the popout, `state.set` writes to a popout-local map that lasts for the shell
 session, `requestFocus` focuses the module, and slot drags, tab cycling and
 collapsing become no-ops. Give it `host` (the files service's `bladeHost`),
 `shell`, `services` (the files service's `services`), `screen`, `moduleId` and
-`opened`; it loads the module while open and unloads it when closed.
+`opened`; it loads the module while open and unloads it when closed. Changing
+`moduleId` resets the popout's state so one module never inherits another's keys.
+
+A popout handing a file action to the host closes itself and calls
+`files.openActionMenu` with `standalone: true` in the placement object. This
+lets the menu draw and take keyboard focus while both blades remain closed.
+Choose `edge: "right"` for an anchor in the right half of the screen and
+`edge: "left"` otherwise, using screen-local coordinates (the menu's Y anchor
+excludes the top bar inset).
 
 A plugin that wants its module under a bar icon declares `bar-widget` beside
 `service`, resolves FileBlade through `bar.shell.serviceFor("data-goblin.fileblade")`,
@@ -471,7 +486,7 @@ and loads the popout from the host's plugin directory into a `KeyboardPanel`:
 
 ```qml
 Loader {
-  source: host ? "file://" + host.pluginDir + "/blades/BladePopout.qml" : ""
+  source: host ? host.componentUrl("blades/BladePopout.qml") : ""
   onLoaded: {
     item.host = Qt.binding(function() { return host })
     item.services = Qt.binding(function() { return service.services })
