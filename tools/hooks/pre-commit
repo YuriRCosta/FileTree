@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+fail() {
+  printf 'pre-commit: %s\n' "$1" >&2
+  exit 1
+}
+
+[[ -f manifest.json && -f Cargo.toml && -f Cargo.lock ]] || exit 0
+
+manifest=$(jq -r '.version // empty' manifest.json) || fail 'manifest.json is not readable JSON'
+[[ -n $manifest ]] || fail 'manifest.json has no version'
+
+cargo_toml=$(awk '/^\[package\]/{p=1;next} /^\[/{p=0} p && /^version = /{gsub(/[",]/,"",$3); print $3; exit}' Cargo.toml)
+[[ -n $cargo_toml ]] || fail 'Cargo.toml has no [package] version'
+
+cargo_lock=$(awk '/^name = "fileblade"$/{f=1;next} f && /^version = /{gsub(/"/,"",$3); print $3; exit}' Cargo.lock)
+[[ -n $cargo_lock ]] || fail 'Cargo.lock has no fileblade version'
+
+[[ $manifest == "$cargo_toml" ]] || fail "manifest.json is $manifest but Cargo.toml is $cargo_toml"
+[[ $manifest == "$cargo_lock" ]] || fail "manifest.json is $manifest but Cargo.lock is $cargo_lock"
+
+if [[ -f CHANGELOG.md ]]; then
+  heading=$(awk '/^## /{gsub(/^## /,""); gsub(/ \(unreleased\)$/,""); print; exit}' CHANGELOG.md)
+  [[ -z $heading || $heading == "$manifest" ]] \
+    || fail "manifest.json is $manifest but the newest CHANGELOG.md heading is $heading"
+fi
+
+if [[ -x fileblade-bin ]]; then
+  binary=$(./fileblade-bin --version 2>/dev/null | awk '{print $2}') || binary=""
+  [[ -z $binary || $binary == "$manifest" ]] \
+    || fail "manifest.json is $manifest but the bundled fileblade-bin reports $binary; run tools/bundle build"
+fi
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+if [[ $branch =~ ^([0-9]+\.[0-9]+\.[0-9]+)(n|p)?$ && ${BASH_REMATCH[1]} != "$manifest" ]]; then
+  fail "branch $branch builds ${BASH_REMATCH[1]} but manifest.json is $manifest"
+fi
