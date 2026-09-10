@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.Commons
 
 Item {
@@ -37,18 +36,11 @@ Item {
     sourceSize.height: Math.max(1, Math.round(height * 2))
   }
 
-  Rectangle {
-    id: fill
-    anchors.fill: parent
-    visible: false
-    color: icon.color
-  }
-
-  MultiEffect {
+  ShaderEffect {
     anchors.fill: parent
     visible: icon.pictorial && picture.status === Image.Ready
-    source: fill
-    maskEnabled: true
-    maskSource: picture
+    property var source: picture
+    property color glyphColor: icon.color
+    fragmentShader: Qt.resolvedUrl("shaders/AlphaGlyph.frag.qsb")
   }
 }
