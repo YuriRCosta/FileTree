@@ -71,15 +71,19 @@ FocusScope {
     moduleContext = contextComponent.createObject(popoutHost, {
       moduleId: moduleId,
       moduleDir: String(definition.sourceDir || ""),
-      providerId: String(definition.providerId || ""),
-      definition: definition
+      providerId: String(definition.providerId || "")
     })
+    moduleContext.definition = definition
     loader.setSource(entryUrl, { context: moduleContext })
     if (host && host.dirs) host.dirs.ensure(moduleId)
   }
 
   onOpenedChanged: load()
-  onEntryUrlChanged: if (opened) load()
+  onDefinitionChanged: if (opened) Qt.callLater(load)
+  onModuleIdChanged: {
+    popoutState = ({})
+    if (opened) Qt.callLater(load)
+  }
   Component.onDestruction: unload()
 
   Component {

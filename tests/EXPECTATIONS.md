@@ -1009,8 +1009,11 @@ This file was written by an agent.
 
 This file was written by an agent.
 
-Proved by hand in the headless VM on 2026-09-10 with the Goblins companion
-(`kurt.goblin-images`); the scripted case is still to be written.
+Script: `tests/vm/expectations/37-image-gallery.sh`, using the Goblins companion
+(`kurt.goblin-images`) already staged in the headless VM. The script creates a
+24-image fixture from an on-disk library PNG, adds temporary read-only probes,
+and restores the guest's source and configuration on exit. The companion
+is maintained separately.
 
 - **E-37-01** A module that declares an `icon` shows that picture, tinted like
   its text, in the module picker, the blade settings sheet, its pane header
@@ -1028,8 +1031,9 @@ Proved by hand in the headless VM on 2026-09-10 with the Goblins companion
   “N of M”; Escape clears the query first and closes the blade only on the
   next press.
 - **E-37-05** The right-hand timeline lists the years present, one dot per
-  month, and a thumb for the viewport. Hovering or dragging on it shows a
-  month pill and scrolls the grid to that month.
+  month, and a thumb for the viewport. Hovering shows a month pill without
+  scrolling; pressing or dragging scrolls the grid. The thumb reaches the
+  bottom of the track at the end of the gallery.
 - **E-37-06** A bar widget that names the module opens the whole module in a
   dropdown under its icon, with the same header, search, chips, grid and
   timeline; Escape or an outside click closes it, and the blade copy of the

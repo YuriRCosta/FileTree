@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../lib/Definitions.js" as Definitions
+import "../lib/PathText.js" as PathText
 
 QtObject {
   id: registry
@@ -50,14 +51,14 @@ QtObject {
     var directory = String(sourceDir || "").replace(/\/$/, "")
     if (!directory) return null
     var hostContract = Math.max(1, Math.floor(Number(raw.hostContract) || 1))
-    var icon = typeof raw.icon === "string" && isSafeRelativePath(raw.icon) ? String(raw.icon).trim() : ""
+    var icon = typeof raw.icon === "string" && isSafeRelativePath(raw.icon) ? String(raw.icon) : ""
     return {
       id: id,
       name: boundedText(raw.name, raw.id, maximumTextLength),
       glyph: boundedText(raw.glyph, "", 16),
-      iconUrl: icon !== "" ? Util.fileUrl(directory + "/" + icon) : "",
+      iconUrl: icon !== "" ? PathText.fileUrl(PathText.join(directory, icon)) : "",
       description: boundedText(raw.description, "", maximumTextLength),
-      entryUrl: Util.fileUrl(directory + "/" + entry),
+      entryUrl: PathText.fileUrl(PathText.join(directory, entry)),
       sourceDir: directory,
       source: boundedText(source, "builtin", maximumTextLength),
       providerId: boundedText(idPrefix, "", maximumIdLength),

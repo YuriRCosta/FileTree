@@ -264,6 +264,7 @@ Item {
   property alias actionMenuEntries: actionMenuController.entries
   property alias actionInput: actionMenuController.input
   property alias actionMenuScreen: actionMenuController.screen
+  property alias actionMenuStandalone: actionMenuController.standalone
   property alias actionMenuX: actionMenuController.menuX
   property alias actionMenuY: actionMenuController.menuY
   property alias actionMenuOpenLeft: actionMenuController.openLeft

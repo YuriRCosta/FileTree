@@ -18,7 +18,7 @@ Item {
   Text {
     textFormat: Text.PlainText
     anchors.centerIn: parent
-    visible: !icon.pictorial
+    visible: !icon.pictorial || picture.status === Image.Error
     text: icon.glyph !== "" ? icon.glyph : icon.fallbackGlyph
     color: icon.color
     font.family: Style.font.family

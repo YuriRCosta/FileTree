@@ -16,6 +16,8 @@ Item {
   property string error: ""
   property bool loading: false
   property int token: 0
+  property var pendingCallback: null
+  property var pendingCache: null
   readonly property bool hovered: hover.hovered
   readonly property string path: item ? String(item.path || "") : ""
   readonly property string stamp: item ? String(item.stamp || "") : ""
@@ -28,8 +30,15 @@ Item {
   signal dragMoved(point scene, int modifiers)
   signal dragEnded(bool canceled)
 
-  function fetch() {
+  function releaseRequest() {
     token++
+    if (pendingCache && pendingCallback && typeof pendingCache.cancel === "function") pendingCache.cancel(pendingCallback)
+    pendingCallback = null
+    pendingCache = null
+  }
+
+  function fetch() {
+    releaseRequest()
     var mine = token
     source = ""
     error = ""
@@ -38,12 +47,16 @@ Item {
       return
     }
     loading = true
-    thumbnails.request(path, stamp, edge, function(result) {
+    pendingCache = thumbnails
+    pendingCallback = function(result) {
       if (!tile || mine !== tile.token) return
+      tile.pendingCallback = null
+      tile.pendingCache = null
       tile.loading = false
       if (result && result.ok) tile.source = String(result.url)
       else tile.error = String(result && result.error || "Preview unavailable")
-    })
+    }
+    thumbnails.request(path, stamp, edge, pendingCallback)
   }
 
   onPathChanged: fetch()
@@ -51,7 +64,7 @@ Item {
   onEdgeChanged: fetch()
   onThumbnailsChanged: fetch()
   Component.onCompleted: fetch()
-  Component.onDestruction: token++
+  Component.onDestruction: releaseRequest()
 
   Rectangle {
     id: frame

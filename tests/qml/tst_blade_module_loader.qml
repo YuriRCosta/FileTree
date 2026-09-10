@@ -56,12 +56,19 @@ TestCase {
     activity = []; writes = 0; focuses = 0; writtenTab = -1
     live.moduleId = "one"; live.moduleDir = "/plugins/one"; live.providerId = "first"
     live.tabIndex = 0; live.bladeOpen = true
+    live.definition = { settings: { schema: [{ key: "label", type: "string", maxLength: 64, defaultValue: "default" }] } }
     loaded = createTemporaryObject(loaderComponent, test)
     loaded.loadModule(Qt.resolvedUrl("ModuleContextProbe.qml"))
     verify(loaded.item !== null)
   }
   function cleanup() {
     if (loaded) { loaded.loadModule(""); wait(0); loaded.destroy(); loaded = null }
+  }
+
+  function test_settings_schema_survives_context_creation() {
+    compare(loaded.moduleContext.settings.schema.length, 1)
+    verify(loaded.moduleContext.settings.has("label"))
+    compare(loaded.moduleContext.settings.get("label"), "first")
   }
 
   function test_incoming_identity_does_not_rebind_the_outgoing_module() {

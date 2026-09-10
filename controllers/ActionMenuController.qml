@@ -7,6 +7,7 @@ Item {
 
   required property var service
   property bool open: false
+  property bool standalone: false
   property string mode: "actions"
   property string path: ""
   property var entry: null
@@ -22,7 +23,7 @@ Item {
   readonly property bool openLeft: placementEdge === "right"
 
   function visibleFor(targetScreen) {
-    return open && service.open && (!screen || screen === targetScreen)
+    return open && (service.open || standalone) && (!screen || screen === targetScreen)
   }
 
   function show(targetMode, targetScreen, targetX, targetY, targetEntries, placement) {
@@ -31,6 +32,7 @@ Item {
     var where = placement && typeof placement === "object" ? placement : ({})
     placementEdge = String(where.edge || "") === "right" ? "right" : "left"
     placementKeyboard = !!where.keyboard
+    standalone = where.standalone === true
     input = ""
     mode = String(targetMode || "actions")
     service.operationError = ""

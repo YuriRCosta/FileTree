@@ -105,7 +105,7 @@ QtObject {
     readonly property string base: context.host ? context.host.pluginDir + "/ui/" : ""
 
     function url(name) {
-      return base ? "file://" + base + String(name) + ".qml" : ""
+      return base ? PathText.fileUrl(PathText.join(base, String(name) + ".qml")) : ""
     }
   }
 
