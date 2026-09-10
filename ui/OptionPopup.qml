@@ -216,19 +216,19 @@ QQC.Popup {
           font.letterSpacing: 0.4
         }
 
-        Text {
+        ModuleIcon {
           id: rowGlyph
           anchors.left: parent.left
           anchors.leftMargin: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
           width: Style.space(16)
-          textFormat: Text.PlainText
+          height: Style.space(16)
           visible: !optionRow.separator
-          text: optionRow.separator ? "" : String(optionRow.modelData.glyph || "")
+          glyph: optionRow.separator ? "" : String(optionRow.modelData.glyph || "")
+          fallbackGlyph: ""
+          iconUrl: optionRow.separator ? "" : String(optionRow.modelData.iconUrl || "")
           color: optionRow.modelData.danger ? Color.urgent : (optionRow.enabled ? Color.muted : Util.alpha(Color.popups.text, 0.3))
-          horizontalAlignment: Text.AlignHCenter
-          font.family: Style.font.family
-          font.pixelSize: Style.font.bodySmall
+          size: Style.font.bodySmall
         }
 
         Text {

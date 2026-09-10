@@ -7,6 +7,7 @@ Rectangle {
   property var context: null
   property var view: null
   property string title: ""
+  property string iconUrl: ""
   property string status: ""
   property string statusGlyph: ""
   property color statusColor: Color.muted
@@ -92,11 +93,24 @@ Rectangle {
     }
   }
 
+  ModuleIcon {
+    id: titleIcon
+    anchors.left: disclosure.visible ? disclosure.right : parent.left
+    anchors.leftMargin: disclosure.visible ? Style.space(5) : Style.space(10) + header.effectiveReservedLeft
+    anchors.verticalCenter: parent.verticalCenter
+    width: Style.space(16)
+    height: Style.space(16)
+    visible: header.identityVisible && header.iconUrl !== ""
+    iconUrl: header.iconUrl
+    color: label.color
+    size: Style.font.body
+  }
+
   Text {
     textFormat: Text.PlainText
     id: label
-    anchors.left: disclosure.visible ? disclosure.right : parent.left
-    anchors.leftMargin: disclosure.visible ? Style.space(5) : Style.space(10) + header.effectiveReservedLeft
+    anchors.left: titleIcon.visible ? titleIcon.right : (disclosure.visible ? disclosure.right : parent.left)
+    anchors.leftMargin: titleIcon.visible ? Style.space(5) : (disclosure.visible ? Style.space(5) : Style.space(10) + header.effectiveReservedLeft)
     anchors.verticalCenter: parent.verticalCenter
     visible: header.identityVisible
     text: header.title.toUpperCase()
