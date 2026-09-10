@@ -175,6 +175,7 @@ this object:
 id:           required; [A-Za-z0-9][A-Za-z0-9._-]*, max 128 chars
 name:         shown in tabs and the picker; defaults to the id
 glyph:        one NerdFont glyph for the picker; optional
+icon:         optional image path relative to the definition (SVG or PNG, no `..`); drawn as a tinted silhouette in the picker, the settings sheet and `PaneHeader.iconUrl`, taking precedence over `glyph` wherever a picture fits
 description:  one line for the picker
 entry:        QML path relative to the definition; no `..`, no leading `/` (default Module.qml)
 hostContract: 1, 2 or 3; a module that asks for a newer host is listed but not loadable
@@ -250,6 +251,8 @@ identity:
   context.tabIndex, tabCount:             tabs inside this slot
 flags (read only, bind to them for styling):
   context.bladeOpen, bladeFocused, slotFocused, collapsed, docked, dragging
+  context.inPopout:                       true when a bar widget hosts the module (see Popping a module out of the bar)
+  context.definition:                     the normalized definition; `definition.iconUrl` is the file URL of a declared `icon`
 state:
   context.state.get(key, fallback):       per-tab state, persisted in blades.json
   context.state.set(key, value):          same; keep it small, it's saved with the layout
@@ -415,6 +418,77 @@ module that uses those matches the current Omarchy theme for free. Have a
 look at `modules/notes/Module.qml` for a small real one and
 `modules/files/Module.qml` for the full-fat version with settings and
 shortcuts.
+
+## Image galleries
+
+This file was written by an agent.
+
+A module that shows pictures instead of rows loads the shared gallery through
+`context.ui.url(...)`, the same way artifact modules load `ArtifactTree`:
+
+```yaml
+ImageGrid:         a FocusScope; feed it `items`, `query`, `filterKeys`, `sizeStep`, `thumbnails` and `selectedPath`
+ThumbnailCache:    one per provider service; `files` is the files service, `request(path, stamp, edge, callback)` answers with `{ ok, url }`
+TimelineScrubber:  drawn by the grid on its right edge: a year rail with one dot per month, a thumb for the viewport, and a month pill while the pointer scrubs
+ImageSizeControl:  the five-step preview size stepper (`step`, `stepRequested(step)`), for a toolbar
+ModuleIcon:        `iconUrl` or `glyph`, tinted with `color`; what the picker and PaneHeader use for a declared `icon`
+```
+
+Each item is `{ path, name, date, text, fields, stamp }` plus whatever the module
+wants back: `path` is the actionable file, `date` an ISO string or epoch seconds
+(empty groups under Undated), `text` the search haystack, `fields` a map of
+filter key to string array for `key:value` terms, and `stamp` a fingerprint of
+the file (size and modification time) that keys the thumbnail. The grid groups
+items by month, newest first, lays rows out for the current width, keeps a
+cursor, and emits `chosen(item)` when the cursor moves, `activated(item)` on
+Enter or a double-click, `contextRequested(item, x, y)` on a right-click, and
+`dragBegan`, `dragMoved`, `dragEnded` for a drop-wheel drag. `sizeStep` is 0 to
+4 (`lib/ImageGallery.js` owns the five cell sizes and the thumbnail edge each
+step requests); `+`, `-` and `=` ask the owner to change it through
+`sizeStepRequested(delta)` so the value can live in `context.state`. Arrows and
+`hjkl` move, `g`/`G` and Home/End jump, PageUp/PageDown and Ctrl+D/U page, Esc
+raises `dismissRequested`. `query` uses the Files search grammar (`SearchQuery.js`)
+with the module's `filterKeys`; an invalid pattern shows up in `filterInvalid`.
+Thumbnails come from the backend `thumbnail` request through `ThumbnailCache`,
+so they land in `~/.cache/fileblade/thumbnails/` beside the Properties previews
+and are shared between screens and between a blade and a bar popout.
+
+## Popping a module out of the bar
+
+This file was written by an agent.
+
+`blades/BladePopout.qml` hosts any registered module outside a blade, with a
+real `BladeContext` whose `popout` seam replaces the slot: `closeBlade()` closes
+the popout, `state.set` writes to a popout-local map that lasts for the shell
+session, `requestFocus` focuses the module, and slot drags, tab cycling and
+collapsing become no-ops. Give it `host` (the files service's `bladeHost`),
+`shell`, `services` (the files service's `services`), `screen`, `moduleId` and
+`opened`; it loads the module while open and unloads it when closed.
+
+A plugin that wants its module under a bar icon declares `bar-widget` beside
+`service`, resolves FileBlade through `bar.shell.serviceFor("data-goblin.fileblade")`,
+and loads the popout from the host's plugin directory into a `KeyboardPanel`:
+
+```qml
+Loader {
+  source: host ? "file://" + host.pluginDir + "/blades/BladePopout.qml" : ""
+  onLoaded: {
+    item.host = Qt.binding(function() { return host })
+    item.services = Qt.binding(function() { return service.services })
+    item.moduleId = "kurt.goblin-images/goblin-images"
+    item.opened = Qt.binding(function() { return panel.open })
+    item.closeRequested.connect(function() { panel.open = false })
+  }
+}
+```
+
+FileBlade does not carry the widget itself. Omarchy reports every plugin with a
+`bar-widget` kind as enabled only while a bar layout entry names it, which would
+make the satellites' host guards see FileBlade as disabled. A companion that
+adds the kind runs into the same report, so FileBlade's catalog treats such a
+plugin as enabled when `shell.json` lists it under `plugins[]` or in a bar
+section and not under `disabledPlugins[]`; the module keeps working with or
+without the bar entry.
 
 ## Settings without QML
 

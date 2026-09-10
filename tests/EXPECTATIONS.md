@@ -1004,3 +1004,33 @@ This file was written by an agent.
 - **E-36-06** Welcome preserves an existing modified or differently pinned checkout
   and explains why it did not enable it. An update check downloads no Git objects
   and does not invent history details when those objects are not available.
+
+## 37. Image galleries and bar popouts
+
+This file was written by an agent.
+
+Proved by hand in the headless VM on 2026-09-10 with the Goblins companion
+(`kurt.goblin-images`); the scripted case is still to be written.
+
+- **E-37-01** A module that declares an `icon` shows that picture, tinted like
+  its text, in the module picker, the blade settings sheet, its pane header
+  and its bar icon; a module without one keeps its glyph.
+- **E-37-02** An image gallery groups pictures under month headings, newest
+  first, with undated pictures last. Clicking a tile selects it and the
+  Properties pane previews it; double-click or Enter opens it with the default
+  application; a right-click or `m` opens the same file actions menu as the
+  Files tree, naming the picture.
+- **E-37-03** `-` and `=`/`+` step the preview size through five sizes; the
+  toolbar stepper shows the current step and the choice survives a shell
+  restart in the blade.
+- **E-37-04** Typing in the gallery search narrows the tiles live using the
+  Files search grammar (`character:bink`, `-tag:danger`); the status shows
+  “N of M”; Escape clears the query first and closes the blade only on the
+  next press.
+- **E-37-05** The right-hand timeline lists the years present, one dot per
+  month, and a thumb for the viewport. Hovering or dragging on it shows a
+  month pill and scrolls the grid to that month.
+- **E-37-06** A bar widget that names the module opens the whole module in a
+  dropdown under its icon, with the same header, search, chips, grid and
+  timeline; Escape or an outside click closes it, and the blade copy of the
+  module is unaffected.
