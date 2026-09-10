@@ -223,7 +223,8 @@ PanelWindow {
     onCleared: surface.handleFocusGrabCleared()
   }
 
-  visible: panelEnabled && !windowMode && (bladeOpen || !parked || (actionMenuHere && host.services.files.actionMenuStandalone))
+  readonly property bool standaloneMenuHere: panelEnabled && !windowMode && actionMenuHere && host.services.files.actionMenuStandalone
+  visible: panelEnabled && !windowMode && (bladeOpen || !parked) || standaloneMenuHere
   exclusionMode: ExclusionMode.Normal
   exclusiveZone: bladeOpen ? bladeWidth : 0
   implicitWidth: surfaceWidth
@@ -265,7 +266,7 @@ PanelWindow {
 
   WlrLayershell.namespace: "omarchy-fileblade-" + edge
   WlrLayershell.layer: WlrLayer.Top
-  WlrLayershell.keyboardFocus: actionMenuHere && host.services.files.actionMenuStandalone ? WlrKeyboardFocus.Exclusive : bladeOpen
+  WlrLayershell.keyboardFocus: bladeOpen || standaloneMenuHere
     ? (keyboardFocusReleased ? WlrKeyboardFocus.None : WlrKeyboardFocus.OnDemand)
     : WlrKeyboardFocus.None
 
