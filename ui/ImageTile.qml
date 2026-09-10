@@ -16,8 +16,7 @@ Item {
   property string error: ""
   property bool loading: false
   property int token: 0
-  property var pendingCallback: null
-  property var pendingCache: null
+  property var pending: null
   readonly property bool hovered: hover.hovered
   readonly property string path: item ? String(item.path || "") : ""
   readonly property string stamp: item ? String(item.stamp || "") : ""
@@ -32,9 +31,9 @@ Item {
 
   function releaseRequest() {
     token++
-    if (pendingCache && pendingCallback && typeof pendingCache.cancel === "function") pendingCache.cancel(pendingCallback)
-    pendingCallback = null
-    pendingCache = null
+    var request = pending
+    pending = null
+    if (request && request.cache && typeof request.cache.cancel === "function") request.cache.cancel(request.callback)
   }
 
   function fetch() {
@@ -47,16 +46,16 @@ Item {
       return
     }
     loading = true
-    pendingCache = thumbnails
-    pendingCallback = function(result) {
+    var request = { cache: thumbnails, callback: null }
+    request.callback = function(result) {
       if (!tile || mine !== tile.token) return
-      tile.pendingCallback = null
-      tile.pendingCache = null
+      tile.pending = null
       tile.loading = false
       if (result && result.ok) tile.source = String(result.url)
       else tile.error = String(result && result.error || "Preview unavailable")
     }
-    thumbnails.request(path, stamp, edge, pendingCallback)
+    pending = request
+    thumbnails.request(path, stamp, edge, request.callback)
   }
 
   onPathChanged: fetch()

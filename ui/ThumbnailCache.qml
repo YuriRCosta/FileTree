@@ -30,6 +30,7 @@ QtObject {
   }
 
   function request(path, stamp, edge, callback) {
+    if (typeof callback !== "function") return false
     var key = keyFor(path, stamp, edge)
     var known = ready[key]
     if (known) {
