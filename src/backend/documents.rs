@@ -32,14 +32,27 @@ pub(super) fn transfer(
 pub(super) fn clipboard_write(paths: &[String], cut: bool, cancelled: &AtomicBool) -> Value {
     const MAX_PATHS: usize = 4096;
     const MAX_BYTES: usize = 1024 * 1024;
+    if paths.is_empty() {
+        return json!({"ok": false, "error": "no paths to copy"});
+    }
     if paths.len() > MAX_PATHS {
         return json!({
             "ok": false,
             "error": format!("at most {MAX_PATHS} clipboard paths are supported"),
         });
     }
-    let mut input = Vec::new();
+    let mime = if cut {
+        "x-special/gnome-copied-files"
+    } else {
+        "text/uri-list"
+    };
+    let mut input = if cut { b"cut".to_vec() } else { Vec::new() };
     for raw_path in paths {
+        if raw_path.contains("://")
+            && url::Url::parse(raw_path).is_ok_and(|uri| uri.scheme() != "file")
+        {
+            return json!({"ok": false, "error": "file clipboard requires local paths or file URIs"});
+        }
         let path = match crate::common::parse_path(raw_path) {
             Ok(path) => path,
             Err(error) => return crate::common::path_error(raw_path, &error),
@@ -57,17 +70,22 @@ pub(super) fn clipboard_write(paths: &[String], cut: bool, cancelled: &AtomicBoo
                 "error": "clipboard URI list exceeds 1 MiB",
             });
         }
-        input.extend_from_slice(line);
-        input.extend_from_slice(b"\r\n");
+        if cut {
+            input.push(b'\n');
+            input.extend_from_slice(line);
+        } else {
+            input.extend_from_slice(line);
+            input.extend_from_slice(b"\r\n");
+        }
     }
-    if let Err(error) = wl_copy("text/uri-list", input, cancelled) {
+    if let Err(error) = wl_copy(mime, input, cancelled) {
         return error;
     }
     json!({
         "ok": true,
         "paths": paths.len(),
         "mode": if cut { "cut" } else { "copy" },
-        "mime": "text/uri-list",
+        "mime": mime,
     })
 }
 
