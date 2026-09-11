@@ -35,11 +35,7 @@ pub(super) fn run(options: ServeArgs, authority: Arc<Authority>) -> AppResult<()
             authority
                 .verify()
                 .map_err(|error| AppError::command(error.to_string()))?;
-            let had_clients = !clients.is_empty();
             reap(&mut clients);
-            if had_clients && clients.is_empty() {
-                crate::hyprland::restore_owned_borders();
-            }
             match listener.accept() {
                 Ok((stream, _)) if clients.len() < 32 => {
                     let operations = Arc::clone(&operations);
@@ -129,6 +125,7 @@ fn session(
     let monitor = monitor_deadlines(Arc::clone(&active), Arc::clone(&stopping));
     let mut seen = RecentKeys::default();
     let mut workers = Vec::new();
+    let mut view = false;
     let result = (|| {
         match read_bounded_line(&mut reader, MAX_LINE_BYTES)? {
             InputLine::Line(line) => {
@@ -139,6 +136,10 @@ fn session(
                 require_version(object)?;
                 if text(object, "type") != "hello" {
                     return Err(AppError::invalid("native session requires hello"));
+                }
+                if object.get("view") == Some(&Value::Bool(true)) {
+                    operations.attach_view();
+                    view = true;
                 }
                 emit(
                     &output,
@@ -180,6 +181,9 @@ fn session(
         Ok(())
     })();
     output.detach();
+    if view {
+        operations.detach_view();
+    }
     for request in lock(&active)
         .values()
         .filter(|request| !request.authority_owned)

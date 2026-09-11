@@ -240,7 +240,7 @@ Item {
   function begin() {
     ready = false
     startedAt = Date.now()
-    send({ v: protocolVersion, type: "hello" })
+    send({ v: protocolVersion, type: "hello", view: nativeAuthority })
   }
 
   function receiveStderr(data) {

@@ -23,6 +23,12 @@ the authority independently before loading QML. SIGTERM stops admission and
 drains accepted work before releasing the guard. View EOF cancels reads and
 subscriptions only.
 
+QML identifies a view with `view:true` in its hello. The authority counts
+these connections separately from probes, operation queries and workers.
+Losing the last view restores owned window borders before waiting for its
+accepted work. Terminal operations also restore borders when no view remains,
+covering a dim request that finishes after its view detached.
+
 Both transports use protocol v1 and the existing request/response shape.
 A native hello additionally reports `authority:true`. Native mutations emit
 an acceptance frame before dispatch:

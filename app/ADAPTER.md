@@ -76,7 +76,10 @@ Nine native authority tests pass in harness A, including the 256 MiB copy
 after EOF, a multi-file move with a lost progress subscriber, explicit cancel,
 result fetching, lock identity, and the Qt pipe-availability regression.
 The five retained resident protocol tests and SIGTERM test also pass.
-Hotplug, complete focus parity, the retained expectation suites, chooser and
+The live native authority expectation also passes: a two-file move continues
+after the QML view quits, preserves both mappings and the same authority,
+and remains queryable after view relaunch until explicitly fetched.
+Hotplug, complete focus parity, remaining retained expectations, chooser and
 ARM execution remain separate qualification work.
 
 `ovm-spike` adapts the retained expectation scripts to harness A and the native
@@ -86,3 +89,12 @@ hardcoded Trash fixture paths are mapped to that isolated data root. Restart
 requests restart the foreground native view and the real shell while keeping
 the authority alive. Push, install and reset require explicit staging outside
 this adapter.
+
+Retained Trash expectation E-14-11 blocks further qualification. The private
+data root receives the trashed file, but the desktop GVfs trash service uses
+the desktop data root and cannot resolve that item through `trash:///`.
+The VM fixture lives under `/home/omarchy/fileblade-runtime-state` to avoid
+the separate cross-filesystem limitation of placing its Trash on `/tmp`.
+Removing the data override also requires isolating FileBlade's artifact bin
+from legacy writers; that path belongs to the operations lane. The bounded
+launcher retains its isolation pending that shared contract change.

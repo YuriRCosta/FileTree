@@ -93,7 +93,7 @@ for path in paths:
 assert json.loads((root / 'authority.lock').read_text()) == holder
 assert (root.stat().st_dev, root.stat().st_ino, (root / 'authority.lock').stat().st_ino) == identity
 with (source / 'relaunch.log').open('w') as log:
-    environment = dict(os.environ, FILEBLADE_SPIKE_HOME='/tmp/fileblade-native-state')
+    environment = dict(os.environ, FILEBLADE_SPIKE_HOME=str(pathlib.Path(os.environ['XDG_STATE_HOME']).parent))
     subprocess.Popen([str(app / 'launch')], env=environment, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
 deadline = time.monotonic() + 10
 while True:

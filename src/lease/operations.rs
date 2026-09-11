@@ -15,12 +15,14 @@ pub struct Operations {
     authority: Arc<Authority>,
     entries: Mutex<HashMap<String, Arc<Operation>>>,
     concurrency: usize,
+    views: Arc<Mutex<usize>>,
 }
 
 pub struct Operation {
     pub id: String,
     pub cancelled: Arc<AtomicBool>,
     state: Mutex<State>,
+    views: Arc<Mutex<usize>>,
 }
 
 struct State {
@@ -36,6 +38,7 @@ impl Operations {
             authority,
             entries: Mutex::new(HashMap::new()),
             concurrency,
+            views: Arc::new(Mutex::new(0)),
         }
     }
 
@@ -71,6 +74,7 @@ impl Operations {
         let operation = Arc::new(Operation {
             id: uuid::Uuid::new_v4().to_string(),
             cancelled,
+            views: Arc::clone(&self.views),
             state: Mutex::new(State {
                 subscribers: vec![Arc::downgrade(output)],
                 progress: None,
@@ -172,6 +176,24 @@ impl Operations {
             .values()
             .any(|operation| !operation.complete())
     }
+
+    pub fn attach_view(&self) {
+        *self
+            .views
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) += 1;
+    }
+
+    pub fn detach_view(&self) {
+        let mut views = self
+            .views
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *views -= 1;
+        if *views == 0 {
+            crate::hyprland::restore_owned_borders();
+        }
+    }
 }
 
 impl Operation {
@@ -196,6 +218,15 @@ impl Operation {
                 .filter_map(Weak::upgrade)
                 .collect::<Vec<_>>()
         };
+        if terminal {
+            let views = self
+                .views
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if *views == 0 {
+                crate::hyprland::restore_owned_borders();
+            }
+        }
         for output in subscribers {
             if output.machine(&frame).is_err() {
                 output.detach();
