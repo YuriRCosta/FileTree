@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "3813fbe9d786e01546c4c1e9c895602639426167",
+  "legacyProvider": "data-goblin.fileblade-mcp",
+  "manifestSha256": "7bbccc7f70e7742f86c51b3184cc3c5dbf248ee3860e8d164eb3e6e132bf89a1",
+  "helpers": [
+    {
+      "id": "inventory",
+      "entry": "bin/agent-mcpctl",
+      "read": [
+        "list",
+        "recovery-list"
+      ],
+      "write": [
+        "apply",
+        "prepare-remove",
+        "remove-prepared",
+        "restore",
+        "discard"
+      ],
+      "timeoutMs": 8000
+    }
+  ]
+}

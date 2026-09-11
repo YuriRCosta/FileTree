@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "7d91ea6421bab72731e920dcc4514fea92c1de8b",
+  "legacyProvider": "data-goblin.fileblade-skills",
+  "manifestSha256": "7287e415685b4de0da6377e58905f8dce777b5c992926d959379624175dd7055",
+  "helpers": [
+    {
+      "id": "inventory",
+      "entry": "bin/agent-skillsctl",
+      "read": [
+        "list"
+      ],
+      "write": [
+        "apply"
+      ],
+      "timeoutMs": 8000
+    }
+  ]
+}
