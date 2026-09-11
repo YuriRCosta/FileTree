@@ -232,6 +232,9 @@ pub fn native_mutating(command: &backend::BackendCommand) -> bool {
                 | backend::BackendCommand::ModuleDirs(_)
                 | backend::BackendCommand::Visit(_)
                 | backend::BackendCommand::SetDefault(_)
+                | backend::BackendCommand::DimWindows(_)
+                | backend::BackendCommand::DropRun(_)
+                | backend::BackendCommand::DropPaste(_)
         )
 }
 

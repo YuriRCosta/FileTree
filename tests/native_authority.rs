@@ -271,6 +271,8 @@ fn second_authority_and_native_direct_mutations_fail_before_writing() {
             "forbidden",
         ],
         vec!["preferences", "--agent-management", "true"],
+        vec!["list", "--from", target.to_str().unwrap()],
+        vec!["_backend", "dim-windows", "--state", "off"],
         vec!["_companion-mutate"],
     ] {
         let output = isolated_command(resident.temporary.path(), &resident.root)
