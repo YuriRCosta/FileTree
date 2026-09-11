@@ -2,9 +2,12 @@ This file was written by an agent.
 
 # Bounded native adapter spike
 
-This directory is an unfinished development spike. M1 is blocked: the first
-native shutdown left Quickshell alive and unresponsive, preventing relaunch.
-It is not an installable runtime or a qualified native lifecycle.
+This directory is a bounded development spike, not an installable runtime.
+The M1 visual gate passes under the coordinator's declared pixel tolerance.
+The shutdown failure reproduces in an empty Quickshell with `-d`; foreground
+launching exits cleanly with FileBlade's original backend cleanup. The
+launcher rejects `-d` and `--daemonize` on the qualified spike tuple. A process
+supervisor must launch Quickshell in the foreground.
 
 `shell.qml` loads the existing `Service.qml` through an absolute file URL.
 Existing QML imports and browser sources are unchanged. The shell facade reads
@@ -14,7 +17,12 @@ current Omarchy theme. The facade cannot observe runtime bar autohide.
 `launch` requires an explicit isolated `FILEBLADE_SPIKE_HOME` and the locally
 built release binary. Its XDG environment isolates development state from old
 plugin writers. That environment also reaches child applications, so it is
-not the production state-isolation design. It establishes no write lease.
+not the production state-isolation design. The launcher starts or attaches
+to the native authority before loading QML. Its kernel OFD lease covers the
+canonical selected state root; view processes relay to its private socket.
+Accepted mutations survive view shutdown and retain results in the authority
+until fetched or 24 hours. Process-death recovery still uses durable journals;
+the in-memory result cache does not survive authority process death.
 
 ## Source accounting
 
@@ -49,21 +57,32 @@ Harness A, SSH 2422: Qt base 6.11.2-2, Qt declarative 6.11.2-1,
 Quickshell 0.3.1-1, Omarchy 4.0.2-1, Hyprland 0.56.2-1, software rendering.
 Cold native loading, fixture listing/selection and live Tokyo Night to
 Catppuccin repaint were observed with the FileBlade plugin unavailable.
-The ordinary-window request never completed after the shutdown failure.
+Docking, conversion to an ordinary window, and docking again work through
+the native authority. The Never preference was saved through the QML client
+and verified on disk.
 
 Matched Catppuccin plugin/native blade captures differed at three of 400,520
-pixels, each by one RGB channel level. Exact pixel equality was not obtained;
-the origin of those differences has not been established. The strict visual
-gate is therefore not declared passed.
+pixels, each by one RGB channel level. R12 declares a pass at no more than one
+level per channel and fewer than 0.1 percent differing pixels. This passes.
 
-The recorded live shell root precedes a later static-only change of its bar
-property from QtObject to var. The same static-only adjustment was made to
-BarWidget and KeyboardPanel. Those final adjustments have not been rerun in
-the VM. Final qmllint exited zero with three KeyboardPanel warnings inherited
-from its upstream PanelWindow/contentItem declarations. Shell syntax passed.
+The final bar property typing changes in shell.qml, BarWidget and
+KeyboardPanel were rerun in the VM. Guest qmllint exited zero with three
+KeyboardPanel warnings inherited from its upstream PanelWindow/contentItem
+declarations and one BackendClient QProcess::ExitStatus metadata warning.
 
 Detailed source identities, screenshots, commands, shutdown diagnostics and
 contract requests are in Sootscale's ignored aim note and evidence directory.
-Docking transitions, hotplug, complete focus parity, single-writer authority,
-accepted-operation survival, retained expectation suites, chooser and ARM
-execution remain unproven.
+Nine native authority tests pass in harness A, including the 256 MiB copy
+after EOF, a multi-file move with a lost progress subscriber, explicit cancel,
+result fetching, lock identity, and the Qt pipe-availability regression.
+The five retained resident protocol tests and SIGTERM test also pass.
+Hotplug, complete focus parity, the retained expectation suites, chooser and
+ARM execution remain separate qualification work.
+
+`ovm-spike` adapts the retained expectation scripts to harness A and the native
+IPC target without changing their source. Other shell targets still address
+the real Omarchy bar. Guest commands use the native XDG roots and binary;
+hardcoded Trash fixture paths are mapped to that isolated data root. Restart
+requests restart the foreground native view and the real shell while keeping
+the authority alive. Push, install and reset require explicit staging outside
+this adapter.

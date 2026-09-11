@@ -145,7 +145,11 @@ enum InputLine {
 pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResult<()> {
     if let Some(root) = crate::lease::selected_root()? {
         if options.native_authority {
-            return native::run(options, &root);
+            let authority = Arc::new(
+                crate::lease::Authority::acquire(&root)
+                    .map_err(|error| AppError::command(error.to_string()))?,
+            );
+            return native::run(options, authority);
         }
         if options.native_probe {
             return crate::lease::transport::probe(&root).map_err(AppError::Io);

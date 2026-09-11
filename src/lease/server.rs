@@ -5,9 +5,7 @@ use std::net::Shutdown;
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 
-pub(super) fn run(options: ServeArgs, root: &Path) -> AppResult<()> {
-    let authority =
-        Arc::new(Authority::acquire(root).map_err(|error| AppError::command(error.to_string()))?);
+pub(super) fn run(options: ServeArgs, authority: Arc<Authority>) -> AppResult<()> {
     let _signals = input::InputSignals::install()?;
     let socket = authority.root().join("authority.sock");
     if let Ok(metadata) = std::fs::symlink_metadata(&socket) {

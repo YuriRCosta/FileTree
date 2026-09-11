@@ -27,6 +27,8 @@ Item {
   property string lastStderr: ""
   property string backendVersion: ""
   property var limits: ({})
+  readonly property bool nativeAuthority: String(Quickshell.env("FILEBLADE_NATIVE_STATE_ROOT") || "") !== ""
+  signal operationAccepted(string requestId, string generation, string operationId)
   readonly property bool versionSkew: expectedVersion !== "" && backendVersion !== "" && expectedVersion !== backendVersion
   readonly property int protocolVersion: 1
   readonly property int expiryGraceMs: 2000
@@ -79,6 +81,22 @@ Item {
 
   function subscribe(paths, generation, eventCallback, readyCallback, closedCallback) {
     return subscribeTopic("filesystem", paths, generation, eventCallback, readyCallback, closedCallback)
+  }
+
+  function operation(operationId, action, generation, callback) {
+    serial++
+    var id = "qml-operation-" + Date.now() + "-" + serial
+    var currentGeneration = generation === undefined || generation === null ? 0 : generation
+    pending[key(id, currentGeneration)] = {
+      kind: "operation",
+      sent: false,
+      callback: typeof callback === "function" ? callback : null,
+      budget: 15000,
+      expiresAt: Date.now() + 15000 + expiryGraceMs
+    }
+    dispatch({ v: protocolVersion, type: "operation", id: id, generation: currentGeneration, op: String(operationId), action: String(action) })
+    armExpiry()
+    return id
   }
 
   function subscribeTopic(topic, paths, generation, eventCallback, readyCallback, closedCallback) {
@@ -195,6 +213,14 @@ Item {
       entry.subscribed = null
     }
     if (entry.sent && ready) {
+      if (nativeAuthority && entry.kind === "request") {
+        if (discardCallbacks) return true
+        entry.cancelRequested = true
+        if (entry.operationId) {
+          send({ v: protocolVersion, type: "cancel", op: entry.operationId })
+          return true
+        }
+      }
       send({ v: protocolVersion, type: "cancel", id: String(id), generation: currentGeneration })
       return true
     }
@@ -266,6 +292,14 @@ Item {
     var requestKey = key(frame.id, frame.generation)
     var request = pending[requestKey]
     if (!request) return
+    if (frame.type === "accepted") {
+      request.operationId = String(frame.op)
+      request.expiresAt = 0
+      armExpiry()
+      operationAccepted(String(frame.id), String(frame.generation), request.operationId)
+      if (request.cancelRequested) send({ v: protocolVersion, type: "cancel", op: request.operationId })
+      return
+    }
     if (frame.type === "progress") {
       if (request.expiresAt) {
         request.expiresAt = Date.now() + request.budget + expiryGraceMs
@@ -282,7 +316,7 @@ Item {
       if (request.event) request.event(frame)
       return
     }
-    if (frame.type === "response") {
+    if (frame.type === "response" || frame.type === "operation") {
       var response = frame.ok ? frame.payload : {
         ok: false,
         cancelled: !!frame.cancelled,
@@ -318,7 +352,7 @@ Item {
     var keys = Object.keys(requests)
     for (var index = 0; index < keys.length; index++) {
       var request = requests[keys[index]]
-      if (request.callback) request.callback({ ok: false, error: message })
+      if (request.callback) request.callback({ ok: false, detached: !!request.operationId, operationId: request.operationId || "", error: message })
     }
   }
 
@@ -341,7 +375,7 @@ Item {
     if (backend.running) {
       var owner = String(backend.processId)
       backend.running = false
-      Quickshell.execDetached([root.cliPath, "_backend", "dim-windows", "--state", "off", "--after-exit", owner])
+      if (!nativeAuthority) Quickshell.execDetached([root.cliPath, "_backend", "dim-windows", "--state", "off", "--after-exit", owner])
     }
     failAll("Backend stopped")
   }
