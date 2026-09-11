@@ -16,7 +16,7 @@ fn mode(path: &Path) -> u32 {
 
 #[test]
 fn unreadable_file_permissions_round_trip_and_conflicting_edits_are_refused() {
-    if !isolated::child() {
+    if !isolated::child(None) {
         return;
     }
     let root = tempfile::tempdir().unwrap();
@@ -61,7 +61,7 @@ fn symlink_and_replaced_identity_never_change_the_replacement_or_link_target() {
 
 #[test]
 fn entire_selection_is_validated_before_changing_any_permissions() {
-    if !isolated::child() {
+    if !isolated::child(None) {
         return;
     }
     let root = tempfile::tempdir().unwrap();
@@ -88,7 +88,7 @@ fn entire_selection_is_validated_before_changing_any_permissions() {
 
 #[test]
 fn ordinary_directory_edits_preserve_existing_sticky_bit() {
-    if !isolated::child() {
+    if !isolated::child(None) {
         return;
     }
     let root = tempfile::tempdir().unwrap();
@@ -107,7 +107,7 @@ fn ordinary_directory_edits_preserve_existing_sticky_bit() {
 #[test]
 #[ignore = "requires an isolated read-only test mount"]
 fn read_only_volume_refuses_permission_changes() {
-    if !isolated::child() {
+    if !isolated::child(None) {
         return;
     }
     let path = std::env::var_os("FILEBLADE_PERMISSION_FAULT_PATH")

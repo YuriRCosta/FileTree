@@ -1,10 +1,13 @@
-pub fn child() -> bool {
+pub fn child(parent: Option<&std::path::Path>) -> bool {
     let thread = std::thread::current();
     let name = thread.name().expect("named test thread");
     if std::env::var("FILEBLADE_OPERATIONS_TEST_CHILD").as_deref() == Ok(name) {
         return true;
     }
-    let state = tempfile::tempdir().unwrap();
+    let state = match parent {
+        Some(parent) => tempfile::tempdir_in(parent).unwrap(),
+        None => tempfile::tempdir().unwrap(),
+    };
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--exact", name, "--include-ignored", "--nocapture"])
         .env("FILEBLADE_OPERATIONS_TEST_CHILD", name)

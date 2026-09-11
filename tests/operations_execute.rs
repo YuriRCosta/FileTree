@@ -294,3 +294,41 @@ fn cancelled_and_incomplete_decisions_never_start_writes() {
         assert!(!root.path().join("journal.json").exists());
     }
 }
+
+#[test]
+fn replacement_journal_failure_stops_before_incoming_write_and_reports_recovery() {
+    for copy in [true, false] {
+        let root = fixture();
+        let source = root.path().join("source/same");
+        let target = root.path().join("target/same");
+        fs::write(&source, "new").unwrap();
+        fs::write(&target, "old").unwrap();
+        let mut server = Server::new(root.path());
+        let plan = server.plan(root.path(), &["same"], copy);
+        fs::create_dir(root.path().join("journal.json.lock")).unwrap();
+        let result = server.execute(&plan, json!([{"id":"0","action":"replace"}]));
+        assert_eq!(result["ok"], false, "{result}");
+        assert_eq!(result["partial"], true, "{result}");
+        assert!(result["journal_warning"].is_string(), "{result}");
+        assert!(
+            result["mappings"].as_array().unwrap().is_empty(),
+            "{result}"
+        );
+        assert!(
+            result["completed_sources"].as_array().unwrap().is_empty(),
+            "{result}"
+        );
+        assert!(!target.exists());
+        assert_eq!(fs::read_to_string(&source).unwrap(), "new");
+        let recovery = result["recovery"].as_array().unwrap();
+        assert_eq!(recovery.len(), 1, "{result}");
+        assert_eq!(recovery[0]["source"], target.to_str().unwrap());
+        let stored = Path::new(recovery[0]["trash_dir"].as_str().unwrap())
+            .join("files")
+            .join(recovery[0]["trash_name"].as_str().unwrap());
+        assert_eq!(fs::read_to_string(stored).unwrap(), "old");
+        let replay = server.execute(&plan, json!([{"id":"0","action":"replace"}]));
+        assert_eq!(replay["ok"], false, "{replay}");
+        assert!(!target.exists());
+    }
+}
