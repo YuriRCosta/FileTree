@@ -116,3 +116,20 @@ fn output_flood_after_acceptance_is_bounded_and_cleaned() {
     wait(|| owner.is_finished());
     assert!(!process(root.path(), "pid").exists());
 }
+
+#[test]
+fn resident_clipboard_slot_has_one_scoped_owner() {
+    use fileblade::clipboard::Session;
+    let session = Session::open().unwrap();
+    assert!(Session::open().is_err());
+    drop(session);
+    let session = Session::open().unwrap();
+    drop(session);
+    let result = fileblade::clipboard::write("text/plain", vec![], &AtomicBool::new(false));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("resident FileBlade server")
+    );
+}
