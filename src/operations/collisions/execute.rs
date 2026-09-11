@@ -122,7 +122,8 @@ pub fn execute(
     let error = outcome.as_ref().err().map(ToString::to_string);
     json!({"ok": outcome.is_ok(), "operation": run.operation(), "consumed": true,
         "cancelled": cancelled.load(Ordering::Relaxed) || matches!(&outcome, Err(AppError::Cancelled)), "partial": outcome.is_err() && !run.history.is_empty(),
-        "paths": run.mappings.iter().map(|mapping| &mapping.destination).collect::<Vec<_>>(),
+        "paths": run.history.iter().map(|item| if item.target.is_empty() { &item.source } else { &item.target }).collect::<BTreeSet<_>>(),
+        "displaced": run.displaced,
         "mappings": run.mappings.iter().map(mapping_value).collect::<Vec<_>>(), "completed_sources": run.completed_sources, "skipped": run.skipped,
         "retained_folders": run.retained_folders, "journal_id": if run.history.is_empty() { "" } else { &run.id },
         "error": error, "journal_warning": run.warning,
@@ -267,6 +268,7 @@ struct TransferRun {
     mappings: Vec<TransferMapping>,
     skipped: Vec<String>,
     completed_sources: Vec<String>,
+    displaced: Vec<String>,
     retained_folders: Vec<String>,
     warning: Option<String>,
 }
@@ -282,6 +284,7 @@ impl TransferRun {
             mappings: Vec::new(),
             skipped: Vec::new(),
             completed_sources: Vec::new(),
+            displaced: Vec::new(),
             retained_folders: Vec::new(),
             warning: None,
         }
@@ -328,6 +331,7 @@ impl TransferRun {
                 .target_stat
                 .ok_or_else(|| AppError::invalid("replacement target is missing"))?;
             let backup = journal::trash_matching_resolved(target, expected, false, cancelled)?;
+            self.displaced.push(backup.source.clone());
             self.history.push(backup);
             self.flush()?;
             target = secure::resolved_parent(&item.target)?;
