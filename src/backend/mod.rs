@@ -75,6 +75,7 @@ pub enum BackendCommand {
     ActionRun(ActionRunArgs),
     Copy(TransferArgs),
     Move(TransferArgs),
+    Locations,
     TransferPreflight(TransferPreflightArgs),
     TransferExecute(TransferExecuteArgs),
     Rename(RenameArgs),
@@ -179,6 +180,7 @@ fn dispatch_command(
     }
     let mutates = mutating(&command);
     let value = match command {
+        BackendCommand::Locations => crate::locations::payload(cancelled)?,
         BackendCommand::TransferPreflight(options) => crate::operations::collisions::preflight(
             options.operation == "copy",
             &options.source,

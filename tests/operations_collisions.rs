@@ -109,6 +109,7 @@ fn invalid_overlapping_remote_and_cancelled_requests_produce_no_decision() {
     for sources in [
         vec![],
         vec!["sftp://host/path".into()],
+        vec!["mtp://[usb:005,009]/file".into()],
         vec![
             source.to_string_lossy().into_owned(),
             source.join("child").to_string_lossy().into_owned(),

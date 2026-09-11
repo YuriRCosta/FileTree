@@ -20,6 +20,7 @@ pub mod hyprland;
 pub mod index;
 pub mod journal;
 pub mod listing;
+pub mod locations;
 pub mod module_dirs;
 pub mod module_helpers;
 pub mod modules;

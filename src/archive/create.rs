@@ -211,7 +211,12 @@ pub fn create(
 }
 
 fn local_path(raw: &str) -> AppResult<PathBuf> {
-    if raw.contains("://") && url::Url::parse(raw).is_ok_and(|uri| uri.scheme() != "file") {
+    if !raw.starts_with('/')
+        && raw.contains("://")
+        && !raw
+            .get(..7)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("file://"))
+    {
         return Err(AppError::invalid(
             "archives require local paths or validated local representations",
         ));

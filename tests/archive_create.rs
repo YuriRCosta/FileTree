@@ -100,6 +100,7 @@ fn existing_target_self_nested_duplicate_and_remote_sources_are_refused() {
     for sources in [
         vec![source.clone(), source],
         vec!["sftp://host/file".into()],
+        vec!["mtp://[usb:005,009]/file".into()],
         vec![],
     ] {
         let refused = archive::create(

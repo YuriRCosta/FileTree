@@ -23,7 +23,12 @@ pub fn set(paths: &[String], mode: &str, cancelled: &AtomicBool) -> Value {
             if cancelled.load(Ordering::Relaxed) {
                 return Err(AppError::Cancelled);
             }
-            if raw.contains("://") && url::Url::parse(raw).is_ok_and(|uri| uri.scheme() != "file") {
+            if !raw.starts_with('/')
+                && raw.contains("://")
+                && !raw
+                    .get(..7)
+                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case("file://"))
+            {
                 return Err(AppError::invalid("permission changes require local paths"));
             }
             let path = parse_path(raw)?;
