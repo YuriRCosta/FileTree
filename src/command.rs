@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 mod disk;
 mod guard;
 mod io;
+pub mod owner;
 mod supervisor;
 
 const MAX_DETACHED_CHILDREN: usize = 64;
