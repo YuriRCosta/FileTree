@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix="fileblade-core-contracts-") as temporar
         "mcp": ["test_inventory.py", "test_apply.py", "test_undo.py", "test_recovery_store.py"],
     }
     for module, files in cases.items():
-        for filename in files:
+        for filename in files + ["test_path_identity.py", "test_watch.py"] + (["test_core_bin.py"] if module in ("hooks", "mcp") else []):
             path = Path(__file__).parent / module / filename
             print(f"{module}/{filename}", flush=True)
             subprocess.run([sys.executable, "-B", str(path)], cwd=root, env=environment,

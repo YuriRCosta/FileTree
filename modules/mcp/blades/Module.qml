@@ -259,7 +259,7 @@ FocusScope {
       item.context = Qt.binding(function() { return root.context })
       item.describe = function(entry) { return root.binItem(entry) }
       item.helperRoute = Qt.binding(function() {
-        return root.inventory ? { provider: root.inventory.providerId, directory: root.inventory.providerRoot, helper: root.inventory.helperId } : null
+        return root.inventory ? { provider: root.inventory.providerId, directory: "", helper: root.inventory.helperId } : null
       })
       item.removalArguments = function(entry) {
         return ["--project", root.projectPath, "--id", String(entry.id), "--json"]

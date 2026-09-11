@@ -94,7 +94,7 @@ Item {
 
   function mutate(method, arguments, input, callback) {
     if (!ready || applying || !Array.isArray(arguments)) return false
-    if (["data-goblin.fileblade-skills", "data-goblin.fileblade-memory"].indexOf(providerId) >= 0 && files.agentManagementEnabled !== true) {
+    if (["fileblade.core.skills", "fileblade.core.memory", "data-goblin.fileblade-skills", "data-goblin.fileblade-memory"].indexOf(providerId) >= 0 && files.agentManagementEnabled !== true) {
       applyError = "Enable Manage agent files in General settings to change Skills or Memory"
       return false
     }

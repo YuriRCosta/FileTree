@@ -15,10 +15,38 @@ In one sentence: install an Omarchy plugin, and its FileBlade extension can add
 blade modules, script actions, or both. There is no second registration step
 inside FileBlade.
 
-FileBlade is the host. The three modules that ship with it (files, properties,
-notes) use exactly the same module contract as anything you write yourself.
+FileBlade is the host. Its built-in modules use the same blade context and
+view contract as extensions.
 This page explains that contract and how to build and debug an extension. It's
 aimed at both you and your agent.
+
+## Built-ins and legacy aliases
+
+Skills, Memory, Hooks and MCP ship under `modules/` with their Python helpers
+under `python/`. They do not require companion checkouts, an enabled Omarchy
+service or a registry connection. Their module IDs are `skills`, `memory`,
+`hooks` and `mcp`; their shared provider IDs are `fileblade.core.<module>`.
+Providers load inventory on attachment and share it across attached views.
+
+The exact old module IDs `data-goblin.fileblade-<module>/<module>` and
+`kurt.agent-<module>/<module>` resolve to those four built-in IDs. Slot state,
+tab order and selection are retained, and singleton lookup uses the canonical
+ID. These aliases do not apply to other extensions. Goblins remains a separate
+extension with module ID `kurt.goblin-images/goblin-images`, its own provider,
+settings and enabled lifecycle.
+
+Core helper requests use `inventory`, an empty `--plugin-dir` and a fixed
+method declaration. Executables resolve through `paths::app_root()` to
+`python/bin/agent-<module>ctl`. Supplying a directory for a core provider is
+refused. Historical companion recovery routes retain their original evidence
+but execute the bundled helper; a retired checkout is never used for recovery.
+Skills and Memory writes still require Manage agent files. Browsing hooks and
+MCP declarations executes no configured hook or server.
+
+External providers keep their manifest declarations, directory validation,
+activation checks and shared lifecycle. `module_helpers::canonical_route`
+identifies only the four core inventory routes and their exact historical
+provider IDs; unrelated routes remain distinct.
 
 The reasoning and ownership boundaries behind this contract live in
 [`docs/agent-written/design.md`](docs/agent-written/design.md).

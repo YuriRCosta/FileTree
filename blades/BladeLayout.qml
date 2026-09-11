@@ -109,17 +109,13 @@ Item {
 
   readonly property var moduleAliases: ({
     "kurt.notes/notes": "notes",
-    "kurt.git/git": "data-goblin.fileblade-git/git",
-    "kurt.agent-memory/memory": "data-goblin.fileblade-memory/memory",
-    "kurt.agent-skills/skills": "data-goblin.fileblade-skills/skills",
-    "kurt.agent-hooks/hooks": "data-goblin.fileblade-hooks/hooks",
-    "kurt.agent-mcp/mcp": "data-goblin.fileblade-mcp/mcp"
+    "kurt.git/git": "data-goblin.fileblade-git/git"
   })
 
   function aliasedModule(value) {
     var name = String(value || "").trim()
     if (!name || name.length > maximumIdentifierLength || /[\u0000-\u001f\u007f]/.test(name)) return ""
-    return moduleAliases[name] || name
+    return moduleAliases[name] || registry.canonicalModule(name)
   }
 
   function normalizeTab(raw) {
@@ -382,13 +378,13 @@ Item {
   }
 
   function findModule(moduleId) {
-    var target = String(moduleId || "")
+    var target = aliasedModule(moduleId)
     for (var edgeIndex = 0; edgeIndex < edges.length; edgeIndex++) {
       var list = slots(edges[edgeIndex])
       for (var slotIndex = 0; slotIndex < list.length; slotIndex++) {
         var tabs = Array.isArray(list[slotIndex].modules) ? list[slotIndex].modules : []
         for (var tabIndex = 0; tabIndex < tabs.length; tabIndex++)
-          if (String(tabs[tabIndex].module) === target)
+          if (aliasedModule(tabs[tabIndex].module) === target)
             return { edge: edges[edgeIndex], index: slotIndex, tab: tabIndex }
       }
     }
