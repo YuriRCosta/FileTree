@@ -1,3 +1,5 @@
+#[path = "support/isolated.rs"]
+mod isolated;
 use fileblade::archive;
 use std::fs;
 use std::io::Write;
@@ -9,6 +11,9 @@ use std::time::{Duration, Instant};
 
 #[test]
 fn all_creation_formats_round_trip_multiple_parents_and_literal_option_names() {
+    if !isolated::child() {
+        return;
+    }
     let root = tempfile::tempdir().unwrap();
     let first = root.path().join("first");
     let second = root.path().join("second");
@@ -65,6 +70,9 @@ fn all_creation_formats_round_trip_multiple_parents_and_literal_option_names() {
 
 #[test]
 fn existing_target_self_nested_duplicate_and_remote_sources_are_refused() {
+    if !isolated::child() {
+        return;
+    }
     let root = tempfile::tempdir().unwrap();
     fs::create_dir(root.path().join("folder")).unwrap();
     fs::write(root.path().join("folder/file"), "source").unwrap();
@@ -108,6 +116,9 @@ fn existing_target_self_nested_duplicate_and_remote_sources_are_refused() {
 
 #[test]
 fn cancellation_after_output_started_removes_staging_without_publishing() {
+    if !isolated::child() {
+        return;
+    }
     let root = tempfile::tempdir().unwrap();
     let source = root.path().join("large");
     let mut input = fs::File::create(&source).unwrap();
@@ -174,6 +185,9 @@ fn assert_no_partial(root: &Path) {
 #[test]
 #[ignore = "requires an isolated full or read-only test mount"]
 fn creation_refuses_a_fault_volume_without_leaving_partial_output() {
+    if !isolated::child() {
+        return;
+    }
     let mount = std::env::var_os("FILEBLADE_ARCHIVE_FAULT_ROOT").expect("fault volume is required");
     let expected =
         std::env::var("FILEBLADE_ARCHIVE_FAULT_ERROR").expect("expected error is required");

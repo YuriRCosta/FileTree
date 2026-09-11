@@ -15,12 +15,14 @@ use uuid::Uuid;
 
 mod compound;
 mod fingerprint;
+mod permissions;
 mod record;
 mod step;
 mod store;
 mod trash;
 pub use compound::*;
 pub use fingerprint::*;
+pub use permissions::*;
 pub use record::*;
 pub use step::*;
 pub use store::*;

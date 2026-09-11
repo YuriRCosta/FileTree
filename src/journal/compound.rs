@@ -48,7 +48,7 @@ pub(super) fn apply_compound(
         if !reverse && kind == "trash" {
             let path = parse_path(&item.source).map_err(|error| partial(index, error))?;
             let was_empty = item.fingerprint.as_ref().is_some_and(|value| {
-                value.kind == "directory"
+                value.kind == "dir"
                     && value
                         .tree
                         .as_ref()

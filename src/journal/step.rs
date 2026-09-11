@@ -133,6 +133,7 @@ pub(super) fn reverse_entry(
 ) -> Result<Value, ApplyFailure> {
     match entry.kind.as_str() {
         "transfer" => apply_compound(entry, true, force, cancelled),
+        "permissions" => apply_permissions(entry, true, cancelled),
         "copy" | "create" => apply_removal(entry, force, cancelled),
         "move" | "rename" => apply_relocation(entry, true, cancelled),
         "trash" => apply_restore(entry, "source", "undo", "restore", cancelled),
@@ -151,6 +152,7 @@ pub(super) fn forward_entry(
 ) -> Result<Value, ApplyFailure> {
     match entry.kind.as_str() {
         "transfer" => apply_compound(entry, false, false, cancelled),
+        "permissions" => apply_permissions(entry, false, cancelled),
         "copy" | "create" => {
             let kind = entry.kind.clone();
             apply_restore(entry, "target", "redo", &kind, cancelled)
