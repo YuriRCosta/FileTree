@@ -1,9 +1,10 @@
 use crate::backend;
+use crate::lease::operations::{Operation, Operations};
+use crate::lease::transport::Output;
 use crate::{AppError, AppResult};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use clap::Args;
-use fileblade_output::Output;
 use rustix::event::{PollFd, PollFlags, poll};
 use rustix::fs::Timespec;
 use rustix::fs::inotify::{self, CreateFlags, ReadFlags, WatchFlags};
@@ -23,10 +24,13 @@ use std::time::{Duration, Instant};
 mod input;
 mod lifecycle;
 mod mounts;
+#[path = "../lease/server.rs"]
+mod native;
 mod request;
 mod subscription;
 use lifecycle::*;
 use mounts::*;
+pub use request::native_mutating;
 use request::*;
 use subscription::*;
 const VERSION: u64 = 1;
@@ -50,6 +54,10 @@ pub struct ServeArgs {
     pub max_concurrency: usize,
     #[arg(long)]
     pub no_recover: bool,
+    #[arg(long)]
+    pub native_authority: bool,
+    #[arg(long)]
+    pub native_probe: bool,
 }
 
 #[derive(Clone)]
@@ -59,6 +67,7 @@ struct ActiveRequest {
     deadline_exceeded: Arc<AtomicBool>,
     cancel_on_deadline: bool,
     standing: bool,
+    authority_owned: bool,
 }
 
 struct Deadline {
@@ -133,7 +142,22 @@ enum InputLine {
     TooLong,
 }
 
-pub fn run(options: ServeArgs, output: Arc<Output>) -> AppResult<()> {
+pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResult<()> {
+    if let Some(root) = crate::lease::selected_root()? {
+        if options.native_authority {
+            return native::run(options, &root);
+        }
+        if options.native_probe {
+            return crate::lease::transport::probe(&root).map_err(AppError::Io);
+        }
+        return crate::lease::transport::bridge(&root).map_err(AppError::Io);
+    }
+    if options.native_authority || options.native_probe {
+        return Err(AppError::command(
+            "native authority requires FILEBLADE_NATIVE_STATE_ROOT",
+        ));
+    }
+    let output = Arc::new(Output::Stdio(output));
     let _signals = input::InputSignals::install()?;
     let parent = getppid();
     set_parent_process_death_signal(Some(Signal::TERM)).map_err(|error| {
@@ -212,6 +236,7 @@ pub fn run(options: ServeArgs, output: Arc<Output>) -> AppResult<()> {
                     &active,
                     &mut seen,
                     &mut workers,
+                    None,
                 )?,
             }
         }
@@ -277,6 +302,7 @@ fn process_line(
     active: &Arc<Mutex<HashMap<RequestKey, ActiveRequest>>>,
     seen: &mut RecentKeys,
     workers: &mut Vec<JoinHandle<()>>,
+    operations: Option<&Arc<Operations>>,
 ) -> AppResult<()> {
     let value: Value = match serde_json::from_slice(line) {
         Ok(value) => value,
@@ -297,9 +323,20 @@ fn process_line(
         return emit(output, &error_frame(object, &error.to_string()));
     }
     match text(object, "type").as_str() {
-        "request" => start_request(object, max_concurrency, output, active, seen, workers),
+        "request" => start_request(
+            object,
+            max_concurrency,
+            output,
+            active,
+            seen,
+            workers,
+            operations,
+        ),
         "subscribe" => start_subscription(object, max_concurrency, output, active, seen, workers),
-        "cancel" => cancel_request(object, output, active),
+        "cancel" => cancel_request(object, output, active, operations),
+        "operation" if operations.is_some() => {
+            native::operation_request(object, output, operations.unwrap())
+        }
         "hello" => emit(
             output,
             &error_frame(object, "handshake is already complete"),

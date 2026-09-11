@@ -7,6 +7,7 @@ pub(super) fn start_request(
     active: &Arc<Mutex<HashMap<RequestKey, ActiveRequest>>>,
     seen: &mut RecentKeys,
     workers: &mut Vec<JoinHandle<()>>,
+    operations: Option<&Arc<Operations>>,
 ) -> AppResult<()> {
     let request = match parse_request(object) {
         Ok(request) => request,
@@ -20,7 +21,12 @@ pub(super) fn start_request(
     }
     let cancelled = Arc::new(AtomicBool::new(false));
     let deadline_exceeded = Arc::new(AtomicBool::new(false));
-    let mutating = backend::mutating(&request.command);
+    let mutating = if operations.is_some() {
+        native_mutating(&request.command)
+    } else {
+        backend::mutating(&request.command)
+    };
+    let mut operation = None;
     {
         let mut requests = lock(active);
         if requests.contains_key(&request.key) {
@@ -35,6 +41,12 @@ pub(super) fn start_request(
                 &error_frame(object, "server concurrency limit reached"),
             );
         }
+        if mutating && let Some(operations) = operations {
+            operation = match operations.admit(Arc::clone(&cancelled), output) {
+                Ok(operation) => Some(operation),
+                Err(error) => return emit(output, &error_frame(object, &error.to_string())),
+            };
+        }
         requests.insert(
             request.key.clone(),
             ActiveRequest {
@@ -43,20 +55,35 @@ pub(super) fn start_request(
                 deadline_exceeded: Arc::clone(&deadline_exceeded),
                 cancel_on_deadline: !mutating,
                 standing: false,
+                authority_owned: operation.is_some(),
             },
         );
     }
     seen.remember(request.key.clone());
+    if let Some(operation) = &operation {
+        let _ = emit(
+            output,
+            &json!({"v": VERSION, "type": "accepted", "id": request.key.id, "generation": request.generation, "op": operation.id, "ok": true}),
+        );
+    }
     let output = Arc::clone(output);
     let active = Arc::clone(active);
     let active_key = request.key.clone();
     workers.push(thread::spawn(move || {
-        let frame = execute(request, cancelled, deadline_exceeded, &output);
-        // A client may refill its slot as soon as it reads the response. Keep
-        // admission locked until removal, including while stdout is blocked.
-        let mut requests = lock(&active);
-        let _ = emit(&output, &frame);
-        requests.remove(&active_key);
+        let mut frame = execute(
+            request,
+            cancelled,
+            deadline_exceeded,
+            &output,
+            operation.as_deref(),
+        );
+        if let Some(operation) = operation {
+            frame["op"] = Value::String(operation.id.clone());
+            operation.publish(frame, true);
+        } else {
+            let _ = emit(&output, &frame);
+        }
+        lock(&active).remove(&active_key);
     }));
     Ok(())
 }
@@ -66,22 +93,27 @@ pub(super) fn execute(
     cancelled: Arc<AtomicBool>,
     deadline_exceeded: Arc<AtomicBool>,
     output: &Output,
+    operation: Option<&Operation>,
 ) -> Value {
     let key = request.key.clone();
     let generation = request.generation.clone();
     let deadline = Arc::clone(&request.deadline);
     let mut progress = |payload: Value| {
         deadline.renew();
-        emit(
-            output,
-            &json!({
-                "v": VERSION,
-                "type": "progress",
-                "id": key.id,
-                "generation": generation,
-                "payload": payload,
-            }),
-        )
+        let mut frame = json!({
+            "v": VERSION,
+            "type": "progress",
+            "id": key.id,
+            "generation": generation,
+            "payload": payload,
+        });
+        if let Some(operation) = operation {
+            frame["op"] = Value::String(operation.id.clone());
+            operation.publish(frame, false);
+            Ok(())
+        } else {
+            emit(output, &frame)
+        }
     };
     let started = Instant::now();
     let result = backend::dispatch(request.command, &cancelled, &mut progress);
@@ -152,13 +184,23 @@ pub(super) fn cancel_request(
     object: &Map<String, Value>,
     output: &Output,
     active: &Arc<Mutex<HashMap<RequestKey, ActiveRequest>>>,
+    operations: Option<&Arc<Operations>>,
 ) -> AppResult<()> {
+    if let Some(id) = object.get("op").and_then(Value::as_str)
+        && let Some(operations) = operations
+    {
+        return emit(
+            output,
+            &json!({"v": VERSION, "type": "cancel", "op": id, "ok": true, "accepted": operations.cancel(id)}),
+        );
+    }
     let key = match request_key(object) {
         Ok(value) => value,
         Err(error) => return emit(output, &error_frame(object, &error.to_string())),
     };
     let accepted = lock(active)
         .get(&key)
+        .filter(|request| !request.authority_owned)
         .map(|request| {
             request.cancelled.store(true, Ordering::Relaxed);
             true
@@ -175,6 +217,22 @@ pub(super) fn cancel_request(
             "accepted": accepted,
         }),
     )
+}
+
+pub fn native_mutating(command: &backend::BackendCommand) -> bool {
+    backend::mutating(command)
+        || matches!(
+            command,
+            backend::BackendCommand::Recover
+                | backend::BackendCommand::StateWrite(_)
+                | backend::BackendCommand::LayoutWrite(_)
+                | backend::BackendCommand::FrecencyVisit(_)
+                | backend::BackendCommand::ClipboardWrite(_)
+                | backend::BackendCommand::ClipboardText(_)
+                | backend::BackendCommand::ModuleDirs(_)
+                | backend::BackendCommand::Visit(_)
+                | backend::BackendCommand::SetDefault(_)
+        )
 }
 
 pub(super) fn parse_request(object: &Map<String, Value>) -> AppResult<Request> {
