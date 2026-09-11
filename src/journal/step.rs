@@ -61,6 +61,9 @@ pub(super) fn step(direction: &str, drop: bool, force: bool, cancelled: &AtomicB
     let mut result = match applied {
         Ok(result) => {
             if result.get("ok").and_then(Value::as_bool) == Some(true) {
+                if entry.kind == "transfer" {
+                    entry.items.reverse();
+                }
                 target_stack(&mut journal.data, source_is_undo).push(entry.clone());
             } else {
                 source_stack(&mut journal.data, source_is_undo).push(entry.clone());
@@ -74,10 +77,13 @@ pub(super) fn step(direction: &str, drop: bool, force: bool, cancelled: &AtomicB
         Err(ApplyFailure::Partial { done, error }) => {
             if done > 0 {
                 let remaining = entry.items.split_off(done);
-                let completed = JournalEntry {
+                let mut completed = JournalEntry {
                     items: entry.items.clone(),
                     ..entry.clone()
                 };
+                if completed.kind == "transfer" {
+                    completed.items.reverse();
+                }
                 target_stack(&mut journal.data, source_is_undo).push(completed);
                 entry.items = remaining;
                 entry.id = format!("{}-rest", entry.id);
@@ -126,6 +132,7 @@ pub(super) fn reverse_entry(
     cancelled: &AtomicBool,
 ) -> Result<Value, ApplyFailure> {
     match entry.kind.as_str() {
+        "transfer" => apply_compound(entry, true, force, cancelled),
         "copy" | "create" => apply_removal(entry, force, cancelled),
         "move" | "rename" => apply_relocation(entry, true, cancelled),
         "trash" => apply_restore(entry, "source", "undo", "restore", cancelled),
@@ -143,6 +150,7 @@ pub(super) fn forward_entry(
     cancelled: &AtomicBool,
 ) -> Result<Value, ApplyFailure> {
     match entry.kind.as_str() {
+        "transfer" => apply_compound(entry, false, false, cancelled),
         "copy" | "create" => {
             let kind = entry.kind.clone();
             apply_restore(entry, "target", "redo", &kind, cancelled)

@@ -75,6 +75,8 @@ pub enum BackendCommand {
     ActionRun(ActionRunArgs),
     Copy(TransferArgs),
     Move(TransferArgs),
+    TransferPreflight(TransferPreflightArgs),
+    TransferExecute(TransferExecuteArgs),
     Rename(RenameArgs),
     Create(CreateArgs),
     Color(ColorArgs),
@@ -125,7 +127,8 @@ where
 pub fn mutating(command: &BackendCommand) -> bool {
     matches!(
         command,
-        BackendCommand::Copy(_)
+        BackendCommand::TransferExecute(_)
+            | BackendCommand::Copy(_)
             | BackendCommand::Move(_)
             | BackendCommand::Rename(_)
             | BackendCommand::Create(_)
@@ -150,6 +153,11 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::HelperWrite(_)
             | BackendCommand::PreferencesSet(_)
             | BackendCommand::KeybindingsPrepare
+            | BackendCommand::StateWrite(_)
+            | BackendCommand::LayoutWrite(_)
+            | BackendCommand::FrecencyVisit(_)
+            | BackendCommand::Visit(_)
+            | BackendCommand::Recover
     )
 }
 
@@ -171,6 +179,15 @@ fn dispatch_command(
     }
     let mutates = mutating(&command);
     let value = match command {
+        BackendCommand::TransferPreflight(options) => crate::operations::collisions::preflight(
+            options.operation == "copy",
+            &options.source,
+            &options.destination,
+            cancelled,
+        ),
+        BackendCommand::TransferExecute(options) => {
+            transfer_execute(&options, cancelled, progress)?
+        }
         BackendCommand::Agents => crate::agents::installed_agents(),
         BackendCommand::HelperRead(options) => options.execute(false, cancelled)?,
         BackendCommand::HelperWrite(options) => options.execute(true, cancelled)?,

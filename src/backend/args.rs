@@ -374,3 +374,23 @@ pub struct UpdateArgs {
     #[arg(long, default_value = "")]
     pub core: String,
 }
+
+#[derive(Clone, Debug, Args)]
+pub struct TransferPreflightArgs {
+    #[arg(long, action = ArgAction::Append, required = true)]
+    pub source: Vec<String>,
+    #[arg(long)]
+    pub destination: String,
+    #[arg(long, default_value = "copy", value_parser = ["copy", "move"])]
+    pub operation: String,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct TransferExecuteArgs {
+    #[arg(long)]
+    pub decision_id: String,
+    #[arg(long, default_value = "[]")]
+    pub decisions: String,
+    #[arg(long)]
+    pub cancel: bool,
+}

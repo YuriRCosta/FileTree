@@ -255,3 +255,36 @@ pub(super) fn prepare_private_path(path: &std::path::Path) -> std::io::Result<()
         Err(error) => Err(error),
     }
 }
+
+pub(super) fn transfer_execute(
+    options: &TransferExecuteArgs,
+    cancelled: &AtomicBool,
+    progress: &mut dyn FnMut(Value) -> AppResult<()>,
+) -> AppResult<Value> {
+    if options.decisions.len() > 1024 * 1024 {
+        return Err(crate::AppError::invalid("transfer decisions exceed 1 MiB"));
+    }
+    let decisions: Vec<crate::operations::collisions::Decision> =
+        serde_json::from_str(&options.decisions)?;
+    let mut output_error = None;
+    let mut callback = |value| {
+        if output_error.is_some() {
+            return;
+        }
+        if let Err(error) = progress(value) {
+            cancelled.store(true, Ordering::Relaxed);
+            output_error = Some(error);
+        }
+    };
+    let result = crate::operations::collisions::execute(
+        &options.decision_id,
+        &decisions,
+        options.cancel,
+        &mut callback,
+        cancelled,
+    );
+    match output_error {
+        Some(error) => Err(error),
+        None => Ok(result),
+    }
+}
