@@ -29,6 +29,7 @@ Item {
   property var limits: ({})
   readonly property bool nativeAuthority: String(Quickshell.env("FILEBLADE_NATIVE_STATE_ROOT") || "") !== ""
   signal operationAccepted(string requestId, string generation, string operationId)
+  signal operationUpdated(string operationId, var frame)
   readonly property bool versionSkew: expectedVersion !== "" && backendVersion !== "" && expectedVersion !== backendVersion
   readonly property int protocolVersion: 1
   readonly property int expiryGraceMs: 2000
@@ -214,9 +215,9 @@ Item {
     }
     if (entry.sent && ready) {
       if (nativeAuthority && entry.kind === "request") {
-        if (discardCallbacks) return true
-        entry.cancelRequested = true
-        if (entry.operationId) {
+        if (discardCallbacks && entry.operationId) return true
+        if (!discardCallbacks) entry.cancelRequested = true
+        if (entry.operationId && !discardCallbacks) {
           send({ v: protocolVersion, type: "cancel", op: entry.operationId })
           return true
         }
@@ -289,6 +290,8 @@ Item {
       for (var index = 0; index < frames.length; index++) dispatch(frames[index])
       return
     }
+    if (frame.op && (frame.type === "progress" || frame.type === "response"))
+      operationUpdated(String(frame.op), frame)
     var requestKey = key(frame.id, frame.generation)
     var request = pending[requestKey]
     if (!request) return
@@ -324,6 +327,8 @@ Item {
         error: String(frame.error || "Backend request failed")
       }
       complete(requestKey, response)
+      if (frame.type === "response" && frame.op)
+        send({ v: protocolVersion, type: "operation", action: "fetch", op: String(frame.op), id: String(frame.id) + "-fetch", generation: frame.generation })
       return
     }
     if (frame.type === "error") complete(requestKey, {

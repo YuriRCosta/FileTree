@@ -74,3 +74,16 @@ Rust's Linux `io::copy` splice optimization held a pipe lock while waiting for
 socket input; Qt then blocked in FIONREAD. `tests/native_authority.rs` covers
 that idle-pipe boundary, as well as contention, unsafe lock storage, holder
 death, EOF, subscriber loss, result fetching and explicit cancellation.
+
+BackendClient exposes `operationAccepted(requestId, generation, operationId)`
+and `operationUpdated(operationId, frame)` for native consumers. Its
+`operation` method queries or attaches by operation ID. A terminal response
+successfully handled by the accepting QML view is acknowledged with an explicit
+fetch; this releases ordinary delivered results without filling retention
+capacity during long sessions. If the view disappears before handling the
+terminal response, it sends no fetch and the result stays available.
+
+The live `40-native-authority.sh` case drives QML selection and admission for
+a two-file move across filesystems, observes it running, quits the real native
+view, verifies completion and both mappings, relaunches the view, and fetches
+the retained result. It requires the staged spike and harness A.
