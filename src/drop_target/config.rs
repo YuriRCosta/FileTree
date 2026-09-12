@@ -15,17 +15,29 @@ const BUILTINS: &[&str] = &[
 ];
 const DISPLAY_FIELDS: &[&str] = &["label", "key", "glyph", "icon", "description", "group"];
 
+struct MergeContext<'a> {
+    target: &'a Value,
+    facts: &'a Value,
+    budget: usize,
+    diagnostics: Vec<String>,
+}
+
 pub fn merge(
     defaults: &[Value],
     document: &Value,
     target: &Value,
     facts: &Value,
 ) -> (Vec<Value>, Vec<String>) {
-    let mut diagnostics = Vec::new();
+    let mut context = MergeContext {
+        target,
+        facts,
+        budget: MAX_NODES,
+        diagnostics: Vec::new(),
+    };
     let mut base = defaults.to_vec();
     annotate_builtins(&mut base, "", "");
     if document.is_null() {
-        return (base, diagnostics);
+        return (base, context.diagnostics);
     }
     if !document.is_object() || document["version"] != 1 {
         return (
@@ -33,56 +45,49 @@ pub fn merge(
             vec!["dropWheel: unsupported configuration version; using defaults".into()],
         );
     }
-    let mut budget = MAX_NODES;
-    if let Some(custom) = array(document, "customActions", &mut diagnostics) {
+    if let Some(custom) = array(document, "customActions", &mut context.diagnostics) {
         let mut seen = HashSet::new();
         for (index, entry) in custom.iter().take(MAX_RING).enumerate() {
             let location = format!("dropWheel.customActions[{index}]");
             let id = text_field(entry, "id");
             if !id.starts_with("custom:") || !seen.insert(id.clone()) {
-                diagnostics.push(format!("{location}: requires a unique custom: id"));
+                context
+                    .diagnostics
+                    .push(format!("{location}: requires a unique custom: id"));
                 continue;
             }
-            match custom_node(
-                entry,
-                0,
-                &mut budget,
-                &base,
-                target,
-                facts,
-                &location,
-                &mut diagnostics,
-            ) {
+            match custom_node(entry, 0, &base, &location, &mut context) {
                 Ok(Some(row)) => base.push(row),
                 Ok(None) => {}
-                Err(error) => diagnostics.push(format!("{location}: {error}")),
+                Err(error) => context.diagnostics.push(format!("{location}: {error}")),
             }
         }
         if custom.len() > MAX_RING {
-            diagnostics.push("dropWheel.customActions: at most 12 actions".into());
+            context
+                .diagnostics
+                .push("dropWheel.customActions: at most 12 actions".into());
         }
     }
     let catalogue = base.clone();
-    let mut rows = match array(document, "actions", &mut diagnostics) {
+    let mut rows = match array(document, "actions", &mut context.diagnostics) {
         Some(overrides) => merge_rows(
             base,
             overrides,
             0,
-            &mut budget,
             &catalogue,
-            target,
-            facts,
             "dropWheel.actions",
-            &mut diagnostics,
+            &mut context,
         ),
         None => base,
     };
     if rows.len() > MAX_RING {
         rows.truncate(MAX_RING);
-        diagnostics.push("dropWheel: at most 12 visible actions".into());
+        context
+            .diagnostics
+            .push("dropWheel: at most 12 visible actions".into());
     }
     finish_rows(&mut rows, &[]);
-    (rows, diagnostics)
+    (rows, context.diagnostics)
 }
 
 pub(super) fn load(defaults: &[Value], target: &Value, facts: &Value) -> (Vec<Value>, Vec<String>) {
@@ -183,17 +188,13 @@ fn hidden(entry: &Value) -> Result<bool, String> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn merge_rows(
     mut base: Vec<Value>,
     overrides: &[Value],
     depth: usize,
-    budget: &mut usize,
     catalogue: &[Value],
-    target: &Value,
-    facts: &Value,
     location: &str,
-    diagnostics: &mut Vec<String>,
+    context: &mut MergeContext<'_>,
 ) -> Vec<Value> {
     let mut rows = Vec::new();
     let mut seen = HashSet::new();
@@ -201,7 +202,9 @@ fn merge_rows(
         let here = format!("{location}[{index}]");
         let id = identity(entry);
         if id.is_empty() || !seen.insert(id.clone()) {
-            diagnostics.push(format!("{here}: missing or duplicate id"));
+            context
+                .diagnostics
+                .push(format!("{here}: missing or duplicate id"));
             continue;
         }
         let position = base.iter().position(|row| identity(row) == id);
@@ -229,12 +232,9 @@ fn merge_rows(
                         defaults,
                         children,
                         depth + 1,
-                        budget,
                         catalogue,
-                        target,
-                        facts,
                         &format!("{here}.placements"),
-                        diagnostics,
+                        context,
                     );
                     if !children.is_empty() && merged.is_empty() {
                         return Ok(None);
@@ -248,16 +248,7 @@ fn merge_rows(
             }
             adjusted
         } else if depth > 0 && id.starts_with("custom:") {
-            custom_node(
-                entry,
-                depth,
-                budget,
-                catalogue,
-                target,
-                facts,
-                &here,
-                diagnostics,
-            )
+            custom_node(entry, depth, catalogue, &here, context)
         } else if BUILTINS.contains(&id.as_str()) || entry.get("desktop_id").is_some() {
             Ok(None)
         } else {
@@ -266,35 +257,33 @@ fn merge_rows(
         match result {
             Ok(Some(row)) => rows.push(row),
             Ok(None) => {}
-            Err(error) => diagnostics.push(format!("{here}: {error}")),
+            Err(error) => context.diagnostics.push(format!("{here}: {error}")),
         }
     }
     rows.extend(base);
     if overrides.len() > MAX_RING || rows.len() > MAX_RING {
-        diagnostics.push(format!("{location}: at most 12 entries per ring"));
+        context
+            .diagnostics
+            .push(format!("{location}: at most 12 entries per ring"));
     }
     rows.truncate(MAX_RING);
     rows
 }
 
-#[allow(clippy::too_many_arguments)]
 fn custom_node(
     entry: &Value,
     depth: usize,
-    budget: &mut usize,
     catalogue: &[Value],
-    target: &Value,
-    facts: &Value,
     location: &str,
-    diagnostics: &mut Vec<String>,
+    context: &mut MergeContext<'_>,
 ) -> Result<Option<Value>, String> {
     if !entry.is_object() {
         return Err("entry must be an object".into());
     }
-    if *budget == 0 {
+    if context.budget == 0 {
         return Err("configuration exceeds 96 nodes".into());
     }
-    *budget -= 1;
+    context.budget -= 1;
     if hidden(entry)? {
         return Ok(None);
     }
@@ -313,7 +302,7 @@ fn custom_node(
     if text_field(&row, "label").is_empty() {
         return Err("label is required".into());
     }
-    if !applicable(entry, target, facts)? {
+    if !applicable(entry, context.target, context.facts)? {
         return Ok(None);
     }
     if let Some(reference) = entry.get("builtin") {
@@ -370,7 +359,7 @@ fn custom_node(
         }
         row["runMode"] = json!(mode);
         if mode == "multiplexer" {
-            let Some(mux) = resolved_multiplexer(target) else {
+            let Some(mux) = resolved_multiplexer(context.target) else {
                 return Ok(None);
             };
             let placement = text_field(entry, "placement");
@@ -395,26 +384,19 @@ fn custom_node(
         for (index, child) in children.iter().take(MAX_RING).enumerate() {
             let here = format!("{location}.placements[{index}]");
             if !seen.insert(identity(child)) {
-                diagnostics.push(format!("{here}: duplicate id"));
+                context.diagnostics.push(format!("{here}: duplicate id"));
                 continue;
             }
-            match custom_node(
-                child,
-                depth + 1,
-                budget,
-                catalogue,
-                target,
-                facts,
-                &here,
-                diagnostics,
-            ) {
+            match custom_node(child, depth + 1, catalogue, &here, context) {
                 Ok(Some(row)) => merged.push(row),
                 Ok(None) => {}
-                Err(error) => diagnostics.push(format!("{here}: {error}")),
+                Err(error) => context.diagnostics.push(format!("{here}: {error}")),
             }
         }
         if children.len() > MAX_RING {
-            diagnostics.push(format!("{location}: at most 12 placements"));
+            context
+                .diagnostics
+                .push(format!("{location}: at most 12 placements"));
         }
         row["placements"] = json!(merged);
     }
