@@ -10,7 +10,9 @@ if pacman -Q fileblade-native >/dev/null 2>&1; then printf '%s\n' 'Refusing to r
 work=$(mktemp -d /tmp/fileblade-delivery-92.XXXXXX)
 package_installed=0
 trap 'if [[ $package_installed == 1 ]] && pacman -Q fileblade-native >/dev/null 2>&1; then as_root pacman -R --noconfirm fileblade-native; fi; rm -rf -- "$work"' EXIT
-"$source_root/packaging/build" "$payload" "$work/package"
+cp -a -- "$payload" "$work/private-payload"
+chmod 700 "$work/private-payload"
+"$source_root/packaging/build" "$work/private-payload" "$work/package"
 packages=("$work/package"/*.pkg.tar.*)
 [[ ${#packages[@]} == 1 ]]
 package=${packages[0]}
@@ -18,6 +20,7 @@ mkdir "$work/unpacked"
 bsdtar -xf "$package" -C "$work/unpacked"
 "$native" verify "$work/unpacked/usr/lib/fileblade"
 cmp -- "$payload/payload.json" "$work/unpacked/usr/lib/fileblade/payload.json"
+[[ $(stat -c %a "$work/unpacked/usr/lib/fileblade") == 755 ]]
 jq -r '.packages[]' "$payload/packaging/runtime.json" | sort > "$work/expected-dependencies"
 sed -n 's/^depend = //p' "$work/unpacked/.PKGINFO" | sort > "$work/actual-dependencies"
 cmp -- "$work/expected-dependencies" "$work/actual-dependencies"

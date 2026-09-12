@@ -15,6 +15,7 @@ stage=$(mktemp -d "${output%/*}/.fileblade-package.XXXXXX")
 trap 'rm -rf -- "$stage"' EXIT
 mkdir "$stage/input"
 cp -a -- "$source/." "$stage/input/payload"
+chmod 755 "$stage/input/payload"
 "$native_root/tools/native" verify "$stage/input/payload"
 version=$(jq -r .version "$stage/input/payload/payload.json")
 architecture=$(jq -r .architecture "$stage/input/payload/payload.json")

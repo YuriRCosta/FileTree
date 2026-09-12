@@ -124,6 +124,8 @@ The `fileblade-native` package owns the unchanged payload beneath
 `/usr/bin/fileblade-bin` backend link and a standard license link. Stripping
 and debug splitting are disabled. The builder extracts the resulting package
 and verifies its inner payload again before publishing the output.
+The payload root is normalized to mode 755, as in direct installation, so
+a private input directory does not become a root-only installed runtime.
 
 There is no package install hook. Installing a package selects no desktop
 roles, defaults, bindings or autostart. User-level installations remain
