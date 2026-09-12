@@ -28,6 +28,8 @@ class NativePaths(unittest.TestCase):
             (self.hooks / name).write_text(json.dumps(self.original))
         self.env = {"PATH": os.environ["PATH"], "HOME": str(self.home), "PYTHONDONTWRITEBYTECODE": "1",
                     "XDG_DATA_HOME": str(self.base / "data"), "XDG_STATE_HOME": str(self.base / "state")}
+        if "FILEBLADE_BINARY" in os.environ:
+            self.env["FILEBLADE_BINARY"] = os.environ["FILEBLADE_BINARY"]
 
     def run_helper(self, command, *arguments, payload=None):
         locations = [] if command == "restore" else ["--exact", "--project", path_text(str(self.project)), "--home", str(self.home)]
