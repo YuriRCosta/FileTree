@@ -10,7 +10,7 @@ TestCase {
   }
 
   function test_recognition_keeps_unsupported_decoders_visible() {
-    var families = ["png", "gif", "svg", "tiff", "heic", "avif", "jxl", "cr3", "exr", "psd", "mkv", "mp4"]
+    var families = ["png", "jpg", "webp", "bmp", "ico", "pbm", "pgm", "ppm", "pam", "pfm", "gif", "svg", "tiff", "heic", "avif", "jxl", "cr3", "hdr", "exr", "psd", "mkv", "mp4", "webm", "avi", "ogv", "wmv", "flv"]
     families.forEach(function(ext) { verify(MediaModel.kind(row("/a." + ext, "application/octet-stream")) !== "") })
     compare(MediaModel.kind(row("/no-suffix", "video/mp4")), "video")
     compare(MediaModel.kind(row("/misleading.txt", "image/png")), "image")
