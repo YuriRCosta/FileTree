@@ -72,9 +72,19 @@ PanelWindow {
       ? Qt.resolvedUrl("../assets/marks/" + mark + ".svg") : ""
   }
 
-  function applicationIconSource(item) {
-    if (item.icon_override) return bundledMark(item.icon)
-    return String(item.icon_source || "") || bundledMark(item.icon)
+  function applicationIcon(item) {
+    var resolved = {
+      icon: String(item.icon || ""),
+      icon_source: item.icon_override ? "" : String(item.icon_source || ""),
+      glyph: String(item.glyph || "")
+    }
+    if (typeof FileIcons.resolveApplication === "function") {
+      var override = item.icon_override ? { icon: resolved.icon, glyph: resolved.glyph } : null
+      var desktopId = String(item.desktop_id || "").replace(/\.desktop$/, "")
+      var desktop = desktopId ? DesktopEntries.applications.values.find(function(entry) { return entry.id === desktopId }) || null : null
+      resolved = FileIcons.resolveApplication(item, override, desktop, Quickshell.iconPath)
+    }
+    return { icon: resolved.icon, icon_source: String(resolved.icon_source || "") || bundledMark(resolved.icon), glyph: resolved.glyph }
   }
 
   function labelWidth(radius, step) {
@@ -348,6 +358,7 @@ PanelWindow {
       id: wedge
       required property var modelData
       required property int index
+      readonly property var applicationIcon: overlay.applicationIcon(modelData)
       readonly property bool active: index === overlay.controller.highlighted
       readonly property bool parentWedge: overlay.controller.hasChildren(index)
       readonly property real angle: overlay.controller.wedgeAngle(index)
@@ -363,13 +374,13 @@ PanelWindow {
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: Math.cos(wedge.angle) * Style.space(4)
         anchors.verticalCenterOffset: Math.sin(wedge.angle) * Style.space(4)
-        iconName: String(wedge.modelData.icon || "")
-        trustedIconSource: overlay.applicationIconSource(wedge.modelData)
+        iconName: String(wedge.applicationIcon.icon || "")
+        trustedIconSource: wedge.applicationIcon.icon_source
         monochrome: !wedge.active || monochromeMask !== "alpha"
         monochromeMask: String(wedge.modelData.icon_mask || "alpha")
         iconColor: wedge.active ? Qt.lighter(Color.accent, 1.5) : Color.accent
         iconSize: Style.font.body + 8
-        fallbackGlyph: String(wedge.modelData.glyph || "") || String(wedge.modelData.key || "").toUpperCase()
+        fallbackGlyph: String(wedge.applicationIcon.glyph || "") || String(wedge.modelData.key || "").toUpperCase()
         fallbackColor: Color.accent
         fallbackSize: Style.font.body + 6
       }
@@ -403,6 +414,7 @@ PanelWindow {
       id: child
       required property var modelData
       required property int index
+      readonly property var applicationIcon: overlay.applicationIcon(modelData)
       readonly property bool third: index >= overlay.controller.outerItems.length
       readonly property int localIndex: third ? index - overlay.controller.outerItems.length : index
       readonly property bool active: localIndex === (third ? overlay.controller.subHighlighted : overlay.controller.outerHighlighted)
@@ -419,13 +431,13 @@ PanelWindow {
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: Math.cos(child.angle) * Style.space(3)
         anchors.verticalCenterOffset: Math.sin(child.angle) * Style.space(3)
-        iconName: String(child.modelData.icon || "")
-        trustedIconSource: overlay.applicationIconSource(child.modelData)
+        iconName: String(child.applicationIcon.icon || "")
+        trustedIconSource: child.applicationIcon.icon_source
         monochrome: !child.active || monochromeMask !== "alpha"
         monochromeMask: String(child.modelData.icon_mask || "alpha")
         iconColor: Qt.lighter(Color.accent, child.active ? 1.75 : 1.45)
         iconSize: Style.font.body + 7
-        fallbackGlyph: String(child.modelData.glyph || "") || String(child.modelData.key || "").toUpperCase()
+        fallbackGlyph: String(child.applicationIcon.glyph || "") || String(child.modelData.key || "").toUpperCase()
         fallbackColor: Qt.lighter(Color.accent, 1.45)
         fallbackSize: Style.font.body + 4
       }

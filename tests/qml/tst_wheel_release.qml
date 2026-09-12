@@ -7,6 +7,7 @@ TestCase {
   property var wheel: null
   property var callbacks: []
   property var launches: []
+  property var resolveIcon: null
 
   QtObject {
     id: service
@@ -33,6 +34,11 @@ TestCase {
     source = source.slice(0, source.lastIndexOf("  Variants {")) + "}\n"
     wheel = Qt.createQmlObject(source.replace("required property var service", "property var service"), suite, url)
     wheel.service = service
+    request.open("GET", Qt.resolvedUrl("../../ui/DropWheel.qml"), false)
+    request.send()
+    var iconSource = request.responseText
+    iconSource = iconSource.slice(iconSource.indexOf("  function bundledMark("), iconSource.indexOf("  function labelWidth("))
+    resolveIcon = new Function("item", "FileIcons", "DesktopEntries", "Quickshell", "Qt", iconSource + "\nreturn applicationIcon(item)")
   }
 
   function init() {
@@ -54,6 +60,52 @@ TestCase {
       { id: "terminal", label: "Terminal", key: "t", placements: [] },
       { id: "open", label: "Open", key: "o", placements: [] }
     ] }
+  }
+
+  function test_icon_resolver_receives_desktop_entry_and_override() {
+    var entry = { id: "application", desktop_id: "viewer.desktop", icon: "old", glyph: "V" }
+    var desktop = { id: "viewer", icon: "launcher-icon" }
+    var desktopEntries = { applications: { values: [desktop] } }
+    var shell = { iconPath: function(name) { return "image://icon/" + name } }
+    var calls = []
+    var icons = { resolveApplication: function(item, override, app, iconPath) {
+      calls.push([item, override, app, iconPath])
+      return { icon: "resolved", icon_source: "image://icon/resolved", glyph: "R" }
+    } }
+    var resolved = resolveIcon(entry, icons, desktopEntries, shell, Qt)
+    compare(resolved.icon, "resolved")
+    compare(resolved.icon_source, "image://icon/resolved")
+    compare(resolved.glyph, "R")
+    compare(calls[0][0], entry)
+    compare(calls[0][1], null)
+    compare(calls[0][2], desktop)
+    compare(calls[0][3], shell.iconPath)
+    entry.icon_override = true
+    entry.icon = "utilities-terminal"
+    resolveIcon(entry, icons, desktopEntries, shell, Qt)
+    compare(calls[1][1], { icon: "utilities-terminal", glyph: "V" })
+    entry.icon = ""
+    entry.glyph = "G"
+    resolveIcon(entry, icons, desktopEntries, shell, Qt)
+    compare(calls[2][1], { icon: "", glyph: "G" })
+  }
+
+  function test_icons_keep_marks_and_pre_resolver_compatibility() {
+    var unavailable = {}
+    var tool = { id: "mux-open", icon: "herdr", glyph: "H" }
+    verify(String(resolveIcon(tool, {}, unavailable, {}, Qt).icon_source).endsWith("/assets/marks/herdr.svg"))
+    var resolver = { resolveApplication: function(entry, override, desktop) {
+      compare(desktop, null)
+      return { icon: "tmux", icon_source: "", glyph: "T" }
+    } }
+    verify(String(resolveIcon(tool, resolver, unavailable, {}, Qt).icon_source).endsWith("/assets/marks/tmux.svg"))
+    tool.icon_override = true
+    tool.icon = ""
+    tool.glyph = "G"
+    tool.icon_source = "file:///inherited.png"
+    var resolved = resolveIcon(tool, {}, unavailable, {}, Qt)
+    compare(resolved.icon_source, "")
+    compare(resolved.glyph, "G")
   }
 
   function test_early_release_runs_once_when_rows_arrive() {

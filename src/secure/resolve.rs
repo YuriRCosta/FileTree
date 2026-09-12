@@ -216,8 +216,8 @@ pub fn open_file_read(path: &Path) -> io::Result<File> {
 
 pub(super) fn open_absolute_directory(path: &Path, no_symlinks: bool) -> io::Result<OwnedFd> {
     let normalized = normalized_absolute(path)?;
-    let root = root_directory()?;
-    let relative = normalized.strip_prefix("/").unwrap_or(&normalized);
+    let (root, relative) = directory_anchor(&normalized)?;
+    let relative = relative.as_path();
     let relative = if relative.as_os_str().is_empty() {
         Path::new(".")
     } else {
@@ -239,7 +239,7 @@ pub(super) fn open_absolute_directory(path: &Path, no_symlinks: bool) -> io::Res
     ) {
         Ok(fd) => Ok(fd),
         Err(rustix::io::Errno::NOSYS | rustix::io::Errno::INVAL) => {
-            walk_directory_nofollow(root, &normalized)
+            walk_directory_nofollow(root, relative)
         }
         Err(error) => Err(error.into()),
     }
@@ -259,6 +259,16 @@ pub(super) fn walk_directory_nofollow(mut current: OwnedFd, path: &Path) -> io::
         .map_err(io::Error::from)?;
     }
     Ok(current)
+}
+
+pub(super) fn directory_anchor(path: &Path) -> io::Result<(OwnedFd, PathBuf)> {
+    match crate::lease::persistence::storage_anchor(path)? {
+        Some((directory, relative)) => Ok((directory.into(), relative)),
+        None => Ok((
+            root_directory()?,
+            path.strip_prefix("/").unwrap_or(path).to_path_buf(),
+        )),
+    }
 }
 
 pub(super) fn root_directory() -> io::Result<OwnedFd> {

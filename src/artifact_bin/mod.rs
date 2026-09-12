@@ -163,6 +163,9 @@ fn bin_root(module: &str) -> AppResult<PathBuf> {
 }
 
 fn bin_base() -> AppResult<PathBuf> {
+    if let Some(root) = crate::lease::selected_root()? {
+        return Ok(root.join("artifact-bin"));
+    }
     let base = match std::env::var_os("XDG_DATA_HOME").filter(|value| !value.is_empty()) {
         Some(value) => {
             let path = PathBuf::from(value);

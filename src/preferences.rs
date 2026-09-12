@@ -55,7 +55,7 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
     }
     settings["version"] = json!(1);
     settings["filebladeVersion"] = json!(env!("CARGO_PKG_VERSION"));
-    secure::write_private_atomic(&path, &serde_json::to_vec_pretty(&settings)?)?;
+    crate::lease::durable::write_private_atomic(&path, &serde_json::to_vec_pretty(&settings)?)?;
     Ok(settings)
 }
 
@@ -82,10 +82,7 @@ pub fn keybindings() -> AppResult<String> {
     let object = document
         .as_object()
         .ok_or_else(|| AppError::invalid("keybindings must be an object"))?;
-    if object
-        .keys()
-        .any(|key| !["version", "filebladeVersion", "bindings"].contains(&key.as_str()))
-        || object.get("version").is_some_and(|version| version != 1)
+    if object.get("version").is_some_and(|version| version != 1)
         || object
             .get("bindings")
             .is_some_and(|bindings| !bindings.is_object())
@@ -106,7 +103,7 @@ pub fn keybindings() -> AppResult<String> {
         .as_ref()
         != Some(&document);
     if changed {
-        secure::write_private_atomic(&path, encoded.as_bytes())?
+        crate::lease::durable::write_private_atomic(&path, encoded.as_bytes())?
     }
     Ok(encoded)
 }

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "data-goblin.fileblade-skills",
+  "name": "FileBlade Agent Skills",
+  "version": "0.1.1",
+  "author": "Kurt Buhler",
+  "license": "MIT",
+  "description": "Browse agent skills from documented Codex, Claude Code, OpenCode, Pi, Copilot CLI, and Antigravity roots inside a FileBlade blade.",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  },
+  "extensions": {
+    "data-goblin.fileblade/helper": [
+      {
+        "id": "inventory",
+        "entry": "bin/agent-skillsctl",
+        "read": ["list"],
+        "write": ["apply"],
+        "timeoutMs": 8000
+      }
+    ],
+    "data-goblin.fileblade/blade": [
+      {
+        "id": "skills",
+        "name": "Skills",
+        "glyph": "󰖷",
+        "description": "Agent skills for the selected project, by scope and source",
+        "entry": "blades/Module.qml",
+        "provider": "Provider.qml",
+        "singleton": true,
+        "minHeight": 160,
+        "hostContract": 2
+      }
+    ]
+  }
+}

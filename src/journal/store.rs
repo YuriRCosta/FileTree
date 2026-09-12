@@ -47,7 +47,7 @@ impl JournalStore {
     pub(super) fn open() -> AppResult<Self> {
         let path = journal_path();
         let lock_path = appended_name(&path, ".lock")?;
-        let lock = secure::open_private_lock(&lock_path)?;
+        let lock = secure::open_record_lock(&lock_path)?;
         let data = load_journal(&path)?;
         let mut store = Self {
             path,
@@ -79,7 +79,7 @@ impl JournalStore {
             }
             encoded = serde_json::to_vec(&self.data)?;
         }
-        secure::write_private_atomic(&self.path, &encoded)?;
+        crate::lease::durable::write_private_atomic(&self.path, &encoded)?;
         Ok(())
     }
 }
@@ -192,8 +192,17 @@ pub(super) fn quarantine(path: &Path) {
         Local::now().format("%Y%m%d-%H%M%S"),
         Uuid::new_v4().simple()
     );
-    if let Ok(destination) = appended_name(path, &suffix) {
-        let _ = secure::rename_noreplace(path, &destination);
+    if let Ok(destination) = appended_name(path, &suffix)
+        && let Ok(parent) = crate::lease::persistence::record_parent(path)
+    {
+        let _ = rustix::fs::renameat_with(
+            &parent.directory,
+            &parent.name,
+            &parent.directory,
+            destination.file_name().unwrap(),
+            rustix::fs::RenameFlags::NOREPLACE,
+        )
+        .and_then(|()| rustix::fs::fsync(&parent.directory));
     }
 }
 

@@ -1,5 +1,9 @@
 use std::path::PathBuf;
 
+mod artifacts;
+mod prepare;
+mod storage;
+pub use prepare::prepare;
 mod writer;
 pub use writer::{LegacyWriter, legacy_writer};
 mod documents;

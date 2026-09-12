@@ -178,6 +178,7 @@ pub(super) fn editor_actions(target: &Value, facts: &Value) -> Vec<Value> {
             "target",
         );
         row["icon"] = json!("nvim");
+        row["desktop_id"] = json!("nvim.desktop");
         vec![row]
     } else {
         Vec::new()
@@ -212,6 +213,7 @@ pub(super) fn app_actions(target: &Value) -> Vec<Value> {
         &[],
         "target",
     );
+    row["desktop_id"] = json!(desktop_id);
     row["icon"] = json!(app.get("icon").and_then(Value::as_str).unwrap_or_default());
     row["icon_source"] = json!(
         app.get("icon_source")
@@ -411,6 +413,19 @@ mod tests {
         rows.iter()
             .filter_map(|row| row["label"].as_str())
             .collect()
+    }
+
+    #[test]
+    fn application_target_rows_carry_desktop_identity_for_icon_resolution() {
+        let target =
+            json!({"app":{"desktop_id":"viewer.desktop","name":"Viewer","accepts_files":true}});
+        assert_eq!(app_actions(&target)[0]["desktop_id"], "viewer.desktop");
+        let target = json!({"editor":{"kind":"nvim","server":"/tmp/nvim.sock"}});
+        let facts = json!({"files":["/tmp/example.txt"]});
+        assert_eq!(
+            editor_actions(&target, &facts)[0]["desktop_id"],
+            "nvim.desktop"
+        );
     }
 
     #[test]
