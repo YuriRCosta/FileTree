@@ -1,3 +1,6 @@
+mod listing;
+pub use listing::list;
+
 use crate::common::{parse_path, path_text};
 use crate::mounts::{Volume, mountinfo::MountTable};
 use crate::secure::{self, EntryIdentity};
@@ -76,9 +79,11 @@ struct Proof {
     mount_id: u64,
 }
 
+#[derive(Clone)]
 struct Session {
     proof: Proof,
     generation: String,
+    capabilities: BTreeSet<Capability>,
 }
 
 static SESSIONS: Mutex<Option<HashMap<String, Session>>> = Mutex::new(None);
@@ -179,24 +184,6 @@ pub fn local(
         identity,
         mount_id: mount.mount_id,
     };
-    {
-        let mut sessions = SESSIONS
-            .lock()
-            .map_err(|_| AppError::command("location sessions unavailable"))?;
-        let sessions = sessions.get_or_insert_with(HashMap::new);
-        if sessions.len() >= 1024 && !sessions.contains_key(id) {
-            return Err(AppError::command("too many validated location sessions"));
-        }
-        let session = sessions.entry(id.into()).or_insert_with(|| Session {
-            proof: proof.clone(),
-            generation: uuid::Uuid::new_v4().to_string(),
-        });
-        if session.proof != proof {
-            session.proof = proof;
-            session.generation = uuid::Uuid::new_v4().to_string();
-        }
-        descriptor.session_generation = session.generation.clone();
-    }
     descriptor.connection = Connection::Connected;
     descriptor.local_representation = Some(LocalRepresentation {
         path: path_text(&path),
@@ -243,6 +230,26 @@ pub fn local(
             descriptor.capabilities.insert(Capability::Permissions);
         }
     }
+    {
+        let mut sessions = SESSIONS
+            .lock()
+            .map_err(|_| AppError::command("location sessions unavailable"))?;
+        let sessions = sessions.get_or_insert_with(HashMap::new);
+        if sessions.len() >= 1024 && !sessions.contains_key(id) {
+            return Err(AppError::command("too many validated location sessions"));
+        }
+        let session = sessions.entry(id.into()).or_insert_with(|| Session {
+            proof: proof.clone(),
+            generation: uuid::Uuid::new_v4().to_string(),
+            capabilities: descriptor.capabilities.clone(),
+        });
+        if session.proof != proof || session.capabilities != descriptor.capabilities {
+            session.proof = proof;
+            session.capabilities = descriptor.capabilities.clone();
+            session.generation = uuid::Uuid::new_v4().to_string();
+        }
+        descriptor.session_generation = session.generation.clone();
+    }
     Ok(descriptor)
 }
 
@@ -281,15 +288,19 @@ pub fn invalidate(id: &str) {
     }
 }
 
-pub fn validate_local(id: &str, generation: &str) -> AppResult<PathBuf> {
-    let sessions = SESSIONS
+fn session(id: &str, generation: &str) -> AppResult<Session> {
+    SESSIONS
         .lock()
-        .map_err(|_| AppError::command("location sessions unavailable"))?;
-    let session = sessions
+        .map_err(|_| AppError::command("location sessions unavailable"))?
         .as_ref()
         .and_then(|sessions| sessions.get(id))
         .filter(|session| !generation.is_empty() && session.generation == generation)
-        .ok_or_else(|| AppError::invalid("location session is disconnected or stale"))?;
+        .cloned()
+        .ok_or_else(|| AppError::invalid("location session is disconnected or stale"))
+}
+
+pub fn validate_local(id: &str, generation: &str) -> AppResult<PathBuf> {
+    let session = session(id, generation)?;
     let directory = secure::open_directory_nofollow(&session.proof.path)?;
     let identity = secure::stat_in(&directory, OsStr::new("."))?.identity();
     let table = MountTable::read()?;
@@ -305,6 +316,7 @@ pub fn validate_local(id: &str, generation: &str) -> AppResult<PathBuf> {
             "location representation changed since validation",
         ));
     }
+    self::session(id, generation)?;
     Ok(session.proof.path.clone())
 }
 

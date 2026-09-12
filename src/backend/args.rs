@@ -412,3 +412,33 @@ pub struct TransferExecuteArgs {
     #[arg(long)]
     pub cancel: bool,
 }
+
+#[derive(Clone, Debug, Args)]
+pub struct LocationListArgs {
+    #[arg(long)]
+    pub location: String,
+    #[arg(long)]
+    pub generation: String,
+    #[arg(long, default_value = ".")]
+    pub path: String,
+    #[arg(long)]
+    pub show_hidden: bool,
+    #[arg(long, default_value_t = 0)]
+    pub start: usize,
+    #[arg(long, default_value_t = crate::listing::DIRECTORY_PAGE)]
+    pub count: usize,
+    #[arg(long, default_value = "name")]
+    pub sort: String,
+    #[arg(long)]
+    pub desc: bool,
+    #[arg(long, default_value = "{}")]
+    pub filter: String,
+    #[arg(long)]
+    pub include_created: bool,
+    #[arg(long)]
+    pub fresh: bool,
+    #[arg(long)]
+    pub no_git: bool,
+    #[arg(long)]
+    pub fresh_git: bool,
+}
