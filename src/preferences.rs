@@ -55,7 +55,7 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
     }
     settings["version"] = json!(1);
     settings["filebladeVersion"] = json!(env!("CARGO_PKG_VERSION"));
-    secure::write_private_atomic(&path, &serde_json::to_vec_pretty(&settings)?)?;
+    crate::lease::durable::write_private_atomic(&path, &serde_json::to_vec_pretty(&settings)?)?;
     Ok(settings)
 }
 
@@ -106,7 +106,7 @@ pub fn keybindings() -> AppResult<String> {
         .as_ref()
         != Some(&document);
     if changed {
-        secure::write_private_atomic(&path, encoded.as_bytes())?
+        crate::lease::durable::write_private_atomic(&path, encoded.as_bytes())?
     }
     Ok(encoded)
 }

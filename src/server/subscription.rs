@@ -64,6 +64,7 @@ pub(super) fn start_subscription(
                 deadline_exceeded: Arc::clone(&deadline_exceeded),
                 cancel_on_deadline: true,
                 standing: true,
+                authority_owned: false,
             },
         );
     }

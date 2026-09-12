@@ -191,12 +191,12 @@ pub(super) fn copy_regular_private(
 
 pub(super) fn save_manifest_new(entry_dir: &Path, manifest: &Manifest) -> io::Result<()> {
     let bytes = encode_manifest(manifest)?;
-    secure::write_new_private(&entry_dir.join(MANIFEST_NAME), &bytes)
+    crate::lease::durable::write_new_private(&entry_dir.join(MANIFEST_NAME), &bytes)
 }
 
 pub(super) fn save_manifest(entry_dir: &Path, manifest: &Manifest) -> io::Result<()> {
     let bytes = encode_manifest(manifest)?;
-    secure::write_private_atomic(&entry_dir.join(MANIFEST_NAME), &bytes)
+    crate::lease::durable::write_private_atomic(&entry_dir.join(MANIFEST_NAME), &bytes)
 }
 
 pub(super) fn encode_manifest(manifest: &Manifest) -> io::Result<Vec<u8>> {

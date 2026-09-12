@@ -14,8 +14,9 @@ impl LockedFile {
 
 pub fn ensure_private_directory(path: &Path) -> io::Result<OwnedFd> {
     let normalized = normalized_absolute(path)?;
-    let mut current = root_directory()?;
-    for component in normalized.components() {
+    crate::lease::persistence::check_write(&normalized)?;
+    let (mut current, relative) = directory_anchor(&normalized)?;
+    for component in relative.components() {
         let Component::Normal(name) = component else {
             continue;
         };
@@ -53,8 +54,9 @@ pub fn ensure_private_directory(path: &Path) -> io::Result<OwnedFd> {
 
 pub fn ensure_directories(path: &Path, mode: u32) -> io::Result<OwnedFd> {
     let normalized = normalized_absolute(path)?;
-    let mut current = root_directory()?;
-    for component in normalized.components() {
+    crate::lease::persistence::check_write(&normalized)?;
+    let (mut current, relative) = directory_anchor(&normalized)?;
+    for component in relative.components() {
         let Component::Normal(name) = component else {
             continue;
         };
@@ -135,7 +137,10 @@ fn private_lock(path: &Path, nonblocking: bool) -> io::Result<Option<LockedFile>
         FlockOperation::LockExclusive
     };
     match flock(&fd, operation) {
-        Ok(()) => Ok(Some(LockedFile { file: fd.into() })),
+        Ok(()) => {
+            crate::lease::persistence::check_write(path)?;
+            Ok(Some(LockedFile { file: fd.into() }))
+        }
         Err(rustix::io::Errno::WOULDBLOCK) if nonblocking => Ok(None),
         Err(error) => Err(error.into()),
     }
@@ -176,6 +181,7 @@ pub fn open_private_read(path: &Path) -> io::Result<Option<File>> {
 }
 
 pub fn open_private_append(path: &Path) -> io::Result<File> {
+    crate::lease::persistence::check_write(path)?;
     let parent = resolved_parent_nofollow(path)?;
     let fd = openat(
         &parent.directory,
@@ -263,10 +269,12 @@ pub fn write_private_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
     )
     .map_err(io::Error::from)?;
     let result = (|| {
+        crate::lease::persistence::check_write(path)?;
         let mut file: File = fd.into();
         file.write_all(data)?;
         file.flush()?;
         file.sync_all()?;
+        crate::lease::persistence::check_write(path)?;
         renameat(&directory, &temporary, &directory, final_name).map_err(io::Error::from)?;
         fsync(&directory).map_err(io::Error::from)
     })();
@@ -277,12 +285,25 @@ pub fn write_private_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
 }
 
 pub fn write_new_private(path: &Path, data: &[u8]) -> io::Result<()> {
-    let mut file = create_file_noreplace(path, PRIVATE_FILE_MODE)?;
-    if let Err(error) = file.write_all(data).and_then(|()| file.sync_all()) {
-        let _ = remove_path(path);
-        return Err(error);
+    crate::lease::persistence::check_write(path)?;
+    let parent = resolved_parent_nofollow(path)?;
+    let fd = openat(
+        &parent.directory,
+        &parent.name,
+        OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+        Mode::from_raw_mode(PRIVATE_FILE_MODE),
+    )?;
+    let result = (|| {
+        crate::lease::persistence::check_write(path)?;
+        let mut file = File::from(fd);
+        file.write_all(data)?;
+        file.sync_all()?;
+        fsync(&parent.directory).map_err(io::Error::from)
+    })();
+    if result.is_err() {
+        let _ = unlinkat(&parent.directory, &parent.name, AtFlags::empty());
     }
-    fsync_path_parent(path)
+    result
 }
 
 pub(super) fn verify_private_fd(

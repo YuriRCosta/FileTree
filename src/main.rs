@@ -26,8 +26,26 @@ fn main() -> ExitCode {
 }
 
 fn execute(command: RootCommand, output: Arc<Output>) -> AppResult<()> {
+    if fileblade::lease::selected_root()?.is_some()
+        && match &command {
+            RootCommand::Preferences(changes) => {
+                changes.trash_retention_days.is_some() || changes.agent_management.is_some()
+            }
+            RootCommand::List(_) => true,
+            _ => false,
+        }
+    {
+        return Err(AppError::command(
+            "native owner-unavailable: state writes must be admitted by the native authority",
+        ));
+    }
     match command {
         RootCommand::CompanionMutate => {
+            if fileblade::lease::selected_root()?.is_some() {
+                return Err(AppError::command(
+                    "native owner-unavailable: companion mutations must be admitted by the native authority",
+                ));
+            }
             let started = std::time::Instant::now();
             let result = fileblade::companion_mutations::stdin_request();
             let _ = fileblade::audit::record(&fileblade::audit::Event {
@@ -42,6 +60,11 @@ fn execute(command: RootCommand, output: Arc<Output>) -> AppResult<()> {
             Ok(())
         }
         RootCommand::Backend { command } => {
+            if fileblade::lease::selected_root()?.is_some() && server::native_mutating(&command) {
+                return Err(AppError::command(
+                    "native owner-unavailable: mutating backend commands must be admitted by the native authority",
+                ));
+            }
             let cancelled = AtomicBool::new(false);
             let mut progress = |value| {
                 output.machine(&value)?;
