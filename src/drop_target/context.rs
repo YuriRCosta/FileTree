@@ -39,12 +39,14 @@ fn drop_context_at(point: (i64, i64), facts: Value, target_result: AppResult<Val
             "actions": [],
         });
     }
+    let (actions, diagnostics) = config::load(&actions_for(&target, &facts), &target, &facts);
     let mut result = json!({
         "ok": true,
         "at": {"x": point.0, "y": point.1},
         "target": target,
         "files": facts,
-        "actions": actions_for(&target, &facts),
+        "actions": actions,
+        "diagnostics": diagnostics,
     });
     if let Some(warning) = target_warning {
         result["target_warning"] = Value::String(warning);

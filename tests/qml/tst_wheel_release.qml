@@ -130,4 +130,81 @@ TestCase {
     verify(wheel.wheelOpen)
     compare(launches.length, 0)
   }
+  function nestedResult() {
+    var value = result()
+    value.actions = [{ id: "custom:inspect", label: "Inspect", key: "i", placements: [
+      { id: "format", label: "Format", key: "f", placements: [
+        { id: "one", label: "One", key: "a", command_route: ["custom:inspect", "format", "one"] },
+        { id: "two", label: "Two", key: "b", command_route: ["custom:inspect", "format", "two"] }
+      ] }
+    ] }]
+    return value
+  }
+
+  function test_third_ring_keyboard_dispatches_exact_route() {
+    begin()
+    wheel.endDrag(500, 500, true)
+    callbacks[0](nestedResult())
+    verify(wheel.activateKey("i", false))
+    verify(wheel.outerFocus)
+    verify(wheel.activateKey("f", false))
+    verify(wheel.subFocus)
+    wheel.moveHighlight(1)
+    compare(wheel.subHighlighted, 1)
+    verify(wheel.accept())
+    compare(launches.length, 1)
+    compare(launches[0][1], "configured")
+    compare(JSON.parse(launches[0][3]), ["custom:inspect", "format", "two"])
+  }
+
+  function test_third_ring_back_returns_one_level_at_a_time() {
+    begin()
+    wheel.endDrag(500, 500, true)
+    callbacks[0](nestedResult())
+    wheel.activate(0)
+    wheel.activateChild(0)
+    wheel.back()
+    verify(wheel.wheelOpen)
+    verify(!wheel.subFocus)
+    verify(wheel.outerFocus)
+    compare(wheel.subItems.length, 0)
+    wheel.back()
+    verify(wheel.wheelOpen)
+    verify(!wheel.outerFocus)
+    wheel.back()
+    verify(!wheel.wheelOpen)
+    compare(launches.length, 0)
+  }
+
+  function test_third_ring_pointer_and_parent_change() {
+    begin()
+    wheel.endDrag(500, 500, true)
+    var value = nestedResult()
+    value.actions.push({ id: "terminal", label: "Terminal", key: "t", placements: [] })
+    callbacks[0](value)
+    wheel.hover(500, 440)
+    wheel.hover(500, 380)
+    compare(wheel.subItems.length, 2)
+    var angle = wheel.subAngle(1)
+    var x = 500 + Math.cos(angle) * 170
+    var y = 500 + Math.sin(angle) * 170
+    wheel.hover(x, y)
+    compare(wheel.subHighlighted, 1)
+    wheel.hover(500, 440)
+    compare(wheel.subItems.length, 0)
+    wheel.hover(500, 380)
+    compare(wheel.subItems.length, 2)
+    wheel.hover(500, 560)
+    compare(wheel.subItems.length, 0)
+    compare(wheel.subHighlighted, -1)
+  }
+  function test_explicit_hub_choice_discards_queued_release() {
+    begin()
+    wheel.endDrag(500, 440, true)
+    wheel.activateAt(500, 500)
+    callbacks[0](result())
+    verify(wheel.wheelOpen)
+    compare(launches.length, 0)
+    compare(wheel.pendingRelease, null)
+  }
 }
