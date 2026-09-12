@@ -183,7 +183,14 @@ fn dispatch_command(
     if cancelled.load(Ordering::Relaxed) {
         return Err(crate::AppError::Cancelled);
     }
-    let mutates = mutating(&command);
+    let invalidates_files = mutating(&command)
+        && !matches!(
+            command,
+            BackendCommand::StateWrite(_)
+                | BackendCommand::LayoutWrite(_)
+                | BackendCommand::FrecencyVisit(_)
+                | BackendCommand::Visit(_)
+        );
     let value = match command {
         BackendCommand::List(options) => crate::locations::list(&options, cancelled),
         BackendCommand::Locations => crate::locations::payload(cancelled)?,
@@ -550,7 +557,7 @@ fn dispatch_command(
             })
         }
     };
-    if mutates {
+    if invalidates_files {
         crate::index::invalidate_all();
         crate::listing::invalidate_all();
         crate::frecency::remap_from(&value);
