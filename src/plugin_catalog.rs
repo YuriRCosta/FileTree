@@ -202,7 +202,7 @@ pub fn catalog() -> crate::AppResult<Value> {
         providers.push(json!({
             "id": id,
             "dir": path_text(&root),
-            "path": path_text(&path),
+            "path": path_text(path),
             "manifest": manifest,
             "enabled": false,
         }));
