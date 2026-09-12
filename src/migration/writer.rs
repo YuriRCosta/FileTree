@@ -35,9 +35,9 @@ fn inspect(roots: &Roots) -> Result<LegacyWriter, String> {
         if !root.is_absolute() {
             return Err("legacy roots must be absolute".into());
         }
-        match crate::secure::open_directory_nofollow(root) {
+        match super::storage::root(root) {
             Ok(fd) => {
-                let file = File::from(fd);
+                let file = fd;
                 let metadata = file.metadata().map_err(|error| error.to_string())?;
                 if metadata.uid() != unsafe { libc::geteuid() } || metadata.mode() & 0o022 != 0 {
                     return Err(format!("unsafe legacy root: {}", root.display()));
@@ -134,18 +134,17 @@ fn inspect(roots: &Roots) -> Result<LegacyWriter, String> {
     activation?;
     evidence.push("no legacy FileBlade or absorbed companion activation is enabled".into());
     for path in absent {
-        match crate::secure::open_directory_nofollow(path) {
+        match super::storage::root(path) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             _ => return Err("legacy root appeared during writer detection".into()),
         }
     }
     for (path, file) in directories {
         let held = file.metadata().map_err(|error| error.to_string())?;
-        let current = File::from(
-            crate::secure::open_directory_nofollow(path).map_err(|error| error.to_string())?,
-        )
-        .metadata()
-        .map_err(|error| error.to_string())?;
+        let current = super::storage::root(path)
+            .map_err(|error| error.to_string())?
+            .metadata()
+            .map_err(|error| error.to_string())?;
         if current.uid() != unsafe { libc::geteuid() }
             || current.mode() & 0o022 != 0
             || (held.dev(), held.ino()) != (current.dev(), current.ino())
@@ -209,4 +208,102 @@ fn ipc_status() -> Result<bool, String> {
         return Err("legacy IPC probe did not return a status object".into());
     }
     Ok(true)
+}
+
+pub(super) struct Guard {
+    roots: Vec<(PathBuf, File)>,
+    locks: Vec<(usize, &'static str, File)>,
+}
+
+impl Guard {
+    pub(super) fn verify(&self) -> Result<(), String> {
+        use rustix::fs::{AtFlags, statat};
+        for (path, held) in &self.roots {
+            let current = super::storage::root(path)
+                .map_err(|error| error.to_string())?
+                .metadata()
+                .map_err(|error| error.to_string())?;
+            let original = held.metadata().map_err(|error| error.to_string())?;
+            if (current.dev(), current.ino()) != (original.dev(), original.ino()) {
+                return Err("legacy root identity changed while migration held its locks".into());
+            }
+        }
+        for (index, name, held) in &self.locks {
+            let current = statat(&self.roots[*index].1, *name, AtFlags::SYMLINK_NOFOLLOW)
+                .map_err(|error| error.to_string())?;
+            let original = held.metadata().map_err(|error| error.to_string())?;
+            if current.st_dev != original.dev()
+                || current.st_ino != original.ino()
+                || current.st_nlink != 1
+            {
+                return Err("legacy lock identity changed during migration".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+pub(super) fn hold(roots: &Roots, bin: &std::path::Path) -> Result<Guard, String> {
+    use rustix::fs::{Mode, OFlags, openat};
+    let mut guard = Guard {
+        roots: Vec::new(),
+        locks: Vec::new(),
+    };
+    for (path, name, exclusive) in [
+        (roots.state.as_path(), "journal.json.lock", false),
+        (bin, ".mutation.lock", true),
+    ] {
+        let root = match super::storage::root(path) {
+            Ok(root) => root,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.to_string()),
+        };
+        let file = File::from(
+            openat(
+                &root,
+                name,
+                OFlags::RDWR
+                    | OFlags::CREATE
+                    | OFlags::NOFOLLOW
+                    | OFlags::NONBLOCK
+                    | OFlags::CLOEXEC,
+                Mode::from_raw_mode(0o600),
+            )
+            .map_err(|error| error.to_string())?,
+        );
+        super::storage::safe(&file).map_err(|error| error.to_string())?;
+        let metadata = file.metadata().map_err(|error| error.to_string())?;
+        if !metadata.is_file() || metadata.nlink() != 1 {
+            return Err("unsafe legacy migration lock".into());
+        }
+        let mut range: libc::flock = unsafe { std::mem::zeroed() };
+        range.l_type = if exclusive {
+            libc::F_WRLCK
+        } else {
+            libc::F_RDLCK
+        } as _;
+        range.l_whence = libc::SEEK_SET as _;
+        if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_OFD_SETLK, &range) } != 0 {
+            return Err(format!(
+                "legacy writer owns {name}: {}",
+                io::Error::last_os_error()
+            ));
+        }
+        let operation = if exclusive {
+            libc::LOCK_EX
+        } else {
+            libc::LOCK_SH
+        };
+        if unsafe { libc::flock(file.as_raw_fd(), operation | libc::LOCK_NB) } != 0 {
+            return Err(format!(
+                "legacy writer owns {name}: {}",
+                io::Error::last_os_error()
+            ));
+        }
+        let index = guard.roots.len();
+        guard.roots.push((path.to_path_buf(), root));
+        guard.locks.push((index, name, file));
+    }
+    guard.verify()?;
+    Ok(guard)
 }

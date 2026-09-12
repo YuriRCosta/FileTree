@@ -45,3 +45,14 @@ schema, missing/mismatched helper evidence, module alias conflicts, stored
 symbolic links and authority-root replacement. Keep the combined source revision
 and any core overlay in the lane milestone; it is not a standalone core gate
 until the runtime dependency has been integrated.
+
+The 5.5 consumer acquires both the legacy journal's shared OFD/flock locks and
+the artifact bin's exclusive mutation lock after the initial stopped/absent
+proof. It repeats the proof while holding them, retains them through publication
+and cleanup, and checks root/lock identity before every mutation boundary.
+Contention and changed activation evidence yield read-only startup. The probe
+uses direct no-follow legacy reads even when native persistence is not registered.
+Native documents are also preflighted on repeated startup, so a completed receipt
+does not authorize downgrading newer state. The authority stays read-only until
+runtime explicitly accepts the preparation outcome. Tests include held locks,
+lock replacement, changed evidence, native startup environment and shared roots.

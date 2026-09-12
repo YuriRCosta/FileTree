@@ -26,7 +26,11 @@ fn migration_worker() {
     };
     let base = PathBuf::from(std::env::var_os("HOME").unwrap());
     let legacy = roots(&base.join("legacy"));
-    let native = roots(&base.join("native"));
+    let native = if scenario == "shared-roots" {
+        legacy.clone()
+    } else {
+        roots(&base.join("native"))
+    };
     let state = br#"{"version":12,"welcomeState":"dismissed","future":{"keep":[1,2]}}"#;
     write(&legacy.state.join("state.json"), state);
     write(
@@ -42,7 +46,7 @@ fn migration_worker() {
     );
     write(&legacy.recovery.join("hooks-recovery/record.json"), serde_json::to_vec(&json!({"formatVersion":1,"transactionId":"record","definitionId":"definition","payload":{"keep":true}})).unwrap());
     let bin = base.join("data/fileblade/bin");
-    write(&bin.join("hooks/entry/manifest.json"), serde_json::to_vec(&json!({"schemaVersion":1,"module":"hooks","id":"definition","helperRecordId":"record","payload":{"keep":true},"items":[]})).unwrap());
+    write(&bin.join("hooks/entry/manifest.json"), serde_json::to_vec(&json!({"schemaVersion":1,"module":"hooks","id":"definition","helperRecordId":"record","restoreHelper":{"provider":"data-goblin.fileblade-hooks","helper":"inventory","directory":"legacy"},"payload":{"keep":true},"items":[]})).unwrap());
     write(&bin.join("skills/entry/manifest.json"), serde_json::to_vec(&json!({"schemaVersion":1,"module":"skills","items":[{"stored":"items/0","type":"link"}]})).unwrap());
     fs::create_dir_all(bin.join("skills/entry/items")).unwrap();
     symlink("../unavailable-target", bin.join("skills/entry/items/0")).unwrap();
@@ -62,7 +66,33 @@ fn migration_worker() {
         fs::rename(&native.state, native.state.with_extension("old")).unwrap();
         fs::create_dir(&native.state).unwrap();
     }
+    let _legacy_lock = if scenario == "bin-locked" || scenario == "journal-locked" {
+        use std::os::fd::AsRawFd;
+        let path = if scenario == "bin-locked" {
+            bin.join(".mutation.lock")
+        } else {
+            legacy.state.join("journal.json.lock")
+        };
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)
+            .unwrap();
+        assert_eq!(
+            unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+            0
+        );
+        Some(file)
+    } else {
+        None
+    };
     let result = prepare(&legacy, &native, &authority).unwrap();
+    assert!(matches!(
+        authority.write_mode(),
+        fileblade::lease::WriteMode::ReadOnly { .. }
+    ));
     if [
         "malformed",
         "newer",
@@ -72,6 +102,7 @@ fn migration_worker() {
         "conflict",
         "unsafe-link",
         "identity",
+        "lock-replaced",
     ]
     .contains(&scenario.as_str())
     {
@@ -82,7 +113,15 @@ fn migration_worker() {
         assert!(!result.receipt_path.exists());
         return;
     }
-    if ["active", "unknown"].contains(&scenario.as_str()) {
+    if [
+        "active",
+        "unknown",
+        "bin-locked",
+        "journal-locked",
+        "evidence-changed",
+    ]
+    .contains(&scenario.as_str())
+    {
         assert!(
             matches!(result.status, Status::ReadOnly { .. }),
             "{result:?}"
@@ -106,6 +145,25 @@ fn migration_worker() {
     );
     assert!(!bin.join("hooks/entry").exists());
     assert!(!bin.join("skills/entry").exists());
+    if scenario == "shared-roots" {
+        assert_eq!(
+            prepare(&legacy, &native, &authority).unwrap().status,
+            Status::Ready
+        );
+        return;
+    }
+    if scenario == "completed-newer" {
+        write(&native.state.join("state.json"), br#"{"version":13}"#);
+        assert!(matches!(
+            prepare(&legacy, &native, &authority).unwrap().status,
+            Status::Refused { .. }
+        ));
+        assert_eq!(
+            fs::read(native.state.join("state.json")).unwrap(),
+            br#"{"version":13}"#
+        );
+        return;
+    }
     let receipt = fs::read(&result.receipt_path).unwrap();
     let receipt_time = fs::metadata(&result.receipt_path)
         .unwrap()
@@ -120,7 +178,7 @@ fn migration_worker() {
     } else {
         write(
             &native.state.join("state.json"),
-            "native user edit after first launch",
+            r#"{"version":12,"nativeEdit":true}"#,
         );
         write(
             &legacy.state.join("state.json"),
@@ -141,7 +199,7 @@ fn migration_worker() {
             if scenario == "resume" {
                 state.as_slice()
             } else {
-                b"native user edit after first launch"
+                br#"{"version":12,"nativeEdit":true}"#
             }
         );
     }
@@ -159,6 +217,14 @@ fn migration_worker() {
 fn migration_preserves_refuses_and_resumes() {
     for scenario in [
         "first",
+        "held",
+        "lock-replaced",
+        "evidence-changed",
+        "shared-roots",
+        "completed-newer",
+        "native-environment",
+        "bin-locked",
+        "journal-locked",
         "resume",
         "resume-conflict",
         "malformed",
@@ -185,6 +251,10 @@ fn migration_preserves_refuses_and_resumes() {
                 "qs",
                 if scenario == "active" {
                     "#!/bin/sh\nprintf '%s\\n' '{}'\n"
+                } else if scenario == "held" || scenario == "lock-replaced" {
+                    "#!/bin/sh\ncount=0\nif [ -f \"$HOME/probes\" ]; then read count < \"$HOME/probes\"; fi\ncount=$((count+1))\nprintf '%s\\n' \"$count\" > \"$HOME/probes\"\nif [ \"$count\" = 2 ]; then : > \"$HOME/held\"; while [ ! -f \"$HOME/release\" ]; do /usr/bin/sleep 0.01; done; fi\nprintf '%s\\n' 'Target not found.'\n"
+                } else if scenario == "evidence-changed" {
+                    "#!/bin/sh\nif [ -f \"$HOME/probed\" ]; then printf '%s\\n' '{}'; else : > \"$HOME/probed\"; printf '%s\\n' 'Target not found.'; fi\n"
                 } else if scenario == "unknown" {
                     "#!/bin/sh\nexit 1\n"
                 } else {
@@ -196,7 +266,8 @@ fn migration_preserves_refuses_and_resumes() {
             write(&path, script);
             fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
         }
-        let output = Command::new(std::env::current_exe().unwrap())
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        command
             .args(["--exact", "migration_worker", "--nocapture"])
             .env("MIGRATION_CASE", scenario)
             .env("HOME", base)
@@ -204,9 +275,52 @@ fn migration_preserves_refuses_and_resumes() {
             .env("XDG_DATA_HOME", base.join("data"))
             .env("XDG_CONFIG_HOME", base.join("legacy/config"))
             .env("OMARCHY_PATH", base.join("omarchy"))
-            .env_remove("FILEBLADE_NATIVE_STATE_ROOT")
-            .output()
-            .unwrap();
+            .env_remove("FILEBLADE_NATIVE_STATE_ROOT");
+        if scenario == "native-environment" {
+            command.env("FILEBLADE_NATIVE_STATE_ROOT", base.join("native/state"));
+        }
+        let output = if scenario == "held" || scenario == "lock-replaced" {
+            use std::os::fd::AsRawFd;
+            command
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            let child = command.spawn().unwrap();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            while !base.join("held").exists() && std::time::Instant::now() < deadline {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            assert!(base.join("held").exists());
+            for path in [
+                base.join("legacy/state/journal.json.lock"),
+                base.join("data/fileblade/bin/.mutation.lock"),
+            ] {
+                let file = fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(&path)
+                    .unwrap();
+                assert_ne!(
+                    unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+                    0
+                );
+                let mut range: libc::flock = unsafe { std::mem::zeroed() };
+                range.l_type = libc::F_WRLCK as _;
+                range.l_whence = libc::SEEK_SET as _;
+                assert_ne!(
+                    unsafe { libc::fcntl(file.as_raw_fd(), libc::F_OFD_SETLK, &range) },
+                    0
+                );
+            }
+            if scenario == "lock-replaced" {
+                let path = base.join("data/fileblade/bin/.mutation.lock");
+                fs::rename(&path, path.with_extension("original")).unwrap();
+                write(&path, "");
+            }
+            write(&base.join("release"), "");
+            child.wait_with_output().unwrap()
+        } else {
+            command.output().unwrap()
+        };
         assert!(
             output.status.success(),
             "{scenario}: {} {}",

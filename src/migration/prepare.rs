@@ -72,8 +72,8 @@ pub fn prepare(
             reason: format!("legacy writer status is unknown: {reason}"),
         },
         LegacyWriter::Absent | LegacyWriter::Stopped { .. } => {
-            match import(legacy_root, native_root, authority) {
-                Ok(()) => Status::Ready,
+            match stopped(legacy_root, native_root, authority) {
+                Ok(status) => status,
                 Err(error) => Status::Refused {
                     reason: format!("{error}; originals and migration receipt retained"),
                 },
@@ -84,6 +84,31 @@ pub fn prepare(
         status,
         receipt_path,
     })
+}
+
+fn stopped(legacy: &Roots, native: &Roots, authority: &Authority) -> AppResult<Status> {
+    native_roots(native, authority)?;
+    let guard = match super::writer::hold(legacy, &artifact_bin()?) {
+        Ok(guard) => guard,
+        Err(reason) => return Ok(Status::ReadOnly { reason }),
+    };
+    match legacy_writer(legacy) {
+        LegacyWriter::Absent | LegacyWriter::Stopped { .. } => {}
+        evidence => {
+            return Ok(Status::ReadOnly {
+                reason: format!("legacy writer evidence changed: {evidence:?}"),
+            });
+        }
+    }
+    import(legacy, native, authority, &guard)?;
+    Ok(Status::Ready)
+}
+
+fn barrier(authority: &Authority, guard: &super::writer::Guard) -> AppResult<()> {
+    authority
+        .verify()
+        .map_err(|error| invalid(error.to_string()))?;
+    guard.verify().map_err(invalid)
 }
 
 fn native_roots(
@@ -133,8 +158,27 @@ fn artifact_bin() -> AppResult<PathBuf> {
     Ok(data.join("fileblade/bin"))
 }
 
-fn import(legacy_root: &Roots, native_root: &Roots, authority: &Authority) -> AppResult<()> {
+fn import(
+    legacy_root: &Roots,
+    native_root: &Roots,
+    authority: &Authority,
+    guard: &super::writer::Guard,
+) -> AppResult<()> {
     let (native, bindings) = native_roots(native_root, authority)?;
+    for (role, path, kind) in [
+        ("state", "state.json", DocumentKind::State),
+        ("config", "settings.json", DocumentKind::Settings),
+        ("config", "keybindings.json", DocumentKind::Keybindings),
+        ("config", "blades.json", DocumentKind::Layout),
+    ] {
+        match storage::read(&native[role], Path::new(path))? {
+            Some(Content::File(bytes)) => {
+                preflight_document(kind, &bytes)?;
+            }
+            None => {}
+            Some(_) => return Err(invalid("native document is not a regular file")),
+        }
+    }
     let state = &native["state"];
     let mut legacy = paths(legacy_root);
     legacy.insert("bin".into(), artifact_bin()?);
@@ -242,16 +286,12 @@ fn import(legacy_root: &Roots, native_root: &Roots, authority: &Authority) -> Ap
     if bytes.len() > storage::MAX_BYTES {
         return Err(invalid("migration receipt exceeds byte bound"));
     }
-    authority
-        .verify()
-        .map_err(|error| invalid(error.to_string()))?;
+    barrier(authority, guard)?;
     if fresh {
         storage::publish(state, Path::new(RECEIPT), &Content::File(bytes.clone()))?;
     }
     for entry in &receipt.entries {
-        authority
-            .verify()
-            .map_err(|error| invalid(error.to_string()))?;
+        barrier(authority, guard)?;
         storage::publish(&native[&entry.role], &entry.to, &entry.content)?;
     }
     verify_sources(&receipt, copied)?;
@@ -259,9 +299,7 @@ fn import(legacy_root: &Roots, native_root: &Roots, authority: &Authority) -> Ap
         LegacyWriter::Absent | LegacyWriter::Stopped { .. } => {}
         _ => return Err(invalid("legacy writer evidence changed during migration")),
     }
-    authority
-        .verify()
-        .map_err(|error| invalid(error.to_string()))?;
+    barrier(authority, guard)?;
     storage::publish(state, Path::new(COPIED), &Content::File(bytes.clone()))?;
     if receipt.entries.iter().any(|entry| entry.source == "bin") {
         let bin = storage::root(&receipt.legacy["bin"])?;
@@ -271,15 +309,11 @@ fn import(legacy_root: &Roots, native_root: &Roots, authority: &Authority) -> Ap
             .rev()
             .filter(|entry| entry.source == "bin")
         {
-            authority
-                .verify()
-                .map_err(|error| invalid(error.to_string()))?;
+            barrier(authority, guard)?;
             storage::remove(&bin, &entry.from, &entry.content)?;
         }
     }
-    authority
-        .verify()
-        .map_err(|error| invalid(error.to_string()))?;
+    barrier(authority, guard)?;
     storage::publish(
         state,
         Path::new(COMPLETE),
@@ -427,6 +461,9 @@ fn alias_path(path: &Path) -> PathBuf {
 }
 
 fn validate(entries: &[Entry]) -> AppResult<()> {
+    if entries.len() > 10_000 {
+        return Err(invalid("migration receipt exceeds entry bound"));
+    }
     let mut destinations = BTreeMap::new();
     for entry in entries {
         if !["config", "state", "recovery"].contains(&entry.role.as_str())
@@ -489,6 +526,15 @@ fn validate(entries: &[Entry]) -> AppResult<()> {
                 }
                 if let Some(id) = manifest["helperRecordId"].as_str() {
                     let module = manifest["module"].as_str().unwrap_or_default();
+                    let route = &manifest["restoreHelper"];
+                    if !crate::module_helpers::canonical_route(
+                        route["provider"].as_str().unwrap_or_default(),
+                        route["helper"].as_str().unwrap_or_default(),
+                    )
+                    .is_some_and(|route| route.module() == module)
+                    {
+                        return Err(invalid("missing or unsupported helper restore route"));
+                    }
                     if !["hooks", "mcp"].contains(&module)
                         || id.is_empty()
                         || id.contains('/')
