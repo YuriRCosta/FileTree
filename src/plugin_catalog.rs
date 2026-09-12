@@ -308,6 +308,10 @@ pub fn native_extensions_selected() -> Result<bool, String> {
         crate::paths::app_root().map_err(|error| error.to_string())?;
         return Ok(true);
     }
+    installed_native_selected()
+}
+
+pub fn installed_native_selected() -> Result<bool, String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     receipt_selects_native(
         &executable,

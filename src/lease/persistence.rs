@@ -44,7 +44,7 @@ fn authority() -> io::Result<Option<Arc<Authority>>> {
         .upgrade();
     if authority.is_none()
         && (std::env::var_os("FILEBLADE_NATIVE_STATE_ROOT").is_some()
-            || crate::plugin_catalog::native_extensions_selected().map_err(io::Error::other)?)
+            || crate::plugin_catalog::installed_native_selected().map_err(io::Error::other)?)
     {
         return Err(io::Error::other(
             "owner-unavailable: native persistence authority is not registered",
