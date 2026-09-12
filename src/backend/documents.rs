@@ -48,8 +48,11 @@ pub(super) fn clipboard_write(paths: &[String], cut: bool, cancelled: &AtomicBoo
     };
     let mut input = if cut { b"cut".to_vec() } else { Vec::new() };
     for raw_path in paths {
-        if raw_path.contains("://")
-            && url::Url::parse(raw_path).is_ok_and(|uri| uri.scheme() != "file")
+        if !raw_path.starts_with('/')
+            && raw_path.contains("://")
+            && !raw_path
+                .get(..7)
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("file://"))
         {
             return json!({"ok": false, "error": "file clipboard requires local paths or file URIs"});
         }
@@ -126,31 +129,8 @@ pub(super) fn clipboard_text(paths: &[String], cancelled: &AtomicBool) -> Value 
 }
 
 pub(super) fn wl_copy(mime: &str, input: Vec<u8>, cancelled: &AtomicBool) -> Result<(), Value> {
-    let Some(program) = crate::command::which("wl-copy") else {
-        return Err(json!({"ok": false, "error": "wl-copy is not installed"}));
-    };
-    let output = crate::command::CommandSpec::new(program)
-        .args(["--type", mime])
-        .stdin(input)
-        .timeout(Duration::from_secs(3))
-        .limits(64 * 1024, 64 * 1024)
-        .run_cancellable(cancelled)
-        .map_err(|error| json!({"ok": false, "error": error.to_string()}))?;
-    if output.stdout_truncated || output.stderr_truncated {
-        return Err(json!({"ok": false, "error": "wl-copy exceeded its output limit"}));
-    }
-    if !output.status.success() {
-        let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(json!({
-            "ok": false,
-            "error": if error.is_empty() {
-                format!("wl-copy failed with {}", output.status)
-            } else {
-                error
-            },
-        }));
-    }
-    Ok(())
+    crate::clipboard::write(mime, input, cancelled)
+        .map_err(|error| json!({"ok": false, "error": error.to_string()}))
 }
 
 pub(super) fn state_path() -> std::path::PathBuf {
