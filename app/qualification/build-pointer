@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+protocol=${1:?provide the existing wlr-virtual-pointer-unstable-v1.xml}
+output=${2:?provide the test binary output path}
+staging=$(mktemp -d /tmp/fileblade-pointer-build.XXXXXX)
+trap 'rm -rf -- "$staging"' EXIT
+wayland-scanner client-header "$protocol" "$staging/virtual-pointer.h"
+wayland-scanner private-code "$protocol" "$staging/virtual-pointer.c"
+cc -std=gnu11 -Wall -Wextra -Werror -I"$staging" "$source_dir/pointer.c" "$staging/virtual-pointer.c" -o "$output" $(pkg-config --cflags --libs wayland-client)

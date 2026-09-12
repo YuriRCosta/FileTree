@@ -29,29 +29,45 @@ Item {
     return result
   }
 
-  function geometry(item) {
+  function geometry(item, hostWindow) {
     var point = item.mapToItem(null, 0, 0)
-    if (item.hostWindow) {
-      point.x += Number(item.hostWindow.surfaceOriginX) || 0
-      point.y += Number(item.hostWindow.surfaceOriginY) || 0
+    var window = hostWindow || item.hostWindow
+    if (window) {
+      point.x += Number(window.surfaceOriginX) || 0
+      point.y += Number(window.surfaceOriginY) || 0
     }
     return { x: point.x, y: point.y, width: item.width, height: item.height }
   }
 
   function snapshot() {
-    var slots = [], popouts = [], stacks = []
+    var slots = [], popouts = [], stacks = [], tabs = [], dragCards = [], surfaces = []
     for (var item of objects()) {
+      if (item.liveBarSize !== undefined && item.bladeOpen && item.surfaceOriginY !== undefined)
+        surfaces.push({ edge: item.edge, barHidden: item.host.shell.bar.barHidden, liveBarSize: item.liveBarSize, surfaceOriginY: item.surfaceOriginY })
       if (item.slotIndex !== undefined && item.moduleItem !== undefined && item.loadFailed !== undefined && item.bladeOpen && item.hostActive) {
         slots.push({ edge: item.edge, index: item.slotIndex, module: item.moduleId,
           loaded: !!item.moduleItem, failed: item.loadFailed, title: item.title,
           providerError: item.providerError, geometry: geometry(item), collapsed: service.bladeHost.slotCollapsed(item.edge, item.slotIndex) })
+      }
+      if (item.refreshActive && item.screenWidth !== undefined && item.active && item.contentItem) {
+        for (var child of item.contentItem.children)
+          if (child.width > 0 && child.height > 0 && child.color !== undefined) dragCards.push(geometry(child))
+      }
+      if (item.tabItem && item.dropLineX && item.slot && item.slot.bladeOpen && item.visible) {
+        var entries = []
+        for (var index = 0; index < item.slot.tabs.length; index++) {
+          var tab = item.tabItem(index)
+          if (tab) entries.push({ module: tab.moduleId, geometry: geometry(tab, item.slot.hostWindow) })
+        }
+        tabs.push({ edge: item.slot.edge, slot: item.slot.slotIndex, entries: entries,
+          dropIndex: item.dropIndex, lineX: item.dropLineX(), geometry: geometry(item, item.slot.hostWindow) })
       }
       if (item.moduleContext !== undefined && item.popoutState !== undefined)
         popouts.push({ module: item.moduleId, opened: item.opened, loaded: !!item.moduleItem, notice: item.notice, title: item.title })
       if (item.dropLineY && item.slotItem && item.bladeOpen)
         stacks.push({ edge: item.edge, geometry: geometry(item), dropVisible: item.dropVisible, dropLineY: item.dropLineY(), dropTabSlot: item.dropTabSlot, dropTabBand: item.dropTabBand })
     }
-    return { slots: slots, popouts: popouts, stacks: stacks, barLoaded: !!widget.item,
+    return { slots: slots, popouts: popouts, stacks: stacks, surfaces: surfaces, tabs: tabs, dragCards: dragCards, barLoaded: !!widget.item,
       barOpened: widget.item ? widget.item.opened : false, fixtureError: fixtureError,
       providerErrors: service.bladeHost.providerErrors,
       drag: { active: service.bladeHost.dragActive, edge: service.bladeHost.dropEdge,
@@ -75,11 +91,10 @@ Item {
   PanelWindow {
     id: barWindow
     visible: probe.barVisible
-    anchors { top: true; left: true }
-    margins.left: 900
-    implicitWidth: 40
+    anchors { top: true; left: true; right: true }
     implicitHeight: Style.bar.sizeHorizontal
-    color: Color.background
+    color: "transparent"
+    mask: Region { x: 900; y: 0; width: 40; height: Style.bar.sizeHorizontal }
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "fileblade-qualification-bar"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -108,7 +123,9 @@ Item {
 
     Loader {
       id: widget
-      anchors.centerIn: parent
+      x: 900
+      width: 40
+      height: Style.bar.sizeHorizontal
       onStatusChanged: if (status === Loader.Error) probe.fixtureError = "Goblins BarWidget import failed"
     }
   }

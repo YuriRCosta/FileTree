@@ -43,7 +43,10 @@ BorderSurface, Button, PanelToolTip and TextField. Goblins additionally imports
 BarWidget, BarIconButton and KeyboardPanel; the latter components bring
 WidgetButton and OpticalGlyph into the closure. Commons supplies Color, Style,
 Util, Border and BorderGeometry. Supported companion QML also consumes this
-theme surface. A runtime test of every companion importer remains pending.
+theme surface. The live importer gate loads all eight built-in modules and the unchanged
+Goblins bar widget and KeyboardPanel popout. Its opt-in fixture supplies the
+bar host and provider descriptor; production extension discovery and helper
+activation remain separate qualification.
 
 Changes from upstream:
 
@@ -87,8 +90,9 @@ and remains queryable after view relaunch until explicitly fetched.
 A real QML copy interrupted by root replacement leaves the replacement
 sentinel unchanged and retains an explicit authority-lost result after view
 exit.
-Hotplug, complete focus parity, remaining retained expectations, chooser and
-ARM execution remain separate qualification work.
+Monitor and hotplug qualification passes in harness A. Complete plugin/native
+focus parity, remaining retained expectations, chooser and ARM execution
+remain separate qualification work.
 
 `ovm-spike` adapts the retained expectation scripts to harness A and the native
 IPC target without changing their source. Other shell targets still address
@@ -106,3 +110,44 @@ the separate cross-filesystem limitation of placing its Trash on `/tmp`.
 Removing the data override also requires isolating FileBlade's artifact bin
 from legacy writers; that path belongs to the operations lane. The bounded
 launcher retains its isolation pending that shared contract change.
+
+## Reproducing the opt-in R15 checks
+
+Launch the existing native fixture with `FILEBLADE_QUALIFICATION=1` and
+`FILEBLADE_GOBLINS_FIXTURE` pointing to the unchanged Goblins source fixture.
+The probe is absent from a normal launch. After restarting, verify that the
+live module catalog contains all eight built-ins and capture an open blade
+before running a suite. These scripts target harness A only.
+
+- `tests/vm/expectations/41-native-importers.sh`: E41-01 loads each built-in
+  importer; E41-02 opens the real Goblins bar popout and closes it with Escape.
+  Guest evidence is under `/tmp/fileblade-r15-importers`.
+- `tests/vm/expectations/42-native-layout.sh`: exercises retained E20-01
+  through E20-12 with live input, rendered geometry and screenshots. The
+  current tree fails E20-08 because its drag card covers the tab titles;
+  the script preserves that failure while completing the other checks.
+- `tests/vm/expectations/43-native-parity.sh native`: E43-01 tests keyboard
+  capture and release to a terminal; E43-02 measures docked exclusive zones
+  and their release; E43-03 records real bar hide/restore geometry. The
+  `plugin` argument runs the same procedure against an already prepared
+  plugin baseline. Preparing or activating that baseline requires Fable's
+  resolution of the current no-install approval block.
+
+E20 needs `/tmp/fileblade-qualification-pointer` in the guest. Build it using
+`app/qualification/build-pointer EXISTING_PROTOCOL_XML /tmp/fileblade-qualification-pointer`
+and the existing C compiler, wayland-scanner and wayland-client development
+files. The XML is `wlr-virtual-pointer-unstable-v1.xml` from the existing local
+protocol sources. No dependency installation is part of this procedure.
+The helper runs only on hostname `omarchy-test`, requires one output and an
+owned FIFO, and supplies one persistent pointer for a complete drag gesture.
+The scripts use a single 1920 by 1080 Virtual-1 output with a top 26-pixel bar.
+Host evidence for E20 and E43 is under `.claude/evidence/sootscale/r15/`.
+
+On the measured tuple, hiding the real bar changes its top reservation from
+26 to zero. Hyprland expands native blade surfaces from y=26, height=1054 to
+y=0, height=1080. The app facade still reports barHidden=false and a 26-pixel
+surfaceOriginY: drawing follows compositor reservations, while internal
+screen-coordinate calculations retain the stale offset. The visibility flag
+is named bar-off, so `omarchy-toggle-bar on` hides it and `off` shows it.
+This is an explicit visibility-toggle measurement; timed hover-autohide and
+a matched plugin run are not qualified by it.
