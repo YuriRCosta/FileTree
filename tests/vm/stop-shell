@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ${FILEBLADE_SHAPE:-plugin} == native ]]; then
+  remote=$(cat <<'SH'
+set -euo pipefail
+launcher=$1
+if [[ -z $launcher ]]; then
+  launcher=$HOME/.local/bin/fileblade
+  [[ -e $launcher || -L $launcher ]] || launcher=/usr/bin/fileblade
+fi
+[[ -x $launcher ]] || { printf 'native stop-shell: launcher is not executable: %s\n' "$launcher" >&2; exit 1; }
+exec "$launcher" native drain --timeout-ms 30000 --json
+SH
+)
+  launcher=${FILEBLADE_NATIVE_LAUNCHER:-}
+  printf -v command '%q ' bash -c "$remote" native "$launcher"
+  exec "${OVM:?set OVM to the headless VM harness executable}" ssh "$command"
+fi
+
 "${OVM:?set OVM to the headless VM harness executable}" ssh '
 set -eu
 launcher="^/bin/bash /usr/share/omarchy/bin/omarchy-launch-shell$"

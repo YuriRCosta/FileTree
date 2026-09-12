@@ -69,6 +69,7 @@ struct ActiveRequest {
     deadline_exceeded: Arc<AtomicBool>,
     cancel_on_deadline: bool,
     standing: bool,
+    chooser_watch: bool,
     authority_owned: bool,
 }
 
