@@ -14,6 +14,7 @@ TestCase {
     property string rootPath: "/fixture"
     property bool showHidden: false
     property bool gitEnabled: false
+    property bool backendReady: false
     function makeRow(entry, depth) {
       return Object.assign({}, entry, { isDir: !!entry.is_dir, isSymlink: !!entry.is_symlink })
     }
@@ -28,6 +29,34 @@ TestCase {
   Component { id: factory; Files.MediaProvider { controller: backend } }
 
   function init() { calls = []; callbacks = []; canceled = [] }
+
+  function test_inactive_changes_do_not_reset_or_schedule_media() {
+    var provider = createTemporaryObject(factory, test)
+    var generation = provider.generation
+    var rows = provider.rows
+    provider.rootPath = "/other"
+    provider.recursive = true
+    provider.showHidden = true
+    provider.descriptor = { capabilities: ["list", "read"] }
+    backend.backendReady = true
+    compare(provider.generation, generation)
+    compare(provider.rows, rows)
+    compare(provider.busy, false)
+    compare(calls.length, 0)
+    provider.active = true
+    tryCompare(provider, "requestId", "1")
+    compare(calls[0].args[1], "/other")
+    verify(calls[0].args.indexOf("--show-hidden") >= 0)
+    provider.active = false
+    compare(canceled, ["1"])
+    generation = provider.generation
+    provider.rootPath = "/closed"
+    backend.backendReady = false
+    backend.backendReady = true
+    compare(provider.generation, generation)
+    compare(calls.length, 1)
+    backend.backendReady = false
+  }
 
   function test_current_folder_does_not_recurse_and_keeps_video() {
     var provider = createTemporaryObject(factory, test)

@@ -20,28 +20,37 @@ def prepare(state, plugin):
     state.mkdir(parents=True, exist_ok=True)
     pane = plugin / 'panes/TreePane.qml'
     source = pane.read_text()
-    marker = '\n  IpcHandler {\n    target: "brindle-media-'
-    if marker in source:
+    markers = ['\n  IpcHandler {\n    target: "brindle-media-', '\n  IpcHandler {\n    id: mediaProbe\n']
+    marker = next((value for value in markers if value in source), None)
+    if marker:
         source = source[:source.index(marker)] + '}\n'
-        source = source.removeprefix('import Quickshell.Io\n')
+        source = source.removeprefix('import Quickshell.Io\n').removeprefix('import \"../lib/KeyBindings.js\" as ProbeBindings\n')
     (state / 'TreePane.qml').write_text(source)
-    source = 'import Quickshell.Io\n' + source
+    source = 'import Quickshell.Io\nimport \"../lib/KeyBindings.js\" as ProbeBindings\n' + source
     probe = '''
   IpcHandler {
+    id: mediaProbe
     target: "brindle-media-" + (root.context ? root.context.edge : "left")
     function state(): string {
-      return JSON.stringify({ mode: root.mediaMode, active: root.mediaActive, recursive: root.mediaRecursive,
-        query: root.mediaQuery, size: root.mediaSizeStep, count: mediaView.count, busy: mediaProvider.busy,
-        error: mediaProvider.error, paths: mediaView.rows.slice(0, 1000).map(function(row) { return row.path }),
-        selected: controller.selectedPaths, current: mediaView.currentIndex, y: mediaView.contentY,
-        root: controller.rootPath, ordinaryQuery: controller.searchQuery, pending: mediaProvider.requestId,
-        viewHeight: mediaView.height, cell: mediaView.cell, focused: mediaView.activeFocus,
-        columns: mediaView.columns, anchor: mediaView.anchorPath, sorts: controller.treeSort, visual: root.visualMode,
-        values: mediaView.rows.slice(0, 1000).map(function(row) { return { name: row.name, size: row.size, modified: row.modified } }),
+      return JSON.stringify({ loaded: !!mediaView, providerLoaded: !!mediaProvider, mode: root.mediaMode, active: root.mediaActive, recursive: root.mediaRecursive,
+        query: root.mediaQuery, size: root.mediaSizeStep, count: (mediaView ? mediaView.count : 0), busy: (mediaProvider ? mediaProvider.busy : false),
+        error: (mediaProvider ? mediaProvider.error : ""), paths: (mediaView ? mediaView.rows : []).slice(0, 1000).map(function(row) { return row.path }),
+        selected: controller.selectedPaths, current: (mediaView ? mediaView.currentIndex : -1), y: (mediaView ? mediaView.contentY : 0),
+        root: controller.rootPath, ordinaryQuery: controller.searchQuery, pending: (mediaProvider ? mediaProvider.requestId : ""),
+        viewHeight: (mediaView ? mediaView.height : 0), cell: (mediaView ? mediaView.cell : 0), focused: (mediaView ? mediaView.activeFocus : false),
+        columns: (mediaView ? mediaView.columns : 0), anchor: (mediaView ? mediaView.anchorPath : ""), sorts: controller.treeSort, visual: root.visualMode,
+        values: (mediaView ? mediaView.rows : []).slice(0, 1000).map(function(row) { return { name: row.name, size: row.size, modified: row.modified } }),
+        ordinary: { step: root.ordinaryDensityStep, density: root.ordinaryDensity,
+          count: root.activeList.count, footerCount: footerCount.text, footerDetail: footerDetail.text,
+          first: root.activeList.indexAt(1, root.activeList.contentY + 1),
+          current: root.activeList.currentIndex,
+          rows: !root.mediaActive && !controller.trashMode && !controller.drivesMode ? Array.from({length: Math.min(1000, root.activeList.count)}, function(_, i) { var row = root.activeList.model.get(i); return {path: row.path, depth: row.depth, kind: row.kind} }) : [],
+          rowHeight: root.activeList.currentItem ? root.activeList.currentItem.height : 0,
+          y: root.activeList.contentY },
         slider: { x: mediaSize.mapToItem(null, 0, 0).x + root.originX(),
           y: mediaSize.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0),
           width: mediaSize.width, height: mediaSize.height, focused: mediaSize.activeFocus, pressed: mediaSize.pressed },
-        timeline: { level: mediaView.timeline.detail.level, count: mediaView.timeline.detail.count,
+        timeline: mediaView ? { level: mediaView.timeline.detail.level, count: mediaView.timeline.detail.count,
           bins: mediaView.timeline.detail.bins.map(function(bin) { return { key: bin.key, count: bin.count, level: bin.level } }),
           maximum: mediaView.timeline.detail.maximum, active: mediaView.timeline.viewport.active,
           outlineTop: mediaView.timeline.outlineTop, outlineHeight: mediaView.timeline.outlineHeight,
@@ -50,8 +59,19 @@ def prepare(state, plugin):
           parentKeys: mediaView.timeline.parents.map(function(bin) { return bin.key }),
           up: mediaView.timeline.canGoUp, down: mediaView.timeline.canDrill,
           x: mediaView.timeline.mapToItem(null, 0, 0).x + root.originX(),
-          y: mediaView.timeline.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) },
-        firstVisible: mediaView.flickable.indexAt(1, mediaView.contentY + 1) })
+          y: mediaView.timeline.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) } : {},
+        firstVisible: mediaView ? mediaView.flickable.indexAt(1, mediaView.contentY + 1) : -1 })
+    }
+    property var independentView: null
+    function independent(opened: bool): string {
+      if (independentView) { independentView.destroy(); independentView = null }
+      if (!opened) return "closed"
+      var component = Qt.createComponent(Qt.resolvedUrl("../blades/BladePopout.qml"))
+      if (component.status !== Component.Ready) return component.errorString()
+      independentView = component.createObject(root, { host: root.context.host, shell: root.context.shell,
+        services: root.context.services, screen: root.targetScreen(), moduleId: "files", opened: true,
+        width: 300, height: 400, visible: false })
+      return independentView ? "created" : component.errorString()
     }
     function sort(value: string): void { filesView.setSorts(JSON.parse(Qt.atob(value))) }
     function scroll(value: int): void { mediaView.contentY = value }
@@ -68,9 +88,56 @@ def prepare(state, plugin):
     function toggle(): void { root.toggleMedia() }
     function recursive(): void { root.mediaRecursive = !root.mediaRecursive }
     function query(value: string): void { root.mediaQuery = value }
+    property int countUpdates: 0
+    property int wheelActivations: 0
+    property var wheelPaths: []
+    function chrome(): string {
+      var view = root.activeList
+      var index = view.indexAt(1, view.contentY + 1)
+      var item = index >= 0 ? view.itemAtIndex(index) : null
+      return JSON.stringify({ index: index, path: index >= 0 ? view.model.get(index).path : "",
+        height: item ? item.height : 0, offset: item ? view.contentY - item.y : 0,
+        countUpdates: countUpdates, count: root.folderCount, label: footerCount.text, root: controller.rootPath,
+        wheelActivations: wheelActivations, wheelPaths: wheelPaths, selected: controller.selectedPaths,
+        step: root.ordinaryDensityStep, searching: controller.searching })
+    }
+    function ordinaryPoint(): string {
+      var item = root.activeList.currentItem
+      var point = item.mapToItem(null, 80, item.height / 2)
+      return JSON.stringify({ x: point.x + root.originX(), y: point.y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) })
+    }
+    function clip(index: int, offset: real): void {
+      var view = root.activeList
+      view.forceLayout()
+      view.positionViewAtIndex(index, ListView.Beginning)
+      view.contentY += offset
+    }
+    function densityBurst(): void { root.changeDensity(0); root.changeDensity(4); root.changeDensity(1); root.changeDensity(0) }
+    function expandRoot(expanded: bool): void { controller.setDirectoryExpanded(controller.rootPath, expanded) }
+    function failRefresh(): void { controller.reconcileDirectory(controller.rootPath, { ok: false, error: "S12 refresh fixture" }) }
+    function hidden(shown: bool): void { controller.setShowHidden(shown) }
+    function filter(value: string): void { filesView.setFilter(JSON.parse(Qt.atob(value))) }
+    function loadSearch(): void { controller.loadAllSearchRows() }
+    function deepSearch(): void { if (!controller.searchDeepActive) controller.toggleSearchDeep(); controller.searchQuery = "entry" }
+    function bindMinus(enabled: bool): void {
+      controller.keybindings.plan = ProbeBindings.compile(enabled ? { bindings: { next: ["-"] } } : {})
+      root.activeList.forceActiveFocus()
+    }
+    function wheelKey(value: string): void {
+      controller.dropWheel.ringItems = [{ id: "brindle-s8", label: "S8 receipt", key: value, custom: true,
+        run: function(paths) { mediaProbe.wheelActivations++; mediaProbe.wheelPaths = paths.slice(); return true } }]
+      controller.dropWheel.resetHighlight()
+      root.activeList.forceActiveFocus()
+    }
+    function density(value: int): void { root.changeDensity(value) }
+    function ordinaryChoose(index: int): void { root.selectIndex(root.activeList, root.activeList === treeList, index, "replace"); root.activeList.forceActiveFocus() }
     function size(value: int): void { mediaView.rememberAnchor(); root.mediaSizeStep = value }
     function choose(index: int, mode: string): void { root.selectIndex(mediaView, false, index, mode); mediaView.forceActiveFocus() }
     function action(value: string): void { root.runListAction(value, { modifiers: 0 }, mediaView, false) }
+  }
+  Connections {
+    target: root
+    function onFolderCountChanged() { mediaProbe.countUpdates++ }
   }
 '''
     pane.write_text(source[:source.rfind('}')] + probe + '}\n')

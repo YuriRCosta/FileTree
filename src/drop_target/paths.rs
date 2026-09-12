@@ -28,6 +28,32 @@ pub(super) fn quoted_paths(paths: &[String]) -> String {
         .join(" ")
 }
 
+pub(super) fn configured_launcher(command: &[OsString], cwd: &str) -> AppResult<Vec<String>> {
+    if which("python3").is_none() {
+        return Err(AppError::invalid(
+            "Configured terminal actions require python3",
+        ));
+    }
+    let folder = parse_path(cwd)?;
+    let mut launch = vec![
+        "python3".to_string(),
+        "-c".to_string(),
+        "import os,sys; argv=[bytes.fromhex(arg) for arg in sys.argv[1:]]; os.chdir(argv[0]); os.execvp(argv[1],argv[1:])".to_string(),
+    ];
+    launch.extend(
+        std::iter::once(folder.as_os_str())
+            .chain(command.iter().map(OsString::as_os_str))
+            .map(|value| {
+                value
+                    .as_bytes()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect()
+            }),
+    );
+    Ok(launch)
+}
+
 fn shell_quote(value: &str) -> String {
     if !value.is_empty()
         && value
@@ -106,6 +132,29 @@ pub(super) fn encode_path(value: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn configured_launcher_preserves_native_bytes_and_literal_arguments() {
+        let values = [
+            OsStr::from_bytes(b"/tmp/odd-\xff.txt"),
+            OsStr::new("file:///tmp/example%20name"),
+            OsStr::new(""),
+            OsStr::new("$(false); 'quoted' \\ backslash\n\n"),
+        ];
+        let mut command = vec![OsString::from("/usr/bin/printf"), OsString::from("%s\\0")];
+        command.extend(values.iter().map(|value| value.to_os_string()));
+        let launch = configured_launcher(&command, "/tmp").unwrap();
+        let output = CommandSpec::new("/bin/sh")
+            .args(["-c", &quoted_paths(&launch)])
+            .run()
+            .unwrap();
+        assert!(output.status.success(), "{:?}", output.stderr);
+        let expected = values
+            .iter()
+            .flat_map(|value| value.as_bytes().iter().copied().chain([0]))
+            .collect::<Vec<_>>();
+        assert_eq!(output.stdout, expected);
+    }
 
     #[test]
     fn terminal_quoting_round_trips_bytes_without_evaluation() {
