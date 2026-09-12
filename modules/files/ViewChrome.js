@@ -7,11 +7,10 @@ function folderReady(model, path) {
 
 function folderCount(model, path, structureRevision, rowsRevision) {
   if (!folderReady(model, path)) {
-    if (model.folderCountCache !== undefined) model.folderCountCache = null
+    model.folderCountCache = null
     return { loaded: 0, total: 0, known: false }
   }
-  var version = structureRevision === undefined || model.folderCountCache === undefined
-    ? "" : JSON.stringify([path, model.count, structureRevision, rowsRevision])
+  var version = structureRevision === undefined ? "" : JSON.stringify([path, model.count, structureRevision, rowsRevision])
   var cached = version ? model.folderCountCache : null
   if (cached && cached.version === version) return cached.value
   var loaded = 0, total = 0
