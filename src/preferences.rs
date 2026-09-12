@@ -82,10 +82,7 @@ pub fn keybindings() -> AppResult<String> {
     let object = document
         .as_object()
         .ok_or_else(|| AppError::invalid("keybindings must be an object"))?;
-    if object
-        .keys()
-        .any(|key| !["version", "filebladeVersion", "bindings"].contains(&key.as_str()))
-        || object.get("version").is_some_and(|version| version != 1)
+    if object.get("version").is_some_and(|version| version != 1)
         || object
             .get("bindings")
             .is_some_and(|bindings| !bindings.is_object())
