@@ -17,7 +17,7 @@ FocusScope {
   PluginUi.ActionKeyGuard { id: actionKeyGuard; active: root.activeFocus; shared: root.hostWindow ? root.hostWindow.actionKeys : null }
   PluginUi.TreeKeys {
     id: treeKeys
-    active: root.focusEnabled && (treeList.activeFocus || searchList.activeFocus || recentList.activeFocus || mediaView.activeFocus)
+    active: root.focusEnabled && (treeList.activeFocus || searchList.activeFocus || recentList.activeFocus || mediaView.contentActiveFocus)
     scope: treeList.activeFocus ? "files-tree" : "files-list"
     plan: controller.keybindings.plan
   }
@@ -599,6 +599,8 @@ FocusScope {
   }
 
   function pushTreeOrder() {
+    if (JSON.stringify(filesView.sorts) === JSON.stringify(controller.treeSort) && JSON.stringify(filesView.filter) === JSON.stringify(controller.treeFilter)) return
+    if (root.mediaActive) mediaView.rememberAnchor()
     controller.setTreeOrder(filesView.sorts, filesView.filter)
   }
 
@@ -909,7 +911,8 @@ FocusScope {
     visible: root.mediaActive
     controller: root.controller
     pane: root
-    rows: root.mediaMatches.rows
+    items: root.mediaMatches.rows
+    sorts: controller.treeSort
     busy: mediaProvider.busy
     message: mediaProvider.error || (root.mediaMatches.invalid ? "Invalid pattern" : (root.mediaQuery !== "" && !busy ? "No matching media" : ""))
     sizeStep: root.mediaSizeStep
@@ -920,7 +923,7 @@ FocusScope {
         event.accepted = true
       } else if (plain && [Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down].indexOf(event.key) >= 0) {
         var delta = event.key === Qt.Key_Left ? -1 : (event.key === Qt.Key_Right ? 1 : (event.key === Qt.Key_Up ? -columns : columns))
-        root.moveCurrent(mediaView, false, delta, !!(event.modifiers & Qt.ShiftModifier), false)
+        root.moveCurrent(mediaView, false, delta, root.visualMode || !!(event.modifiers & Qt.ShiftModifier), false)
         event.accepted = true
       } else root.handleListKey(event, mediaView, false)
     }

@@ -10,7 +10,10 @@ FocusScope {
 
   required property var controller
   required property var pane
-  property var rows: []
+  property var items: []
+  property var sorts: []
+  readonly property var dateRecords: MediaBins.ordered(items, sorts)
+  readonly property var rows: dateRecords.map(function(record) { return record.item })
   property int sizeStep: ImageGallery.DEFAULT_STEP
   property bool busy: false
   property string message: ""
@@ -19,8 +22,8 @@ FocusScope {
   property bool ownsDrag: false
   readonly property int count: rows.length
   readonly property var calendarRule: MediaDates.localeRule(Qt.locale().name, Qt.locale().firstDayOfWeek)
-  readonly property var dateRecords: MediaBins.records(rows)
-  readonly property var dateOverview: MediaBins.build(dateRecords, "months", null, calendarRule)
+  readonly property alias timeline: timeline
+  readonly property bool contentActiveFocus: activeFocus && !timeline.activeFocus
   readonly property var model: ({ count: rows.length, get: function(index) { return media.rows[index] } })
   property alias currentIndex: grid.currentIndex
   readonly property alias flickable: grid
@@ -28,7 +31,7 @@ FocusScope {
   readonly property real contentHeight: grid.contentHeight
   readonly property real originY: grid.originY
   property alias contentY: grid.contentY
-  readonly property int cell: Style.space(ImageGallery.cellFor(sizeStep))
+  readonly property int cell: Math.max(1, Math.min(Style.space(ImageGallery.cellFor(sizeStep)), grid.width))
   readonly property int labelHeight: sizeStep >= 3 ? Style.space(16) : 0
   signal keyPressed(var event)
   signal sizeStepRequested(int step)
@@ -48,6 +51,7 @@ FocusScope {
 
   function restoreAnchor(path) {
     grid.forceLayout()
+    currentIndex = indexOfPath(controller.selectedPath)
     var index = indexOfPath(path || anchorPath)
     if (index >= 0) grid.positionViewAtIndex(index, GridView.Beginning)
   }
@@ -92,7 +96,7 @@ FocusScope {
     reflow()
   }
 
-  Keys.priority: Keys.BeforeItem
+  Keys.priority: Keys.AfterItem
   Keys.onPressed: function(event) { keyPressed(event) }
   Keys.onReleased: function(event) { if (controller.dropWheel.handleDragKeyRelease(event)) event.accepted = true }
 
@@ -100,15 +104,20 @@ FocusScope {
 
   GridView {
     id: grid
-    anchors.fill: parent
+    anchors.left: parent.left
+    anchors.right: timeline.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
     anchors.margins: Style.space(6)
+    anchors.topMargin: timeline.headerHeight + Style.space(6)
     model: media.rows
-    cellWidth: media.cell + Style.space(4)
+    cellWidth: Math.min(width, media.cell + Style.space(4))
     cellHeight: media.cell + media.labelHeight + Style.space(4)
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     cacheBuffer: cellHeight
     currentIndex: -1
+    highlightFollowsCurrentItem: false
     onContentYChanged: if (!moving && !flicking) media.rememberAnchor()
     onMovementEnded: media.rememberAnchor()
 
@@ -176,6 +185,28 @@ FocusScope {
         if (canceled) media.controller.dropWheel.cancelDrag()
         else media.controller.dropWheel.endDrag(undefined, undefined, undefined)
       }
+    }
+  }
+
+  MediaTimeline {
+    id: timeline
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    anchors.rightMargin: Style.space(6)
+    headerWidth: media.width - Style.space(12)
+    records: media.dateRecords
+    calendarRule: media.calendarRule
+    columns: media.columns
+    pitch: grid.cellHeight
+    tileHeight: media.cell + media.labelHeight
+    contentY: grid.contentY - grid.originY
+    contentHeight: grid.contentHeight
+    viewportHeight: grid.height
+    onSeekRequested: function(position) {
+      grid.cancelFlick()
+      grid.contentY = grid.originY + position
+      media.rememberAnchor()
     }
   }
 

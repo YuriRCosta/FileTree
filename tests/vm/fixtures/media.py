@@ -36,7 +36,31 @@ def prepare(state, plugin):
         selected: controller.selectedPaths, current: mediaView.currentIndex, y: mediaView.contentY,
         root: controller.rootPath, ordinaryQuery: controller.searchQuery, pending: mediaProvider.requestId,
         viewHeight: mediaView.height, cell: mediaView.cell, focused: mediaView.activeFocus,
+        columns: mediaView.columns, anchor: mediaView.anchorPath, sorts: controller.treeSort, visual: root.visualMode,
+        values: mediaView.rows.slice(0, 1000).map(function(row) { return { name: row.name, size: row.size, modified: row.modified } }),
+        timeline: { level: mediaView.timeline.detail.level, count: mediaView.timeline.detail.count,
+          bins: mediaView.timeline.detail.bins.map(function(bin) { return { key: bin.key, count: bin.count, level: bin.level } }),
+          maximum: mediaView.timeline.detail.maximum, active: mediaView.timeline.viewport.active,
+          outlineTop: mediaView.timeline.outlineTop, outlineHeight: mediaView.timeline.outlineHeight,
+          axisTop: mediaView.timeline.axisTop, rowHeight: mediaView.timeline.rowHeight,
+          width: mediaView.timeline.width, period: mediaView.timeline.periodLabel,
+          parentKeys: mediaView.timeline.parents.map(function(bin) { return bin.key }),
+          up: mediaView.timeline.canGoUp, down: mediaView.timeline.canDrill,
+          x: mediaView.timeline.mapToItem(null, 0, 0).x + root.originX(),
+          y: mediaView.timeline.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) },
         firstVisible: mediaView.flickable.indexAt(1, mediaView.contentY + 1) })
+    }
+    function sort(value: string): void { filesView.setSorts(JSON.parse(Qt.atob(value))) }
+    function scroll(value: int): void { mediaView.contentY = value }
+    function timelineFocus(): void { mediaView.timeline.forceActiveFocus() }
+    function dates(value: string): void {
+      var dates = JSON.parse(Qt.atob(value))
+      mediaView.items = mediaProvider.rows.slice(0, dates.length).map(function(row, index) {
+        var result = Object.assign({}, row)
+        result.date = dates[index]
+        result.datePrecision = ""
+        return result
+      })
     }
     function toggle(): void { root.toggleMedia() }
     function recursive(): void { root.mediaRecursive = !root.mediaRecursive }
