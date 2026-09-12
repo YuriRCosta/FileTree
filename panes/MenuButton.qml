@@ -10,6 +10,7 @@ Rectangle {
   property bool primary: false
   property string swatch: ""
   property string appIcon: ""
+  property string appDesktopId: ""
   property string shortcut: ""
   property bool menuFocusable: true
   readonly property bool menuHighlighted: control.enabled && (pointer.containsMouse || control.activeFocus)
@@ -29,7 +30,7 @@ Rectangle {
   Text {
     textFormat: Text.PlainText
     anchors.left: parent.left
-    anchors.leftMargin: Style.space(10) + (control.swatch ? Style.space(19) : (control.appIcon ? Style.space(27) : 0))
+    anchors.leftMargin: Style.space(10) + (control.swatch ? Style.space(19) : (control.appIcon || control.appDesktopId ? Style.space(27) : 0))
     anchors.right: shortcutHint.visible ? shortcutHint.left : parent.right
     anchors.rightMargin: Style.space(10)
     height: parent.height
@@ -61,8 +62,9 @@ Rectangle {
     anchors.left: parent.left
     anchors.leftMargin: Style.space(10)
     anchors.verticalCenter: parent.verticalCenter
-    visible: control.appIcon !== ""
+    visible: control.appIcon !== "" || control.appDesktopId !== ""
     iconName: control.appIcon
+    desktopId: control.appDesktopId
     fallbackGlyph: "󰏗"
     fallbackColor: control.menuHighlighted ? Color.bar.text : Color.accent
   }
