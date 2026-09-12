@@ -107,6 +107,14 @@ await_list E-35-02 "${ids[0]}" 'enable restores the module without restart'
 
 create "${ids[1]}" delayed
 await_list E-35-03 "${ids[1]}" 'extension written in stages appears while blades stay open'
+if [[ $native == native ]]; then
+  sleep 3
+  guest "cp -- '$extensions/${ids[1]}/manifest.json' '$case_dir/valid-manifest'; printf '{}' > '$extensions/${ids[1]}/manifest.json'"
+  if wait_for "! listed '${ids[1]}'" 8; then pass E-35-03 'corrupt manifest removes the extension'; else fail E-35-03 'corrupt manifest removes the extension' 'still listed after 8 seconds'; fi
+  sleep 3
+  guest "cp -- '$case_dir/valid-manifest' '$extensions/${ids[1]}/manifest.json'"
+  await_list E-35-03 "${ids[1]}" 'repaired manifest restores the extension without reopening'
+fi
 ctl openBlade right
 ctl closeBlade left
 sleep 3

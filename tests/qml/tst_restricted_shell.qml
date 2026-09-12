@@ -254,7 +254,7 @@ TestCase {
     catalog.watch()
     verify(fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.late") < 0)
     catalog.unwatch()
-    catalog.pendingDirectories = []
+    catalog.extensionDirectories = []
     catalog.watchPaths = original
     catalog.providers = originalProviders
   }

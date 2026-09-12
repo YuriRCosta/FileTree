@@ -5,7 +5,7 @@ QtObject {
 
   property var service: null
   property var watchPaths: []
-  property var pendingDirectories: []
+  property var extensionDirectories: []
   property int generation: 0
   property var providers: []
   property string activation: "unknown"
@@ -86,7 +86,7 @@ QtObject {
       catalog.providers = trusted ? rows : catalog.withoutAuthority(rows)
       if (watchPaths.length === 4) {
         var known = catalog.providers.map(function(provider) { return catalog.watchPaths[2] + "/" + provider.id })
-        catalog.pendingDirectories = catalog.pendingDirectories.filter(function(path) { return known.indexOf(path) < 0 })
+        catalog.extensionDirectories = known.concat(catalog.extensionDirectories).filter(function(path, index, all) { return all.indexOf(path) === index }).slice(0, maximumProviders * 2)
         Qt.callLater(catalog.watch)
       }
       catalog.refreshed()
@@ -105,10 +105,10 @@ QtObject {
       if (child) {
         var events = Array.isArray(event.events) ? event.events : []
         var removed = events.indexOf("delete") >= 0 || events.indexOf("moved_from") >= 0
-        if (removed) pendingDirectories = pendingDirectories.filter(function(value) { return value !== path })
+        if (removed) extensionDirectories = extensionDirectories.filter(function(value) { return value !== path })
         else if ((events.indexOf("create") >= 0 || events.indexOf("moved_to") >= 0)
-                 && pendingDirectories.indexOf(path) < 0 && pendingDirectories.length < maximumProviders * 2)
-          pendingDirectories = pendingDirectories.concat([path])
+                 && extensionDirectories.indexOf(path) < 0 && extensionDirectories.length < maximumProviders * 2)
+          extensionDirectories = extensionDirectories.concat([path])
       }
       if (watchPaths.indexOf(path) >= 0 || child) {
         watchSignature = ""
@@ -155,7 +155,7 @@ QtObject {
     if (!service || !Array.isArray(watchPaths) || watchPaths.length === 0) return false
     var paths = watchPaths.slice()
     if (watchPaths.length === 4)
-      paths = paths.concat(pendingDirectories, providers.map(function(provider) { return catalog.watchPaths[2] + "/" + provider.id })).filter(function(path, index, all) { return all.indexOf(path) === index }).sort()
+      paths = paths.concat(extensionDirectories).filter(function(path, index, all) { return all.indexOf(path) === index }).sort()
     var signature = JSON.stringify(paths)
     if (watchRequestId) {
       if (watchPaths.length !== 4 || watchSignature === signature) return false
