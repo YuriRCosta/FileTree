@@ -37,6 +37,12 @@ FloatingWindow {
         }
         ComboBox {
           id: filters
+          palette.button: Color.bar.background
+          palette.buttonText: Color.bar.text
+          palette.base: Color.bar.background
+          palette.text: Color.bar.text
+          palette.highlight: Color.accent
+          palette.highlightedText: Color.background
           anchors { left: parent.left; right: parent.right; bottom: footer.top }
           visible: session.filters.length > 0
           height: visible ? implicitHeight : 0

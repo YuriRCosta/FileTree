@@ -197,6 +197,6 @@ window. E45 starts with a focused ordinary blade, selects distinct files with
 the real pointer in two chooser windows, and cancels one with Escape. The
 ordinary root and persisted state/layout remain unchanged, and the two views
 share one resident backend process. The UI fixture uses the existing browsing
-backend; broker completion, live filters and Save validation await the narrow
-resident command registration. The caller's custom accept label is not yet
+backend; broker completion, live filters and Save validation are exercised separately
+by E46 against the registered native authority. The caller's custom accept label is not yet
 wired into the shared footer.

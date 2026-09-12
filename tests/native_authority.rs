@@ -685,3 +685,93 @@ fn an_idle_view_relay_does_not_block_the_qt_pipe_availability_query() {
     child.kill().unwrap();
     child.wait().unwrap();
 }
+
+#[test]
+fn chooser_offers_leave_completion_capacity_and_cancel_on_real_caller_eof() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let resident = Resident::start();
+    let path = resident.temporary.path().join("upload # space.txt");
+    fs::write(&path, "upload").unwrap();
+    let mut caller = resident.session();
+    let mut observer = resident.session();
+    let send = |session: &mut Session, id: &str, arguments: Value| {
+        session.send(json!({"v":1,"type":"request","id":id,"generation":1,
+            "command":"chooser","arguments":arguments,"deadline_ms":60000}));
+    };
+    let offer = |number| {
+        json!({"handle":format!("chooser-{number}"),"caller":":1.42","parent_window":"",
+            "title":"Upload","accept_label":"Choose","modal":true,
+            "current_folder":resident.temporary.path(),"current_name":"","mode":"open",
+            "multiple":false,"filters":[],"current_filter":null})
+        .to_string()
+    };
+    for number in 0..16 {
+        send(
+            &mut caller,
+            &format!("offer-{number}"),
+            json!(["offer", "--document", offer(number)]),
+        );
+    }
+    let mut serial = 0;
+    let mut wait_count = |expected| {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            serial += 1;
+            send(&mut observer, &format!("watch-{serial}"), json!(["watch"]));
+            let frame = observer.receive();
+            assert_eq!(frame["ok"], true, "{frame}");
+            if frame["payload"]["offers"].as_array().unwrap().len() == expected {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "pending chooser count did not reach {expected}: {frame}"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    };
+    wait_count(16);
+    send(
+        &mut caller,
+        "overflow",
+        json!(["offer", "--document", offer(16)]),
+    );
+    let refused = caller.receive();
+    assert_eq!(refused["id"], "overflow");
+    assert_eq!(refused["payload"]["ok"], false, "{refused}");
+    assert!(
+        refused["payload"]["error"]
+            .as_str()
+            .unwrap()
+            .contains("limit or duplicate")
+    );
+    send(
+        &mut caller,
+        "choose",
+        json!(["choose", "--handle", "chooser-0", "--path", path]),
+    );
+    let mut completed = [caller.receive(), caller.receive()];
+    completed.sort_by_key(|frame| frame["id"].as_str().unwrap().to_owned());
+    assert_eq!(completed[0]["id"], "choose");
+    assert_eq!(completed[1]["id"], "offer-0");
+    for frame in &completed {
+        assert_eq!(frame["type"], "response");
+        assert_eq!(frame["payload"]["ok"], true, "{frame}");
+    }
+    assert_eq!(
+        completed[1]["payload"]["outcome"]["uris"],
+        json!([url::Url::from_file_path(&path).unwrap().to_string()])
+    );
+    send(
+        &mut caller,
+        "cancel",
+        json!(["cancel", "--handle", "chooser-1"]),
+    );
+    let mut cancelled = [caller.receive(), caller.receive()];
+    cancelled.sort_by_key(|frame| frame["id"].as_str().unwrap().to_owned());
+    assert_eq!(cancelled[0]["payload"]["cancelled"], true);
+    assert_eq!(cancelled[1]["payload"]["outcome"]["status"], "cancelled");
+    drop(caller);
+    wait_count(0);
+    assert!(fileblade::lease::transport::probe(&resident.root).is_ok());
+}

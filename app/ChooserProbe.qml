@@ -5,6 +5,21 @@ Item {
   id: probe
   required property var manager
 
+  function geometry(handle, matches) {
+    var session = manager.sessions[handle]
+    if (!session) return "{}"
+    var queue = [session.chooserWindow.contentItem]
+    while (queue.length) {
+      var item = queue.shift()
+      if (item.visible && matches(item)) {
+        var point = item.mapToItem(null, 0, 0)
+        return JSON.stringify({ x: point.x, y: point.y, width: item.width, height: item.height })
+      }
+      if (item.children) for (var child of item.children) queue.push(child)
+    }
+    return "{}"
+  }
+
   IpcHandler {
     target: "fileblade.chooser"
     function status(): string {
@@ -26,18 +41,10 @@ Item {
       return "presented"
     }
     function rowGeometry(handle: string, path: string): string {
-      var session = probe.manager.sessions[handle]
-      if (!session) return "{}"
-      var queue = [session.chooserWindow.contentItem]
-      while (queue.length) {
-        var item = queue.shift()
-        if (item.path === path && item.selectable !== undefined && item.visible) {
-          var point = item.mapToItem(null, 0, 0)
-          return JSON.stringify({ x: point.x, y: point.y, width: item.width, height: item.height })
-        }
-        if (item.children) for (var child of item.children) queue.push(child)
-      }
-      return "{}"
+      return probe.geometry(handle, function(item) { return item.path === path && item.selectable !== undefined })
+    }
+    function buttonGeometry(handle: string, label: string): string {
+      return probe.geometry(handle, function(item) { return item.text === label && item.down !== undefined })
     }
   }
 }
