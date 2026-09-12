@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "df9a415e61c1d2bc299b1fb8fa9d3502c6c0f439",
+  "legacyProvider": "data-goblin.fileblade-memory",
+  "manifestSha256": "866d7e1493b6278e6c438549ef82156e99d7648f6bb759f85bb1f13ea573a81c",
+  "helpers": [
+    {
+      "id": "inventory",
+      "entry": "bin/agent-memoryctl",
+      "read": [
+        "list"
+      ],
+      "write": [
+        "apply"
+      ],
+      "timeoutMs": 8000
+    }
+  ]
+}

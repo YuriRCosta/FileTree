@@ -5,6 +5,7 @@ QtObject {
   id: manager
 
   property var providers: []
+  property var builtinProviders: []
   property var disclosed: ({})
   property var files: null
   property string inventoryUrl: ""
@@ -39,16 +40,36 @@ QtObject {
     return String(row.id) + " " + String(row.dir) + " " + entry
   }
 
+  function builtinRows() {
+    var rows = Array.isArray(builtinProviders) ? builtinProviders.slice(0, 4) : []
+    return rows.filter(function(row) {
+      return row && ["fileblade.core.skills", "fileblade.core.memory", "fileblade.core.hooks", "fileblade.core.mcp"].indexOf(row.id) >= 0
+        && row.dir && row.entry === "Provider.qml"
+    })
+  }
+
+  function absorbedProvider(id, builtins) {
+    for (var i = 0; i < builtins.length; i++) {
+      var module = builtins[i].id.slice("fileblade.core.".length)
+      if (id === "data-goblin.fileblade-" + module || id === "kurt.agent-" + module) return true
+    }
+    return false
+  }
+
   function rebuild() {
     var next = ({})
     var exposed = ({})
     var failed = ({})
-    var rows = Array.isArray(providers) ? providers : []
+    var builtins = builtinRows()
+    var external = Array.isArray(providers) ? providers : []
+    var rows = builtins.concat(external)
     for (var i = 0; i < rows.length && Object.keys(next).length < maximumProviders; i++) {
       var row = rows[i]
-      if (!row || row.enabled !== true || !row.id || !row.dir) continue
-      if (disclosed && disclosed[row.id]) continue
-      var entry = providerEntry(row.manifest)
+      var builtin = i < builtins.length
+      if (!row || (!builtin && row.enabled !== true) || !row.id || !row.dir || next[row.id]) continue
+      if (!builtin && (String(row.id).indexOf("fileblade.core.") === 0 || absorbedProvider(row.id, builtins))) continue
+      if (!builtin && disclosed && disclosed[row.id]) continue
+      var entry = builtin ? row.entry : providerEntry(row.manifest)
       if (!entry) continue
       var identity = identityOf(row, entry)
       var existing = live[row.id]
@@ -108,5 +129,8 @@ QtObject {
   }
 
   onProvidersChanged: rebuild()
+  onBuiltinProvidersChanged: rebuild()
   onDisclosedChanged: rebuild()
+  onFilesChanged: rebuild()
+  onInventoryUrlChanged: rebuild()
 }
