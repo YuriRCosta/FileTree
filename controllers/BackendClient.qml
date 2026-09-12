@@ -320,12 +320,13 @@ Item {
       return
     }
     if (frame.type === "response" || frame.type === "operation") {
-      var response = frame.ok ? frame.payload : {
+      var response = frame.ok ? frame.payload : Object.assign({}, frame.payload || {}, {
         ok: false,
         cancelled: !!frame.cancelled,
         deadline_exceeded: !!frame.deadline_exceeded,
-        error: String(frame.error || "Backend request failed")
-      }
+        error: String(frame.error || "Backend request failed"),
+        error_id: String(frame.error_id || "")
+      })
       complete(requestKey, response)
       if (frame.type === "response" && frame.op)
         send({ v: protocolVersion, type: "operation", action: "fetch", op: String(frame.op), id: String(frame.id) + "-fetch", generation: frame.generation })

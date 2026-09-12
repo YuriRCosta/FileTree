@@ -16,7 +16,9 @@ pub(super) fn run(options: ServeArgs, authority: Arc<Authority>) -> AppResult<()
         }
         std::fs::remove_file(&socket)?;
     }
-    let recovered = if options.no_recover {
+    let recovered = if let crate::lease::WriteMode::ReadOnly { reason } = authority.write_mode() {
+        json!({"ok": false, "skipped": true, "error_id": "migration-refused", "error": reason})
+    } else if options.no_recover {
         json!({"ok": true, "skipped": true})
     } else {
         crate::recovery::sweep()
@@ -32,9 +34,9 @@ pub(super) fn run(options: ServeArgs, authority: Arc<Authority>) -> AppResult<()
     let stopping = Arc::new(AtomicBool::new(false));
     let result = (|| {
         while !input::interrupted() {
-            authority
-                .verify()
-                .map_err(|error| AppError::command(error.to_string()))?;
+            if authority.verify().is_err() {
+                operations.stop_after_identity_loss();
+            }
             reap(&mut clients);
             match listener.accept() {
                 Ok((stream, _)) if clients.len() < 32 => {
@@ -64,8 +66,8 @@ pub(super) fn run(options: ServeArgs, authority: Arc<Authority>) -> AppResult<()
     while operations.busy() {
         thread::sleep(Duration::from_millis(20));
     }
-    crate::hyprland::restore_owned_borders();
     if authority.verify().is_ok() {
+        crate::hyprland::restore_owned_borders();
         std::fs::remove_file(socket)?;
     }
     result
@@ -144,7 +146,7 @@ fn session(
                 emit(
                     &output,
                     &json!({"v": VERSION, "type": "hello", "ok": true, "authority": true,
-                    "protocol": "fileblade", "version": env!("CARGO_PKG_VERSION"), "recovered": recovered,
+                    "protocol": "fileblade", "version": env!("CARGO_PKG_VERSION"), "recovered": recovered, "write_mode": operations.write_mode(),
                     "limits": {"concurrency": max_concurrency, "line_bytes": MAX_LINE_BYTES, "response_bytes": MAX_RESPONSE_BYTES,
                     "arguments": MAX_ARGUMENTS, "deadline_ms": MAX_DEADLINE_MS,
                     "identifier_bytes": MAX_IDENTIFIER_BYTES, "request_keys": RECENT_REQUEST_KEYS,

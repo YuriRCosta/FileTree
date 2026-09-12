@@ -58,6 +58,8 @@ pub struct ServeArgs {
     pub native_authority: bool,
     #[arg(long)]
     pub native_probe: bool,
+    #[arg(long, requires = "native_authority")]
+    pub native_isolated: bool,
 }
 
 #[derive(Clone)]
@@ -153,6 +155,30 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
                 )
                 .map_err(|error| AppError::command(error.to_string()))?,
             );
+            if options.native_isolated {
+                let home = std::env::var_os("FILEBLADE_SPIKE_HOME")
+                    .map(PathBuf::from)
+                    .filter(|home| home.is_absolute())
+                    .ok_or_else(|| {
+                        AppError::command("isolated authority requires FILEBLADE_SPIKE_HOME")
+                    })?;
+                for (role, selected) in [
+                    ("state", home.join("state/omarchy/fileblade")),
+                    ("config", home.join("config/omarchy/fileblade")),
+                    ("recovery", home.join("state/fileblade")),
+                ] {
+                    if std::fs::canonicalize(selected)? != authority.roots()[role].path {
+                        return Err(AppError::command(
+                            "isolated authority roots must belong to FILEBLADE_SPIKE_HOME",
+                        ));
+                    }
+                }
+                authority
+                    .set_write_mode(crate::lease::WriteMode::Full)
+                    .map_err(|error| AppError::command(error.to_string()))?;
+            }
+            let _persistence =
+                crate::lease::persistence::PersistenceSession::open(Arc::clone(&authority))?;
             return native::run(options, authority);
         }
         if options.native_probe {

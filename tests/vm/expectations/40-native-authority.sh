@@ -9,7 +9,7 @@ fi
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
 ovm=${OVM:-$repo/app/ovm-spike}
 payload=$(base64 -w0 <<'PY'
-import base64, json, os, pathlib, shutil, socket, subprocess, tempfile, time
+import base64, json, os, pathlib, shutil, signal, socket, subprocess, tempfile, time
 
 app = pathlib.Path('/home/omarchy/fileblade-runtime-spike/app')
 root = pathlib.Path(os.environ['FILEBLADE_NATIVE_STATE_ROOT'])
@@ -110,6 +110,91 @@ assert not operation('get', op)['ok']
 control('setRoot', original['rootPath'])
 print(json.dumps({'ok': True, 'expectations': ['E-40-01', 'E-40-02', 'E-40-03'], 'operation': op, 'accepted': accepted, 'result': result, 'holder': holder, 'identity': identity, 'screenshot': str(shot), 'fixture': str(source)}))
 shutil.rmtree(destination)
+
+replacement_source = pathlib.Path(tempfile.mkdtemp(prefix='fileblade-native40-replacement-', dir='/home/omarchy'))
+replacement_destination = replacement_source / 'destination'
+replacement_destination.mkdir()
+replacement_file = replacement_source / 'source.bin'
+with replacement_file.open('wb') as output:
+    output.truncate(1024 * 1024 * 1024)
+control('setRoot', str(replacement_source))
+deadline = time.monotonic() + 5
+while json.loads(ipc('data-goblin.fileblade', 'status'))['rootPath'] != str(replacement_source):
+    assert time.monotonic() < deadline
+    time.sleep(0.02)
+entries = json.dumps([{'path': str(replacement_file), 'name': replacement_file.name, 'isDir': False}])
+assert control('selectEntries', 'base64:' + base64.b64encode(entries.encode()).decode()) == 'ok'
+existing = {entry['op'] for entry in operation('list')['payload']}
+request_id = control('moveSelectionTo', str(replacement_destination), 'true')
+deadline = time.monotonic() + 5
+while True:
+    pending = [entry for entry in operation('list')['payload'] if entry['op'] not in existing]
+    running = []
+    for entry in pending:
+        snapshot = operation('get', entry['op'])['payload']
+        if str((snapshot.get('progress') or snapshot.get('result') or {}).get('generation')) == request_id:
+            running.append(snapshot)
+    partials = list(replacement_destination.glob('.fileblade-partial-*/item'))
+    if running and partials and partials[0].stat().st_size > 0:
+        replacement_op = running[0]['op']
+        break
+    assert time.monotonic() < deadline, 'replacement copy did not reach temporary output'
+    time.sleep(0.001)
+os.kill(holder['pid'], signal.SIGSTOP)
+moved_root = root.with_name(root.name + '-native40-original')
+assert not moved_root.exists()
+try:
+    assert partials[0].stat().st_size < replacement_file.stat().st_size
+    root.rename(moved_root)
+    root.mkdir(mode=0o700)
+    (root / 'sentinel').write_text('unchanged')
+finally:
+    os.kill(holder['pid'], signal.SIGCONT)
+deadline = time.monotonic() + 20
+while True:
+    state = operation('get', replacement_op)['payload']
+    if state['complete']:
+        break
+    assert time.monotonic() < deadline, 'lost authority did not finish its explicit failure result'
+    time.sleep(0.02)
+replacement_result = state['result']
+assert replacement_result['error_id'] == 'authority-lost', replacement_result
+assert not replacement_result['ok'] and not replacement_result['cancelled']
+assert sorted(path.name for path in root.iterdir()) == ['sentinel']
+assert (root / 'sentinel').read_text() == 'unchanged'
+assert replacement_file.stat().st_size == 1024 * 1024 * 1024
+replacement_shot = replacement_source / 'authority-lost.png'
+subprocess.run(['grim', '-o', 'Virtual-1', str(replacement_shot)], check=True, timeout=5)
+assert operation('fetch', replacement_op)['payload']['result'] == replacement_result
+subprocess.run(['qs', '-p', str(app), 'kill'], check=True, timeout=5)
+stream.close()
+connection.close()
+os.kill(holder['pid'], signal.SIGTERM)
+deadline = time.monotonic() + 10
+while pathlib.Path('/proc', str(holder['pid'])).exists():
+    assert time.monotonic() < deadline, 'lost authority did not shut down'
+    time.sleep(0.02)
+assert sorted(path.name for path in root.iterdir()) == ['sentinel']
+(root / 'sentinel').unlink()
+root.rmdir()
+moved_root.rename(root)
+with (replacement_source / 'relaunch.log').open('w') as log:
+    subprocess.Popen([str(app / 'launch')], env=environment, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+deadline = time.monotonic() + 10
+while True:
+    try:
+        if json.loads(ipc('fileblade.native', 'status'))['loaded']:
+            break
+    except (subprocess.SubprocessError, json.JSONDecodeError):
+        pass
+    assert time.monotonic() < deadline
+    time.sleep(0.1)
+control('setRoot', original['rootPath'])
+replacement_file.unlink()
+shutil.rmtree(replacement_destination)
+print(json.dumps({'ok': True, 'expectations': ['E-40-04'], 'operation': replacement_op,
+    'result': replacement_result, 'replacementEntries': ['sentinel'], 'screenshot': str(replacement_shot),
+    'restoredOriginalRoot': str(root)}))
 stream.close()
 connection.close()
 PY

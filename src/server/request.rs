@@ -20,12 +20,25 @@ pub(super) fn start_request(
         );
     }
     let cancelled = Arc::new(AtomicBool::new(false));
+    if operations.is_some_and(|operations| operations.authority_lost()) {
+        let mut frame = error_frame(object, "authority-lost: storage identity changed");
+        frame["error_id"] = Value::String("authority-lost".into());
+        return emit(output, &frame);
+    }
     let deadline_exceeded = Arc::new(AtomicBool::new(false));
     let mutating = if operations.is_some() {
         native_mutating(&request.command)
     } else {
         backend::mutating(&request.command)
     };
+    if mutating
+        && let Some(operations) = operations
+        && let crate::lease::WriteMode::ReadOnly { reason } = operations.write_mode()
+    {
+        let mut frame = error_frame(object, &reason);
+        frame["error_id"] = Value::String("migration-refused".into());
+        return emit(output, &frame);
+    }
     let mut operation = None;
     {
         let mut requests = lock(active);
@@ -77,13 +90,13 @@ pub(super) fn start_request(
             &output,
             operation.as_deref(),
         );
+        lock(&active).remove(&active_key);
         if let Some(operation) = operation {
             frame["op"] = Value::String(operation.id.clone());
             operation.publish(frame, true);
         } else {
             let _ = emit(&output, &frame);
         }
-        lock(&active).remove(&active_key);
     }));
     Ok(())
 }

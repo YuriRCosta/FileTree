@@ -1,6 +1,23 @@
 use super::*;
 use base64::{Engine, prelude::BASE64_STANDARD};
 
+pub fn open_record_lock(path: &Path) -> io::Result<LockedFile> {
+    if !crate::lease::persistence::native()? {
+        return open_private_lock(path);
+    }
+    let parent = crate::lease::persistence::record_parent(path)?;
+    let fd = openat(
+        &parent.directory,
+        &parent.name,
+        OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+        Mode::from_raw_mode(PRIVATE_FILE_MODE),
+    )?;
+    verify_private_fd(&fd, EntryKind::File, PRIVATE_FILE_MODE)?;
+    flock(&fd, FlockOperation::LockExclusive)?;
+    crate::lease::persistence::check_write(path)?;
+    Ok(LockedFile { file: fd.into() })
+}
+
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileVersion {
@@ -50,6 +67,12 @@ pub fn write_config_expected(
     data: &[u8],
     maximum: usize,
 ) -> io::Result<()> {
+    crate::lease::persistence::check_write(&target.full_path())?;
+    let target = if crate::lease::persistence::storage_anchor(&target.full_path())?.is_some() {
+        crate::lease::persistence::record_parent(&target.full_path())?
+    } else {
+        target
+    };
     if data.len() > maximum {
         return Err(invalid_input(
             "updated configuration exceeds its byte limit",
@@ -125,6 +148,7 @@ pub fn write_config_expected(
             }
             None => None,
         };
+        crate::lease::persistence::verify()?;
         let published = renameat_with(
             &partial,
             new_name,

@@ -67,3 +67,61 @@ pub fn check_write(path: &Path) -> io::Result<()> {
 pub fn write_mode() -> io::Result<WriteMode> {
     Ok(authority()?.map_or(WriteMode::Full, |authority| authority.write_mode()))
 }
+
+pub fn native() -> io::Result<bool> {
+    Ok(authority()?.is_some())
+}
+
+pub fn verify() -> io::Result<()> {
+    if let Some(authority) = authority()? {
+        authority.verify().map_err(io::Error::other)?;
+    }
+    Ok(())
+}
+
+pub fn record_parent(path: &Path) -> io::Result<crate::secure::ResolvedParent> {
+    check_write(path)?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::other("record has no parent"))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::other("record has no name"))?;
+    let directory = match storage_anchor(parent)? {
+        Some((directory, relative)) => {
+            let mut directory: rustix::fd::OwnedFd = directory.into();
+            for component in relative.components() {
+                let std::path::Component::Normal(name) = component else {
+                    return Err(io::Error::other("invalid record path"));
+                };
+                match rustix::fs::mkdirat(&directory, name, rustix::fs::Mode::from_raw_mode(0o700))
+                {
+                    Ok(()) => rustix::fs::fsync(&directory)?,
+                    Err(rustix::io::Errno::EXIST) => {}
+                    Err(error) => return Err(error.into()),
+                }
+                directory = rustix::fs::openat(
+                    &directory,
+                    name,
+                    rustix::fs::OFlags::RDONLY
+                        | rustix::fs::OFlags::DIRECTORY
+                        | rustix::fs::OFlags::CLOEXEC
+                        | rustix::fs::OFlags::NOFOLLOW,
+                    rustix::fs::Mode::empty(),
+                )?;
+                let stat = rustix::fs::fstat(&directory)?;
+                if stat.st_uid != unsafe { libc::geteuid() } {
+                    return Err(io::Error::other(
+                        "record directory is owned by another user",
+                    ));
+                }
+                rustix::fs::fchmod(&directory, rustix::fs::Mode::from_raw_mode(0o700))?;
+                rustix::fs::fsync(&directory)?;
+            }
+            directory
+        }
+        None if native()? => return Err(io::Error::other("unbound native persistence path")),
+        None => crate::secure::ensure_private_directory(parent)?,
+    };
+    crate::secure::resolved_child(&directory, parent, name)
+}

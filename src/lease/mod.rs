@@ -8,6 +8,7 @@ mod authority;
 mod storage;
 pub use authority::{Authority, RootIdentity, WriteMode};
 
+pub mod durable;
 pub mod operations;
 pub mod persistence;
 pub mod transport;

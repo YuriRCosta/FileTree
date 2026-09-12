@@ -19,6 +19,7 @@ pub struct Operations {
 }
 
 pub struct Operation {
+    authority: Arc<Authority>,
     pub id: String,
     pub cancelled: Arc<AtomicBool>,
     state: Mutex<State>,
@@ -72,6 +73,7 @@ impl Operations {
             ));
         }
         let operation = Arc::new(Operation {
+            authority: Arc::clone(&self.authority),
             id: uuid::Uuid::new_v4().to_string(),
             cancelled,
             views: Arc::clone(&self.views),
@@ -177,6 +179,27 @@ impl Operations {
             .any(|operation| !operation.complete())
     }
 
+    pub fn write_mode(&self) -> super::WriteMode {
+        self.authority.write_mode()
+    }
+
+    pub fn authority_lost(&self) -> bool {
+        self.authority.verify().is_err()
+    }
+
+    pub fn stop_after_identity_loss(&self) {
+        for operation in self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .values()
+        {
+            if !operation.complete() {
+                operation.cancelled.store(true, Ordering::Release);
+            }
+        }
+    }
+
     pub fn attach_view(&self) {
         *self
             .views
@@ -190,14 +213,30 @@ impl Operations {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         *views -= 1;
-        if *views == 0 {
+        if *views == 0 && self.authority.verify().is_ok() {
             crate::hyprland::restore_owned_borders();
         }
     }
 }
 
 impl Operation {
-    pub fn publish(&self, frame: Value, terminal: bool) {
+    pub fn publish(&self, mut frame: Value, terminal: bool) {
+        let authority_lost = self.authority.verify().is_err();
+        if terminal && authority_lost {
+            frame["ok"] = Value::Bool(false);
+            frame["error_id"] = Value::String("authority-lost".into());
+            frame["error"] = Value::String(
+                "authority-lost: storage identity changed; inspect recoverable partial output"
+                    .into(),
+            );
+            frame["cancelled"] = Value::Bool(false);
+            if let Some(payload) = frame.get_mut("payload").and_then(Value::as_object_mut) {
+                payload.insert("ok".into(), Value::Bool(false));
+                payload.insert("cancelled".into(), Value::Bool(false));
+                payload.insert("partial".into(), Value::Bool(true));
+                payload.insert("error_id".into(), Value::String("authority-lost".into()));
+            }
+        }
         let subscribers = {
             let mut state = self
                 .state
@@ -218,7 +257,7 @@ impl Operation {
                 .filter_map(Weak::upgrade)
                 .collect::<Vec<_>>()
         };
-        if terminal {
+        if terminal && !authority_lost {
             let views = self
                 .views
                 .lock()

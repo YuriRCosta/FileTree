@@ -2,7 +2,7 @@ use crate::AppResult;
 use crate::secure;
 use chrono::{SecondsFormat, Utc};
 use serde_json::{Value, json};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -183,24 +183,7 @@ fn audit_excerpt(command: &str, value: &Value) -> Value {
 }
 
 pub fn append(path: &Path, line: &str, cap: u64) -> io::Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| io::Error::other("audit path has no parent"))?;
-    secure::ensure_private_directory(parent)?;
-    let _lock = secure::open_private_lock(&path.with_extension("lock"))?;
-    if let Some(file) = secure::open_private_read(path)? {
-        drop(file);
-    }
-    if std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.len() >= cap) {
-        std::fs::rename(path, path.with_extension("1.jsonl"))?;
-    }
-    let mut file = secure::open_private_append(path)?;
-    let mut record = Vec::with_capacity(line.len() + 1);
-    record.extend_from_slice(line.as_bytes());
-    record.push(b'\n');
-    file.write_all(&record)?;
-    file.sync_data()?;
-    secure::fsync_path_parent(path)
+    crate::lease::durable::append(path, line, cap)
 }
 
 pub fn read(limit: usize, since: &str, command: &str) -> Value {
@@ -239,7 +222,7 @@ fn tail(path: &Path) -> io::Result<(Vec<String>, bool)> {
     if !secure::entry_exists(path)? {
         return Ok((Vec::new(), false));
     }
-    let _lock = secure::open_private_lock(&path.with_extension("lock"))?;
+    let _lock = secure::open_record_lock(&path.with_extension("lock"))?;
     let Some(mut file) = secure::open_private_read(path)? else {
         return Ok((Vec::new(), false));
     };

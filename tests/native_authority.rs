@@ -179,11 +179,18 @@ struct Resident {
 
 impl Resident {
     fn start() -> Self {
+        Self::with_mode(true)
+    }
+
+    fn with_mode(isolated: bool) -> Self {
         let temporary = tempdir().unwrap();
         let root = temporary.path().join("state/omarchy/fileblade");
         let mut command = isolated_command(temporary.path(), &root);
+        command.args(["serve", "--native-authority", "--no-recover"]);
+        if isolated {
+            command.arg("--native-isolated");
+        }
         let child = command
-            .args(["serve", "--native-authority", "--no-recover"])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
@@ -209,6 +216,172 @@ impl Resident {
     fn session(&self) -> Session {
         Session::open(&self.root)
     }
+}
+
+#[test]
+fn in_flight_root_replacement_never_receives_persistence_and_reports_authority_lost() {
+    for role in ["state", "config", "recovery"] {
+        let resident = Resident::start();
+        let source = resident.temporary.path().join("source");
+        let destination = resident.temporary.path().join("destination");
+        fs::create_dir(&destination).unwrap();
+        fs::File::create(&source)
+            .unwrap()
+            .set_len(1024 * 1024 * 1024)
+            .unwrap();
+        let mut view = resident.session();
+        view.send(json!({"v":1,"type":"request","id":"replace-copy","generation":1,"command":"copy",
+            "arguments":["--source",source,"--destination",destination,"--journal-id","replacement-copy"]}));
+        let accepted = view.receive();
+        assert_eq!(accepted["type"], "accepted");
+        let op = accepted["op"].as_str().unwrap().to_owned();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let partial = loop {
+            if let Some(path) = fs::read_dir(&destination)
+                .unwrap()
+                .flatten()
+                .map(|entry| entry.path().join("item"))
+                .find(|path| fs::metadata(path).is_ok_and(|metadata| metadata.len() > 0))
+            {
+                break path;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "copy did not reach temporary output"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        };
+        assert_eq!(
+            unsafe { libc::kill(resident.child.id() as i32, libc::SIGSTOP) },
+            0
+        );
+        assert!(
+            fs::metadata(&partial).unwrap().len() < 1024 * 1024 * 1024,
+            "copy finished before replacement barrier"
+        );
+        let replaced = match role {
+            "state" => resident.root.clone(),
+            "config" => resident.temporary.path().join("config/omarchy/fileblade"),
+            _ => resident.temporary.path().join("state/fileblade"),
+        };
+        let original = resident.temporary.path().join("pinned-original");
+        fs::rename(&replaced, &original).unwrap();
+        fs::create_dir(&replaced).unwrap();
+        fs::write(replaced.join("sentinel"), b"unchanged").unwrap();
+        assert_eq!(
+            unsafe { libc::kill(resident.child.id() as i32, libc::SIGCONT) },
+            0
+        );
+        let terminal = loop {
+            let frame = view.receive();
+            if frame["type"] == "response" {
+                break frame;
+            }
+        };
+        assert_eq!(terminal["error_id"], "authority-lost", "{terminal}");
+        assert_eq!(terminal["ok"], false);
+        assert_eq!(terminal["cancelled"], false);
+        assert_eq!(view.result(&op), terminal);
+        assert!(source.exists());
+        assert_eq!(
+            fs::read_dir(&replaced).unwrap().count(),
+            1,
+            "new {role} received writes"
+        );
+        assert_eq!(fs::read(replaced.join("sentinel")).unwrap(), b"unchanged");
+        view.send(json!({"v":1,"type":"request","id":"late","generation":2,"command":"frecency-visit","arguments":["--path",source]}));
+        let refused = view.receive();
+        assert_eq!(refused["ok"], false);
+        assert!(
+            refused["error"]
+                .as_str()
+                .unwrap()
+                .contains("authority-lost"),
+            "{refused}"
+        );
+        fs::remove_file(replaced.join("sentinel")).unwrap();
+        fs::remove_dir(&replaced).unwrap();
+        fs::rename(&original, &replaced).unwrap();
+        view.send(json!({"v":1,"type":"request","id":"restored","generation":3,"command":"frecency-visit","arguments":["--path",source]}));
+        assert!(
+            view.receive()["error"]
+                .as_str()
+                .unwrap()
+                .contains("authority-lost")
+        );
+    }
+}
+
+#[test]
+fn private_record_writers_refuse_replacement_roots_and_keep_open_parents_pinned() {
+    use fileblade::lease::{durable, persistence::PersistenceSession};
+    use std::sync::Arc;
+    for role in ["state", "config", "recovery"] {
+        let temporary = tempdir().unwrap();
+        let root = temporary.path().join(role);
+        let authority = Arc::new(
+            Authority::acquire_bound(
+                temporary.path().join("state"),
+                temporary.path().join("config"),
+                temporary.path().join("recovery"),
+            )
+            .unwrap(),
+        );
+        authority.set_write_mode(WriteMode::Full).unwrap();
+        let _session = PersistenceSession::open(authority).unwrap();
+        let document = root.join("records/document.json");
+        durable::write_private_atomic(&document, b"original").unwrap();
+        let manifest = root.join("records/manifest.json");
+        durable::write_new_private(&manifest, b"manifest").unwrap();
+        assert!(durable::write_new_private(&manifest, b"overwrite").is_err());
+        let parent = fileblade::secure::resolved_parent(&document).unwrap();
+        let moved = temporary.path().join("original");
+        fs::rename(&root, &moved).unwrap();
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("sentinel"), b"untouched").unwrap();
+        for outcome in [
+            durable::write_private_atomic(&document, b"replacement"),
+            durable::write_new_private(&root.join("new.json"), b"replacement"),
+            fileblade::secure::write_private_atomic(&document, b"replacement"),
+            fileblade::secure::write_new_private(&root.join("new.json"), b"replacement"),
+            fileblade::secure::open_private_append(&document).map(|_| ()),
+            fileblade::secure::ensure_private_directory(&root.join("new")).map(|_| ()),
+            fileblade::secure::open_record_lock(&root.join("new.lock")).map(|_| ()),
+        ] {
+            assert!(outcome.unwrap_err().to_string().contains("authority-lost"));
+        }
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        assert_eq!(fs::read(root.join("sentinel")).unwrap(), b"untouched");
+        assert_eq!(
+            fs::read(moved.join("records/document.json")).unwrap(),
+            b"original"
+        );
+        assert_eq!(
+            fs::read(moved.join("records/manifest.json")).unwrap(),
+            b"manifest"
+        );
+        let stat = rustix::fs::fstat(&parent.directory).unwrap();
+        assert_eq!(
+            stat.st_ino,
+            fs::metadata(moved.join("records")).unwrap().ino()
+        );
+    }
+}
+
+#[test]
+fn an_unprepared_authority_refuses_layout_writes_before_admission() {
+    let resident = Resident::with_mode(false);
+    let mut view = resident.session();
+    view.send(json!({"v":1,"type":"request","id":"layout","generation":1,"command":"layout-write","arguments":["--document","{}"]}));
+    let frame = view.receive();
+    assert_eq!(frame["error_id"], "migration-refused", "{frame}");
+    assert!(
+        !resident
+            .temporary
+            .path()
+            .join("config/omarchy/fileblade/blades.json")
+            .exists()
+    );
 }
 
 impl Drop for Resident {
@@ -237,6 +410,7 @@ fn isolated_command(temporary: &Path, root: &Path) -> Command {
         .env("XDG_STATE_HOME", temporary.join("state"))
         .env("XDG_CONFIG_HOME", temporary.join("config"))
         .env("XDG_DATA_HOME", temporary.join("data"))
+        .env("FILEBLADE_SPIKE_HOME", temporary)
         .env("FILEBLADE_NATIVE_STATE_ROOT", root);
     command
 }

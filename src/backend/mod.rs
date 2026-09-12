@@ -304,11 +304,15 @@ fn dispatch_command(
         }
         BackendCommand::StateRead => private_document_read(&state_path()),
         BackendCommand::StateWrite(options) => {
-            private_document_write(&state_path(), &options.document)
+            let path = state_path();
+            crate::lease::persistence::check_write(&path)?;
+            private_document_write(&path, &options.document)
         }
         BackendCommand::LayoutRead => private_document_read(&layout_path()),
         BackendCommand::LayoutWrite(options) => {
-            private_document_write(&layout_path(), &options.document)
+            let path = layout_path();
+            crate::lease::persistence::check_write(&path)?;
+            private_document_write(&path, &options.document)
         }
         BackendCommand::SaveTarget(options) => {
             crate::filesystem::validate_save_target(&options.path)
