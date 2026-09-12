@@ -25,7 +25,7 @@ jq -r '.packages[]' "$payload/packaging/runtime.json" | sort > "$work/expected-d
 sed -n 's/^depend = //p' "$work/unpacked/.PKGINFO" | sort > "$work/actual-dependencies"
 cmp -- "$work/expected-dependencies" "$work/actual-dependencies"
 [[ ! -e $work/unpacked/.INSTALL ]]
-printf 'PASS E-92-01 package preserves payload and declared dependencies without hooks\n'
+printf 'PASS E-92-01 package preserves payload and dependencies without install scripts\n'
 export HOME=$work/home XDG_DATA_HOME=$work/data XDG_CONFIG_HOME=$work/config XDG_STATE_HOME=$work/state
 mkdir -p "$HOME" "$XDG_CONFIG_HOME/xdg-desktop-portal"
 printf 'keep file manager\n' > "$XDG_CONFIG_HOME/mimeapps.list"
@@ -39,7 +39,17 @@ as_root pacman -U --noconfirm "$package"
 "/usr/lib/fileblade/tools/native" verify /usr/lib/fileblade
 cmp -- "$payload/payload.json" /usr/lib/fileblade/payload.json
 printf 'PASS E-92-02 installed files have pacman ownership and original inventory\n'
+exec 8</usr/share/fileblade-native/lock
+flock -s 8
+if as_root pacman -R --noconfirm fileblade-native > "$work/busy" 2>&1; then exit 1; fi
+grep -F 'Checking FileBlade native runtime is idle' "$work/busy"
+pacman -Q fileblade-native
+flock -u 8
+exec 8<&-
+printf 'PASS E-92-05 package preflight refuses a held runtime lock\n'
 if "$native" install "$payload" > "$work/collision" 2>&1; then exit 1; fi
+if "$native" remove > "$work/remove-collision" 2>&1; then exit 1; fi
+grep -F 'package-owned installation (fileblade-native): use pacman' "$work/remove-collision"
 grep -F 'package-owned installation (fileblade-native): use pacman' "$work/collision"
 cmp -- "$work/receipt" "$installation/active/receipt.json"
 "$native" verify /usr/lib/fileblade

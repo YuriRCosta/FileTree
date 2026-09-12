@@ -45,7 +45,7 @@ included. Developer-only app/ovm-spike and app/qualification helpers are
 excluded. Runtime-owned service/portal metadata, when committed beneath app/,
 is included; packaging does not invent or enable a chooser implementation.
 
-The cumulative runtime at 405c9f8 still requires FILEBLADE_SPIKE_HOME and
+The qualified cumulative runtime at ffaa351 still requires FILEBLADE_SPIKE_HOME and
 uses fixture-only write authority. Staging its complete file set does not
 make that launcher a production startup route. Until runtime replaces that
 contract, launch qualification must use an explicitly isolated guest fixture
@@ -63,6 +63,7 @@ not claim them.
 PAYLOAD/tools/native install PAYLOAD
 PAYLOAD/tools/native status
 PAYLOAD/tools/native rollback
+PAYLOAD/tools/native remove
 ```
 
 The installer is self-contained in the payload. It stores runtime versions
@@ -78,21 +79,22 @@ its runtime. One atomic pointer switch activates that pair. The receipt
 records the previous payload, and rollback performs the same activation in
 reverse. Existing runtime generations and interrupted staging directories
 are retained; no automatic pruning is implemented. Settings and desktop
-defaults are untouched. Removal and role reversal are a separate delivery
-task, not implemented by these commands yet.
+defaults are untouched. Removal preserves generation receipts and user data.
+Role reversal still requires runtime's published interface.
 
 The stable launcher resolves its physical runtime once under a shared
 installation lock. Installation and rollback require the exclusive lock and
 refuse while a launched session retains the shared lock. This is a safe
 busy refusal, not graceful shutdown or a claim that dirty Notes can already
-be flushed. The actual Quickshell/authority descriptor lifetime still needs
-native qualification. A runtime launched directly outside the stable launcher
+be flushed. Harness qualification confirms that the authority retains the
+lock after the view exits. Updates need runtime shutdown/drain support;
+closing the view alone does not release it. A runtime launched directly outside the stable launcher
 does not participate in this delivery lock and must not be updated this way.
 
 Package-owned conventional executable paths and unrelated launchers are
 refused. Modified owned launchers, invalid receipts and receipt/pointer
-disagreement are also refused. Full package mapping and external package
-removal recovery remain task 9.3/9.4 work. Current payload and installer
+disagreement are also refused. Arch package mapping is described below;
+external package removal recovery remains task 9.4 work. Current payload and installer
 dependency contracts must match; a contract-changing upgrade needs explicit
 compatibility work before it can be accepted.
 
@@ -100,8 +102,9 @@ compatibility work before it can be accepted.
 preservation, repeated install, distinct activation/rollback, busy refusal,
 shared-lock status, settings/Notes preservation, and real process-group kills
 during copy and immediately before/after the activation rename. Its alternate
-payload manifests differ only in legal JSON whitespace, exercising distinct
-transaction identities without inventing another backend version. Test-only
+transaction payload manifests differ only in legal JSON whitespace. A separate
+case changes a compatible dependency floor and verifies that the prior
+contract prevents activation while preserving rollback. Test-only
 command wrappers inject interruptions; production code has no fault hooks.
 These are process-interruption checks, not physical power-loss tests.
 
@@ -115,7 +118,7 @@ Run this maintainer helper on the payload's architecture with the existing
 Arch `makepkg`, `fakeroot` and `bsdtar` tools. It accepts stable versions,
 requires an absent output directory, and installs no build dependencies.
 The generated PKGBUILD takes its version, architecture and package
-dependencies from the verified payload. Its two local sources are hashed;
+dependencies from the verified payload. Its three local sources are hashed;
 there is no download step. The output contains the package archive,
 PKGBUILD and its local inputs. Build helpers are not added to the runtime.
 
@@ -127,7 +130,7 @@ and verifies its inner payload again before publishing the output.
 The payload root is normalized to mode 755, as in direct installation, so
 a private input directory does not become a root-only installed runtime.
 
-There is no package install hook. Installing a package selects no desktop
+Installing a package selects no desktop
 roles, defaults, bindings or autostart. User-level installations remain
 separate; the direct installer detects conventional pacman-owned paths and
 refuses updates when they coexist. Package files must be updated or removed
@@ -151,3 +154,37 @@ and checks preservation of the direct receipt and personal-default fixtures.
 It refuses to replace a preexisting fileblade-native package and cleans up
 its own package fixture on failure. Structural fixtures are not a native app
 launch or a real chooser/reveal fallback pass.
+
+## Removal and stale activation
+
+`remove` uses the same owner and exclusive-lock checks as installation. It
+refuses package ownership, changed launchers and changed inventoried payloads.
+After validation it withdraws activation, unlinks its launchers and moves
+owned versions into a private discard directory before deleting them.
+`installation/removing` retains the receipt during deletion; retry `remove`
+if interrupted. Installation refuses while this marker exists. Successful
+removal retains `installation/removed/receipt.json` and generation history.
+Unknown entries and incomplete staging directories are preserved. No setting,
+Note, recovery journal or desktop default is deleted. Repeated removal is
+safe, and a later explicit local installation can reuse the installation root.
+
+Rollback can restore the recorded previous payload when the current payload
+is missing or damaged; it verifies the previous tree and manifest identity
+before activation. A missing activation pointer can be repaired by explicitly
+installing a verified local payload. Invalid receipts or pointers are refused;
+recovery never guesses a generation from timestamps or directory order.
+
+The package launcher retains a shared lock on the package-owned
+`/usr/share/fileblade-native/lock`. An ALPM pre-transaction hook refuses
+upgrade/removal if the lock is held. This hook edits no user defaults. It is
+a busy preflight, not a transaction-wide exclusion: new launches after the
+check, authority drain and conditional role reversal still require runtime's
+lifecycle contract. Direct removal also currently refuses busy sessions;
+it must gain the runtime drain/reversal calls before enabled desktop roles
+or active-operation removal are qualified. External stale role recovery is
+pending that same interface, not inferred from the direct activation receipt.
+
+`tests/vm/expectations/93-delivery-remove.sh PAYLOAD` checks stale activation,
+ownership preservation, busy refusal and an actual process-group kill during
+runtime deletion followed by retry. E92 additionally holds the package lock
+and checks that real pacman removal aborts while preserving installed files.

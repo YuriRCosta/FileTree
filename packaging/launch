@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
+exec 9</usr/share/fileblade-native/lock || exit 1
+flock -s 9 || exit 1
 exec /usr/lib/fileblade/app/launch "$@"
