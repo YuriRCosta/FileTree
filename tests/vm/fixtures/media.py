@@ -20,14 +20,16 @@ def prepare(state, plugin):
     state.mkdir(parents=True, exist_ok=True)
     pane = plugin / 'panes/TreePane.qml'
     source = pane.read_text()
-    marker = '\n  IpcHandler {\n    target: "brindle-media-'
-    if marker in source:
+    markers = ['\n  IpcHandler {\n    target: "brindle-media-', '\n  IpcHandler {\n    id: mediaProbe\n']
+    marker = next((value for value in markers if value in source), None)
+    if marker:
         source = source[:source.index(marker)] + '}\n'
-        source = source.removeprefix('import Quickshell.Io\n')
+        source = source.removeprefix('import Quickshell.Io\n').removeprefix('import \"../lib/KeyBindings.js\" as ProbeBindings\n')
     (state / 'TreePane.qml').write_text(source)
-    source = 'import Quickshell.Io\n' + source
+    source = 'import Quickshell.Io\nimport \"../lib/KeyBindings.js\" as ProbeBindings\n' + source
     probe = '''
   IpcHandler {
+    id: mediaProbe
     target: "brindle-media-" + (root.context ? root.context.edge : "left")
     function state(): string {
       return JSON.stringify({ loaded: !!mediaView, providerLoaded: !!mediaProvider, mode: root.mediaMode, active: root.mediaActive, recursive: root.mediaRecursive,
@@ -86,11 +88,55 @@ def prepare(state, plugin):
     function toggle(): void { root.toggleMedia() }
     function recursive(): void { root.mediaRecursive = !root.mediaRecursive }
     function query(value: string): void { root.mediaQuery = value }
+    property int countUpdates: 0
+    property int wheelActivations: 0
+    property var wheelPaths: []
+    function chrome(): string {
+      var view = root.activeList
+      var index = view.indexAt(1, view.contentY + 1)
+      var item = index >= 0 ? view.itemAtIndex(index) : null
+      return JSON.stringify({ index: index, path: index >= 0 ? view.model.get(index).path : "",
+        height: item ? item.height : 0, offset: item ? view.contentY - item.y : 0,
+        countUpdates: countUpdates, count: root.folderCount, label: footerCount.text, root: controller.rootPath,
+        wheelActivations: wheelActivations, wheelPaths: wheelPaths, selected: controller.selectedPaths,
+        step: root.ordinaryDensityStep, searching: controller.searching })
+    }
+    function ordinaryPoint(): string {
+      var item = root.activeList.currentItem
+      var point = item.mapToItem(null, 80, item.height / 2)
+      return JSON.stringify({ x: point.x + root.originX(), y: point.y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) })
+    }
+    function clip(index: int, offset: real): void {
+      var view = root.activeList
+      view.forceLayout()
+      view.positionViewAtIndex(index, ListView.Beginning)
+      view.contentY += offset
+    }
+    function densityBurst(): void { root.changeDensity(0); root.changeDensity(4); root.changeDensity(1); root.changeDensity(0) }
+    function expandRoot(expanded: bool): void { controller.setDirectoryExpanded(controller.rootPath, expanded) }
+    function hidden(shown: bool): void { controller.setShowHidden(shown) }
+    function filter(value: string): void { filesView.setFilter(JSON.parse(Qt.atob(value))) }
+    function loadSearch(): void { controller.loadAllSearchRows() }
+    function deepSearch(): void { if (!controller.searchDeepActive) controller.toggleSearchDeep(); controller.searchQuery = "entry" }
+    function bindMinus(enabled: bool): void {
+      controller.keybindings.plan = ProbeBindings.compile(enabled ? { bindings: { next: ["-"] } } : {})
+      root.activeList.forceActiveFocus()
+    }
+    function wheelKey(value: string): void {
+      controller.dropWheel.ringItems = [{ id: "brindle-s8", label: "S8 receipt", key: value, custom: true,
+        run: function(paths) { mediaProbe.wheelActivations++; mediaProbe.wheelPaths = paths.slice(); return true } }]
+      controller.dropWheel.resetHighlight()
+      root.activeList.forceActiveFocus()
+    }
     function density(value: int): void { root.changeDensity(value) }
     function ordinaryChoose(index: int): void { root.selectIndex(root.activeList, root.activeList === treeList, index, "replace"); root.activeList.forceActiveFocus() }
     function size(value: int): void { mediaView.rememberAnchor(); root.mediaSizeStep = value }
     function choose(index: int, mode: string): void { root.selectIndex(mediaView, false, index, mode); mediaView.forceActiveFocus() }
     function action(value: string): void { root.runListAction(value, { modifiers: 0 }, mediaView, false) }
+  }
+  Connections {
+    target: root
+    function onFolderCountChanged() { mediaProbe.countUpdates++ }
   }
 '''
     pane.write_text(source[:source.rfind('}')] + probe + '}\n')

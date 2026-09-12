@@ -32,14 +32,14 @@ FocusScope {
   property bool mediaQueryReady: false
   property int mediaSizeStep: 2
   property int ordinaryDensityStep: 2
+  property var densityAnchor: null
+  property bool treeOrderUpdating: false
   readonly property real ordinaryDensity: [0.85, 0.925, 1, 1.075, 1.15][Math.max(0, Math.min(4, ordinaryDensityStep))]
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
   readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode
-  readonly property var folderCount: {
-    controller.treeStructureRevision
-    return ViewChrome.folderCount(controller.treeModel)
-  }
+  property var folderCountData: ({ loaded: 0, total: 0, known: false })
+  readonly property var folderCount: folderCountData
   readonly property var mediaView: mediaLoader.item
   readonly property var mediaProvider: mediaView ? mediaView.provider : null
   readonly property var mediaMatches: mediaView ? mediaView.matches : ({ rows: [], invalid: false })
@@ -54,24 +54,61 @@ FocusScope {
     context.state.set("ordinaryDensityStep", ordinaryDensityStep)
   }
 
+  function refreshFolderCount() {
+    if (mediaActive || controller.trashMode || controller.drivesMode || controller.recentMode) return
+    folderCountData = ViewChrome.folderCount(controller.treeModel, controller.rootPath)
+  }
+
+  function invalidateFolderCount() {
+    folderCountData = ({ loaded: 0, total: 0, known: false })
+    Qt.callLater(root.refreshFolderCount)
+  }
+
+  onMediaActiveChanged: Qt.callLater(root.refreshFolderCount)
+
+  Connections {
+    target: root.controller
+    function onTreeStructureRevisionChanged() { Qt.callLater(root.refreshFolderCount) }
+    function onTreeRowsRevisionChanged() { Qt.callLater(root.refreshFolderCount) }
+    function onTreeLoadingChanged() { Qt.callLater(root.refreshFolderCount) }
+    function onRecentModeChanged() { Qt.callLater(root.refreshFolderCount) }
+    function onTrashModeChanged() { Qt.callLater(root.refreshFolderCount) }
+    function onDrivesModeChanged() { Qt.callLater(root.refreshFolderCount) }
+    function onRootPathChanged() { root.invalidateFolderCount() }
+    function onTreeFilterChanged() { root.invalidateFolderCount() }
+    function onShowHiddenChanged() { root.invalidateFolderCount() }
+    Component.onCompleted: Qt.callLater(root.refreshFolderCount)
+  }
+
   function changeDensity(step) {
     var view = root.activeList
-    var path = controller.rootPath
-    var first = view.indexAt(1, view.contentY + 1)
-    var anchor = first >= 0 ? String(view.model.get(first).path || "") : ""
-    var item = first >= 0 ? view.itemAtIndex(first) : null
-    var offset = item ? Math.max(0, view.contentY - item.y) : 0
-    ordinaryDensityStep = Math.max(0, Math.min(4, step))
-    Qt.callLater(function() {
-      if (root.mediaActive || root.activeList !== view || controller.rootPath !== path || !anchor) return
-      view.forceLayout()
-      for (var i = 0; i < view.count; i++) {
-        if (String(view.model.get(i).path) !== anchor) continue
-        view.positionViewAtIndex(i, ListView.Beginning)
-        view.contentY = Math.min(view.originY + Math.max(0, view.contentHeight - view.height), view.contentY + offset)
-        break
+    if (!densityAnchor || densityAnchor.view !== view || densityAnchor.rootPath !== controller.rootPath) {
+      var first = view.indexAt(1, view.contentY + 1)
+      var item = first >= 0 ? view.itemAtIndex(first) : null
+      densityAnchor = {
+        view: view, rootPath: controller.rootPath,
+        path: first >= 0 ? String(view.model.get(first).path || "") : "",
+        fraction: item && item.height > 0 ? Math.max(0, Math.min(1, (view.contentY - item.y) / item.height)) : 0
       }
-    })
+    }
+    ordinaryDensityStep = Math.max(0, Math.min(4, step))
+    Qt.callLater(root.restoreDensityAnchor)
+  }
+
+  function restoreDensityAnchor() {
+    var saved = densityAnchor
+    densityAnchor = null
+    if (!saved || root.mediaActive || root.activeList !== saved.view || controller.rootPath !== saved.rootPath || !saved.path) return
+    var view = saved.view
+    view.forceLayout()
+    for (var i = 0; i < view.count; i++) {
+      if (String(view.model.get(i).path) !== saved.path) continue
+      view.positionViewAtIndex(i, ListView.Beginning)
+      var item = view.itemAtIndex(i)
+      var offset = item ? Math.min(Math.max(0, item.height - 1), saved.fraction * item.height) : 0
+      view.contentY = Math.min(view.originY + Math.max(0, view.contentHeight - view.height), view.contentY + offset)
+      break
+    }
   }
 
   function toggleMedia() {
@@ -546,13 +583,6 @@ FocusScope {
   }
 
   function handleListKey(event, view, treeMode) {
-    if (view !== mediaView && !controller.trashMode && !controller.drivesMode
-        && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
-        && [Qt.Key_Plus, Qt.Key_Equal, Qt.Key_Minus, Qt.Key_Underscore].indexOf(event.key) >= 0) {
-      root.changeDensity(root.ordinaryDensityStep + (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore ? -1 : 1))
-      event.accepted = true
-      return
-    }
     if (controller.dropWheel.handleDragKey(event)) {
       treeKeys.reset()
       event.accepted = true
@@ -566,6 +596,13 @@ FocusScope {
       visual: root.visualMode
     }
     var action = treeKeys.action(event, repeated, KeyRouter.listAction(event, treeMode, state))
+    if (action === "" && view !== mediaView && !controller.trashMode && !controller.drivesMode
+        && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+        && [Qt.Key_Plus, Qt.Key_Equal, Qt.Key_Minus, Qt.Key_Underscore].indexOf(event.key) >= 0) {
+      root.changeDensity(root.ordinaryDensityStep + (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore ? -1 : 1))
+      event.accepted = true
+      return
+    }
     if (action.indexOf("key-") === 0) { event.accepted = true; return }
     if (root.visualMode && ["next", "previous", "first", "last", "page-next", "page-previous"].indexOf(action) >= 0) action += "-extend"
     if (KeyRouter.ignoresAutoRepeat(action, event.key) && repeated) {
@@ -636,9 +673,12 @@ FocusScope {
   }
 
   function pushTreeOrder() {
+    if (treeOrderUpdating) return
     if (JSON.stringify(filesView.sorts) === JSON.stringify(controller.treeSort) && JSON.stringify(filesView.filter) === JSON.stringify(controller.treeFilter)) return
     if (mediaView) mediaView.rememberAnchor()
-    controller.setTreeOrder(filesView.sorts, filesView.filter)
+    treeOrderUpdating = true
+    try { controller.setTreeOrder(filesView.sorts, filesView.filter) }
+    finally { treeOrderUpdating = false }
   }
 
   Connections {
@@ -962,7 +1002,7 @@ FocusScope {
         text: root.mediaActive && mediaView
           ? (mediaView.count === mediaProvider.rows.length ? mediaView.count : mediaView.count + "/" + mediaProvider.rows.length) + " media"
           : (controller.searching ? controller.searchResultCount + " matches"
-            : (controller.recentMode ? recentList.count + " recent" : root.folderCount.total + (Object.keys(controller.treeFilter).length ? " matching" : " items")))
+            : (controller.recentMode ? recentList.count + " recent" : (root.folderCount.known ? root.folderCount.total + (Object.keys(controller.treeFilter).length ? " matching" : " items") : "Count unavailable")))
         color: Color.muted
         elide: Text.ElideRight
         font.family: Style.font.family

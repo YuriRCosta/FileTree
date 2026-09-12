@@ -1,6 +1,9 @@
 .pragma library
 
-function folderCount(model) {
+function folderCount(model, path) {
+  var root = model.count ? model.get(0) : null
+  if (!root || (path !== undefined && root.path !== path) || !root.expanded || !root.loaded || root.loading || root.error)
+    return { loaded: 0, total: 0, known: false }
   var loaded = 0, total = 0
   for (var i = 0; i < model.count; i++) {
     var row = model.get(i)
@@ -8,5 +11,5 @@ function folderCount(model) {
     if (row.kind === "More") total = Math.max(total, Number(row.windowTotal) || 0)
     else if (!row.gitDeleted) loaded++
   }
-  return { loaded: loaded, total: Math.max(loaded, total) }
+  return { loaded: loaded, total: Math.max(loaded, total), known: true }
 }
