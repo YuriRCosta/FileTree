@@ -13,7 +13,7 @@ else
   extensions=/home/omarchy/.config/omarchy/plugins
 fi
 case_dir=$(guest 'mktemp -d /tmp/fileblade-extensions.XXXXXX') || { fail harness fixture 'mktemp failed'; summary; }
-original=$("$OVM" ipc "$PLUGIN" blades | jq -c '.blades')
+original=$(guest "head -c 262145 '$layout'" | jq -c '.blades')
 [[ $(jq -r 'has("left") and has("right")' <<< "$original") == true ]] || { fail harness layout 'cannot capture original blades'; summary; }
 ids=(fixture.extensions35-$$ fixture.extensions35-late-$$ fixture.extensions35-old-$$)
 for id in "${ids[@]}"; do
