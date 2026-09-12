@@ -30,7 +30,9 @@ frontend portal's document-access mediation.
 one result, `watch` returns a revision and offer snapshot, and `choose`,
 `cancel` and `filter` serve the app consumer. At most sixteen offers exist.
 Offer and watch commands must be classified as standing server requests so
-waiting callers cannot exhaust completion/cancellation capacity. Cancellation
+waiting callers cannot exhaust completion/cancellation capacity. Each connection
+admits at most one active watch before spawning its worker; excess watches are
+refused until that worker exits, including cancellation/deadline cleanup. Cancellation
 interrupts content-type probing; only each request's own validation is locked.
 The immutable offer snapshot remains readable while validation runs.
 

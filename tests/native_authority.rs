@@ -775,3 +775,56 @@ fn chooser_offers_leave_completion_capacity_and_cancel_on_real_caller_eof() {
     wait_count(0);
     assert!(fileblade::lease::transport::probe(&resident.root).is_ok());
 }
+
+#[test]
+fn chooser_watch_admission_is_bounded_and_eof_drains_the_waiter() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let resident = Resident::start();
+    let threads = || {
+        fs::read_dir(format!("/proc/{}/task", resident.child.id()))
+            .unwrap()
+            .count()
+    };
+    std::thread::sleep(Duration::from_millis(200));
+    let idle_threads = threads();
+    let mut caller = resident.session();
+    let watch = |caller: &mut Session, id: &str, revision: u64| {
+        caller.send(json!({"v":1,"type":"request","id":id,"generation":1,
+            "command":"chooser","arguments":["watch","--revision",revision.to_string()],
+            "deadline_ms":60000}));
+    };
+    watch(&mut caller, "snapshot", 0);
+    let revision = caller.receive()["payload"]["revision"].as_u64().unwrap();
+    watch(&mut caller, "waiting", revision);
+    for number in 0..32 {
+        let id = format!("excess-{number}");
+        watch(&mut caller, &id, revision);
+        let frame = caller.receive();
+        assert_eq!(frame["id"], id, "{frame}");
+        assert_eq!(frame["ok"], false, "{frame}");
+        assert_eq!(frame["error"], "chooser watch limit reached", "{frame}");
+    }
+    caller.send(json!({"v":1,"type":"request","id":"filter","generation":1,
+        "command":"chooser","arguments":["filter","--document",r#"{"filter":["All",[[0,"*"]]],"entries":[]}"#]}));
+    let completed = caller.receive();
+    assert_eq!(completed["id"], "filter", "{completed}");
+    assert_eq!(completed["payload"]["ok"], true, "{completed}");
+    caller.send(json!({"v":1,"type":"cancel","id":"waiting","generation":1}));
+    let mut cancelled = [caller.receive(), caller.receive()];
+    cancelled.sort_by_key(|frame| frame["type"].as_str().unwrap().to_owned());
+    assert_eq!(cancelled[0]["accepted"], true, "{cancelled:?}");
+    assert_eq!(cancelled[1]["payload"]["ok"], false, "{cancelled:?}");
+    watch(&mut caller, "eof-waiting", revision);
+    watch(&mut caller, "eof-overflow", revision);
+    assert_eq!(caller.receive()["error"], "chooser watch limit reached");
+    drop(caller);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while threads() > idle_threads {
+        assert!(
+            Instant::now() < deadline,
+            "chooser worker survived caller EOF"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(fileblade::lease::transport::probe(&resident.root).is_ok());
+}

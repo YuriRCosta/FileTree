@@ -39,6 +39,12 @@ pub(super) fn start_request(
         frame["error_id"] = Value::String("migration-refused".into());
         return emit(output, &frame);
     }
+    let chooser_watch = matches!(
+        &request.command,
+        backend::BackendCommand::Chooser(crate::chooser::transport::ChooserArgs {
+            command: crate::chooser::transport::ChooserCommand::Watch { .. }
+        })
+    );
     let mut operation = None;
     {
         let mut requests = lock(active);
@@ -47,6 +53,9 @@ pub(super) fn start_request(
                 output,
                 &error_frame(object, "request id and generation must be unique"),
             );
+        }
+        if chooser_watch && requests.values().any(|request| request.chooser_watch) {
+            return emit(output, &error_frame(object, "chooser watch limit reached"));
         }
         if live_requests(&requests) >= max_concurrency {
             return emit(
@@ -74,6 +83,7 @@ pub(super) fn start_request(
                             | crate::chooser::transport::ChooserCommand::Watch { .. }
                     })
                 ),
+                chooser_watch,
                 authority_owned: operation.is_some(),
             },
         );
