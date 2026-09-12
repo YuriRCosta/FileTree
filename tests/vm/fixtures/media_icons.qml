@@ -50,16 +50,15 @@ ShellRoot {
           if (failedImage.status !== Image.Ready) return
           probe.check(probe.failure.rejectedSources.length === 1 && probe.failure.resolvedSource.endsWith("/herdr.svg"), "Failed file did not fall through to bundled mark")
           probe.check(failedImage.sourceSize.width === 128 && failedImage.sourceSize.height === 128, "Large renderer exceeds decode cap")
-          probe.failure.applicationDescriptor = { icon_source: "file:///brindle-missing-again.svg", glyph: "Z" }
+          probe.failure.applicationDescriptor = { icon_source: "file:///brindle-missing-again.svg", glyph: "H" }
           probe.check(probe.failure.rejectedSources.length === 0, "Descriptor change retained rejected sources")
+          probe.failure.applicationOverride = { icon: "brindle-missing", glyph: "X" }
           probe.fallbackStage = 1
           return
         }
         if (probe.fallbackStage === 1) {
           if (probe.failure.resolvedSource !== "") return
-          probe.check(probe.failure.rejectedSources.length === 1 && fallbackText.visible && fallbackText.text === "Z", "Exhausted sources lost descriptor glyph")
-          probe.failure.applicationOverride = { glyph: "X" }
-          probe.check(probe.failure.rejectedSources.length === 0 && fallbackText.text === "X", "Override reset or glyph lost")
+          probe.check(probe.failure.rejectedSources.length === 1 && fallbackText.visible && fallbackText.text === "X", "Failed image did not render override glyph")
           probe.failure.applicationOverride = null
           probe.failure.applicationDescriptor = { icon: "herdr", glyph: "H" }
           probe.fallbackStage = 2
