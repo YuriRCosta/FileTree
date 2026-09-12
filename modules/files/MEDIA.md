@@ -41,3 +41,23 @@ The default Files layout places an informational folder/repository summary betwe
 `56-media-lifecycle.sh` verifies the media subtree is absent during ordinary navigation/reopen, mode entry reads the current folder, blade retirement preserves selected identity, leaving media destroys its provider and view, and reentry cannot show rows from an earlier location. The provider unit suite additionally rejects inactive state resets and backend-ready scheduling, and checks cancellation of the original request owner.
 
 `57-media-chrome.sh` covers coalesced count updates, collapsed and paged roots, navigation, hidden/filtered/empty scopes, partial ordinary and path-visible search rows in both size directions, rapid changes and explicit minus bindings. `58-media-wheel-keys.sh` supplies plus/minus keys through the existing supported custom wheel-entry callback seam during real ordinary-row drags, verifies one exact-path activation with unchanged density, and then verifies the inactive-wheel density fallback. It tests the key consumer; R32 configuration-file parsing belongs to wheel integration.
+
+## Decoder capability matrix
+
+The thumbnail child handles PNG/JPEG/WebP through the existing Rust image decoder. Other admitted formats use the installed `ffprobe` and `ffmpeg`; no tool is downloaded or installed. Both commands receive bounded bytes through stdin, with only the `pipe` protocol and fixed demuxer/codec allowlists. Image pipes receive their exact byte length as `frame_size`; PAM's `P7` signature supplies the demuxer hint absent from a nameless pipe. Decode limits remain 16 MiB input, 16384 pixels per edge, 64 million source pixels, 512 MiB address space, four seconds per FFmpeg command within the eight-second thumbnail deadline, one codec/filter thread, zero regular-file writes in FFmpeg, and at most 8 MiB PNG output. Oversized or unsupported media stays visible with a failed preview. Cache identity includes source metadata and requested dimensions; stale caller stamps cannot retain a replaced file's thumbnail.
+
+`tests/vm/fixtures/media_formats.py ROOT --binary RUNTIME` runs only in the Omarchy guest. It generates the following fixtures, checks actual PNG dimensions and decoded pixels, and writes `matrix.json` plus `checks.json`. A missing tool, generation failure or failed generated thumbnail fails the check. Run in harness B with the rebuilt lane runtime, not the older committed bundle.
+
+| Fixtures | Backend result in B | Recognition | Properties / external opening |
+| --- | --- | --- | --- |
+| PNG, JPEG, WebP, BMP, ICO | Static PNG, 5/5 | Live provider | Pending separate qualification |
+| PBM, PGM, PPM, PAM, PFM | Static PNG, 5/5 | Live provider | Pending separate qualification |
+| Animated GIF, multipage TIFF, layered PSD | First frame/page or composite, 3/3 | Live provider | Pending separate qualification |
+| HEIC, AVIF, JPEG XL, HDR, EXR | Static PNG, 5/5 | Live provider | Pending separate qualification |
+| Self-contained SVG | Static PNG, 1/1 | Live provider | Pending separate qualification |
+| H.264/MP4, HEVC/MP4, VP8/WebM, VP9/WebM, AV1/Matroska, FFV1/Matroska, MPEG-4/AVI, Theora/Ogg, WMV2/ASF, FLV1/FLV | Static poster, 10/10 | Live provider | Pending separate qualification |
+| Camera RAW | Required gap: authentic fixture and decoder qualification pending | Extension recognition only | Incomplete |
+
+SVG uses FFmpeg's librsvg adapter, which loads from memory without a base URI. Local/relative file and HTTP image references are refused; embedded data images remain supported. The guest regression verifies transparent pixels where external images were requested, zero HTTP requests, and actual embedded-image pixels. It also checks corrupt TIFF/video, excessive source edges/pixels/input bytes, an odd-size transparent TIFF scaled with aspect ratio retained, misleading suffixes, a warm cache and symlink refusal. Grid output is static; this is not inline playback qualification.
+
+The matrix is a measured subset of the required families, not a claim to every encoding. SVGZ, other RAW/layered encodings, ICC/HDR color fidelity, Linux ARM decoding, Properties previews, external opening, inline playback and full viewport cancellation/concurrency qualification remain incomplete. Recognition and a fallback glyph do not count as decoding. Ordinary browsing does not instantiate media decoding or inventory its dependencies.

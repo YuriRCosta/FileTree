@@ -131,22 +131,28 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
 }
 
 fn poster_command(program: &str, bytes: &[u8]) -> CommandSpec {
-    CommandSpec::new(program)
+    let command = CommandSpec::new(program)
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
         .env("MALLOC_ARENA_MAX", "2")
         .args([
             "-v", "error", "-max_alloc", "67108864",
             "-protocol_whitelist", "pipe",
-            "-format_whitelist", "bmp_pipe,gif,gif_pipe,tiff_pipe,mov,matroska,webm,jpegxl_pipe,hdr_pipe,exr_pipe,psd_pipe,avi,mpeg,mpegts,ogg,flv,asf",
-            "-codec_whitelist", "bmp,gif,tiff,hevc,av1,libdav1d,libaom-av1,libjxl,libjxl_anim,hdr,exr,psd,h264,vp8,vp9,ffv1,mpeg1video,mpeg2video,mpeg4,theora,flv,wmv1,wmv2,wmv3,vc1,mjpeg",
+            "-format_whitelist", "bmp_pipe,gif,gif_pipe,tiff_pipe,ico,pbm_pipe,pgm_pipe,pgmyuv_pipe,ppm_pipe,pam_pipe,pfm_pipe,svg_pipe,mov,matroska,webm,jpegxl_pipe,hdr_pipe,exr_pipe,psd_pipe,avi,mpeg,mpegts,ogg,flv,asf",
+            "-codec_whitelist", "bmp,png,gif,tiff,pbm,pgm,pgmyuv,ppm,pam,pfm,librsvg,hevc,av1,libdav1d,libaom-av1,libjxl,libjxl_anim,hdr,exr,psd,h264,vp8,vp9,ffv1,mpeg1video,mpeg2video,mpeg4,theora,flv,wmv1,wmv2,wmv3,vc1,mjpeg",
             "-max_streams", "16", "-threads", "1",
         ])
+        .args(["-frame_size", &bytes.len().to_string(), "-max_pixels", &MAX_SOURCE_PIXELS.to_string()])
         .stdin(bytes)
         .timeout(Duration::from_secs(4))
         .resource_limits(0, DECODE_MEMORY_BYTES)
         .limits(CACHE_BYTES, 16 * 1024)
-        .stop_on_output_limit()
+        .stop_on_output_limit();
+    if bytes.starts_with(b"P7") {
+        command.args(["-f", "pam_pipe"])
+    } else {
+        command
+    }
 }
 
 fn render_poster(bytes: &[u8], output: &Path, width: u32, height: u32) -> AppResult<Value> {
