@@ -6,6 +6,18 @@ import Quickshell.Io
 QtObject {
   id: root
 
+  property var service: null
+  property int metricsGeneration: 0
+  property int fontGeneration: 0
+
+  onServiceChanged: { refresh(); resolveFontFamily() }
+  property Connections backendConnection: Connections {
+    target: root.service
+    function onBackendReadyChanged() {
+      if (root.service.backendReady) { root.refresh(); root.resolveFontFamily() }
+    }
+  }
+
   property int cornerRadius: 0
   property int gapsOut: 5
 
@@ -286,32 +298,23 @@ QtObject {
   }
 
   function refresh() {
-    hyprctlProc.running = true
-    gapsOutProc.running = true
+    if (!service || !service.backendReady) return
+    var current = ++metricsGeneration
+    service.backendRequest("hypr-option", ["--name", "decoration:rounding"], current, function(response) {
+      if (current !== root.metricsGeneration) return
+      var n = Number(response.int)
+      if (isFinite(n) && n >= 0) root.cornerRadius = n
+    })
+    service.backendRequest("hypr-option", ["--name", "general:gaps_out"], current, function(response) {
+      if (current !== root.metricsGeneration) return
+      var parts = String(response.css || "").match(/-?\d+(?:\.\d+)?/g) || []
+      var n = parts.length > 0 ? Number(parts[0]) : Number(response.int)
+      if (isFinite(n) && n >= 0) root.gapsOut = Math.max(0, Math.round(n / 2))
+    })
   }
 
   function scheduleRefresh() {
     refreshTimer.restart()
-  }
-
-  function applyRoundingJson(raw) {
-    try {
-      var json = JSON.parse(raw || "{}")
-      var n = Number(json.int)
-      if (isFinite(n) && n >= 0) cornerRadius = n
-    } catch (e) {
-    }
-  }
-
-  function applyGapsOutJson(raw) {
-    try {
-      var json = JSON.parse(raw || "{}")
-      var css = String(json.css || "")
-      var parts = css.match(/-?\d+(?:\.\d+)?/g) || []
-      var n = parts.length > 0 ? Number(parts[0]) : Number(json.int)
-      if (isFinite(n) && n >= 0) gapsOut = Math.max(0, Math.round(n / 2))
-    } catch (e) {
-    }
   }
 
   function applyShellValues(values) {
@@ -367,38 +370,14 @@ QtObject {
     styleOverrides = styleOut
   }
 
-  property Process hyprctlProc: Process {
-    id: hyprctlProc
-    command: ["hyprctl", "-j", "getoption", "decoration:rounding"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.applyRoundingJson(text)
-    }
-  }
-
-  property Process gapsOutProc: Process {
-    id: gapsOutProc
-    command: ["hyprctl", "-j", "getoption", "general:gaps_out"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.applyGapsOutJson(text)
-    }
-  }
-
   function resolveFontFamily() {
-    fcMatchProc.running = true
-  }
-
-  property Process fcMatchProc: Process {
-    id: fcMatchProc
-    command: ["fc-match", "-f", "%{family[0]}", "monospace"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var name = String(text || "").trim()
-        if (name.length > 0) root.resolvedFontFamily = name
-      }
-    }
+    if (!service || !service.backendReady) return
+    var current = ++fontGeneration
+    service.backendRequest("font-match", [], current, function(response) {
+      if (current !== root.fontGeneration || !response.ok) return
+      var name = String(response.family || "").trim()
+      if (name.length > 0) root.resolvedFontFamily = name
+    })
   }
 
   property FileView fontconfigFile: FileView {

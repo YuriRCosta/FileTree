@@ -7,6 +7,7 @@ ShellRoot {
   id: root
 
   readonly property var loadedService: service.item
+  onLoadedServiceChanged: Style.service = loadedService
   readonly property string sourceDir: Quickshell.env("FILEBLADE_SOURCE_DIR")
   property var shellConfig: ({})
   readonly property var barConfig: shellConfig.bar || ({ position: "top" })
@@ -76,7 +77,10 @@ ShellRoot {
         accent: String(Color.accent),
         barSize: root.bar.barSize,
         barPosition: root.barConfig.position,
-        fontSize: Style.font.body
+        fontSize: Style.font.body,
+        rounding: Style.cornerRadius,
+        gapsOut: Style.gapsOut,
+        resolvedFontFamily: Style.resolvedFontFamily
       })
     }
   }

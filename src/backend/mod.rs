@@ -98,6 +98,8 @@ pub enum BackendCommand {
     PluginInstall,
     PluginInstallStatus,
     HyprOption(HyprOptionArgs),
+    NativeBarState,
+    FontMatch,
     UpdateCheck(UpdateArgs),
     ActiveWindow,
     FocusWindow(FocusWindowArgs),
@@ -482,6 +484,21 @@ fn dispatch_command(
         ),
         BackendCommand::HyprOption(options) => {
             crate::hyprland::hypr_query(&format!("getoption {}", options.name.as_str()))?
+        }
+        BackendCommand::NativeBarState => json!({
+            "ok": true,
+            "hidden": crate::common::expanded_path("~/.local/state/omarchy/toggles/bar-off").is_file()
+        }),
+        BackendCommand::FontMatch => {
+            let output = crate::command::CommandSpec::new("fc-match")
+                .args(["-f", "%{family[0]}", "monospace"])
+                .limits(4096, 4096)
+                .run_cancellable(cancelled)?;
+            json!({
+                "ok": output.status.success() && !output.stdout_truncated,
+                "family": String::from_utf8_lossy(&output.stdout).trim(),
+                "error": String::from_utf8_lossy(&output.stderr).trim()
+            })
         }
         BackendCommand::ActiveWindow => crate::hyprland::active_window(),
         BackendCommand::FocusWindow(options) => crate::hyprland::focus_window(&options.address),

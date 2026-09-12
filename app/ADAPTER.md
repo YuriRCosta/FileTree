@@ -16,6 +16,9 @@ current Omarchy theme. `BarVisibility.qml` subscribes through the resident
 backend to the real Omarchy toggle directory and reads its `bar-off` flag.
 The facade follows explicit hide and restore changes without idle polling;
 timed hover-autohide remains unqualified.
+Bar visibility, compositor rounding/gaps and font matching are queried through
+the existing resident backend. BackendClient is the only QML process owner;
+the kit starts no shell, hyprctl or fc-match processes itself.
 
 `launch` requires an explicit isolated `FILEBLADE_SPIKE_HOME` and the locally
 built release binary. Its XDG config and state environment isolates
