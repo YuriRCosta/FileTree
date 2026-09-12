@@ -9,7 +9,7 @@ use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use zbus::message::Header;
 use zbus::zvariant::{ObjectPath, OwnedValue};
@@ -18,6 +18,7 @@ const FRONTEND: &str = "org.freedesktop.portal.Desktop";
 const BACKEND: &str = "org.freedesktop.impl.portal.desktop.fileblade";
 type Response = (u32, HashMap<String, OwnedValue>);
 type Requests = Arc<Mutex<HashMap<String, Arc<Pending>>>>;
+type OfferInput<'a> = (ObjectPath<'a>, &'a str, &'a str, &'a str, options::Options);
 
 struct Pending {
     owner: String,
@@ -52,22 +53,21 @@ impl RequestObject {
 struct Portal {
     requests: Requests,
     root: PathBuf,
+    connection: Weak<zbus::Connection>,
 }
 
 impl Portal {
-    #[allow(clippy::too_many_arguments)]
     async fn choose(
         &self,
-        handle: ObjectPath<'_>,
-        app_id: &str,
-        parent_window: &str,
-        title: &str,
-        options: options::Options,
+        (handle, app_id, parent_window, title, options): OfferInput<'_>,
         save: bool,
         header: Header<'_>,
-        connection: &zbus::Connection,
     ) -> zbus::fdo::Result<Response> {
-        let owner = zbus::fdo::DBusProxy::new(connection)
+        let connection = self
+            .connection
+            .upgrade()
+            .ok_or_else(|| zbus::fdo::Error::Failed("Portal connection closed".into()))?;
+        let owner = zbus::fdo::DBusProxy::new(&connection)
             .await?
             .get_name_owner(FRONTEND.try_into().unwrap())
             .await?;
@@ -117,7 +117,7 @@ impl Portal {
                 "Cannot register chooser request".into(),
             ));
         }
-        let current_owner = zbus::fdo::DBusProxy::new(connection)
+        let current_owner = zbus::fdo::DBusProxy::new(&connection)
             .await?
             .get_name_owner(FRONTEND.try_into().unwrap())
             .await;
@@ -141,7 +141,6 @@ impl Portal {
 
 #[zbus::interface(name = "org.freedesktop.impl.portal.FileChooser")]
 impl Portal {
-    #[allow(clippy::too_many_arguments)]
     async fn open_file(
         &self,
         handle: ObjectPath<'_>,
@@ -150,22 +149,15 @@ impl Portal {
         title: &str,
         options: options::Options,
         #[zbus(header)] header: Header<'_>,
-        #[zbus(connection)] connection: &zbus::Connection,
     ) -> zbus::fdo::Result<Response> {
         self.choose(
-            handle,
-            app_id,
-            parent_window,
-            title,
-            options,
+            (handle, app_id, parent_window, title, options),
             false,
             header,
-            connection,
         )
         .await
     }
 
-    #[allow(clippy::too_many_arguments)]
     async fn save_file(
         &self,
         handle: ObjectPath<'_>,
@@ -174,17 +166,11 @@ impl Portal {
         title: &str,
         options: options::Options,
         #[zbus(header)] header: Header<'_>,
-        #[zbus(connection)] connection: &zbus::Connection,
     ) -> zbus::fdo::Result<Response> {
         self.choose(
-            handle,
-            app_id,
-            parent_window,
-            title,
-            options,
+            (handle, app_id, parent_window, title, options),
             true,
             header,
-            connection,
         )
         .await
     }
@@ -264,17 +250,19 @@ pub fn serve() -> AppResult<()> {
     });
     let authority = connect_authority(&root)?;
     let requests: Requests = Arc::new(Mutex::new(HashMap::new()));
-    let connection = zbus::blocking::connection::Builder::session()
-        .and_then(|builder| {
-            builder.serve_at(
-                "/org/freedesktop/portal/desktop",
-                Portal {
-                    requests: Arc::clone(&requests),
-                    root,
-                },
-            )
-        })
-        .and_then(|builder| builder.build())
+    let connection = zbus::blocking::Connection::session()
+        .map_err(|error| AppError::command(error.to_string()))?;
+    let asynchronous = Arc::new(connection.inner().clone());
+    connection
+        .object_server()
+        .at(
+            "/org/freedesktop/portal/desktop",
+            Portal {
+                requests: Arc::clone(&requests),
+                root,
+                connection: Arc::downgrade(&asynchronous),
+            },
+        )
         .map_err(|error| AppError::command(error.to_string()))?;
     let proxy = zbus::blocking::fdo::DBusProxy::new(&connection)
         .map_err(|error| AppError::command(error.to_string()))?;

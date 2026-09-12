@@ -11,6 +11,7 @@ const RESULT_LIFETIME: u64 = 24 * 60 * 60;
 const RESULT_LIMIT: usize = 256;
 const RESULT_BYTES: usize = 1024 * 1024 * 1024;
 const OPERATION_RESERVATION: usize = 64 * 1024 * 1024;
+type PrimaryDelivery<'a> = &'a dyn Fn(&Output, &Value) -> std::io::Result<()>;
 
 pub struct Operations {
     authority: Arc<Authority>,
@@ -327,7 +328,7 @@ impl Operation {
         &self,
         mut frame: Value,
         terminal: bool,
-        primary: Option<&dyn Fn(&Output, &Value) -> std::io::Result<()>>,
+        primary: Option<PrimaryDelivery<'_>>,
     ) -> bool {
         let authority_lost = self.authority.verify().is_err();
         if terminal && authority_lost {
