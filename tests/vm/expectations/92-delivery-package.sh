@@ -35,13 +35,11 @@ installation=$XDG_DATA_HOME/fileblade/installation
 cp -- "$installation/active/receipt.json" "$work/receipt"
 package_installed=1
 as_root pacman -U --noconfirm "$package"
-[[ $(pacman -Qoq /usr/bin/fileblade) == fileblade-native && $(pacman -Qoq /usr/lib/fileblade/target/release/fileblade) == fileblade-native ]]
+[[ $(pacman -Qoq /usr/bin/fileblade) == fileblade-native && $(pacman -Qoq /usr/lib/fileblade/bin/fileblade) == fileblade-native ]]
 "/usr/lib/fileblade/tools/native" verify /usr/lib/fileblade
 cmp -- "$payload/payload.json" /usr/lib/fileblade/payload.json
 printf 'PASS E-92-02 installed files have pacman ownership and original inventory\n'
-if ! env -u FILEBLADE_SPIKE_HOME /usr/bin/fileblade --help > "$work/idle-launch" 2>&1; then
-  grep -F 'FILEBLADE_SPIKE_HOME' "$work/idle-launch"
-fi
+/usr/bin/fileblade --help > "$work/idle-launch" 2>&1
 exec 8</usr/share/fileblade-native/lock
 flock -s 8
 if as_root pacman -R --noconfirm fileblade-native > "$work/busy" 2>&1; then exit 1; fi
@@ -55,7 +53,7 @@ cat > "$work/check-launch" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ -e $(pacman-conf DBPath)/db.lck ]]
-if runuser -u omarchy -- env -u FILEBLADE_SPIKE_HOME /usr/bin/fileblade --help > "$1" 2>&1; then exit 1; fi
+if runuser -u omarchy -- /usr/bin/fileblade --help > "$1" 2>&1; then exit 1; fi
 grep -Fx 'fileblade: package database is unavailable or busy; retry after pacman finishes' "$1" || { cat "$1"; exit 1; }
 EOF
 chmod 755 "$work/check-launch"

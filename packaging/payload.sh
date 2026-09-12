@@ -64,11 +64,11 @@ verify_payload() {
   while IFS= read -r required; do
     [[ -f $root/$required ]] || fail "missing runtime file: $required"
   done < <(jq -r '.required[]' "$native_root/packaging/runtime.json")
-  [[ -x $root/app/launch && -x $root/target/release/fileblade && -x $root/tools/native ]] || fail 'runtime entrypoint is not executable'
+  [[ -x $root/app/launch && -x $root/bin/fileblade && -x $root/tools/native ]] || fail 'runtime entrypoint is not executable'
   [[ $(jq -r .version "$root/manifest.json") == "$(jq -r .version "$manifest")" ]] || fail 'runtime version differs'
   cmp -s -- "$native_root/packaging/runtime.json" "$root/packaging/runtime.json" || fail 'payload dependency contract differs from installer'
   target=$(jq -r .target "$manifest")
-  check_elf "$root/target/release/fileblade" "$target"
+  check_elf "$root/bin/fileblade" "$target"
   printf 'Verified FileBlade %s (%s)\n' "$(jq -r .version "$manifest")" "$target"
 }
 
@@ -96,7 +96,7 @@ stage_payload() (
     [[ ! -x $source/$path ]] || mode=755
     install -D -m "$mode" -- "$source/$path" "$stage/$path"
   done <<< "$filelist"
-  install -D -m 755 -- "$binary" "$stage/target/release/fileblade"
+  install -D -m 755 -- "$binary" "$stage/bin/fileblade"
   install -m 644 -- "$notices" "$stage/THIRD_PARTY_NOTICES.html"
   install -D -m 755 -- "$native_tool" "$stage/tools/native"
   for path in runtime.json payload.sh install.sh; do
@@ -129,7 +129,7 @@ check_runtime() {
   command -v pacman >/dev/null || fail 'dependency qualification currently requires the tested Arch/Omarchy package database'
   mapfile -t dependencies < <(jq -r '.packages[]' "$native_root/packaging/runtime.json")
   output=$(pacman -T "${dependencies[@]}") || fail "missing or incompatible runtime packages: $output"
-  program=$root/target/release/fileblade
+  program=$root/bin/fileblade
   if [[ $target == *-gnu ]]; then
     output=$(timeout 10 ldd -- "$program") || fail 'backend ABI dependencies cannot be resolved'
     [[ $output != *'not found'* ]] || fail "backend ABI dependency unavailable: $output"
