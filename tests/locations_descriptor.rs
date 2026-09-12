@@ -62,42 +62,77 @@ fn local_identity_has_stable_generation_until_replacement_or_disconnect() {
 }
 
 #[test]
-fn read_only_and_unvalidated_provider_mounts_never_advertise_writes() {
+fn stale_classification_with_a_matching_mount_id_never_issues_capabilities() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().to_str().unwrap();
+    let id = format!("stale-initial:{path}");
+    let text = fs::read_to_string("/proc/self/mountinfo").unwrap();
     let directory = fileblade::secure::open_directory_nofollow(root.path()).unwrap();
     let mount_id = fileblade::secure::directory_mount_id(&directory).unwrap();
-    let table = MountTable::from_text(&format!(
-        "{mount_id} 1 0:40 / {path} ro - ext4 /dev/example ro\n"
-    ));
-    let id = format!("readonly:{path}");
-    let local = locations::local(&id, Kind::Usb, path, "Read-only", &table).unwrap();
-    assert_eq!(local.connection, Connection::Connected);
-    assert!(local.capabilities.contains(&Capability::Read));
-    for capability in [
-        Capability::Write,
-        Capability::Mkdir,
-        Capability::Rename,
-        Capability::AtomicRename,
-        Capability::Permissions,
-        Capability::Trash,
-    ] {
-        assert!(!local.capabilities.contains(&capability));
+    for field in ["filesystem", "flags", "super-flags", "source"] {
+        let first = locations::local(
+            &id,
+            Kind::Local,
+            path,
+            "Current",
+            &MountTable::read().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(first.connection, Connection::Connected);
+        let stale = text
+            .lines()
+            .map(|line| {
+                if !line.starts_with(&format!("{mount_id} ")) {
+                    return line.to_owned();
+                }
+                let mut fields: Vec<_> = line.split(' ').collect();
+                let separator = fields.iter().position(|field| *field == "-").unwrap();
+                match field {
+                    "filesystem" => {
+                        fields[separator + 1] = if fields[separator + 1] == "ext4" {
+                            "xfs"
+                        } else {
+                            "ext4"
+                        }
+                    }
+                    "flags" => fields[5] = "ro",
+                    "super-flags" => fields[separator + 3] = "ro",
+                    "source" => fields[separator + 2] = "stale-source",
+                    _ => unreachable!(),
+                }
+                fields.join(" ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let refused = locations::local(
+            &id,
+            Kind::Local,
+            path,
+            "Stale",
+            &MountTable::from_text(&stale),
+        )
+        .unwrap();
+        assert_eq!(
+            refused.connection,
+            Connection::Unavailable,
+            "{field}: {refused:?}"
+        );
+        assert!(refused.session_generation.is_empty());
+        assert!(refused.local_representation.is_none());
+        assert!(refused.capabilities.is_empty());
+        assert!(locations::validate_local(&id, &first.session_generation).is_err());
     }
-    let table = MountTable::from_text(&format!(
-        "{mount_id} 1 0:40 / {path} rw - ext4 /dev/example ro\n"
-    ));
-    let super_readonly =
-        locations::local(&id, Kind::Usb, path, "Read-only filesystem", &table).unwrap();
-    assert!(!super_readonly.capabilities.contains(&Capability::Write));
-    let table = MountTable::from_text(&format!(
-        "42 1 0:41 / {path} rw - fuse.gvfsd-fuse gvfsd-fuse rw\n"
-    ));
-    let provider = locations::local(&id, Kind::Local, path, "Provider", &table).unwrap();
-    assert_eq!(provider.connection, Connection::Unavailable);
-    assert!(provider.capabilities.is_empty());
-    assert!(provider.local_representation.is_none());
-    assert!(locations::validate_local(&id, &local.session_generation).is_err());
+    let refreshed = locations::local(
+        &id,
+        Kind::Local,
+        path,
+        "Current",
+        &MountTable::read().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(refreshed.connection, Connection::Connected);
+    assert!(refreshed.capabilities.contains(&Capability::Write));
+    locations::invalidate(&id);
 }
 
 #[test]

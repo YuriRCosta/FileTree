@@ -111,7 +111,7 @@ fn provider_uris_parent_paths_and_symlink_traversal_never_fall_back_to_local_lis
 }
 
 #[test]
-fn capability_changes_invalidate_a_previously_issued_generation() {
+fn stale_capability_snapshots_invalidate_a_previously_issued_generation() {
     let root = tempfile::tempdir().unwrap();
     let id = format!("fixture:{}", root.path().display());
     let first = descriptor(root.path(), &id);
@@ -138,11 +138,14 @@ fn capability_changes_invalidate_a_previously_issued_generation() {
         &MountTable::from_text(&text),
     )
     .unwrap();
-    assert_ne!(first.session_generation, read_only.session_generation);
+    assert_eq!(read_only.connection, locations::Connection::Unavailable);
+    assert!(read_only.session_generation.is_empty());
     assert_eq!(
         request(&id, &first.session_generation, &[])["error_id"],
         "stale-location"
     );
-    assert_eq!(request(&id, &read_only.session_generation, &[])["ok"], true);
+    let refreshed = descriptor(root.path(), &id);
+    assert_ne!(first.session_generation, refreshed.session_generation);
+    assert_eq!(request(&id, &refreshed.session_generation, &[])["ok"], true);
     locations::invalidate(&id);
 }

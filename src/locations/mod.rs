@@ -180,17 +180,35 @@ pub fn local(
         }
     };
     let identity = secure::stat_in(&directory, OsStr::new("."))?.identity();
-    if secure::directory_mount_id(&directory)? != mount.mount_id {
+    let mount_id = secure::directory_mount_id(&directory)?;
+    let observed = MountTable::read()?;
+    let current = observed
+        .records()
+        .iter()
+        .find(|record| record.mount_id == mount_id && path.starts_with(&record.mountpoint));
+    let Some(current) = current.filter(|current| *current == mount) else {
         invalidate(id);
-        descriptor.error = Some("location mount changed during validation".into());
+        descriptor.error =
+            Some("location mount changed during validation; refresh Locations".into());
         return Ok(descriptor);
-    }
+    };
+    let mount = current;
     let proof = Proof {
         path: path.clone(),
         identity,
         mount_id: mount.mount_id,
         unique_mount_id: secure::directory_unique_mount_id(&directory)?,
     };
+    let still_selected = secure::open_directory_nofollow(&path).is_ok_and(|selected| {
+        secure::stat_in(&selected, OsStr::new(".")).is_ok_and(|stat| stat.identity() == identity)
+            && secure::directory_unique_mount_id(&selected)
+                .is_ok_and(|mount| mount == proof.unique_mount_id)
+    });
+    if !still_selected {
+        invalidate(id);
+        descriptor.error = Some("location changed during validation; refresh Locations".into());
+        return Ok(descriptor);
+    }
     descriptor.connection = Connection::Connected;
     descriptor.local_representation = Some(LocalRepresentation {
         path: path_text(&path),
