@@ -91,8 +91,6 @@ activate_payload() (
 
 install_payload() (
   local source=$1 digest destination stage
-  verify_payload "$source"
-  check_runtime "$source"
   digest=$(sha256sum -- "$source/payload.json")
   digest=${digest%% *}
   destination=$installation/versions/$digest
@@ -100,6 +98,7 @@ install_payload() (
     [[ -d $destination && ! -L $destination ]] || fail 'runtime destination is not owned'
     verify_payload "$destination"
     [[ $(sha256sum -- "$destination/payload.json") == "$digest "* ]] || fail 'stored manifest identity differs'
+    check_runtime "$destination"
   else
     stage=$(mktemp -d "$installation/versions/.payload.XXXXXX")
     trap 'rm -rf -- "$stage"' EXIT
@@ -107,6 +106,7 @@ install_payload() (
     chmod 755 "$stage"
     verify_payload "$stage"
     [[ $(sha256sum -- "$stage/payload.json") == "$digest "* ]] || fail 'payload changed during staging'
+    check_runtime "$stage"
     sync -f -- "$stage"
     mv -T -n -- "$stage" "$destination"
     [[ ! -d $stage ]] || fail 'runtime appeared during staging'
@@ -140,7 +140,11 @@ install_command() (
   fi
   [[ ! -L $installation/lock && ( ! -e $installation/lock || -f $installation/lock ) ]] || fail 'invalid installation lock'
   exec 9>"$installation/lock"
-  flock -n -x 9 || fail 'FileBlade is running or another installer holds the lock; close the native session before updating'
+  if [[ $action == status ]]; then
+    flock -n -s 9 || fail 'another installer holds the lock'
+  else
+    flock -n -x 9 || fail 'FileBlade is running or another installer holds the lock; close the native session before updating'
+  fi
   check_owner
   private_directory "$installation/versions"
   private_directory "$installation/generations"

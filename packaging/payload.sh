@@ -50,7 +50,7 @@ verify_payload() {
   jq -e '
     .schema == 1 and .kind == "fileblade-native" and
     (.version | type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9.-]+)?$")) and
-    (.source | type == "string" and test("^[a-f0-9]{40,64}$")) and
+    (.source | type == "string" and test("^([a-f0-9]{40}|[a-f0-9]{64})$")) and
     (.target | IN("x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "aarch64-unknown-linux-gnu", "aarch64-unknown-linux-musl")) and
     (.architecture == (.target | split("-")[0])) and
     (.files | type == "array" and length > 0 and length <= 10000) and
@@ -119,6 +119,7 @@ stage_payload() (
 
 check_runtime() {
   local root=$1 target architecture dependency program output
+  local -a dependencies
   target=$(jq -r .target "$root/payload.json")
   architecture=${target%%-*}
   [[ $(uname -m) == "$architecture" ]] || fail "payload requires $architecture, machine is $(uname -m)"

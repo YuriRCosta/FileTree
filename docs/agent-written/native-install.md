@@ -56,3 +56,51 @@ inside the assigned Omarchy guest for integrity, malformed-inventory,
 wrong-architecture and missing-dependency checks. The fresh staged app launch,
 module catalog and screenshot are separate live evidence; this script does
 not claim them.
+
+## User-local installation
+
+```
+PAYLOAD/tools/native install PAYLOAD
+PAYLOAD/tools/native status
+PAYLOAD/tools/native rollback
+```
+
+The installer is self-contained in the payload. It stores runtime versions
+under `$XDG_DATA_HOME/fileblade/installation/versions`, falling back to
+`~/.local/share`, and creates `~/.local/bin/fileblade`. The receipt is
+`installation/active/receipt.json`. A payload manifest's SHA-256 names its
+version directory, so successive development builds with the same version
+number remain distinct and recoverable. No setting or Note is stored there.
+
+Installation validates the input, copies it to a temporary sibling, validates
+the copy and publishes it. A generation pairs the receipt with a symlink to
+its runtime. One atomic pointer switch activates that pair. The receipt
+records the previous payload, and rollback performs the same activation in
+reverse. Existing runtime generations and interrupted staging directories
+are retained; no automatic pruning is implemented. Settings and desktop
+defaults are untouched. Removal and role reversal are a separate delivery
+task, not implemented by these commands yet.
+
+The stable launcher resolves its physical runtime once under a shared
+installation lock. Installation and rollback require the exclusive lock and
+refuse while a launched session retains the shared lock. This is a safe
+busy refusal, not graceful shutdown or a claim that dirty Notes can already
+be flushed. The actual Quickshell/authority descriptor lifetime still needs
+native qualification. A runtime launched directly outside the stable launcher
+does not participate in this delivery lock and must not be updated this way.
+
+Package-owned conventional executable paths and unrelated launchers are
+refused. Modified owned launchers, invalid receipts and receipt/pointer
+disagreement are also refused. Full package mapping and external package
+removal recovery remain task 9.3/9.4 work. Current payload and installer
+dependency contracts must match; a contract-changing upgrade needs explicit
+compatibility work before it can be accepted.
+
+`tests/vm/expectations/91-delivery-install.sh PAYLOAD` checks collision
+preservation, repeated install, distinct activation/rollback, busy refusal,
+shared-lock status, settings/Notes preservation, and real process-group kills
+during copy and immediately before/after the activation rename. Its alternate
+payload manifests differ only in legal JSON whitespace, exercising distinct
+transaction identities without inventing another backend version. Test-only
+command wrappers inject interruptions; production code has no fault hooks.
+These are process-interruption checks, not physical power-loss tests.

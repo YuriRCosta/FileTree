@@ -7,7 +7,7 @@ native=$payload/tools/native
 work=$(mktemp -d /tmp/fileblade-delivery-91.XXXXXX)
 worker=
 trap '[[ -z $worker ]] || kill -KILL -- -"$worker" 2>/dev/null || true; rm -rf -- "$work"' EXIT
-export HOME=$work/home XDG_DATA_HOME=$work/data XDG_CONFIG_HOME=$work/config XDG_STATE_HOME=$work/state
+export HOME="$work/home space" XDG_DATA_HOME="$work/data space" XDG_CONFIG_HOME=$work/config XDG_STATE_HOME=$work/state
 mkdir -p "$HOME/.local/bin" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
 printf 'keep settings\n' > "$XDG_CONFIG_HOME/settings"
 printf 'keep notes\n' > "$XDG_STATE_HOME/notes"
@@ -31,9 +31,19 @@ second=$(jq -r .payload "$installation/active/receipt.json")
 "$native" rollback
 [[ $(jq -r .payload "$installation/active/receipt.json") == "$first" ]]
 printf 'PASS E-91-03 activation and rollback\n'
-flock -s "$installation/lock" sleep 30 &
+cp -- "$installation/active/receipt.json" "$work/receipt"
+jq '.owner = "unrelated"' "$work/receipt" > "$installation/active/receipt.json"
+if "$native" install "$work/next"; then exit 1; fi
+cp -- "$work/receipt" "$installation/active/receipt.json"
+cp -- "$installation/launcher" "$work/launcher"
+printf '\nchanged\n' >> "$installation/launcher"
+if "$native" install "$work/next"; then exit 1; fi
+cp -- "$work/launcher" "$installation/launcher"
+printf 'PASS E-91-07 changed receipt and launcher refused\n'
+flock -s -F "$installation/lock" sleep 30 &
 holder=$!
 sleep 0.1
+"$native" status
 if "$native" install "$work/next"; then kill "$holder"; exit 1; fi
 kill "$holder"
 wait "$holder" || true
@@ -45,7 +55,7 @@ cat > "$work/path/fault" <<'EOF'
 set -euo pipefail
 operation=${0##*/}
 if [[ $operation == cp && $CINDER_FAULT == copy && ${*: -1} == *'/.payload.'* ]]; then
-  /usr/bin/cp -- "$1/Service.qml" "${*: -1}/Service.qml" 2>/dev/null || true
+  /usr/bin/cp -- "${*: -2:1}/Service.qml" "${*: -1}/Service.qml"
   touch "$CINDER_MARKER"
   sleep 60
 elif [[ $operation == mv && $CINDER_FAULT == activation-* && ${*: -1} == */installation/active ]]; then
