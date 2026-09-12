@@ -85,7 +85,8 @@ FocusScope {
 
   function refreshFolderCount() {
     if (mediaActive || controller.trashMode || controller.drivesMode || controller.recentMode) return
-    folderCountData = ViewChrome.folderCount(controller.treeModel, controller.rootPath)
+    folderCountData = ViewChrome.folderCount(controller.treeModel, controller.rootPath,
+      controller.treeStructureRevision, controller.treeRowsRevision)
   }
 
   function invalidateFolderCount() {
