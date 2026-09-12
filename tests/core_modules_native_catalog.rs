@@ -64,7 +64,10 @@ fn native_discovery_without_authority_cannot_create_activation_receipts() {
             .env_remove("FILEBLADE_NATIVE_STATE_ROOT")
             .env_remove("FILEBLADE_APP_ROOT");
         if !receipt_selected {
-            command.env("FILEBLADE_APP_ROOT", &app);
+            command.env("FILEBLADE_APP_ROOT", &app).env(
+                "FILEBLADE_NATIVE_STATE_ROOT",
+                state.join("omarchy/fileblade"),
+            );
         }
         let output = command.output().unwrap();
         assert!(output.status.success(), "{output:?}");
