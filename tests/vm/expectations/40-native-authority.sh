@@ -148,6 +148,9 @@ try:
     root.rename(moved_root)
     root.mkdir(mode=0o700)
     (root / 'sentinel').write_text('unchanged')
+    replacement_shot = replacement_source / 'root-replaced.png'
+    subprocess.run(['grim', '-o', 'Virtual-1', str(replacement_shot)], check=True, timeout=5)
+    subprocess.run(['qs', '-p', str(app), 'kill'], check=True, timeout=5)
 finally:
     os.kill(holder['pid'], signal.SIGCONT)
 deadline = time.monotonic() + 20
@@ -163,10 +166,7 @@ assert not replacement_result['ok'] and not replacement_result['cancelled']
 assert sorted(path.name for path in root.iterdir()) == ['sentinel']
 assert (root / 'sentinel').read_text() == 'unchanged'
 assert replacement_file.stat().st_size == 1024 * 1024 * 1024
-replacement_shot = replacement_source / 'authority-lost.png'
-subprocess.run(['grim', '-o', 'Virtual-1', str(replacement_shot)], check=True, timeout=5)
 assert operation('fetch', replacement_op)['payload']['result'] == replacement_result
-subprocess.run(['qs', '-p', str(app), 'kill'], check=True, timeout=5)
 stream.close()
 connection.close()
 os.kill(holder['pid'], signal.SIGTERM)
