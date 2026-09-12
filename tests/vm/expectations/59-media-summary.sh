@@ -4,6 +4,7 @@ set -euo pipefail
 [[ ${OVM_HOME:-} == "$HOME/.local/share/test-omarchy-plugin-b" && ${OVM_SSH_PORT:-} == 2522 ]]
 python3 - <<'PY'
 import json
+import base64
 import os
 import shlex
 import subprocess
@@ -74,9 +75,17 @@ check('summary click is inert', state()['selected'] == selected and state()['exp
 probe('treeAction', 'select-all')
 s = state()
 check('select-all excludes the hidden root', folder not in s['selected'] and len(s['selected']) == 2, s)
+control('select', folder)
+time.sleep(.3)
+s = state()
+check('explicit shared select retains the informational directory', s['selected'] == [folder] and s['current'] == -1, s)
+document = 'base64:' + base64.b64encode(json.dumps([{'path': folder, 'isDir': True}]).encode()).decode()
+assert control('selectEntries', document) == 'ok'
+time.sleep(.3)
+check('explicit shared selectEntries retains the directory', state()['selected'] == [folder], state())
 probe('rootRange')
 s = wait(lambda s: folder not in s['selected'])
-check('a range anchored at the root is reconciled to content', len(s['selected']) == 1, s)
+check('pointer range excludes its hidden root anchor at the local input boundary', len(s['selected']) == 1, s)
 probe('ordinaryChoose', 1)
 probe('treeAction', 'expand')
 wait(lambda s: any(r.get('depth') == 2 for r in json.loads(ipc('data-goblin.fileblade', 'tree', '20'))['entries']))
@@ -110,14 +119,39 @@ s = wait(lambda s: s['root'] == folder)
 check('tree preference survives shell restart', s['inTree'] and not s['above'], s)
 shot('tree-restart')
 probe('summaryInTree', 'false')
-s = wait(lambda s: s['expanded'] and folder not in s['selected'])
-check('relocation reopens root and removes its selection', s['above'] and s['rootHeight'] == 0, s)
+s = wait(lambda s: s['expanded'])
+check('relocation reopens root while preserving shared selection', s['above'] and s['rootHeight'] == 0 and s['selected'] == [folder], s)
 control('setRoot', '/tmp/brindle-media/empty')
 s = wait(lambda s: s['count'] == '0 items')
 probe('treeAction', 'activate')
 probe('treeAction', 'select-all')
 s = state()
 check('empty informational scope has no actionable hidden root', s['expanded'] and not s['selected'] and s['root'].endswith('/empty'), s)
+empty = s['root']
+control('select', empty)
+probe('treeFocus')
+for key in ('compose', 'f2'):
+    ovm('key', key)
+    time.sleep(.3)
+    s = state()
+    check('physical ' + key + ' cannot target the hidden root', not s['menu']['open'] and not s['menu']['paths'] and s['selected'] == [empty], s)
+for key, mode in [('ctrl-n', 'new-file'), ('ctrl-shift-n', 'new-folder')]:
+    probe('treeFocus')
+    ovm('key', key)
+    s = wait(lambda s: s['menu']['open'])
+    check('physical ' + key + ' retains explicit current-folder creation', s['menu']['mode'] == mode and s['menu']['paths'] == [empty], s)
+    ovm('key', 'esc')
+    wait(lambda s: not s['menu']['open'])
+probe('summaryInTree', 'true')
+probe('ordinaryChoose', 0)
+for key, mode in [('compose', 'actions'), ('f2', 'rename')]:
+    probe('treeFocus')
+    ovm('key', key)
+    s = wait(lambda s: s['menu']['open'])
+    check('tree placement preserves physical ' + key + ' on the root', s['menu']['mode'] == mode and s['menu']['paths'] == [empty], s)
+    ovm('key', 'esc')
+    wait(lambda s: not s['menu']['open'])
+probe('summaryInTree', 'false')
 probe('toggle')
 s = state()
 check('media uses the same summary and its media footer', s['above'] and s['mode'] and s['count'].endswith(' media'), s)

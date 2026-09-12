@@ -67,12 +67,6 @@ FocusScope {
   function ensureContextRoot() {
     if (!contextAbove || !treeList.visible || !focusEnabled) return
     controller.setDirectoryExpanded(controller.rootPath, true)
-    if (controller.isSelected(controller.rootPath)) {
-      var kept = controller.selectedEntries.filter(function(entry) { return entry.path !== controller.rootPath })
-      var primary = kept.filter(function(entry) { return entry.path === controller.selectedPath })[0]
-      controller.applySelection(kept, primary || kept[0] || null,
-        controller.selectionAnchorPath === controller.rootPath ? (kept.length ? kept[0].path : "") : controller.selectionAnchorPath)
-    }
     if (treeList.currentIndex === 0) treeList.currentIndex = -1
   }
 
@@ -112,7 +106,6 @@ FocusScope {
     function onRootPathChanged() { root.invalidateFolderCount() }
     function onTreeFilterChanged() { root.invalidateFolderCount() }
     function onShowHiddenChanged() { root.invalidateFolderCount() }
-    function onSelectedPathsChanged() { Qt.callLater(root.ensureContextRoot) }
     Component.onCompleted: Qt.callLater(root.refreshFolderCount)
   }
 
@@ -334,7 +327,7 @@ FocusScope {
 
   function restoreTreeCursor() {
     var index = controller.indexOfTreePath(controller.selectedPath)
-    if (contextAbove && index === 0) { Qt.callLater(root.ensureContextRoot); return }
+    if (contextAbove && index === 0) { treeList.currentIndex = -1; return }
     if (index < 0) return
     treeList.currentIndex = index
     if (!root.revealPending) return
@@ -364,7 +357,16 @@ FocusScope {
       controller.loadMoreChildren(String(row.path).slice(0, -5))
       return
     }
-    if (mode !== "keep") controller.selectModelIndex(view.model, next, mode || "replace")
+    if (mode === "keep") return
+    if (first) {
+      var anchor = controller.selectionAnchorPath === controller.rootPath ? view.model.get(first).path : controller.selectionAnchorPath
+      if (controller.isSelected(controller.rootPath)) {
+        var kept = controller.selectedEntries.filter(function(entry) { return entry.path !== controller.rootPath })
+        var primary = kept.filter(function(entry) { return entry.path === controller.selectedPath })[0]
+        controller.applySelection(kept, primary || kept[0] || null, anchor)
+      } else controller.selectionAnchorPath = anchor
+    }
+    controller.selectModelIndex(view.model, next, mode || "replace")
   }
 
   function moveCurrent(view, treeMode, delta, extend, additive) {
@@ -468,7 +470,11 @@ FocusScope {
   }
 
   function openMenuForCurrent(view, mode) {
-    var index = view && view.currentIndex >= 0 ? view.currentIndex : 0
+    var first = view === treeList && contextAbove ? 1 : 0
+    var empty = !view || view.count <= first
+    var creating = mode === "new-file" || mode === "new-folder"
+    if (empty && !creating) return
+    var index = Math.max(first, view ? view.currentIndex : first)
     var delegate = view && view.itemAtIndex ? view.itemAtIndex(index) : null
     if (delegate && delegate.openMenu) {
       delegate.openMenu(mode || "actions", 0, 0, true)
@@ -476,7 +482,10 @@ FocusScope {
     }
     var edge = context ? String(context.edge || "left") : "left"
     var x = edge === "right" ? originX() + Style.space(2) : root.width - Style.space(8) + originX()
-    controller.openActionMenu(mode || "actions", targetScreen(), x, Style.space(70), undefined, { edge: edge, keyboard: true })
+    var row = !empty ? modelRow(index, view === treeList, view) : null
+    if (row && !controller.isSelected(row.path)) selectIndex(view, view === treeList, index, "replace")
+    var destination = empty && creating ? [{ path: controller.rootPath, isDir: true }] : undefined
+    controller.openActionMenu(mode || "actions", targetScreen(), x, Style.space(70), destination, { edge: edge, keyboard: true })
   }
 
   function runBrowserAction(action) {
@@ -1133,6 +1142,10 @@ FocusScope {
 
     delegate: BrowserRow {
       id: treeRow
+      function choose(modifiers) {
+        root.selectIndex(treeList, true, index, root.selectionMode(modifiers || Qt.NoModifier))
+        treeList.forceActiveFocus()
+      }
       visible: !root.contextAbove || index !== 0
       Binding on height { when: root.contextAbove && treeRow.index === 0; value: 0 }
       density: root.ordinaryDensity

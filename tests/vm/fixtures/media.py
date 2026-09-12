@@ -130,7 +130,8 @@ def prepare(state, plugin):
       return "null"
     }
     function treeAction(value: string): void { root.runListAction(value, { modifiers: 0 }, treeList, true) }
-    function rootRange(): void { controller.selectModelIndex(controller.treeModel, 0, "replace"); controller.selectModelIndex(controller.treeModel, 1, "range") }
+    function rootRange(): void { controller.selectModelIndex(controller.treeModel, 0, "replace"); treeList.itemAtIndex(1).choose(Qt.ShiftModifier) }
+    function treeFocus(): void { treeList.forceActiveFocus() }
     function summary(): string {
       treeList.forceLayout()
       var entry = controller.treeModel.count ? controller.treeModel.get(0) : null
@@ -141,7 +142,8 @@ def prepare(state, plugin):
         navigationY: navigationBar.y, label: contextSummary.label, detail: contextSummary.detail, badge: contextSummary.badge,
         rootHeight: row ? row.height : -1, expanded: entry ? entry.expanded : false,
         selected: controller.selectedPaths, root: controller.rootPath, current: treeList.currentIndex,
-        count: footerCount.text, mode: root.mediaMode })
+        count: footerCount.text, mode: root.mediaMode,
+        menu: { open: controller.actionMenuOpen, paths: controller.actionMenuPaths, mode: controller.actionMenuMode } })
     }
     function hidden(shown: bool): void { controller.setShowHidden(shown) }
     function filter(value: string): void { filesView.setFilter(JSON.parse(Qt.atob(value))) }
