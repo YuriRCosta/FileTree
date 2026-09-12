@@ -26,7 +26,7 @@ is maintained separately.
   licenses and source links accompanying the bundled backend
 - [UI expectations](../../tests/EXPECTATIONS.md): behavior checked in the
   headless desktop test
-- [Agent guidelines](../agent-guidelines.md): rules coding agents must follow in
+- [Agent guidelines](../AGENTS.md): rules coding agents must follow in
   this repository
 
 ## Filename convention
