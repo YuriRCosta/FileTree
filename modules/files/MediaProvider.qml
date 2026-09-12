@@ -96,16 +96,16 @@ Item {
   }
 
   onActiveChanged: reload(false)
-  onRootPathChanged: reload(false)
-  onRecursiveChanged: reload(false)
-  onShowHiddenChanged: reload(false)
-  onDescriptorChanged: reload(false)
+  onRootPathChanged: if (active) reload(false)
+  onRecursiveChanged: if (active) reload(false)
+  onShowHiddenChanged: if (active) reload(false)
+  onDescriptorChanged: if (active) reload(false)
   Component.onDestruction: cancel()
 
   Connections {
     target: provider.controller
     ignoreUnknownSignals: true
-    function onBackendReadyChanged() { if (provider.controller.backendReady) provider.reload(false) }
+    function onBackendReadyChanged() { if (provider.active && provider.controller.backendReady) provider.reload(false) }
   }
 
   Timer { id: pump; interval: 0; onTriggered: provider.nextPage() }

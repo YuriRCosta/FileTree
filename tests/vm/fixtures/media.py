@@ -30,14 +30,14 @@ def prepare(state, plugin):
   IpcHandler {
     target: "brindle-media-" + (root.context ? root.context.edge : "left")
     function state(): string {
-      return JSON.stringify({ mode: root.mediaMode, active: root.mediaActive, recursive: root.mediaRecursive,
-        query: root.mediaQuery, size: root.mediaSizeStep, count: mediaView.count, busy: mediaProvider.busy,
-        error: mediaProvider.error, paths: mediaView.rows.slice(0, 1000).map(function(row) { return row.path }),
-        selected: controller.selectedPaths, current: mediaView.currentIndex, y: mediaView.contentY,
-        root: controller.rootPath, ordinaryQuery: controller.searchQuery, pending: mediaProvider.requestId,
-        viewHeight: mediaView.height, cell: mediaView.cell, focused: mediaView.activeFocus,
-        columns: mediaView.columns, anchor: mediaView.anchorPath, sorts: controller.treeSort, visual: root.visualMode,
-        values: mediaView.rows.slice(0, 1000).map(function(row) { return { name: row.name, size: row.size, modified: row.modified } }),
+      return JSON.stringify({ loaded: !!mediaView, providerLoaded: !!mediaProvider, mode: root.mediaMode, active: root.mediaActive, recursive: root.mediaRecursive,
+        query: root.mediaQuery, size: root.mediaSizeStep, count: (mediaView ? mediaView.count : 0), busy: (mediaProvider ? mediaProvider.busy : false),
+        error: (mediaProvider ? mediaProvider.error : ""), paths: (mediaView ? mediaView.rows : []).slice(0, 1000).map(function(row) { return row.path }),
+        selected: controller.selectedPaths, current: (mediaView ? mediaView.currentIndex : -1), y: (mediaView ? mediaView.contentY : 0),
+        root: controller.rootPath, ordinaryQuery: controller.searchQuery, pending: (mediaProvider ? mediaProvider.requestId : ""),
+        viewHeight: (mediaView ? mediaView.height : 0), cell: (mediaView ? mediaView.cell : 0), focused: (mediaView ? mediaView.activeFocus : false),
+        columns: (mediaView ? mediaView.columns : 0), anchor: (mediaView ? mediaView.anchorPath : ""), sorts: controller.treeSort, visual: root.visualMode,
+        values: (mediaView ? mediaView.rows : []).slice(0, 1000).map(function(row) { return { name: row.name, size: row.size, modified: row.modified } }),
         ordinary: { step: root.ordinaryDensityStep, density: root.ordinaryDensity,
           count: root.activeList.count, footerCount: footerCount.text, footerDetail: footerDetail.text,
           first: root.activeList.indexAt(1, root.activeList.contentY + 1),
@@ -48,7 +48,7 @@ def prepare(state, plugin):
         slider: { x: mediaSize.mapToItem(null, 0, 0).x + root.originX(),
           y: mediaSize.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0),
           width: mediaSize.width, height: mediaSize.height, focused: mediaSize.activeFocus, pressed: mediaSize.pressed },
-        timeline: { level: mediaView.timeline.detail.level, count: mediaView.timeline.detail.count,
+        timeline: mediaView ? { level: mediaView.timeline.detail.level, count: mediaView.timeline.detail.count,
           bins: mediaView.timeline.detail.bins.map(function(bin) { return { key: bin.key, count: bin.count, level: bin.level } }),
           maximum: mediaView.timeline.detail.maximum, active: mediaView.timeline.viewport.active,
           outlineTop: mediaView.timeline.outlineTop, outlineHeight: mediaView.timeline.outlineHeight,
@@ -57,8 +57,8 @@ def prepare(state, plugin):
           parentKeys: mediaView.timeline.parents.map(function(bin) { return bin.key }),
           up: mediaView.timeline.canGoUp, down: mediaView.timeline.canDrill,
           x: mediaView.timeline.mapToItem(null, 0, 0).x + root.originX(),
-          y: mediaView.timeline.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) },
-        firstVisible: mediaView.flickable.indexAt(1, mediaView.contentY + 1) })
+          y: mediaView.timeline.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) } : {},
+        firstVisible: mediaView ? mediaView.flickable.indexAt(1, mediaView.contentY + 1) : -1 })
     }
     property var independentView: null
     function independent(opened: bool): string {
