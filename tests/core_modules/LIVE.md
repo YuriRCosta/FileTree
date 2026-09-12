@@ -52,3 +52,31 @@ capture an open core blade without the probe. The screenshots prove rendering;
 IPC and filesystem assertions prove the tested state transitions. These
 plugin-shape checks do not qualify the native authority continuation or the
 complete worker lifetime contract.
+
+## Lazy lifecycle
+
+`run-lifecycle.py prepare` creates an isolated declaration fixture and backs up
+the guest Service before adding a persistent test probe. It explicitly selects
+the freshly built `target/release/fileblade` for the Service backend. Restart C,
+verify the populated catalog and inspect an open blade before running
+`python3 -B tests/core_modules/run-lifecycle.py check` in the staged checkout.
+Do not change staged files during the check: the plugin watcher reloads Service.
+
+The check opens and closes each real core view twice, waits for both inventory
+watches, then requires zero observers, scans, watches and pending subscription
+callbacks. Backend thread count must return to the closed-view baseline, with
+no child process left. Hook/MCP declarations contain an execution sentinel;
+viewing them must leave it absent, and MCP credentials must remain redacted.
+The check restores its original root and layout in `finally`. Results remain
+in `/tmp/rivet-core-lifecycle/results.json` inside C. Run
+`python3 -B tests/core_modules/run-lifecycle.py restore`, then restart and inspect
+the plain Service. Only the temporary Service source is instrumented.
+
+`tests/qml/tst_core_lifecycle.qml` uses all four actual providers with the shared
+ArtifactInventory. Its controlled backend checks two-view sharing, final detach,
+late callbacks and accepted mutation arguments after detach/project change.
+The existing inventory already supplies this lifecycle; no parallel provider
+manager or worker implementation is needed. The inactive provider retains its
+bounded inventory rows for reopening; unused scans and subscriptions stop.
+This qualifies the shared/plugin view lifecycle, not native authority continuation
+or a complete idle-performance comparison.
