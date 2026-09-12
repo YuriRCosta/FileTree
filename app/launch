@@ -34,8 +34,7 @@ export FILEBLADE_APP_ROOT=$source_dir
 export FILEBLADE_BINARY=$source_dir/target/release/fileblade
 export XDG_CONFIG_HOME=$state_root/config
 export XDG_STATE_HOME=$state_root/state
-export XDG_DATA_HOME=$state_root/data
-mkdir -p -- "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_DATA_HOME"
+mkdir -p -- "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
 export FILEBLADE_NATIVE_STATE_ROOT=$XDG_STATE_HOME/omarchy/fileblade
 mkdir -p -- "$FILEBLADE_NATIVE_STATE_ROOT"
 if ! "$FILEBLADE_BINARY" serve --native-probe >/dev/null 2>&1; then

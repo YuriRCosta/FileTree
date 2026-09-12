@@ -155,6 +155,7 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
                 )
                 .map_err(|error| AppError::command(error.to_string()))?,
             );
+            let _clipboard = crate::clipboard::Session::open()?;
             if options.native_isolated {
                 let home = std::env::var_os("FILEBLADE_SPIKE_HOME")
                     .map(PathBuf::from)
@@ -203,6 +204,7 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
         return Ok(());
     }
 
+    let _clipboard = crate::clipboard::Session::open()?;
     let recovery_started = Instant::now();
     let recovered = if options.no_recover {
         json!({"ok": true, "skipped": true})
