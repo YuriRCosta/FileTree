@@ -115,6 +115,34 @@ def prepare(state, plugin):
     function densityBurst(): void { root.changeDensity(0); root.changeDensity(4); root.changeDensity(1); root.changeDensity(0) }
     function expandRoot(expanded: bool): void { controller.setDirectoryExpanded(controller.rootPath, expanded) }
     function failRefresh(): void { controller.reconcileDirectory(controller.rootPath, { ok: false, error: "S12 refresh fixture" }) }
+    function summaryInTree(value: bool): void { root.summaryInTree = value }
+    function settings(): void { root.toggleSettings() }
+    function summarySettingPoint(): string {
+      var queue = [root.hostWindow.contentItem]
+      while (queue.length) {
+        var item = queue.shift()
+        if (item.objectName === "summaryPlacementToggle") {
+          var point = item.mapToItem(root.hostWindow.contentItem, item.width / 2, item.height / 2)
+          return JSON.stringify({ x: point.x + root.originX(), y: point.y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) })
+        }
+        if (item.children) for (var i = 0; i < item.children.length; i++) queue.push(item.children[i])
+      }
+      return "null"
+    }
+    function treeAction(value: string): void { root.runListAction(value, { modifiers: 0 }, treeList, true) }
+    function rootRange(): void { controller.selectModelIndex(controller.treeModel, 0, "replace"); controller.selectModelIndex(controller.treeModel, 1, "range") }
+    function summary(): string {
+      treeList.forceLayout()
+      var entry = controller.treeModel.count ? controller.treeModel.get(0) : null
+      var row = treeList.itemAtIndex(0)
+      return JSON.stringify({ inTree: root.summaryInTree, above: contextSummary.visible,
+        originY: root.context ? Number(root.context.surfaceOriginY) || 0 : 0,
+        searchBottom: searchField.y + searchField.height, y: contextSummary.y, height: contextSummary.height,
+        navigationY: navigationBar.y, label: contextSummary.label, detail: contextSummary.detail, badge: contextSummary.badge,
+        rootHeight: row ? row.height : -1, expanded: entry ? entry.expanded : false,
+        selected: controller.selectedPaths, root: controller.rootPath, current: treeList.currentIndex,
+        count: footerCount.text, mode: root.mediaMode })
+    }
     function hidden(shown: bool): void { controller.setShowHidden(shown) }
     function filter(value: string): void { filesView.setFilter(JSON.parse(Qt.atob(value))) }
     function loadSearch(): void { controller.loadAllSearchRows() }

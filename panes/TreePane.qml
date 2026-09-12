@@ -7,6 +7,8 @@ import "../lib/KeyRouter.js" as KeyRouter
 import "../lib/ScrollMarks.js" as ScrollMarks
 import "../modules/files/MediaModel.js" as MediaModel
 import "../modules/files/ViewChrome.js" as ViewChrome
+import "../lib/FileIcons.js" as FileIcons
+import "../lib/GitSummary.js" as GitSummary
 
 FocusScope {
   id: root
@@ -34,6 +36,11 @@ FocusScope {
   property int ordinaryDensityStep: 2
   property var densityAnchor: null
   property bool treeOrderUpdating: false
+  property bool summaryInTree: false
+  readonly property bool contextAbove: !summaryInTree && !controller.trashMode && !controller.drivesMode && !controller.recentMode
+  readonly property bool contextRootExpanded: !contextAbove || controller.treeModel.count === 0 || controller.treeModel.get(0).expanded
+  onContextRootExpandedChanged: Qt.callLater(root.ensureContextRoot)
+  onSummaryInTreeChanged: { persistMedia(); Qt.callLater(root.ensureContextRoot) }
   readonly property real ordinaryDensity: [0.85, 0.925, 1, 1.075, 1.15][Math.max(0, Math.min(4, ordinaryDensityStep))]
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
@@ -54,6 +61,32 @@ FocusScope {
     context.state.set("mediaQueryReady", mediaQueryReady)
     context.state.set("mediaSizeStep", mediaSizeStep)
     context.state.set("ordinaryDensityStep", ordinaryDensityStep)
+    context.state.set("summaryInTree", summaryInTree)
+  }
+
+  function ensureContextRoot() {
+    if (!contextAbove || !treeList.visible || !focusEnabled) return
+    controller.setDirectoryExpanded(controller.rootPath, true)
+    if (controller.isSelected(controller.rootPath)) {
+      var kept = controller.selectedEntries.filter(function(entry) { return entry.path !== controller.rootPath })
+      var primary = kept.filter(function(entry) { return entry.path === controller.selectedPath })[0]
+      controller.applySelection(kept, primary || kept[0] || null,
+        controller.selectionAnchorPath === controller.rootPath ? (kept.length ? kept[0].path : "") : controller.selectionAnchorPath)
+    }
+    if (treeList.currentIndex === 0) treeList.currentIndex = -1
+  }
+
+  function collapseTree(view) {
+    if (!contextAbove) {
+      selectIndex(view, true, 0, "replace")
+      controller.setBranchExpanded(controller.rootPath, false)
+      return
+    }
+    for (var i = controller.treeModel.count - 1; i > 0; i--) {
+      var entry = controller.treeModel.get(i)
+      if (entry.depth === 1 && entry.isDir) controller.setBranchExpanded(entry.path, false)
+    }
+    selectIndex(view, true, 1, "replace")
   }
 
   function refreshFolderCount() {
@@ -79,6 +112,7 @@ FocusScope {
     function onRootPathChanged() { root.invalidateFolderCount() }
     function onTreeFilterChanged() { root.invalidateFolderCount() }
     function onShowHiddenChanged() { root.invalidateFolderCount() }
+    function onSelectedPathsChanged() { Qt.callLater(root.ensureContextRoot) }
     Component.onCompleted: Qt.callLater(root.refreshFolderCount)
   }
 
@@ -168,10 +202,12 @@ FocusScope {
     mediaQuery = String(context.state.get("mediaQuery", ""))
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
     ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
+    summaryInTree = context.state.get("summaryInTree", false) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
     mediaQueryReady = context.state.get("mediaQueryReady", mediaMode) === true
     mediaStateReady = true
+    Qt.callLater(root.ensureContextRoot)
   }
   readonly property string editorMode: root.visualMode ? "VISUAL" : (searchField.activeFocus || locationField.activeFocus ? "INSERT" : "NORMAL")
 
@@ -298,6 +334,7 @@ FocusScope {
 
   function restoreTreeCursor() {
     var index = controller.indexOfTreePath(controller.selectedPath)
+    if (contextAbove && index === 0) { Qt.callLater(root.ensureContextRoot); return }
     if (index < 0) return
     treeList.currentIndex = index
     if (!root.revealPending) return
@@ -316,7 +353,9 @@ FocusScope {
 
   function selectIndex(view, treeMode, index, mode) {
     if (!view || view.count === 0) return
-    var next = Math.max(0, Math.min(view.count - 1, index))
+    var first = treeMode && contextAbove ? 1 : 0
+    if (view.count <= first) return
+    var next = Math.max(first, Math.min(view.count - 1, index))
     view.currentIndex = next
     treeAnchor.clear()
     view.positionViewAtIndex(next, ListView.Contain)
@@ -346,6 +385,7 @@ FocusScope {
   }
 
   function activateIndex(view, treeMode, index, enterFolder) {
+    if (treeMode && contextAbove) index = Math.max(1, index)
     if (mediaView && view === mediaView) {
       reconcileMediaSelection()
       if (!mediaAllows("open")) return
@@ -370,7 +410,7 @@ FocusScope {
   }
 
   function foldCurrent(view, expanded) {
-    var row = modelRow(Math.max(0, view.currentIndex), true, view)
+    var row = modelRow(Math.max(view === treeList && contextAbove ? 1 : 0, view.currentIndex), true, view)
     if (row && row.isDir && !row.gitDeleted) controller.setDirectoryExpanded(row.path, expanded)
   }
 
@@ -528,12 +568,12 @@ FocusScope {
       "expand-recursive": function() { var row = modelRow(view.currentIndex, treeMode, view); if (row) controller.setBranchExpanded(row.path, true) },
       "collapse-recursive": function() { var row = modelRow(view.currentIndex, treeMode, view); if (row) controller.setBranchExpanded(row.path, false) },
       "expand-all": function() { controller.setBranchExpanded(controller.rootPath, true) },
-      "collapse-all": function() { selectIndex(view, true, 0, "replace"); controller.setBranchExpanded(controller.rootPath, false) },
+      "collapse-all": function() { collapseTree(view) },
       "open-with": function() { openMenuForCurrent(view, "open-with") },
       activate: function() { activateIndex(view, treeMode, view.currentIndex < 0 ? 0 : view.currentIndex) },
       open: function() { activateIndex(view, treeMode, view.currentIndex < 0 ? 0 : view.currentIndex, true) },
       editor: function() { controller.openInEditor(controller.selectedPath) },
-      "toggle-selection": function() { controller.selectModelIndex(view.model, view.currentIndex < 0 ? 0 : view.currentIndex, "toggle") },
+      "toggle-selection": function() { selectIndex(view, treeMode, view.currentIndex < 0 ? 0 : view.currentIndex, "toggle") },
       "select-all": function() { selectAll(view, treeMode) },
       copy: function() { controller.copySelection(false) },
       cut: function() { controller.copySelection(true) },
@@ -817,9 +857,31 @@ FocusScope {
     }
   }
 
+  PluginUi.PaneRow {
+    id: contextSummary
+    anchors.top: searchField.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    readonly property var entry: visible && controller.treeModel.count > 0 && controller.treeModel.get(0).path === controller.rootPath ? controller.treeModel.get(0) : null
+    readonly property var summary: entry && entry.isGitRepo && controller.gitEnabled && controller.gitSummaryFields.length
+      ? GitSummary.describe(entry.gitSummary, controller.gitSummaryFields) : ({})
+    visible: root.contextAbove
+    enabled: false
+    height: visible ? Style.space(30) : 0
+    glyph: FileIcons.entryIcon(entry ? entry.name : "", true, entry ? entry.isSymlink : false, false, entry ? entry.isGitRepo : false)
+    glyphColor: entry && entry.error ? Color.urgent : Color.accent
+    label: entry ? entry.name : controller.rootName(controller.rootPath)
+    detail: summary.identity || ""
+    badge: entry && entry.error ? "Unavailable" : (summary.text || "")
+    columnWidths: badge ? [Math.min(width * 0.38, Style.space(150))] : []
+    emphasized: true
+    Accessible.role: Accessible.StaticText
+    Accessible.name: [label, detail, badge].filter(Boolean).join(" ")
+  }
+
   Item {
     id: navigationBar
-    anchors.top: searchField.bottom
+    anchors.top: contextSummary.bottom
     anchors.topMargin: Style.space(4)
     anchors.left: parent.left
     anchors.right: parent.right
@@ -1067,8 +1129,12 @@ FocusScope {
     currentIndex: -1
     onMovementStarted: treeAnchor.clear()
     onFlickStarted: treeAnchor.clear()
+    onVisibleChanged: if (visible) Qt.callLater(root.ensureContextRoot)
 
     delegate: BrowserRow {
+      id: treeRow
+      visible: !root.contextAbove || index !== 0
+      Binding on height { when: root.contextAbove && treeRow.index === 0; value: 0 }
       density: root.ordinaryDensity
       controller: root.controller
       pane: root
