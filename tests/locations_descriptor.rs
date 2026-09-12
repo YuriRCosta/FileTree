@@ -140,7 +140,7 @@ fn remote_descriptors_preserve_provider_uris_without_any_posix_fallback() {
     for (kind, uri) in [
         (Kind::Mtp, "mtp://Device_SERIAL/"),
         (Kind::Mtp, "mtp://[usb:005,009]/"),
-        (Kind::Sftp, "sftp://kurt@tailnet-host/home/kurt/"),
+        (Kind::Sftp, "sftp://user@tailnet-host/home/user/"),
     ] {
         let descriptor =
             locations::disconnected("remote", kind, uri, "Remote", Connection::Locked).unwrap();
