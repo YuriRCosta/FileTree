@@ -19,7 +19,12 @@ built release binary. Its XDG environment isolates development state from old
 plugin writers. That environment also reaches child applications, so it is
 not the production state-isolation design. The launcher starts or attaches
 to the native authority before loading QML. Its kernel OFD lease covers the
-canonical selected state root; view processes relay to its private socket.
+canonical selected state, config and recovery roots; view processes relay to
+its private socket. A replaced identity permanently invalidates the authority.
+Durable records open relative to pinned directory descriptors; accepted work
+stops at its next barrier with an explicit authority-lost result. The isolated
+launcher enables Full only after verifying the three fixture roots. Standard
+native startup stays ReadOnly until the migration outcome is available.
 Accepted mutations survive view shutdown and retain results in the authority
 until fetched or 24 hours. Process-death recovery still uses durable journals;
 the in-memory result cache does not survive authority process death.
@@ -72,13 +77,16 @@ declarations and one BackendClient QProcess::ExitStatus metadata warning.
 
 Detailed source identities, screenshots, commands, shutdown diagnostics and
 contract requests are in Sootscale's ignored aim note and evidence directory.
-Nine native authority tests pass in harness A, including the 256 MiB copy
+Sixteen native authority tests pass in harness A, including the 256 MiB copy
 after EOF, a multi-file move with a lost progress subscriber, explicit cancel,
 result fetching, lock identity, and the Qt pipe-availability regression.
-The five retained resident protocol tests and SIGTERM test also pass.
+The retained server and persistence suites pass another seventeen tests.
 The live native authority expectation also passes: a two-file move continues
 after the QML view quits, preserves both mappings and the same authority,
 and remains queryable after view relaunch until explicitly fetched.
+A real QML copy interrupted by root replacement leaves the replacement
+sentinel unchanged and retains an explicit authority-lost result after view
+exit.
 Hotplug, complete focus parity, remaining retained expectations, chooser and
 ARM execution remain separate qualification work.
 
@@ -90,7 +98,7 @@ requests restart the foreground native view and the real shell while keeping
 the authority alive. Push, install and reset require explicit staging outside
 this adapter.
 
-Retained Trash expectation E-14-11 blocks further qualification. The private
+Retained Trash expectation E-14-11 remains blocked on R19. The private
 data root receives the trashed file, but the desktop GVfs trash service uses
 the desktop data root and cannot resolve that item through `trash:///`.
 The VM fixture lives under `/home/omarchy/fileblade-runtime-state` to avoid

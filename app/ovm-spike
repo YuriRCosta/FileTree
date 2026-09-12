@@ -30,7 +30,7 @@ case ${1:-} in
     shift
     command=$*
     bindings=/home/omarchy/.config/omarchy/plugins/data-goblin.fileblade/examples/fileblade-bindings.lua
-    native_bindings="sed 's@omarchy-shell data-goblin.fileblade.control@qs -n -p $native/app ipc call data-goblin.fileblade.control@g' $bindings"
+    native_bindings="sed '1i hl.unbind(\"SUPER + B\")' $bindings | sed 's@omarchy-shell data-goblin.fileblade.control@qs -n -p $native/app ipc call data-goblin.fileblade.control@g'"
     command=${command//"cat $bindings"/"$native_bindings"}
     command=${command//\/home\/omarchy\/.local\/share\/Trash/\/home\/omarchy\/fileblade-runtime-state\/data\/Trash}
     command=${command//\~\/.local\/share\/Trash/\/home\/omarchy\/fileblade-runtime-state\/data\/Trash}
