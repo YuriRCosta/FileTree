@@ -353,7 +353,8 @@ fn previews_are_bounded_stable_scrollable_and_pointer_scoped() {
     assert!(properties.contains("localFileUrl(String(response.path))"));
     assert!(!properties.contains("localFileUrl(String(entry.path || \"\")) + \"?v=\""));
     assert!(properties.contains("!entry.is_symlink"));
-    assert!(properties.contains("[\"image/jpeg\", \"image/png\", \"image/webp\"]"));
+    assert!(properties.contains("MediaModel.kind(entry)"));
+    assert!(properties.contains("MediaModel.allows(mediaLocationDescriptor, \"read\")"));
     assert!(properties.contains("imagePreviewByteLimit: 16 * 1024 * 1024"));
     assert!(properties.contains("+ \"?v=\" + encodeURIComponent(key)"));
     assert!(properties.contains("readonly property string textPreviewKey:"));
