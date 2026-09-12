@@ -79,6 +79,7 @@ else:
         let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
         plugin_environment::configure(&mut command, self.root.path());
         command
+            .env("FILEBLADE_APP_ROOT", self.root.path())
             .env("XDG_DATA_HOME", self.root.path().join("data"))
             .env("XDG_STATE_HOME", self.root.path().join("state"));
         command
@@ -109,6 +110,58 @@ else:
             .unwrap()
             .clone()
     }
+    fn historical_record(
+        &self,
+        module: &str,
+        provider: &str,
+        helper: &str,
+    ) -> (String, std::path::PathBuf, Value) {
+        let helpers = self.root.path().join("python/bin");
+        fs::create_dir_all(&helpers).unwrap();
+        for module in ["hooks", "mcp"] {
+            let target = helpers.join(format!("agent-{module}ctl"));
+            fs::copy(self.root.path().join("bin/helper"), &target).unwrap();
+            fs::set_permissions(target, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let payload =
+            json!({"body":"private fixture payload", "source":self.root.path().join("source")});
+        let stored = self.run(&[
+            "bin-put".into(),
+            "--module".into(),
+            module.into(),
+            "--item".into(),
+            json!({"id":"historical", "payload":payload}).to_string(),
+        ]);
+        assert_eq!(stored["ok"], true, "{stored}");
+        let id = stored["entry"].as_str().unwrap().to_owned();
+        let path = self
+            .root
+            .path()
+            .join("data/fileblade/bin")
+            .join(module)
+            .join(id.strip_prefix("bin:").unwrap())
+            .join("manifest.json");
+        let mut manifest: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        manifest["restoreHelper"] =
+            json!({"provider":provider,"helper":helper,"directory":"/retired/checkout"});
+        manifest["helperRecordId"] = json!("0123456789abcdef0123456789abcdef");
+        fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::remove_file(self.root.path().join("source")).unwrap();
+        (id, path, manifest)
+    }
+
+    fn restore_route(&self, module: &str, id: &str, provider: &str, helper: &str) -> Value {
+        self.run(&[
+            "bin-restore".into(),
+            "--module".into(),
+            module.into(),
+            "--id".into(),
+            id.into(),
+            "--helper-route".into(),
+            json!({"provider":provider,"helper":helper,"directory":""}).to_string(),
+        ])
+    }
+
     fn mode(&self, mode: &str) {
         fs::write(self.root.path().join("mode"), mode).unwrap();
     }
@@ -242,4 +295,81 @@ fn a_live_transaction_cannot_be_purged_or_pruned_and_cancellation_keeps_recovery
     assert_eq!(f.entries().len(), 1);
     f.mode("");
     assert_eq!(f.restore(id)["ok"], true);
+}
+
+#[test]
+fn historical_recovery_aliases_restore_through_core_and_preserve_saved_evidence() {
+    for module in ["hooks", "mcp"] {
+        for provider in [
+            format!("data-goblin.fileblade-{module}"),
+            format!("kurt.agent-{module}"),
+        ] {
+            let f = Fixture::new();
+            let (id, path, saved) = f.historical_record(module, &provider, "inventory");
+            f.mode("restore-after");
+            let failed = f.restore_route(
+                module,
+                &id,
+                &format!("fileblade.core.{module}"),
+                "inventory",
+            );
+            assert_eq!(failed["ok"], false, "{failed}");
+            assert_eq!(
+                fs::read_to_string(f.root.path().join("source")).unwrap(),
+                "private fixture payload"
+            );
+            let retained: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            assert_eq!(retained, saved);
+            f.mode("");
+            let restored = f.restore_route(
+                module,
+                &id,
+                &format!("fileblade.core.{module}"),
+                "inventory",
+            );
+            assert_eq!(restored["ok"], true, "{restored}");
+            assert!(!path.exists());
+            assert!(f.root.path().join("discarded").exists());
+            assert_eq!(
+                fs::read_to_string(f.root.path().join("source")).unwrap(),
+                "private fixture payload"
+            );
+        }
+    }
+}
+
+#[test]
+fn unrelated_or_unknown_recovery_routes_refuse_before_changing_saved_evidence() {
+    for (saved_provider, saved_helper, requested_provider, requested_helper) in [
+        (
+            "data-goblin.fileblade-hooks",
+            "inventory",
+            "fileblade.core.mcp",
+            "inventory",
+        ),
+        (
+            "data-goblin.fileblade-hooks",
+            "inventory",
+            "fileblade.core.hooks",
+            "other",
+        ),
+        ("custom.original", "inventory", "custom.other", "inventory"),
+        ("custom.original", "original", "custom.original", "other"),
+        (
+            "custom.original",
+            "inventory",
+            "fileblade.core.hooks",
+            "inventory",
+        ),
+    ] {
+        let f = Fixture::new();
+        let (id, path, _) = f.historical_record("hooks", saved_provider, saved_helper);
+        let before = fs::read(&path).unwrap();
+        let refused = f.restore_route("hooks", &id, requested_provider, requested_helper);
+        assert_eq!(refused["ok"], false, "{refused}");
+        assert!(refused.to_string().contains("does not match"), "{refused}");
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(!f.root.path().join("source").exists());
+        assert!(!f.root.path().join("discarded").exists());
+    }
 }

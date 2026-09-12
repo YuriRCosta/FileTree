@@ -242,6 +242,55 @@ pub(super) fn send_to_trash(
             )),
         });
     }
+    send_quarantined_to_trash(path, quarantine, &before, cancelled)
+}
+
+pub fn trash_matching_resolved(
+    source: secure::ResolvedParent,
+    expected: secure::EntryStat,
+    empty_directory: bool,
+    cancelled: &AtomicBool,
+) -> io::Result<JournalItem> {
+    check_cancelled(cancelled)?;
+    let path = source.full_path();
+    let current = secure::entry_stat_resolved(&source)?;
+    if current.identity() != expected.identity()
+        || current.size != expected.size
+        || current.mtime != expected.mtime
+        || current.mtime_nsec != expected.mtime_nsec
+        || current.ctime != expected.ctime
+        || current.ctime_nsec != expected.ctime_nsec
+    {
+        return Err(io::Error::other("item changed since transfer preflight"));
+    }
+    let before = trash_snapshot(std::slice::from_ref(&path));
+    let quarantine = secure::quarantine_resolved(source)?;
+    let stat = quarantine.stat();
+    let unchanged = stat.identity() == expected.identity()
+        && stat.size == expected.size
+        && stat.mode == expected.mode
+        && stat.mtime == expected.mtime
+        && stat.mtime_nsec == expected.mtime_nsec;
+    let empty = !empty_directory
+        || (stat.kind == EntryKind::Directory
+            && secure::directory_names(&quarantine.path()).is_ok_and(|names| names.is_empty()));
+    if !unchanged || !empty {
+        let restored = quarantine.restore();
+        return Err(trash_failure(
+            "item changed before it could be secured".into(),
+            restored,
+            &quarantine,
+        ));
+    }
+    send_quarantined_to_trash(&path, quarantine, &before, cancelled)
+}
+
+fn send_quarantined_to_trash(
+    path: &Path,
+    quarantine: secure::QuarantinedEntry,
+    before: &TrashSnapshot,
+    cancelled: &AtomicBool,
+) -> io::Result<JournalItem> {
     let program = which("gio").unwrap_or_else(|| PathBuf::from("gio"));
     let output = CommandSpec::new(program)
         .args([
@@ -254,7 +303,7 @@ pub(super) fn send_to_trash(
         .limits(64 * 1024, 64 * 1024)
         .run_cancellable(cancelled)
         .map_err(|error| io::Error::other(error.to_string()));
-    if let Some(mut trashed) = quarantined_trash_item(path, quarantine.name(), &before) {
+    if let Some(mut trashed) = quarantined_trash_item(path, quarantine.name(), before) {
         quarantine.finish_or_restore()?;
         if let Err(error) = publish_trash_origin(&mut trashed, path, cancelled) {
             let mut rollback_item = trashed.clone();

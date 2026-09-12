@@ -114,6 +114,24 @@ pub struct SearchArgs {
 }
 
 #[derive(Clone, Debug, Args)]
+pub struct ArchiveCreateArgs {
+    #[arg(long, action = ArgAction::Append, required = true)]
+    pub source: Vec<String>,
+    #[arg(long)]
+    pub destination: String,
+    #[arg(long, default_value = "tar.zst", value_parser = ["tar", "tar.gz", "tar.zst", "zip"])]
+    pub format: String,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct PermissionsSetArgs {
+    #[arg(long, action = ArgAction::Append, required = true)]
+    pub path: Vec<String>,
+    #[arg(long)]
+    pub mode: String,
+}
+
+#[derive(Clone, Debug, Args)]
 pub struct ArchiveExtractArgs {
     #[arg(long)]
     pub path: String,
@@ -373,4 +391,54 @@ pub struct UpdateArgs {
     pub repositories: Vec<String>,
     #[arg(long, default_value = "")]
     pub core: String,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct TransferPreflightArgs {
+    #[arg(long, action = ArgAction::Append, required = true)]
+    pub source: Vec<String>,
+    #[arg(long)]
+    pub destination: String,
+    #[arg(long, default_value = "copy", value_parser = ["copy", "move"])]
+    pub operation: String,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct TransferExecuteArgs {
+    #[arg(long)]
+    pub decision_id: String,
+    #[arg(long, default_value = "[]")]
+    pub decisions: String,
+    #[arg(long)]
+    pub cancel: bool,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct LocationListArgs {
+    #[arg(long)]
+    pub location: String,
+    #[arg(long)]
+    pub generation: String,
+    #[arg(long, default_value = ".")]
+    pub path: String,
+    #[arg(long)]
+    pub show_hidden: bool,
+    #[arg(long, default_value_t = 0)]
+    pub start: usize,
+    #[arg(long, default_value_t = crate::listing::DIRECTORY_PAGE)]
+    pub count: usize,
+    #[arg(long, default_value = "name")]
+    pub sort: String,
+    #[arg(long)]
+    pub desc: bool,
+    #[arg(long, default_value = "{}")]
+    pub filter: String,
+    #[arg(long)]
+    pub include_created: bool,
+    #[arg(long)]
+    pub fresh: bool,
+    #[arg(long)]
+    pub no_git: bool,
+    #[arg(long)]
+    pub fresh_git: bool,
 }

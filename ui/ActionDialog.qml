@@ -4,6 +4,11 @@ import qs.Commons
 Item {
   id: dialog
 
+  property var collisionController: null
+  property bool paneVisible: true
+  property bool applyToRemaining: false
+  property int collisionRequestSerial: -1
+  readonly property bool collisionPrompt: !!collisionController && collisionRequestSerial >= 0
   property bool opened: false
   property string message: ""
   property var options: []
@@ -39,9 +44,48 @@ Item {
 
   function pick(index) {
     var option = index >= 0 && index < options.length ? options[index] : null
+    var collision = collisionPrompt
+    var serial = collisionRequestSerial
+    var remaining = applyToRemaining
     close()
-    if (!option || option.key === "cancel") dialog.canceled()
+    if (collision) collisionController.resolveCollision(serial, option ? String(option.key) : "cancel", remaining)
+    else if (!option || option.key === "cancel") dialog.canceled()
     else dialog.chosen(String(option.key))
+  }
+
+  function cancelPrompt() {
+    var collision = collisionPrompt
+    var serial = collisionRequestSerial
+    close()
+    if (collision) collisionController.resolveCollision(serial, "cancel", false)
+    else dialog.canceled()
+  }
+
+  function showCollision() {
+    if (!collisionController) return
+    var item = collisionController.collisionItem
+    if (!paneVisible || !item) {
+      if (collisionPrompt && opened) close()
+      return
+    }
+    if (opened && collisionRequestSerial === collisionController.collisionSerial) return
+    collisionRequestSerial = collisionController.collisionSerial
+    applyToRemaining = false
+    var labels = { "replace": "Replace", "keep-both": "Keep both", "skip": "Skip", "merge": "Merge", "cancel": "Cancel" }
+    var values = [{ key: "cancel", label: "Cancel" }]
+    for (var index = 0; index < item.choices.length; index++) {
+      var key = String(item.choices[index])
+      if (key !== "cancel") values.push({ key: key, label: labels[key] || key, danger: key === "replace" })
+    }
+    open("An item already exists\nFrom: " + item.source + "\nTo: " + item.destination, values)
+  }
+
+  onPaneVisibleChanged: showCollision()
+  onCollisionControllerChanged: Qt.callLater(dialog.showCollision)
+  Connections {
+    target: dialog.collisionController
+    function onCollisionSerialChanged() { dialog.showCollision() }
+    function onCollisionItemChanged() { if (!dialog.collisionController.collisionItem && dialog.opened) dialog.close() }
   }
 
   function optionColor(option) {
@@ -54,8 +98,9 @@ Item {
   Keys.onPressed: function(event) {
     if (event.key === Qt.Key_Escape) {
       if (actionKeys.isRepeat(event)) { event.accepted = true; return }
-      close()
-      dialog.canceled()
+      cancelPrompt()
+    } else if (collisionPrompt && event.key === Qt.Key_A) {
+      if (!actionKeys.isRepeat(event)) applyToRemaining = !applyToRemaining
     } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H || event.key === Qt.Key_Backtab) {
       selectedIndex = (selectedIndex + options.length - 1) % Math.max(1, options.length)
     } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L || event.key === Qt.Key_Tab) {
@@ -74,8 +119,7 @@ Item {
     MouseArea {
       anchors.fill: parent
       onClicked: {
-        dialog.close()
-        dialog.canceled()
+        dialog.cancelPrompt()
       }
     }
   }
@@ -85,7 +129,7 @@ Item {
     anchors.centerIn: parent
     width: Math.min(parent.width - Style.space(24), Style.space(340))
     height: body.implicitHeight + body.topPadding + body.bottomPadding
-    radius: Style.cornerRadius
+    radius: 0
     color: Color.popups.background
     border.width: 1
     border.color: Color.popups.border
@@ -139,10 +183,39 @@ Item {
         color: Util.alpha(dialog.foreground, 0.16)
       }
 
-      Row {
+      Item {
+        visible: dialog.collisionPrompt
+        width: parent.width - parent.leftPadding - parent.rightPadding
+        height: visible ? Style.space(26) : 0
+        Rectangle {
+          x: 0
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(12)
+          height: width
+          color: dialog.applyToRemaining ? dialog.foreground : "transparent"
+          border.width: 1
+          border.color: dialog.dim
+        }
+        Text {
+          x: Style.space(19)
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - x
+          text: "Apply to remaining matching conflicts (A)"
+          textFormat: Text.PlainText
+          color: dialog.dim
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          elide: Text.ElideRight
+        }
+        MouseArea {
+          anchors.fill: parent
+          onClicked: dialog.applyToRemaining = !dialog.applyToRemaining
+        }
+      }
+
+      Flow {
         id: choices
-        anchors.right: parent.right
-        anchors.rightMargin: parent.rightPadding
+        width: parent.width - parent.leftPadding - parent.rightPadding
         spacing: Style.space(6)
 
         Repeater {
@@ -160,7 +233,7 @@ Item {
 
             Rectangle {
               anchors.fill: parent
-              radius: Math.min(Style.cornerRadius, Style.space(4))
+              radius: 0
               color: optionPointer.containsMouse ? Util.alpha(option.tone, 0.14) : "transparent"
             }
 
@@ -184,7 +257,7 @@ Item {
               anchors.bottom: parent.bottom
               anchors.bottomMargin: Style.space(4)
               height: 2
-              radius: 1
+              radius: 0
               visible: option.selected
               color: option.tone
             }
