@@ -6,11 +6,15 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tempfile::{TempDir, tempdir};
 
+static TEST_LOCK: Mutex<()> = Mutex::new(());
+
 #[test]
 fn aliases_contend_on_the_same_kernel_lock_and_release_without_replacing_it() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let temporary = tempdir().unwrap();
     let root = temporary.path().join("state");
     let first = Authority::acquire(&root).unwrap();
@@ -32,6 +36,7 @@ fn aliases_contend_on_the_same_kernel_lock_and_release_without_replacing_it() {
 
 #[test]
 fn symlinks_hardlinks_and_writable_roots_are_refused_without_touching_the_target() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let temporary = tempdir().unwrap();
     let target = temporary.path().join("target");
     fs::write(&target, b"preserve").unwrap();
@@ -52,6 +57,7 @@ fn symlinks_hardlinks_and_writable_roots_are_refused_without_touching_the_target
 
 #[test]
 fn replaced_storage_invalidates_the_authority() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let temporary = tempdir().unwrap();
     let root = temporary.path().join("state");
     let authority = Authority::acquire(&root).unwrap();
@@ -65,6 +71,7 @@ fn replaced_storage_invalidates_the_authority() {
 
 #[test]
 fn different_state_roots_cannot_own_the_same_config_or_recovery() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let temporary = tempdir().unwrap();
     let config = temporary.path().join("config");
     let recovery = temporary.path().join("recovery");
@@ -96,6 +103,7 @@ fn different_state_roots_cannot_own_the_same_config_or_recovery() {
 
 #[test]
 fn an_alias_change_latches_identity_loss_even_for_a_deduplicated_root() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let temporary = tempdir().unwrap();
     let state = temporary.path().join("state");
     fs::create_dir(&state).unwrap();
@@ -112,6 +120,7 @@ fn an_alias_change_latches_identity_loss_even_for_a_deduplicated_root() {
 
 #[test]
 fn migration_modes_are_set_once_and_refuse_persistence_with_the_reason() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let temporary = tempdir().unwrap();
     let authority = Authority::acquire(temporary.path()).unwrap();
     let path = temporary.path().join("journal.json");
@@ -140,6 +149,7 @@ fn migration_modes_are_set_once_and_refuse_persistence_with_the_reason() {
 
 #[test]
 fn a_previously_opened_anchor_never_redirects_persistence_to_a_replacement_root() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     use std::os::fd::AsRawFd;
     let temporary = tempdir().unwrap();
     let root = temporary.path().join("state");
@@ -220,6 +230,7 @@ impl Resident {
 
 #[test]
 fn in_flight_root_replacement_never_receives_persistence_and_reports_authority_lost() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     for role in ["state", "config", "recovery"] {
         let resident = Resident::start();
         let source = resident.temporary.path().join("source");
@@ -314,6 +325,7 @@ fn in_flight_root_replacement_never_receives_persistence_and_reports_authority_l
 
 #[test]
 fn private_record_writers_refuse_replacement_roots_and_keep_open_parents_pinned() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     use fileblade::lease::{durable, persistence::PersistenceSession};
     use std::sync::Arc;
     for role in ["state", "config", "recovery"] {
@@ -370,6 +382,7 @@ fn private_record_writers_refuse_replacement_roots_and_keep_open_parents_pinned(
 
 #[test]
 fn an_unprepared_authority_refuses_layout_writes_before_admission() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let resident = Resident::with_mode(false);
     let mut view = resident.session();
     view.send(json!({"v":1,"type":"request","id":"layout","generation":1,"command":"layout-write","arguments":["--document","{}"]}));
@@ -464,6 +477,7 @@ impl Session {
 
 #[test]
 fn accepted_copy_survives_eof_and_result_can_be_fetched_by_a_new_view() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let mut resident = Resident::start();
     let source = resident.temporary.path().join("source");
     let destination = resident.temporary.path().join("destination");
@@ -506,6 +520,7 @@ fn accepted_copy_survives_eof_and_result_can_be_fetched_by_a_new_view() {
 
 #[test]
 fn accepted_move_survives_a_lost_progress_reader() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let resident = Resident::start();
     let destination = resident.temporary.path().join("destination");
     fs::create_dir(&destination).unwrap();
@@ -539,6 +554,7 @@ fn accepted_move_survives_a_lost_progress_reader() {
 
 #[test]
 fn second_authority_and_native_direct_mutations_fail_before_writing() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let resident = Resident::start();
     let second = isolated_command(resident.temporary.path(), &resident.root)
         .args(["serve", "--native-authority", "--no-recover"])
@@ -577,6 +593,7 @@ fn second_authority_and_native_direct_mutations_fail_before_writing() {
 
 #[test]
 fn explicit_operation_cancel_works_after_the_accepting_view_detaches() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let resident = Resident::start();
     let source = resident.temporary.path().join("large");
     let destination = resident.temporary.path().join("destination");
@@ -608,6 +625,7 @@ fn explicit_operation_cancel_works_after_the_accepting_view_detaches() {
 
 #[test]
 fn a_killed_holder_releases_the_kernel_lock_despite_stale_diagnostics() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let mut resident = Resident::start();
     let inode = fs::metadata(resident.root.join("authority.lock"))
         .unwrap()
@@ -626,6 +644,7 @@ fn a_killed_holder_releases_the_kernel_lock_despite_stale_diagnostics() {
 
 #[test]
 fn an_idle_view_relay_does_not_block_the_qt_pipe_availability_query() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     use std::os::fd::AsRawFd;
     let resident = Resident::start();
     let mut child = isolated_command(resident.temporary.path(), &resident.root)
