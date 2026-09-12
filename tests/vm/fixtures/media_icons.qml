@@ -11,6 +11,8 @@ ShellRoot {
   property var icon: null
   property var mark: null
   property var menu: null
+  property var failure: null
+  property int fallbackStage: 0
   property int attempts: 0
   property var checks: []
 
@@ -29,6 +31,10 @@ ShellRoot {
     icon = iconFactory.createObject(suite, { desktopId: "nvim.desktop", fallbackGlyph: "N" })
     mark = iconFactory.createObject(suite, { applicationDescriptor: { icon: "herdr", glyph: "H" }, x: 30 })
     menu = menuFactory.createObject(suite, { appIcon: "nvim", width: 200, y: 50 })
+    failure = iconFactory.createObject(suite, {
+      applicationDescriptor: { icon: "herdr", icon_source: "file:///brindle-missing-icon.svg", glyph: "H" },
+      iconSize: 512, fallbackGlyph: "legacy"
+    })
   }
 
   Timer {
@@ -37,10 +43,33 @@ ShellRoot {
     running: true
     onTriggered: {
       try {
+        probe.check(++probe.attempts < 50, "Catalogue or fallback did not settle")
+        var failedImage = probe.failure.children.find(function(child) { return child.sourceSize !== undefined })
+        var fallbackText = probe.failure.children.find(function(child) { return child.textFormat !== undefined })
+        if (probe.fallbackStage === 0) {
+          if (failedImage.status !== Image.Ready) return
+          probe.check(probe.failure.rejectedSources.length === 1 && probe.failure.resolvedSource.endsWith("/herdr.svg"), "Failed file did not fall through to bundled mark")
+          probe.check(failedImage.sourceSize.width === 128 && failedImage.sourceSize.height === 128, "Large renderer exceeds decode cap")
+          probe.failure.applicationDescriptor = { icon_source: "file:///brindle-missing-again.svg", glyph: "Z" }
+          probe.check(probe.failure.rejectedSources.length === 0, "Descriptor change retained rejected sources")
+          probe.fallbackStage = 1
+          return
+        }
+        if (probe.fallbackStage === 1) {
+          if (probe.failure.resolvedSource !== "") return
+          probe.check(probe.failure.rejectedSources.length === 1 && fallbackText.visible && fallbackText.text === "Z", "Exhausted sources lost descriptor glyph")
+          probe.failure.applicationOverride = { glyph: "X" }
+          probe.check(probe.failure.rejectedSources.length === 0 && fallbackText.text === "X", "Override reset or glyph lost")
+          probe.failure.applicationOverride = null
+          probe.failure.applicationDescriptor = { icon: "herdr", glyph: "H" }
+          probe.fallbackStage = 2
+          return
+        }
+        if (failedImage.status !== Image.Ready) return
+        probe.check(probe.failure.rejectedSources.length === 0 && !fallbackText.visible, "Replacement descriptor did not recover")
         var launcher = DesktopEntries.applications.values.find(function(entry) { return entry.id === "nvim" }) || null
         var image = probe.mark.children.find(function(child) { return child.sourceSize !== undefined })
         if (!launcher || !image || image.status !== Image.Ready) {
-          probe.check(++probe.attempts < 50, "Catalogue or bundled mark did not load")
           return
         }
         probe.check(probe.icon.applicationIcon.icon === launcher.icon, "Launcher Icon identity differs")
@@ -55,7 +84,7 @@ ShellRoot {
         probe.check(custom.icon_source.endsWith("/assets/marks/tmux.svg"), "Explicit mark override lost")
         probe.check(FileIcons.resolveApplication({ icon: "herdr" }, { glyph: "X" }, launcher, Quickshell.iconPath).glyph === "X", "Glyph override lost")
         probe.check(FileIcons.resolveApplication({ icon_source: "https://example.invalid/icon.png" }, null, null, function() { return "" }).icon_source === "", "Untrusted remote source admitted")
-        probe.checks.push({ consumer: "SafeApplicationIcon", desktop_id: launcher.id, icon: launcher.icon, source: probe.icon.resolvedSource, herdr: probe.mark.resolvedSource })
+        probe.checks.push({ consumer: "SafeApplicationIcon", desktop_id: launcher.id, icon: launcher.icon, source: probe.icon.resolvedSource, herdr: probe.mark.resolvedSource, failed_asset_recovery: true, decode_cap: failedImage.sourceSize.width })
 
         var buttonIcon = probe.menu.children.find(function(child) { return child.desktopId !== undefined })
         probe.check(buttonIcon.desktopId === "" && buttonIcon.applicationIcon === null, "Legacy MenuButton changed")
