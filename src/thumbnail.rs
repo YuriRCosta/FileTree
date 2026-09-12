@@ -3,9 +3,10 @@ use crate::common::{own_binary, parse_path, path_text};
 use crate::paths::xdg_home;
 use crate::secure::{self, read_bounded_nofollow};
 use crate::{AppError, AppResult};
-use image::{ImageFormat, ImageReader, Limits};
+use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
 use serde_json::{Value, json};
 use std::io::Cursor;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -40,12 +41,19 @@ pub fn thumbnail(
     };
     let text = path_text(&path);
     let (width, height) = bounded_size(width, height);
-    let output = cache_path(&format!("{text}\n{key}\n{width}x{height}"));
+    let version = match source_version(&path) {
+        Ok(version) => version,
+        Err(error) => return failure(&text, &error.to_string()),
+    };
+    let output = cache_path(&format!(
+        "oriented-v1\n{text}\n{version}\n{key}\n{width}x{height}"
+    ));
     if let Some(ready) = cached(&output, width, height) {
         return ready;
     }
     match render_in_child(&path, &output, width, height, cancelled) {
-        Ok(value) => value,
+        Ok(value) if source_version(&path).is_ok_and(|current| current == version) => value,
+        Ok(_) => failure(&text, "Source changed while creating the thumbnail"),
         Err(error) => failure(&text, &error.to_string()),
     }
 }
@@ -87,9 +95,15 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
     limits.max_image_height = Some(MAX_SOURCE_EDGE);
     limits.max_alloc = Some(DECODE_MEMORY_BYTES / 2);
     reader.limits(limits);
-    let decoded = reader
-        .decode()
+    let mut decoder = reader
+        .into_decoder()
         .map_err(|error| AppError::Invalid(format!("{text}: {error}")))?;
+    let orientation = decoder
+        .orientation()
+        .map_err(|error| AppError::Invalid(format!("{text}: {error}")))?;
+    let mut decoded = DynamicImage::from_decoder(decoder)
+        .map_err(|error| AppError::Invalid(format!("{text}: {error}")))?;
+    decoded.apply_orientation(orientation);
     let scaled = if decoded.width() > width || decoded.height() > height {
         decoded.thumbnail(width, height)
     } else {
@@ -180,6 +194,30 @@ fn bounded_size(width: u32, height: u32) -> (u32, u32) {
         width.clamp(1, MAX_OUTPUT_EDGE),
         height.clamp(1, MAX_OUTPUT_EDGE),
     )
+}
+
+fn source_version(path: &Path) -> AppResult<String> {
+    let metadata = std::fs::symlink_metadata(path).map_err(|error| {
+        AppError::Invalid(format!(
+            "{} is missing or unavailable: {error}",
+            path_text(path)
+        ))
+    })?;
+    if !metadata.is_file() || metadata.len() > INPUT_BYTES as u64 {
+        return Err(AppError::Invalid(
+            "Thumbnail source must be a regular file within the input limit".into(),
+        ));
+    }
+    Ok(format!(
+        "{}:{}:{}:{}:{}:{}:{}",
+        metadata.dev(),
+        metadata.ino(),
+        metadata.len(),
+        metadata.mtime(),
+        metadata.mtime_nsec(),
+        metadata.ctime(),
+        metadata.ctime_nsec()
+    ))
 }
 
 fn confine_memory() -> AppResult<()> {
