@@ -81,10 +81,13 @@ installation lock. Maintenance verifies the active payload under a shared
 lock, calls its lifecycle CLI, then takes the exclusive lock and rechecks
 the activation pointer. A changed pointer requires retry. Update and rollback
 call `app/launch native drain --timeout-ms 30000 --json`; removal first calls
-`app/launch native roles disable --all --json`. Nonzero exits or unknown,
-malformed or incomplete success results preserve the runtime. A failed drain
-after reversal can leave roles disabled; the diagnostic reports that outcome.
-Runtime must implement these entry points before maintenance can succeed.
+`app/launch native roles disable --all --json`. When the active runtime does not
+recognize the `native roles` entry point, removal reports that no desktop
+role was ever enabled and skips that optional step. A present reversal must
+succeed; nonzero exits or unknown, malformed or incomplete success results
+preserve the runtime. Drain is required for removal, update and rollback; a
+failed drain after reversal can leave roles disabled, which the diagnostic
+reports. Update and rollback currently have no optional lifecycle steps.
 Closing the view alone leaves the authority holding the lock.
 A runtime launched directly outside the stable launcher
 does not participate in this delivery lock and must not be updated this way.
@@ -112,6 +115,8 @@ For actual payload lifecycle qualification in the assigned guest, run
 payload for each phase, including the genuine previous payload for rollback.
 Run the scoped native UI expectations between install and update. These
 checks require production runtime lifecycle support; they do not simulate it.
+`FILEBLADE_NATIVE_TOOL` can select a candidate installer outside the payload
+when checking maintenance of an older, unchanged installed runtime.
 
 ## Arch package from the same payload
 
