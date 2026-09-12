@@ -15,7 +15,6 @@ import time
 
 ovm = os.environ['OVM']
 LIB_SH = os.environ['FILEBLADE_EXPECTATIONS_LIB']
-plugin = '/home/omarchy/.config/omarchy/plugins/data-goblin.fileblade'
 fixture = '/tmp/fb-wheel-config'
 config_path = 'Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))'
 settings_path = config_path + ' / "omarchy/fileblade/settings.json"'
@@ -56,8 +55,14 @@ def state():
     return json.loads(call('ipc', 'data-goblin.fileblade', 'status'))['dropWheel']
 
 
-def backend(*args):
-    return json.loads(call('ssh', shlex.join([plugin + '/fileblade', '_backend', *args])))
+def backend(*args, refused=False):
+    result = subprocess.run(
+        ['bash', '-c', 'source "$1" && backend "${@:2}"', 'fileblade-backend', LIB_SH, *map(str, args)],
+        capture_output=True, text=True, timeout=45)
+    expected_code = int(refused and os.environ.get('FILEBLADE_SHAPE') == 'native')
+    if result.returncode != expected_code:
+        raise RuntimeError(result.stdout + result.stderr)
+    return json.loads(result.stdout.strip())
 
 
 def shot(expectations, label):
@@ -213,12 +218,12 @@ try:
             changed['targetKinds'] = ['editor']
         document['dropWheel']['customActions'] = [] if change == 'removed' else [changed]
         save(document)
-        result = backend('drop-run','--action','configured','--placement',route,'--target','{"kind":"desktop"}','--path',source,'--dry-run')
+        result = backend('drop-run','--action','configured','--placement',route,'--target','{"kind":"desktop"}','--path',source,'--dry-run', refused=True)
         check(change + ' invalidates a captured built-in alias',False,result['ok'])
         check(change + ' alias launches no command',[],result['commands'])
     document['dropWheel']['customActions'] = []
     save(document)
-    result = backend('drop-run', '--action', 'configured', '--placement', json.dumps(['custom:inspect','format','capture']), '--target', '{"kind":"desktop"}', '--path', source, '--dry-run')
+    result = backend('drop-run', '--action', 'configured', '--placement', json.dumps(['custom:inspect','format','capture']), '--target', '{"kind":"desktop"}', '--path', source, '--dry-run', refused=True)
     check('removed custom action cannot run through a stale route', False, result['ok'])
     check('stale action dispatch launches no command', [], result['commands'])
 finally:
