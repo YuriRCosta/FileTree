@@ -106,13 +106,13 @@ pub(super) fn start_request(
             &output,
             operation.as_deref(),
         );
-        lock(&active).remove(&active_key);
         if let Some(operation) = operation {
             frame["op"] = Value::String(operation.id.clone());
             operation.publish(frame, true);
         } else {
             let _ = emit(&output, &frame);
         }
+        lock(&active).remove(&active_key);
     }));
     Ok(())
 }
@@ -411,4 +411,78 @@ pub(super) fn text(object: &Map<String, Value>, key: &str) -> String {
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chooser::transport::{ChooserArgs, ChooserCommand, run};
+    use std::io::Read;
+    use std::os::unix::net::UnixStream;
+
+    #[test]
+    fn stale_watch_retains_admission_while_its_terminal_write_is_stalled() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let offer = thread::spawn({
+            let cancelled = Arc::clone(&cancelled);
+            move || {
+                run(ChooserArgs { command: ChooserCommand::Offer { document: json!({
+                "handle":"stalled-watch","caller":":1.test","parent_window":"", "title":"x".repeat(1024 * 1024),
+                "accept_label":"","modal":true,"current_folder":null,"current_name":"",
+                "mode":"open","multiple":false,"filters":[],"current_filter":null
+            }).to_string() } }, &cancelled)
+            }
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while run(
+            ChooserArgs {
+                command: ChooserCommand::Watch { revision: 0 },
+            },
+            &AtomicBool::new(false),
+        )["offers"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+        {
+            assert!(Instant::now() < deadline);
+            thread::yield_now();
+        }
+        let (sender, mut reader) = UnixStream::pair().unwrap();
+        let timeouts = sender.try_clone().unwrap();
+        let output = Arc::new(Output::socket(sender).unwrap());
+        timeouts
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        reader
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let active = Arc::new(Mutex::new(HashMap::new()));
+        let mut seen = RecentKeys::default();
+        let mut workers = Vec::new();
+        let frame = json!({"v":1,"type":"request","id":"stale","generation":1,
+            "command":"chooser","arguments":["watch"],"deadline_ms":15000});
+        start_request(
+            frame.as_object().unwrap(),
+            8,
+            &output,
+            &active,
+            &mut seen,
+            &mut workers,
+            None,
+        )
+        .unwrap();
+        reader.read_exact(&mut [0; 1]).unwrap();
+        let retained = lock(&active).values().any(|request| request.chooser_watch);
+        drop(reader);
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        cancelled.store(true, Ordering::Relaxed);
+        offer.join().unwrap();
+        assert!(
+            retained,
+            "watch released admission before its terminal write finished"
+        );
+        assert!(lock(&active).is_empty());
+    }
 }
