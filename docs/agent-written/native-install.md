@@ -118,7 +118,7 @@ Run this maintainer helper on the payload's architecture with the existing
 Arch `makepkg`, `fakeroot` and `bsdtar` tools. It accepts stable versions,
 requires an absent output directory, and installs no build dependencies.
 The generated PKGBUILD takes its version, architecture and package
-dependencies from the verified payload. Its two local sources are hashed;
+dependencies from the verified payload. Its three local sources are hashed;
 there is no download step. The output contains the package archive,
 PKGBUILD and its local inputs. Build helpers are not added to the runtime.
 

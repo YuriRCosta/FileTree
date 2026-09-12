@@ -25,7 +25,7 @@ jq -r '.packages[]' "$payload/packaging/runtime.json" | sort > "$work/expected-d
 sed -n 's/^depend = //p' "$work/unpacked/.PKGINFO" | sort > "$work/actual-dependencies"
 cmp -- "$work/expected-dependencies" "$work/actual-dependencies"
 [[ ! -e $work/unpacked/.INSTALL ]]
-printf 'PASS E-92-01 package preserves payload and declared dependencies without hooks\n'
+printf 'PASS E-92-01 package preserves payload and dependencies without install scripts\n'
 export HOME=$work/home XDG_DATA_HOME=$work/data XDG_CONFIG_HOME=$work/config XDG_STATE_HOME=$work/state
 mkdir -p "$HOME" "$XDG_CONFIG_HOME/xdg-desktop-portal"
 printf 'keep file manager\n' > "$XDG_CONFIG_HOME/mimeapps.list"
