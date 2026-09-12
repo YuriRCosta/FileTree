@@ -1,0 +1,17 @@
+pkgname=fileblade-native
+pkgrel=1
+pkgdesc='FileBlade native runtime'
+license=('MIT')
+provides=('fileblade')
+conflicts=('fileblade')
+options=('!strip' '!debug')
+source=('payload.tar' 'launch')
+
+package() {
+  "$srcdir/payload/tools/native" verify "$srcdir/payload"
+  mkdir -p "$pkgdir/usr/lib" "$pkgdir/usr/bin" "$pkgdir/usr/share/licenses/$pkgname"
+  cp -a -- "$srcdir/payload" "$pkgdir/usr/lib/fileblade"
+  install -m 755 -- "$srcdir/launch" "$pkgdir/usr/bin/fileblade"
+  ln -s /usr/lib/fileblade/target/release/fileblade "$pkgdir/usr/bin/fileblade-bin"
+  ln -s /usr/lib/fileblade/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -145,6 +145,7 @@ Item {
     if (path === service.trashResource || path === "trash://") return service.trashResource
     if (path === service.recentResource || path === "recent://") return service.recentResource
     if (path === service.drivesResource || path === "drives://") return service.drivesResource
+    if (PathText.isRemote(path)) return path
     return PathText.normalize(path, service.home)
   }
 
