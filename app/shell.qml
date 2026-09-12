@@ -65,6 +65,20 @@ ShellRoot {
     sourceComponent: Component { Qualification { service: root.loadedService } }
   }
 
+  Loader {
+    active: service.status === Loader.Ready
+    sourceComponent: Component {
+      ChooserManager {
+        id: chooser
+        service: root.loadedService
+        Loader {
+          active: Quickshell.env("FILEBLADE_QUALIFICATION") === "1"
+          sourceComponent: Component { ChooserProbe { manager: chooser } }
+        }
+      }
+    }
+  }
+
   IpcHandler {
     target: "fileblade.native"
     function status(): string {

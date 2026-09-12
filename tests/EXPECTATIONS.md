@@ -1040,3 +1040,16 @@ Script: `tests/vm/expectations/38-wheel-config.sh`.
 - **E-38-08** Saving ordinary preferences or editing the wheel preserves unknown members in the surrounding settings and within wheel definitions. Restoring the standard wheel affects only `dropWheel`.
 - **E-38-09** Custom commands run detached, in a new terminal, or in a supported herdr/tmux placement with the expected arguments and working directory. Shell-looking path and argument text stays literal; configuration is never treated as an implicit shell command.
 - **E-38-10** Before running a configured command or custom built-in reference, FileBlade rereads its settings and file facts. A removed, hidden or newly inapplicable entry cannot execute from an old wheel route.
+
+## 39. Application icons
+
+This file was written by an agent.
+
+Fixture: `tests/vm/fixtures/media_icons.py` with its QML fixture.
+
+- **E-39-01** An Open with row for an application in the installed launcher catalogue shows that application's own icon, resolved from the catalogue's icon name. The row keeps its application identity, and invoking it opens the selected path with that application.
+- **E-39-02** An application with a bundled mark and no icon in the desktop theme shows its bundled mark. A generic glyph never replaces a valid bundled mark.
+- **E-39-03** When an application's icon file is missing and an explicit override glyph is configured, the override glyph is what I see. The descriptor's own glyph, the legacy fallback glyph and a blank space are all wrong.
+- **E-39-04** After an icon file fails to load, a later valid candidate for the same application is shown. Changing the application, its override or its identity clears the remembered failures and lets the new icon load. At most four failed sources are remembered per application.
+- **E-39-05** An application icon larger than the space it is drawn in is decoded no larger than 128 device pixels in each dimension, and its aspect ratio is preserved.
+- **E-39-06** A place that shows an icon without naming an application keeps its existing icon name, trusted source and fallback glyph behaviour, and looks up no application catalogue.

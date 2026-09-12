@@ -18,14 +18,21 @@ cp -a "$payload" "$work/update"
 printf '\n' >> "$work/update/payload.json"
 "$native" install "$work/update"
 second=$(jq -r .payload "$installation/active/receipt.json")
-rm -rf -- "$installation/versions/$second"
+mv -- "$installation/versions/$second" "$work/missing"
+if "$native" rollback > "$work/refusal" 2>&1; then exit 1; fi
+[[ $(jq -r .payload "$installation/active/receipt.json") == "$second" ]]
+mv -- "$work/missing" "$installation/versions/$second"
 "$native" rollback
 [[ $(jq -r .payload "$installation/active/receipt.json") == "$first" ]]
-printf 'PASS E-93-01 rollback repairs a missing active payload\n'
+printf 'PASS E-93-01 missing active payload refuses until verified runtime is restored\n'
+activation=$(readlink "$installation/active")
 rm -- "$installation/active"
+if "$native" install "$payload" > "$work/refusal" 2>&1; then exit 1; fi
+[[ ! -L $installation/active ]]
+ln -s "$activation" "$installation/active"
 "$native" install "$payload"
 [[ $(jq -r .payload "$installation/active/receipt.json") == "$first" ]]
-printf 'PASS E-93-02 explicit local install repairs missing activation\n'
+printf 'PASS E-93-02 missing activation refuses until owned pointer is restored\n'
 cp "$installation/launcher" "$work/launcher"
 printf '\nchanged\n' >> "$installation/launcher"
 if "$native" remove > "$work/refusal" 2>&1; then exit 1; fi
@@ -62,6 +69,15 @@ if "$native" install "$payload" > "$work/refusal" 2>&1; then exit 1; fi
 [[ ! -e $HOME/.local/bin/fileblade && ! -L $HOME/.local/bin/fileblade ]]
 [[ $(cat "$XDG_STATE_HOME/notes") == 'keep Notes' && $(cat "$XDG_CONFIG_HOME/mimeapps.list") == 'keep defaults' ]]
 printf 'PASS E-93-05 interrupted deletion resumes with receipt and user data retained\n'
-"$native" install "$payload"
+"$native" install "$work/update"
+activation=$(readlink "$installation/active")
+cp "$installation/active/receipt.json" "$work/second-receipt"
+rm "$installation/active"
+if "$native" install "$payload" > "$work/stale-install" 2>&1; then cat "$work/stale-install"; exit 1; fi
+if "$native" remove > "$work/stale-remove" 2>&1; then cat "$work/stale-remove"; exit 1; fi
+cmp "$work/second-receipt" "$installation/$activation/receipt.json"
+[[ -d $installation/versions/$second && ! -L $installation/active ]]
+ln -s "$activation" "$installation/active"
+printf 'PASS E-93-07 old removal receipt cannot bypass missing reinstallation identity\n'
 "$native" remove
 printf 'PASS E-93-06 reinstall and subsequent removal succeed\n'

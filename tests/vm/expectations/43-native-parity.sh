@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
-export OVM_HOME=$HOME/.local/share/test-omarchy-plugin-a OVM_SSH_PORT=2422
+export OVM_HOME=${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin-a} OVM_SSH_PORT=${OVM_SSH_PORT:-2422}
 python3 - "$repo" "${1:?choose plugin or native after staging that shape}" <<'PY'
 import base64,json,pathlib,shlex,subprocess,sys,time
 repo=pathlib.Path(sys.argv[1]); shape=sys.argv[2]; assert shape in ['plugin','native']

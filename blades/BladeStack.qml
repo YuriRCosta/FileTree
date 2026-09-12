@@ -88,6 +88,12 @@ Item {
     return index >= 0 && index < slotRepeater.count ? slotRepeater.itemAt(index) : null
   }
 
+  function focusActionMenu() {
+    if (!fileActionsMenu.visible) return false
+    fileActionsMenu.focusCurrent()
+    return true
+  }
+
   function dropLineY() {
     if (dropIndex < 0) return 0
     if (dropIndex >= slots.length) return Math.max(0, height - 3)
@@ -116,6 +122,7 @@ Item {
   }
 
   PluginPanes.FileActionsMenu {
+    id: fileActionsMenu
     controller: stack.host.services.files
     hostWindow: stack.hostWindow
   }

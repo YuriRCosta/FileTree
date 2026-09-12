@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${OVM:?set OVM to the harness executable}"
-[[ ${OVM_HOME:-} == "$HOME/.local/share/test-omarchy-plugin-b" && ${OVM_SSH_PORT:-} == 2522 ]]
+[[ -n ${OVM_HOME:-} && -n ${OVM_SSH_PORT:-} ]]
 python3 - <<'PY'
 import json
 import base64

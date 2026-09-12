@@ -76,12 +76,18 @@ else:
         ]
     }
     fn command(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+        let mut command = Command::new(
+            std::env::var_os("FILEBLADE_BINARY")
+                .unwrap_or_else(|| env!("CARGO_BIN_EXE_fileblade").into()),
+        );
         plugin_environment::configure(&mut command, self.root.path());
         command
-            .env("FILEBLADE_APP_ROOT", self.root.path())
+            .env_remove("FILEBLADE_APP_ROOT")
             .env("XDG_DATA_HOME", self.root.path().join("data"))
             .env("XDG_STATE_HOME", self.root.path().join("state"));
+        if self.root.path().join("python").is_dir() {
+            command.env("FILEBLADE_APP_ROOT", self.root.path());
+        }
         command
     }
     fn run(&self, args: &[String]) -> Value {

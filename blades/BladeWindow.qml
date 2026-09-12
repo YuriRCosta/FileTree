@@ -47,6 +47,7 @@ FloatingWindow {
     if (!target && window.slots.length > 0) target = slotItem(0)
     Qt.callLater(function() {
       if (window.host.focusedEdge !== window.edge) return
+      if (stack.focusActionMenu()) return
       var item = target
       if (item) item.takeFocus(part)
       else scope.forceActiveFocus()

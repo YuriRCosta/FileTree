@@ -26,12 +26,37 @@ same terminal transition, unregister the request object, and close its
 own window. It must serialize transitions for each handle and retain the
 frontend portal's document-access mediation.
 
-This module is the request-validation slice. Portal transport, caller
-watching, isolated browser windows and desktop registration are not wired
-yet. No desktop role is activated by this code. Live browser upload and
-parented-window behavior require those integrations before task 3.1/3.2
-can pass.
+`transport` supplies the resident `chooser` command group: `offer` waits for
+one result, `watch` returns a revision and offer snapshot, and `choose`,
+`cancel` and `filter` serve the app consumer. At most sixteen offers exist.
+Offer and watch commands must be classified as standing server requests so
+waiting callers cannot exhaust completion/cancellation capacity. Cancellation
+interrupts content-type probing; only each request's own validation is locked.
+The immutable offer snapshot remains readable while validation runs.
 
-Runnable check: compile `cargo test --locked --test chooser_requests --no-run`
-and execute the resulting test binary in the assigned VM. The runtime lane
-uses only harness A, SSH port 2422.
+The app consumer lives under `app/chooser/` and dynamically loads the real
+Service/TreePane and picker footer. Each session shares the resident backend,
+uses fresh in-memory navigation/layout state, and refuses unrelated writes.
+`FILEBLADE_CHOOSER=1` enables the consumer for development qualification;
+ordinary launches do not activate a desktop role. The final role switch owns
+activation when task 3.3 lands.
+
+The backend registers this command group on the resident authority.
+Portal D-Bus registration, exported-parent association and real browser
+upload remain unqualified; this slice does not complete tasks 3.1/3.2.
+
+Runnable checks: compile `cargo test --locked --test chooser_requests
+--test chooser_transport --no-run` and execute those binaries in the assigned
+VM. `tests/vm/expectations/45-native-chooser.sh` checks live window/selection
+isolation with qualification fixtures, independently of portal completion.
+The runtime lane uses only harness A, SSH port 2422.
+
+`46-native-chooser-resident.sh` uses actual socket callers against the freshly
+built native fixture: filtered Open, existing/new Save, multiple and folder
+selection, Escape cancellation and caller EOF. It checks returned URIs and
+unchanged target/state/layout bytes. The native_authority case
+`chooser_offers_leave_completion_capacity_and_cancel_on_real_caller_eof`
+keeps sixteen offers on one connection, refuses a seventeenth, completes and
+cancels requests on that connection, then proves EOF clears the others.
+These checks require no portal registration and do not qualify foreign
+parent association or a real browser upload.

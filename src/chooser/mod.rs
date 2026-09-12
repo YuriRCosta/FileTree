@@ -1,3 +1,5 @@
+pub mod transport;
+
 use crate::{AppError, AppResult, filesystem};
 use rustix::fs::{Access, AtFlags, CWD, accessat};
 use serde::{Deserialize, Serialize};
@@ -5,6 +7,7 @@ use std::ffi::CString;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use url::Url;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -123,6 +126,16 @@ impl Request {
         filter: Option<&Filter>,
         overwrite: bool,
     ) -> AppResult<Decision> {
+        self.choose_cancellable(paths, filter, overwrite, &AtomicBool::new(false))
+    }
+
+    pub fn choose_cancellable(
+        &mut self,
+        paths: &[PathBuf],
+        filter: Option<&Filter>,
+        overwrite: bool,
+        cancelled: &AtomicBool,
+    ) -> AppResult<Decision> {
         if self.outcome.is_some() {
             return Err(AppError::invalid("Chooser request has finished"));
         }
@@ -142,6 +155,9 @@ impl Request {
         }
         let mut uris = Vec::new();
         for path in paths {
+            if cancelled.load(Ordering::Relaxed) {
+                return Err(AppError::Cancelled);
+            }
             if !path.is_absolute()
                 || path
                     .components()
@@ -177,7 +193,7 @@ impl Request {
                         path.file_name()
                             .and_then(|name| name.to_str())
                             .unwrap_or_default(),
-                        &filesystem::content_type(&path.to_string_lossy()),
+                        &filesystem::content_type_cancellable(&path.to_string_lossy(), cancelled),
                     )
                 })
             {
@@ -229,6 +245,9 @@ impl Request {
             if !uris.contains(&uri) {
                 uris.push(uri);
             }
+        }
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(AppError::Cancelled);
         }
         let outcome = Outcome::Accepted {
             uris,

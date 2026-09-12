@@ -442,7 +442,7 @@ Item {
       command: journaled ? operationCommand.concat(["--journal-id", id]) : operationCommand,
       arguments: (journaled ? operationCommand.concat(["--journal-id", id]) : operationCommand).slice(3),
       kind: backendOperation,
-      cancellable: ["copy", "move"].indexOf(backendOperation) >= 0,
+      cancellable: ["copy", "move", "archive-create", "archive-extract", "permissions-set"].indexOf(backendOperation) >= 0,
       clearClipboard: !!clearClipboardAfter,
       clearExternal: !!clearExternalAfter,
       refresh: refreshAfter === undefined ? true : !!refreshAfter,

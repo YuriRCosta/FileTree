@@ -169,3 +169,34 @@ The visibility flag is named bar-off, so `omarchy-toggle-bar on` hides it and
 geometry and reservations at all eight captured phases. These are explicit
 visibility-toggle measurements; timed hover-autohide and lock/unlock
 interaction remain unqualified.
+
+
+## Chooser session consumer
+
+The R50 optional chooserSession seam defaults to null. A chooser uses the
+same Service, TreePane, PickerController and PickerBar, with unique in-memory
+state/layout identities, no ordinary IPC or blade surfaces, and an adapter
+over the existing BackendClient. The adapter forwards browsing reads, matches
+caller filters in Rust, and refuses unrelated writes and visit side effects.
+No chooser component owns a Process. Scope supplies the session object because
+Item already owns the focus property required by the callback interface.
+
+ChooserManager loads app/chooser/ by file URL, as shell.qml loads Service.
+Static imports into shared directories hit Quickshell's qs-blackhole scanner
+boundary on the qualified tuple. ChooserBrowser only overrides confirmation
+so the Rust request boundary owns Save validation and overwrite decisions.
+
+The transport consumer is opt-in through FILEBLADE_CHOOSER=1 for qualification
+until the independent Desktop integration switch is implemented. The
+qualification-only ChooserProbe supplies isolated UI fixtures; E45 explicitly
+does not claim that those fixtures complete a portal request. Parented foreign
+windows and actual browser upload remain required integration checks.
+
+Opening a chooser calls the existing blade focus handoff before showing its
+window. E45 starts with a focused ordinary blade, selects distinct files with
+the real pointer in two chooser windows, and cancels one with Escape. The
+ordinary root and persisted state/layout remain unchanged, and the two views
+share one resident backend process. The UI fixture uses the existing browsing
+backend; broker completion, live filters and Save validation are exercised separately
+by E46 against the registered native authority. The caller's custom accept label is not yet
+wired into the shared footer.

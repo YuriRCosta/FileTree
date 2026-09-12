@@ -23,7 +23,10 @@ Popup {
   }
 
   readonly property bool customColorMode: controller.actionMenuMode === "custom-color"
-  readonly property bool inputMode: ["rename", "new-file", "new-folder", "custom-color"].indexOf(controller.actionMenuMode) >= 0
+  readonly property bool archiveMode: controller.actionMenuMode === "archive-create"
+  readonly property bool permissionsMode: controller.actionMenuMode === "permissions-set"
+  property string archiveFormat: "tar.zst"
+  readonly property bool inputMode: archiveMode || permissionsMode || ["rename", "new-file", "new-folder", "custom-color"].indexOf(controller.actionMenuMode) >= 0
   readonly property bool cancelOperationMode: controller.actionMenuMode === "cancel-operation"
   readonly property bool openWithMode: controller.actionMenuMode === "open-with"
   readonly property bool actionsMode: !inputMode && !cancelOperationMode && !openWithMode
@@ -173,22 +176,41 @@ Popup {
   }
 
   function prepare() {
-    if (!visible) return
+    if (!root.visible) return
     root.query = ""
-    if (controller.actionMenuMode === "rename")
+    if (root.archiveMode) {
+      root.archiveFormat = "tar.zst"
+      controller.actionInput = PathText.join(PathText.parent(root.paths[0]), controller.rootName(root.paths[0]) + ".tar.zst")
+    } else if (root.permissionsMode) controller.actionInput = ""
+    else if (controller.actionMenuMode === "rename")
       controller.actionInput = controller.rootName(root.targetPath)
     else if (root.customColorMode)
       controller.actionInput = /^#[0-9a-fA-F]{6}$/.test(root.targetFolderColor)
         ? root.targetFolderColor : "#"
     else if (controller.actionMenuMode === "new-file" || controller.actionMenuMode === "new-folder")
       controller.actionInput = ""
+    if (root.archiveMode || root.permissionsMode) controller.focusTree(controller.actionMenuScreen)
     Qt.callLater(root.focusCurrent)
   }
 
   function submitInput() {
     var value = PathText.pathText(controller.actionInput)
     if (!value) return
-    if (root.customColorMode) {
+    if (root.archiveMode || root.permissionsMode) {
+      if (root.archiveMode && value.charAt(0) !== "/" && !/^file:/i.test(value)) {
+        controller.operationError = "Enter an absolute archive destination path"
+        return
+      }
+      if (root.permissionsMode && !/^[0-7]{3}$/.test(value)) {
+        controller.operationError = "Enter three octal digits, such as 644 or 755"
+        return
+      }
+      var arguments = root.archiveMode ? ["--destination", value, "--format", root.archiveFormat] : ["--mode", value]
+      for (var i = 0; i < root.paths.length; i++) arguments.push(root.archiveMode ? "--source" : "--path", String(root.paths[i]))
+      controller.history.enqueue(root.archiveMode ? "Create archive" : "Set permissions",
+        controller.backendCommand(controller.actionMenuMode).concat(arguments), false, true, false, false)
+      root.returnToTree()
+    } else if (root.customColorMode) {
       var color = value.trim()
       if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
         controller.operationError = "Use a six-digit hex color such as #7aa2f7"
@@ -352,7 +374,7 @@ Popup {
     Rectangle {
       id: card
       anchors.fill: parent
-      radius: Style.cornerRadius
+      radius: root.archiveMode || root.permissionsMode ? 0 : Style.cornerRadius
       color: Color.bar.background
       border.width: 1
       border.color: Color.menu.border
@@ -394,6 +416,8 @@ Popup {
                 if (root.openWithMode) return "OPEN WITH"
                 if (root.cancelOperationMode) return "STOP " + (controller.operationLabel || "OPERATION").toUpperCase()
                 if (root.customColorMode) return root.entriesAllFolders ? "CUSTOM FOLDER COLOR" : "CUSTOM COLOR"
+                if (root.archiveMode) return "CREATE ARCHIVE"
+                if (root.permissionsMode) return "PERMISSIONS"
                 if (root.inputMode) return controller.actionMenuMode === "rename" ? "RENAME" : "CREATE"
                 return root.targetCount + " ITEM" + (root.targetCount === 1 ? "" : "S")
               }
@@ -456,12 +480,15 @@ Popup {
             textFormat: Text.PlainText
             width: parent.width
             visible: root.inputMode
-            text: controller.actionMenuMode === "rename"
+            text: root.archiveMode ? "Destination path. Existing files are never replaced."
+              : root.permissionsMode ? "Owner / group / others: 644 for files, 755 for folders. Selected items only; special bits stay unchanged."
+              : controller.actionMenuMode === "rename"
               ? "Choose a new name for " + controller.rootName(root.targetPath)
                 + (PathText.nameNeedsEscaping(root.targetPath) ? "\nEscapes preserve bytes: \\xFF, \\n, \\\\." : "")
               : "Created inside " + root.targetDestination
             color: Color.muted
-            elide: Text.ElideMiddle
+            elide: root.archiveMode || root.permissionsMode ? Text.ElideNone : Text.ElideMiddle
+            wrapMode: root.archiveMode || root.permissionsMode ? Text.WordWrap : Text.NoWrap
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -476,6 +503,29 @@ Popup {
             wrapMode: Text.WordWrap
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
+          }
+
+          Flow {
+            width: parent.width
+            visible: root.archiveMode
+            spacing: Style.space(4)
+            Repeater {
+              model: ["tar.zst", "tar.gz", "tar", "zip"]
+              MenuButton {
+                required property string modelData
+                menu: root
+                text: modelData
+                width: (parent.width - Style.space(4)) / 2
+                radius: 0
+                primary: root.archiveFormat === modelData
+                onClicked: {
+                  var suffix = "." + root.archiveFormat
+                  if (controller.actionInput.endsWith(suffix))
+                    controller.actionInput = controller.actionInput.slice(0, -suffix.length) + "." + modelData
+                  root.archiveFormat = modelData
+                }
+              }
+            }
           }
 
           TextField {
@@ -497,7 +547,7 @@ Popup {
             font.family: Style.font.family
             font.pixelSize: Style.font.body
             background: Rectangle {
-              radius: Math.min(Style.cornerRadius, Style.space(4))
+              radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))
               color: Util.alpha(Color.bar.text, actionField.activeFocus ? 0.10 : 0.06)
               border.width: 1
               border.color: actionField.activeFocus ? Color.accent : Util.alpha(Color.bar.text, 0.18)
@@ -536,13 +586,15 @@ Popup {
             MenuButton {
               menu: root
               text: "Cancel"
+              radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))
               width: (parent.width - parent.spacing) / 2
               onClicked: root.returnToTree()
             }
 
             MenuButton {
               menu: root
-              text: root.cancelOperationMode ? "Stop operation"
+              radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))
+              text: root.permissionsMode ? "Apply" : root.cancelOperationMode ? "Stop operation"
                 : (root.customColorMode ? "Apply color"
                   : (controller.actionMenuMode === "rename" ? "Rename" : "Create"))
               width: (parent.width - parent.spacing) / 2
@@ -669,6 +721,22 @@ Popup {
             text: root.targetCount === 1 ? "󰅍  Copy path" : "󰅍  Copy paths"
             enabled: root.targetCount > 0
             onClicked: controller.copyPaths(root.paths)
+          }
+
+          MenuButton {
+            menu: root
+            visible: root.matches(text) && root.actionsMode
+            text: "Create archive…"
+            enabled: root.targetCount > 0
+            onClicked: controller.openActionMenu("archive-create")
+          }
+
+          MenuButton {
+            menu: root
+            visible: root.matches(text) && root.actionsMode
+            text: "Permissions…"
+            enabled: root.targetCount > 0
+            onClicked: controller.openActionMenu("permissions-set")
           }
 
           MenuButton {

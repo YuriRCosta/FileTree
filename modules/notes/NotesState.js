@@ -106,7 +106,9 @@ function copyNotebook(source) {
   var rows = source && Array.isArray(source.items) ? source.items : []
   for (var index = 0; index < rows.length && index < MAX_NOTES; index++) {
     var row = rows[index] || ({})
-    items.push({ id: String(row.id || "note-" + (index + 1)), label: cleanLabel(row.label, "Note " + (index + 1)), text: String(row.text || "") })
+    var text = String(row.text || "")
+    items.push({ id: String(row.id || "note-" + (index + 1)), label: cleanLabel(row.label, "Note " + (index + 1)), text: text,
+      cursor: position(row.cursor, text), anchor: position(row.anchor === undefined ? row.cursor : row.anchor, text) })
   }
   var rawNextId = Number(source && source.nextId)
   var nextId = isFinite(rawNextId) && rawNextId >= 1 ? Math.min(1000000000, Math.floor(rawNextId)) : items.length + 1
@@ -248,4 +250,36 @@ function persistedNotebook(notebook) {
   var result = copyNotebook(notebook)
   result.revision++
   return result
+}
+
+function position(value, text) {
+  var index = Math.max(0, Math.min(String(text).length, Math.floor(Number(value) || 0)))
+  if (index > 0 && index < text.length && /[\uD800-\uDBFF]/.test(text[index - 1]) && /[\uDC00-\uDFFF]/.test(text[index])) index--
+  return index
+}
+
+function remember(notebook, cursor, start, end) {
+  var note = activeNote(notebook)
+  cursor = position(cursor, note.text)
+  var anchor = position(cursor === start ? end : start, note.text)
+  if (Number(note.cursor || 0) === cursor && Number(note.anchor || 0) === anchor) return notebook
+  var next = copyNotebook(notebook)
+  next.items[activeIndex(next)].cursor = cursor
+  next.items[activeIndex(next)].anchor = anchor
+  return next
+}
+
+function writtenNotebook(text, slotId) {
+  var document
+  try { document = JSON.parse(text) } catch (_) { return null }
+  for (var edge of ["left", "right"]) {
+    var blade = document && document.blades && document.blades[edge]
+    for (var slot of blade && Array.isArray(blade.slots) ? blade.slots : []) {
+      if (slot.id !== slotId) continue
+      for (var entry of slot.modules || []) {
+        if (entry.module === "notes") return entry.state && entry.state.text || null
+      }
+    }
+  }
+  return null
 }
