@@ -180,14 +180,16 @@ Invalid receipts are refused. Recovery never guesses a generation from
 timestamps or directory order. Runtime recovery for an unavailable active
 maintenance entry point remains unqualified.
 
-The package launcher retains a shared lock on the package-owned
-`/usr/share/fileblade-native/lock`. An ALPM pre-transaction hook refuses
-upgrade/removal if the lock is held. This hook edits no user defaults. It is
-a busy preflight, not a transaction-wide exclusion: new launches after the
-check still requires package transaction coordination. Direct maintenance
-calls are wired, but their runtime implementation and live qualification for
-active operations, dirty Notes and enabled roles remain pending. External
-stale role recovery uses runtime's opaque receipt, never the direct receipt.
+The package launcher takes a shared lock on `/usr/share/fileblade-native/lock`
+before checking pacman's configured database lock and the held lock inode. Existing launches block
+the ALPM idle preflight; new launches refuse throughout a package transaction,
+including after that preflight. Unrelated transactions using the same
+database also prevent launch until their lock is released. A stale pacman lock requires pacman's normal
+recovery; FileBlade does not delete it. Qualification covers the configured
+system database, not ad-hoc `--dbpath` or `--config` overrides. The hook edits
+no user defaults. Active operations, dirty Notes and enabled-role reversal
+still need runtime implementation and live qualification. External stale role
+recovery uses runtime's opaque receipt, never the direct receipt.
 
 `tests/vm/expectations/93-delivery-remove.sh PAYLOAD` checks stale activation,
 ownership preservation, busy refusal and an actual process-group kill during

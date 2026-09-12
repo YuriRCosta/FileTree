@@ -39,6 +39,9 @@ as_root pacman -U --noconfirm "$package"
 "/usr/lib/fileblade/tools/native" verify /usr/lib/fileblade
 cmp -- "$payload/payload.json" /usr/lib/fileblade/payload.json
 printf 'PASS E-92-02 installed files have pacman ownership and original inventory\n'
+if ! env -u FILEBLADE_SPIKE_HOME /usr/bin/fileblade --help > "$work/idle-launch" 2>&1; then
+  grep -F 'FILEBLADE_SPIKE_HOME' "$work/idle-launch"
+fi
 exec 8</usr/share/fileblade-native/lock
 flock -s 8
 if as_root pacman -R --noconfirm fileblade-native > "$work/busy" 2>&1; then exit 1; fi
@@ -47,6 +50,30 @@ pacman -Q fileblade-native
 flock -u 8
 exec 8<&-
 printf 'PASS E-92-05 package preflight refuses a held runtime lock\n'
+mkdir "$work/hooks"
+cat > "$work/check-launch" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -e $(pacman-conf DBPath)/db.lck ]]
+if runuser -u omarchy -- env -u FILEBLADE_SPIKE_HOME /usr/bin/fileblade --help > "$1" 2>&1; then exit 1; fi
+grep -Fx 'fileblade: package database is unavailable or busy; retry after pacman finishes' "$1" || { cat "$1"; exit 1; }
+EOF
+chmod 755 "$work/check-launch"
+cat > "$work/hooks/zz-fileblade-launch-check.hook" <<EOF
+[Trigger]
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = fileblade-native
+[Action]
+Description = Attempting a FileBlade launch after idle preflight...
+When = PreTransaction
+Exec = $work/check-launch $work/transaction-launch
+AbortOnFail
+EOF
+as_root pacman -U --noconfirm --hookdir "$work/hooks" "$package"
+cmp -- "$payload/payload.json" /usr/lib/fileblade/payload.json
+printf 'PASS E-92-06 package upgrade excludes a launch after idle preflight\n'
 if "$native" install "$payload" > "$work/collision" 2>&1; then exit 1; fi
 if "$native" remove > "$work/remove-collision" 2>&1; then exit 1; fi
 grep -F 'package-owned installation (fileblade-native): use pacman' "$work/remove-collision"
@@ -55,11 +82,11 @@ cmp -- "$work/receipt" "$installation/active/receipt.json"
 "$native" verify /usr/lib/fileblade
 [[ -L $HOME/.local/bin/fileblade && $(readlink "$HOME/.local/bin/fileblade") == "$installation/launcher" ]]
 printf 'PASS E-92-03 direct update refuses package collision without changing either installation\n'
-as_root pacman -R --noconfirm fileblade-native
+as_root pacman -R --noconfirm --hookdir "$work/hooks" fileblade-native
 package_installed=0
 [[ ! -e /usr/bin/fileblade && ! -e /usr/bin/fileblade-bin && ! -e /usr/lib/fileblade ]]
 "$native" status
 cmp -- "$work/receipt" "$installation/active/receipt.json"
 [[ $(cat "$XDG_CONFIG_HOME/mimeapps.list") == 'keep file manager' && $(cat "$XDG_CONFIG_HOME/xdg-desktop-portal/portals.conf") == 'keep chooser' ]]
-printf 'PASS E-92-04 package removal preserves direct installation and personal defaults\n'
+printf 'PASS E-92-04 package removal excludes new launch and preserves direct installation and personal defaults\n'
 sha256sum "$package" "$payload/payload.json"
