@@ -221,6 +221,22 @@ TestCase {
     compare(catalog.relevant(null), false)
   }
 
+  function test_native_activation_and_first_extension_directory_wake_the_catalog() {
+    var original = catalog.watchPaths
+    catalog.watchPaths = ["/config", "/config/fileblade", "/config/fileblade/extensions", "/config/omarchy/fileblade"]
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.one" }), true)
+    compare(catalog.relevant({ path: "/config/omarchy/fileblade/settings.json" }), true)
+    compare(catalog.relevant({ path: "/config/omarchy/fileblade/blades.json" }), false)
+    compare(catalog.relevant({ path: "/config/omarchy/plugins/acme.one" }), false)
+    compare(catalog.relevant({ path: "/config/omarchy/shell.json" }), false)
+    var before = catalog.generation
+    compare(catalog.relevant({ path: "/config/fileblade" }), true)
+    verify(catalog.generation > before)
+    compare(fakeService.watchPaths, catalog.watchPaths)
+    catalog.unwatch()
+    catalog.watchPaths = original
+  }
+
   function test_a_request_during_a_read_is_kept_and_served_afterwards() {
     fakeService.reply = { ok: true, activation: "known", providers: [] }
     fakeService.defer = true

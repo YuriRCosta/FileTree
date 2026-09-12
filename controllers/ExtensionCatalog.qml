@@ -92,6 +92,14 @@ QtObject {
     if (event.overflow) return true
     var path = String(event.path || event.root || "")
     if (!path) return false
+    if (watchPaths.length === 4) {
+      if (watchPaths.indexOf(path) >= 0) {
+        unwatch()
+        watch()
+        return true
+      }
+      return path.indexOf(watchPaths[2] + "/") === 0 || path === watchPaths[3] + "/settings.json"
+    }
     return path.indexOf("/plugins") >= 0 || path.indexOf("shell.json") >= 0
   }
 
