@@ -90,9 +90,9 @@ and remains queryable after view relaunch until explicitly fetched.
 A real QML copy interrupted by root replacement leaves the replacement
 sentinel unchanged and retains an explicit authority-lost result after view
 exit.
-Monitor and hotplug qualification passes in harness A. Complete plugin/native
-focus parity, remaining retained expectations, chooser and ARM execution
-remain separate qualification work.
+Monitor and hotplug qualification passes in harness A. The matched
+single-output plugin/native focus and exclusive-zone checks pass. Lock/unlock interaction, remaining retained expectations, chooser and
+ARM execution remain separate qualification work.
 
 `ovm-spike` adapts the retained expectation scripts to harness A and the native
 IPC target without changing their source. Other shell targets still address
@@ -130,8 +130,8 @@ before running a suite. These scripts target harness A only.
   capture and release to a terminal; E43-02 measures docked exclusive zones
   and their release; E43-03 records real bar hide/restore geometry. The
   `plugin` argument runs the same procedure against an already prepared
-  plugin baseline. Preparing or activating that baseline requires Fable's
-  resolution of the current no-install approval block.
+  plugin baseline. Guest-only staging and activation are authorized fixture
+  operations under R43; host and package installation remain outside this procedure.
 
 E20 needs `/tmp/fileblade-qualification-pointer` in the guest. Build it using
 `app/qualification/build-pointer EXISTING_PROTOCOL_XML /tmp/fileblade-qualification-pointer`
@@ -149,5 +149,7 @@ y=0, height=1080. The app facade still reports barHidden=false and a 26-pixel
 surfaceOriginY: drawing follows compositor reservations, while internal
 screen-coordinate calculations retain the stale offset. The visibility flag
 is named bar-off, so `omarchy-toggle-bar on` hides it and `off` shows it.
+The matched plugin run has identical compositor geometry and reservations
+at all eight captured phases, and both shapes pass the same nine assertions.
 This is an explicit visibility-toggle measurement; timed hover-autohide and
-a matched plugin run are not qualified by it.
+lock/unlock interaction remain unqualified.

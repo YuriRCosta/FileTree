@@ -3,12 +3,14 @@ set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
 export OVM_HOME=/home/kurt/.local/share/test-omarchy-plugin-a OVM_SSH_PORT=2422
 python3 - "$repo" "${1:?choose plugin or native after staging that shape}" <<'PY'
-import base64,json,pathlib,subprocess,sys,time
+import base64,json,pathlib,shlex,subprocess,sys,time
 repo=pathlib.Path(sys.argv[1]); shape=sys.argv[2]; assert shape in ['plugin','native']
 base='/home/kurt/.claude/skills/test-omarchy-plugin/scripts/ovm'
 ovm=str(repo/'app/ovm-spike') if shape=='native' else base
 out=repo/'.claude/evidence/sootscale/r15/parity'/shape; out.mkdir(parents=True,exist_ok=True)
-def run(*args): return subprocess.check_output([ovm,*map(str,args)],text=True,timeout=20).strip()
+def run(*args):
+    if shape=='plugin' and args[0]=='ipc': args=('ssh',shlex.join(['omarchy-shell',*map(str,args[1:])]))
+    return subprocess.check_output([ovm,*map(str,args)],text=True,timeout=20).strip()
 def ctl(method,*args): return run('ipc','data-goblin.fileblade.control',method,*args)
 def status(): return json.loads(run('ipc','data-goblin.fileblade','status'))
 def blades(): return json.loads(run('ipc','data-goblin.fileblade','blades'))['blades']
