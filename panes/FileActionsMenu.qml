@@ -643,6 +643,7 @@ Popup {
               required property string icon
               required property bool is_default
               appIcon: icon
+              appDesktopId: desktop_id
               text: name + (is_default ? "  — default" : "")
               visible: root.matches(name)
               onClicked: controller.openWithApplication(desktop_id, root.targetPath)
