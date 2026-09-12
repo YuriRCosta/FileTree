@@ -965,6 +965,15 @@ This file was written by an agent.
 
 This file was written by an agent.
 
+Script: `tests/vm/expectations/36-cleanup.sh`. It preserves complete saved
+documents and isolates existing Trash/recovery before testing positive policies.
+Screenshots name the E number; pending subcases are reported separately.
+The current script qualifies the shared Service in harness C at 1920×1080,
+with 380/360-pixel blades. It refuses the native shape until R65 supplies
+authority routing and an isolated fixture strategy for the sealed payload.
+The fixture journals originals and retained scenario data; it does not isolate
+Trash stores on other mounts.
+
 - **E-36-01** A fresh install and an existing install without a recorded answer ask
   “Should FileBlade automatically empty the trash?” Never, 1 day, 7 days, 30 days
   and 90 days appear as a list with Never selected. Escape does nothing; Confirm
@@ -983,10 +992,11 @@ This file was written by an agent.
   enabling Manage agent files after its explanation; disabling it refuses further
   management actions, including CLI bin removal and restore.
 - **E-36-05** Purging an MCP or Hooks removal deletes its private recovery too.
-  Repeating removal and purge does not fill an invisible undo quota. Disabled
-  companions must be explicitly enabled before restore or cleanup can run.
-- **E-36-06** Welcome preserves an existing modified or differently pinned checkout
-  and explains why it did not enable it. An update check downloads no Git objects
+  Repeating removal and purge does not fill an invisible undo quota. Core recovery
+  needs no companion activation. An unavailable helper refuses recovery or cleanup
+  while keeping its evidence recoverable.
+- **E-36-06** Welcome remains built in, dismissible and reopenable, without installing
+  companions or changing their existing checkouts. An update check downloads no Git objects
   and does not invent history details when those objects are not available.
 
 ## 37. Image galleries and bar popouts

@@ -56,12 +56,22 @@ Item {
     }
   }
 
+  Connections {
+    target: probe.subject ? probe.subject.files.artifactActions : null
+    function onFinished(module, requestId, response) {
+      if (module !== probe.subject.context.moduleId) return
+      probe.response = response
+      probe.completions++
+    }
+  }
+
   IpcHandler {
     target: probe.subject && probe.subject.context ? "fileblade.core-live." + probe.subject.context.moduleId : ""
     function status(): string { return JSON.stringify(probe.snapshot()) }
     function consent(enabled: bool): string {
       return String(probe.subject.files.preferences.setAgentManagement(enabled))
     }
+    function projectContext(): string { return String(probe.subject.files.setProjectContext(true)) }
     function apply(id: string, agent: string, enabled: bool): string {
       var row = probe.rows().find(function(value) { return String(value.id) === id && value.scope === "project" })
       if (!row) return "missing fixture row"
@@ -72,13 +82,19 @@ Item {
     }
     function bin(id: string, action: string): string {
       var bin = probe.binOf(probe.subject)
-      if (!bin || ["bin", "restore"].indexOf(action) < 0) return "unavailable"
-      var row = (action === "restore" ? bin.rows : probe.rows()).find(function(value) { return String(value.id) === id })
+      if (!bin || ["bin", "restore", "purge", "ask"].indexOf(action) < 0) return "unavailable"
+      var row = (action === "bin" ? probe.rows() : bin.rows).find(function(value) { return String(value.id) === id })
       if (!row) return "missing fixture row"
+      if (action === "ask") { bin.ask(row); return "opened" }
       bin.pending = row
       bin.choose(action)
       return "queued"
     }
-    function refresh(): string { probe.subject.refresh(); return "queued" }
+    function refresh(): string {
+      probe.subject.refresh()
+      var bin = probe.binOf(probe.subject)
+      if (bin) bin.refresh()
+      return "queued"
+    }
   }
 }
