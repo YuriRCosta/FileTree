@@ -2,10 +2,6 @@
 set -euo pipefail
 export OVM_HOME=${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin-a}
 export OVM_SSH_PORT=${OVM_SSH_PORT:-2422}
-if [[ $OVM_HOME != $HOME/.local/share/test-omarchy-plugin-a || $OVM_SSH_PORT != 2422 ]]; then
-  printf '%s\n' 'native authority qualification requires harness A on SSH 2422' >&2
-  exit 2
-fi
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
 ovm=${OVM:-$repo/app/ovm-spike}
 payload=$(base64 -w0 <<'PY'

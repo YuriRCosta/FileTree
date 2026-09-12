@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export OVM_HOME=$HOME/.local/share/test-omarchy-plugin-a
-export OVM_SSH_PORT=2422
+export OVM_HOME=${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin-a}
+export OVM_SSH_PORT=${OVM_SSH_PORT:-2422}
 export FILEBLADE_CHOOSER_EVIDENCE=${FILEBLADE_CHOOSER_EVIDENCE:-.claude/evidence/sootscale/chooser/ui}
 python3 - <<'PY'
 import json
