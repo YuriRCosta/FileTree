@@ -5,7 +5,7 @@ use crate::filesystem::read_regular_file;
 use crate::paths::xdg_home;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const BLADE_SOCKET: &str = "data-goblin.fileblade/blade";
@@ -77,8 +77,8 @@ pub(crate) fn legacy_activation(config_root: &std::path::Path) -> Result<Vec<Str
 
 pub fn catalog() -> crate::AppResult<Value> {
     let mut diagnostics: Vec<Value> = Vec::new();
-    let plugins = match plugins_dir() {
-        Ok(plugins) => plugins,
+    let (plugins, native) = match plugins_dir() {
+        Ok(selected) => selected,
         Err(error) => {
             return Ok(json!({
                 "ok": true,
@@ -89,7 +89,6 @@ pub fn catalog() -> crate::AppResult<Value> {
             }));
         }
     };
-    let (activation, activation_state) = enabled_ids();
     let mut providers = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let mut ambiguous: HashSet<String> = HashSet::new();
@@ -112,6 +111,7 @@ pub fn catalog() -> crate::AppResult<Value> {
                 }
             }
         }
+        Err(error) if native && error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => {
             truncated = true;
             note(&mut diagnostics, &path_text(&plugins), &error.to_string());
@@ -198,10 +198,10 @@ pub fn catalog() -> crate::AppResult<Value> {
             "dir": path_text(&root),
             "path": path_text(&path),
             "manifest": manifest,
-            "enabled": activation.get(&id).copied().unwrap_or(false),
+            "enabled": false,
         }));
     }
-    let providers: Vec<Value> = providers
+    let mut providers: Vec<Value> = providers
         .into_iter()
         .filter(|provider| {
             let id = provider
@@ -211,6 +211,19 @@ pub fn catalog() -> crate::AppResult<Value> {
             !ambiguous.contains(id)
         })
         .collect();
+    let (activation, activation_state) = if native && truncated {
+        (BTreeMap::new(), "unknown")
+    } else {
+        enabled_ids(native, &providers)
+    };
+    for provider in &mut providers {
+        provider["enabled"] = json!(
+            activation
+                .get(provider["id"].as_str().unwrap())
+                .copied()
+                .unwrap_or(false)
+        );
+    }
     Ok(json!({
         "ok": true,
         "providers": providers,
@@ -290,16 +303,133 @@ fn entries_are_confined(manifest: &Value, root: &std::path::Path) -> Result<(), 
     Ok(())
 }
 
-fn plugins_dir() -> Result<PathBuf, String> {
+pub fn native_extensions_selected() -> Result<bool, String> {
+    if std::env::var_os("FILEBLADE_APP_ROOT").is_some_and(|value| !value.is_empty()) {
+        crate::paths::app_root().map_err(|error| error.to_string())?;
+        return Ok(true);
+    }
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    receipt_selects_native(
+        &executable,
+        &xdg_home("XDG_DATA_HOME", "~/.local/share").join("fileblade/installation"),
+    )
+}
+
+fn receipt_selects_native(executable: &Path, installation: &Path) -> Result<bool, String> {
+    if !executable.starts_with(installation.join("versions")) {
+        return Ok(false);
+    }
+    let active =
+        std::fs::read_link(installation.join("active")).map_err(|error| error.to_string())?;
+    let generation = active
+        .to_str()
+        .and_then(|path| path.strip_prefix("generations/generation."));
+    if !generation.is_some_and(|name| {
+        !name.is_empty() && name.bytes().all(|byte| byte.is_ascii_alphanumeric())
+    }) {
+        return Err("native installation activation pointer is invalid".into());
+    }
+    let receipt_path = installation.join("active/receipt.json");
+    let bytes = read_regular_file(&receipt_path, 16384).map_err(|error| error.to_string())?;
+    let receipt: Value = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    let payload = receipt["payload"].as_str().unwrap_or_default();
+    if receipt["schema"] != 1
+        || receipt["owner"] != "direct"
+        || receipt["installation"] != path_text(installation)
+        || payload.len() != 64
+        || !payload
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        || !executable.starts_with(installation.join("versions").join(payload))
+        || std::fs::read_link(installation.join("active/runtime")).ok()
+            != Some(PathBuf::from(format!("../../versions/{payload}")))
+    {
+        return Err("native installation receipt does not name the running payload".into());
+    }
+    Ok(true)
+}
+
+fn plugins_dir() -> Result<(PathBuf, bool), String> {
+    let native = native_extensions_selected()?;
+    if native {
+        return Ok((crate::lease::native_extension_root(), true));
+    }
     let home = std::env::var_os("HOME")
         .filter(|home| !home.is_empty())
         .ok_or("HOME is not set")?;
     let plugins = PathBuf::from(home).join(".config/omarchy/plugins");
-    std::fs::canonicalize(&plugins).map_err(|error| format!("{}: {error}", path_text(&plugins)))
+    std::fs::canonicalize(&plugins)
+        .map(|path| (path, false))
+        .map_err(|error| format!("{}: {error}", path_text(&plugins)))
 }
 
-fn enabled_ids() -> (BTreeMap<String, bool>, &'static str) {
+fn enabled_ids(native: bool, providers: &[Value]) -> (BTreeMap<String, bool>, &'static str) {
+    if native {
+        return match native_enabled_ids(providers) {
+            Ok(activation) => (activation, "known"),
+            Err(_) => (BTreeMap::new(), "unknown"),
+        };
+    }
     enabled_ids_for(&xdg_home("XDG_CONFIG_HOME", "~/.config"))
+}
+
+fn native_enabled_ids(providers: &[Value]) -> crate::AppResult<BTreeMap<String, bool>> {
+    let mut settings = crate::preferences::read_document()?;
+    let (activation, changed) = native_activation(&mut settings, providers)?;
+    if !changed {
+        return Ok(activation);
+    }
+    let path = crate::lease::native_config_root().join("settings.json");
+    crate::lease::persistence::check_write(&path)?;
+    let _directory = crate::secure::ensure_private_directory(path.parent().unwrap())?;
+    let _lock =
+        crate::secure::try_open_private_lock(&crate::paths::state_dir().join("preferences.lock"))?
+            .ok_or_else(|| crate::AppError::invalid("preferences are busy; retry discovery"))?;
+    let mut settings = crate::preferences::read_document()?;
+    let (activation, changed) = native_activation(&mut settings, providers)?;
+    if changed {
+        let encoded = serde_json::to_vec_pretty(&settings)?;
+        if encoded.len() > 64 * 1024 {
+            return Err(crate::AppError::invalid(
+                "extension receipts exceed settings capacity",
+            ));
+        }
+        crate::lease::durable::write_private_atomic(&path, &encoded)?;
+    }
+    Ok(activation)
+}
+
+fn native_activation(
+    settings: &mut Value,
+    providers: &[Value],
+) -> crate::AppResult<(BTreeMap<String, bool>, bool)> {
+    let mut activation = BTreeMap::new();
+    if providers.is_empty() {
+        return Ok((activation, false));
+    }
+    let entries = settings
+        .as_object_mut()
+        .unwrap()
+        .entry("extensions")
+        .or_insert(json!({}))
+        .as_object_mut()
+        .ok_or_else(|| crate::AppError::invalid("extension activation is malformed"))?;
+    let mut changed = false;
+    for provider in providers {
+        let id = provider["id"].as_str().unwrap();
+        if !entries.contains_key(id) {
+            entries.insert(
+                id.to_string(),
+                json!({"enabled":true,"receipt":{"version":1,"source":provider["dir"]}}),
+            );
+            changed = true;
+        }
+        let enabled = entries[id]["enabled"]
+            .as_bool()
+            .ok_or_else(|| crate::AppError::invalid("extension enabled choice is not boolean"))?;
+        activation.insert(id.to_string(), enabled);
+    }
+    Ok((activation, changed))
 }
 
 fn enabled_ids_for(config_home: &std::path::Path) -> (BTreeMap<String, bool>, &'static str) {
@@ -467,6 +597,63 @@ mod tests {
             "bar": { "layout": { "left": [{ "id": "a.widget" }], "center": [], "right": [] } },
             "disabledPlugins": ["a.dropped"]
         }))
+    }
+
+    #[test]
+    fn native_receipt_selection_and_first_discovery_preserve_explicit_choices() {
+        let directory = tempfile::tempdir().unwrap();
+        let installation = directory.path();
+        let payload = "a".repeat(64);
+        let executable = installation
+            .join("versions")
+            .join(&payload)
+            .join("fileblade-bin");
+        assert!(!receipt_selects_native(Path::new("/plugin/fileblade-bin"), installation).unwrap());
+        assert!(receipt_selects_native(&executable, installation).is_err());
+        let generation = installation.join("generations/generation.fixture");
+        std::fs::create_dir_all(&generation).unwrap();
+        std::os::unix::fs::symlink(
+            "generations/generation.fixture",
+            installation.join("active"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            format!("../../versions/{payload}"),
+            generation.join("runtime"),
+        )
+        .unwrap();
+        let receipt = json!({"schema":1,"owner":"direct","installation":installation,"payload":payload,"previous":null});
+        std::fs::write(generation.join("receipt.json"), receipt.to_string()).unwrap();
+        assert!(receipt_selects_native(&executable, installation).unwrap());
+        assert!(
+            receipt_selects_native(
+                &installation
+                    .join("versions")
+                    .join("b".repeat(64))
+                    .join("fileblade-bin"),
+                installation
+            )
+            .is_err()
+        );
+        assert!(!receipt_selects_native(Path::new("/plugin/fileblade-bin"), installation).unwrap());
+        let mut settings = json!({"version":1,"future":{"keep":true},"extensions":{"goblins":{"enabled":false,"future":42}}});
+        let providers = vec![
+            json!({"id":"goblins","dir":"/extensions/goblins"}),
+            json!({"id":"new","dir":"/extensions/new"}),
+        ];
+        let (activation, changed) = native_activation(&mut settings, &providers).unwrap();
+        assert!(changed && !activation["goblins"] && activation["new"]);
+        assert_eq!(
+            settings["extensions"]["new"]["receipt"],
+            json!({"version":1,"source":"/extensions/new"})
+        );
+        assert_eq!(settings["extensions"]["goblins"]["future"], 42);
+        assert_eq!(settings["future"]["keep"], true);
+        let before = settings.clone();
+        assert!(!native_activation(&mut settings, &providers).unwrap().1);
+        assert_eq!(settings, before);
+        settings["extensions"]["goblins"]["enabled"] = json!("false");
+        assert!(native_activation(&mut settings, &providers).is_err());
     }
 
     #[test]
