@@ -104,3 +104,50 @@ payload manifests differ only in legal JSON whitespace, exercising distinct
 transaction identities without inventing another backend version. Test-only
 command wrappers inject interruptions; production code has no fault hooks.
 These are process-interruption checks, not physical power-loss tests.
+
+## Arch package from the same payload
+
+```
+packaging/build PAYLOAD OUTPUT_DIRECTORY
+```
+
+Run this maintainer helper on the payload's architecture with the existing
+Arch `makepkg`, `fakeroot` and `bsdtar` tools. It accepts stable versions,
+requires an absent output directory, and installs no build dependencies.
+The generated PKGBUILD takes its version, architecture and package
+dependencies from the verified payload. Its two local sources are hashed;
+there is no download step. The output contains the package archive,
+PKGBUILD and its local inputs. Build helpers are not added to the runtime.
+
+The `fileblade-native` package owns the unchanged payload beneath
+`/usr/lib/fileblade`, a thin `/usr/bin/fileblade` launcher, a
+`/usr/bin/fileblade-bin` backend link and a standard license link. Stripping
+and debug splitting are disabled. The builder extracts the resulting package
+and verifies its inner payload again before publishing the output.
+The payload root is normalized to mode 755, as in direct installation, so
+a private input directory does not become a root-only installed runtime.
+
+There is no package install hook. Installing a package selects no desktop
+roles, defaults, bindings or autostart. User-level installations remain
+separate; the direct installer detects conventional pacman-owned paths and
+refuses updates when they coexist. Package files must be updated or removed
+through pacman. A direct launcher may still shadow the package after an
+external pacman install; the installer diagnoses that collision and preserves
+both trees.
+
+The current launcher still has the documented spike-only startup contract.
+Package mapping does not qualify that startup, provide a chooser, or register
+runtime-owned desktop/service metadata that has not yet been implemented.
+Mapping those descriptors and checking real companion-mode coexistence remain
+part of native integration and task 9.4. An ARM package requires an actual
+ARM payload and matching Arch build environment; no ARM execution follows
+from the inventory format accepting an ARM target.
+
+Inside the assigned guest,
+`tests/vm/expectations/92-delivery-package.sh SOURCE PAYLOAD` builds and
+extracts the package, compares its payload/dependencies, installs it through
+pacman, verifies ownership, checks direct-update refusal, removes the package
+and checks preservation of the direct receipt and personal-default fixtures.
+It refuses to replace a preexisting fileblade-native package and cleans up
+its own package fixture on failure. Structural fixtures are not a native app
+launch or a real chooser/reveal fallback pass.
