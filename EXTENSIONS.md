@@ -35,6 +35,16 @@ ID. These aliases do not apply to other extensions. Goblins remains a separate
 extension with module ID `kurt.goblin-images/goblin-images`, its own provider,
 settings and enabled lifecycle.
 
+When restored aliases collide, one singleton remains across both edges. An
+occurrence active in its saved slot wins; ties use left edge before right,
+then slot and tab order. The surviving active tab stays selected; if removed,
+selection moves to the next surviving tab, or the previous one. Removed tabs
+are retained in `blades.singletonRecovery` inside `blades.json`, with their
+original tab document, canonical module ID and saved location. Each record
+has `version: 1`; its `tab.state` contains the displaced settings for recovery.
+These records survive save/reload. If including them exceeds the layout byte
+limit, saving is refused and the original disk document remains intact.
+
 Core helper requests use `inventory`, an empty `--plugin-dir` and a fixed
 method declaration. Executables resolve through `paths::app_root()` to
 `python/bin/agent-<module>ctl`. Supplying a directory for a core provider is

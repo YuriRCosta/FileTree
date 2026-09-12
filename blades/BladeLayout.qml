@@ -178,10 +178,89 @@ Item {
   function normalizeLayout(raw) {
     var source = raw && typeof raw === "object" ? raw : ({})
     var blades = source.blades && typeof source.blades === "object" ? source.blades : source
-    return {
-      left: normalizeBlade(blades.left, "left"),
-      right: normalizeBlade(blades.right, "right")
+    var restored = restoreSingletons(blades)
+    var next = {
+      left: normalizeBlade(restored.left, "left"),
+      right: normalizeBlade(restored.right, "right")
     }
+    if (restored.singletonRecovery !== undefined) next.singletonRecovery = restored.singletonRecovery
+    return next
+  }
+
+  function singletonModule(module) {
+    if (registry.coreModules.indexOf(module) >= 0) return true
+    var definition = registry.module(module) || registry.disabledModule(module)
+    return !!(definition && definition.singleton)
+  }
+
+  function survivingActive(tabs, wanted) {
+    for (var i = 0; i < tabs.length; i++)
+      if (tabs[i].index >= wanted) return i
+    return Math.max(0, tabs.length - 1)
+  }
+
+  function restoreSingletons(blades) {
+    var next = ({})
+    var groups = []
+    var winners = ({})
+    var recovery = blades.singletonRecovery === undefined ? []
+      : (Array.isArray(blades.singletonRecovery) ? cloneLayout(blades.singletonRecovery) : [cloneLayout(blades.singletonRecovery)])
+    var edgeOrder = ["left", "right"]
+    for (var e = 0; e < edgeOrder.length; e++) {
+      var edge = edgeOrder[e]
+      var blade = blades[edge]
+      if (!blade || typeof blade !== "object" || Array.isArray(blade)) continue
+      next[edge] = cloneLayout(blade)
+      next[edge].slots = []
+      var slots = Array.isArray(blade.slots) ? blade.slots : []
+      for (var s = 0; s < slots.length && s < maximumSlots; s++) {
+        var slot = slots[s] && typeof slots[s] === "object" ? slots[s] : { module: slots[s] }
+        var rawTabs = Array.isArray(slot.modules) ? slot.modules : [slot]
+        var wanted = Math.max(0, Math.min(rawTabs.length - 1, maximumTabsPerSlot - 1, Math.floor(Number(slot.active) || 0)))
+        var tabs = []
+        for (var t = 0; t < rawTabs.length && t < maximumTabsPerSlot; t++) {
+          var normalized = normalizeTab(rawTabs[t])
+          if (normalized) tabs.push({ index: t, module: normalized.module, raw: rawTabs[t], selected: false })
+        }
+        if (!tabs.length) continue
+        tabs[survivingActive(tabs, wanted)].selected = true
+        var group = { edge: edge, index: s, slot: slot, tabs: tabs, wanted: wanted }
+        groups.push(group)
+        for (var c = 0; c < tabs.length; c++) {
+          var candidate = tabs[c]
+          if (!singletonModule(candidate.module)) continue
+          var key = "module:" + candidate.module
+          var previous = winners[key]
+          if (!previous || (candidate.selected && !previous.selected)) winners[key] = candidate
+        }
+      }
+    }
+    for (var g = 0; g < groups.length; g++) {
+      var current = groups[g]
+      var kept = []
+      for (var i = 0; i < current.tabs.length; i++) {
+        var tab = current.tabs[i]
+        var winner = winners["module:" + tab.module]
+        if (!winner || winner === tab) kept.push(tab)
+        else recovery.push({
+          version: 1,
+          module: tab.module,
+          edge: current.edge,
+          slotId: String(current.slot.id || ""),
+          slotIndex: current.index,
+          tabIndex: tab.index,
+          active: tab.selected,
+          tab: cloneLayout(tab.raw)
+        })
+      }
+      if (!kept.length) continue
+      var saved = cloneLayout(current.slot)
+      saved.modules = kept.map(function(tab) { return tab.raw })
+      saved.active = survivingActive(kept, current.wanted)
+      next[current.edge].slots.push(saved)
+    }
+    if (recovery.length || blades.singletonRecovery !== undefined) next.singletonRecovery = recovery
+    return next
   }
 
   function cloneLayout(value) {
