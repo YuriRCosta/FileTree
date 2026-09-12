@@ -99,7 +99,7 @@ stage_payload() (
   install -D -m 755 -- "$binary" "$stage/target/release/fileblade"
   install -m 644 -- "$notices" "$stage/THIRD_PARTY_NOTICES.html"
   install -D -m 755 -- "$native_tool" "$stage/tools/native"
-  for path in runtime.json payload.sh; do
+  for path in runtime.json payload.sh install.sh; do
     install -D -m 644 -- "$native_root/packaging/$path" "$stage/packaging/$path"
   done
   version=$(jq -er .version "$stage/manifest.json")
