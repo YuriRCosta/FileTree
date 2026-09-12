@@ -39,7 +39,17 @@ as_root pacman -U --noconfirm "$package"
 "/usr/lib/fileblade/tools/native" verify /usr/lib/fileblade
 cmp -- "$payload/payload.json" /usr/lib/fileblade/payload.json
 printf 'PASS E-92-02 installed files have pacman ownership and original inventory\n'
+exec 8</usr/share/fileblade-native/lock
+flock -s 8
+if as_root pacman -R --noconfirm fileblade-native > "$work/busy" 2>&1; then exit 1; fi
+grep -F 'Checking FileBlade native runtime is idle' "$work/busy"
+pacman -Q fileblade-native
+flock -u 8
+exec 8<&-
+printf 'PASS E-92-05 package preflight refuses a held runtime lock\n'
 if "$native" install "$payload" > "$work/collision" 2>&1; then exit 1; fi
+if "$native" remove > "$work/remove-collision" 2>&1; then exit 1; fi
+grep -F 'package-owned installation (fileblade-native): use pacman' "$work/remove-collision"
 grep -F 'package-owned installation (fileblade-native): use pacman' "$work/collision"
 cmp -- "$work/receipt" "$installation/active/receipt.json"
 "$native" verify /usr/lib/fileblade

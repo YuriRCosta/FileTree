@@ -24,10 +24,12 @@ architecture=$(jq -r .architecture "$stage/input/payload/payload.json")
 dependencies=$(jq -er '.packages[]' "$stage/input/payload/packaging/runtime.json")
 bsdtar -cf "$stage/payload.tar" -C "$stage/input" payload
 cp -- "$native_root/packaging/launch" "$stage/launch"
+cp -- "$native_root/packaging/fileblade-native.hook" "$stage/fileblade-native.hook"
 digest=$(sha256sum "$stage/payload.tar")
 launch_digest=$(sha256sum "$stage/launch")
+hook_digest=$(sha256sum "$stage/fileblade-native.hook")
 {
-  printf 'pkgver=%q\narch=(%q)\nsha256sums=(%q %q)\ndepends=(\n' "$version" "$architecture" "${digest%% *}" "${launch_digest%% *}"
+  printf 'pkgver=%q\narch=(%q)\nsha256sums=(%q %q %q)\ndepends=(\n' "$version" "$architecture" "${digest%% *}" "${launch_digest%% *}" "${hook_digest%% *}"
   while IFS= read -r dependency; do printf '  %q\n' "$dependency"; done <<< "$dependencies"
   printf ')\n'
   cat -- "$native_root/packaging/PKGBUILD"

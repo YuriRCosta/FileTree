@@ -39,7 +39,7 @@ check_owner() {
   if [[ -e $installation/launcher || -L $installation/launcher ]]; then
     [[ -f $installation/launcher && ! -L $installation/launcher ]] || fail 'invalid owned launcher'
     [[ $(launcher_text) == "$(cat -- "$installation/launcher")" ]] || fail 'owned launcher was changed'
-  elif [[ -e $installation/active || -L $launcher ]]; then
+  elif [[ -e $installation/active || -L $launcher ]] && [[ ! -L $installation/removing ]]; then
     fail 'installation launcher is missing'
   fi
 }
@@ -47,10 +47,10 @@ check_owner() {
 read_activation() {
   active_payload=
   previous_payload=
-  [[ -e $installation/active || -L $installation/active ]] || return 0
-  local link receipt
-  [[ -L $installation/active ]] || fail 'activation pointer is not owned'
-  link=$(readlink -- "$installation/active")
+  local pointer=${1:-active} link receipt
+  [[ -e $installation/$pointer || -L $installation/$pointer ]] || return 0
+  [[ -L $installation/$pointer ]] || fail 'activation pointer is not owned'
+  link=$(readlink -- "$installation/$pointer")
   [[ $link =~ ^generations/generation\.[A-Za-z0-9]+$ ]] || fail 'invalid activation pointer'
   [[ -d $installation/$link && ! -L $installation/$link ]] || fail 'activation generation is missing'
   receipt=$installation/$link/receipt.json
@@ -63,6 +63,10 @@ read_activation() {
   active_payload=$(jq -r .payload "$receipt")
   previous_payload=$(jq -r '.previous // ""' "$receipt")
   [[ -L $installation/$link/runtime && $(readlink -- "$installation/$link/runtime") == "../../versions/$active_payload" ]] || fail 'receipt and runtime pointer disagree'
+}
+
+check_activation() {
+  [[ -n $active_payload ]] || return 0
   [[ -d $installation/versions/$active_payload && ! -L $installation/versions/$active_payload ]] || fail 'active runtime is missing'
   [[ $(sha256sum -- "$installation/versions/$active_payload/payload.json") == "$active_payload "* ]] || fail 'active manifest identity differs'
   cmp -s -- "$native_root/packaging/runtime.json" "$installation/versions/$active_payload/packaging/runtime.json" || fail 'active runtime dependency contract differs; contract-changing updates require explicit compatibility support'
@@ -121,15 +125,49 @@ install_payload() (
   printf 'Installed %s\nLauncher: %s\nReceipt: %s\n' "$digest" "$launcher" "$installation/active/receipt.json"
 )
 
+remove_installation() {
+  local version digest
+  [[ -n $active_payload ]] || fail 'no owned receipt for removal'
+  if [[ -L $installation/active ]]; then
+    [[ ! -e $installation/discard && ! -L $installation/discard ]] || fail 'unowned removal directory'
+  fi
+  if [[ -e $installation/removed || -L $installation/removed ]]; then (read_activation removed); fi
+  for version in "$installation/versions/"*; do
+    digest=${version##*/}
+    [[ $digest =~ ^[a-f0-9]{64}$ ]] || continue
+    [[ -d $version && ! -L $version ]] || fail 'runtime destination is not owned'
+    verify_payload "$version"
+    [[ $(sha256sum -- "$version/payload.json") == "$digest "* ]] || fail 'stored manifest identity differs'
+  done
+  if [[ -L $installation/active ]]; then
+    [[ ! -e $installation/removing && ! -L $installation/removing ]] || fail 'conflicting removal marker'
+    mv -T -- "$installation/active" "$installation/removing"
+    sync -f -- "$installation"
+  fi
+  rm -f -- "$launcher" "$installation/launcher"
+  private_directory "$installation/discard"
+  for version in "$installation/versions/"*; do
+    digest=${version##*/}
+    [[ $digest =~ ^[a-f0-9]{64}$ ]] || continue
+    [[ ! -e $installation/discard/$digest && ! -L $installation/discard/$digest ]] || fail 'conflicting removal payload'
+    mv -T -- "$version" "$installation/discard/$digest"
+  done
+  rm -rf -- "$installation/discard"
+  mv -Tf -- "$installation/removing" "$installation/removed"
+  sync -f -- "$installation"
+  printf 'Removed direct runtime; receipts retained in %s\n' "$installation"
+}
+
 install_command() (
   local action=$1 installation launcher active_payload previous_payload source pending_launcher
   case $action in
     install) [[ $# == 2 ]] || fail 'usage: tools/native install PAYLOAD'; source=$(realpath -e -- "$2") ;;
-    rollback|status) [[ $# == 1 ]] || fail "usage: tools/native $action" ;;
+    rollback|status|remove) [[ $# == 1 ]] || fail "usage: tools/native $action" ;;
   esac
   installation_paths
   command -v pacman >/dev/null || fail 'installation ownership checks require the tested Arch/Omarchy package database'
   check_owner
+  if [[ $action == remove && ! -e $installation ]]; then printf 'No direct installation\n'; return; fi
   if [[ $action == install ]]; then
     verify_payload "$source"
     check_runtime "$source"
@@ -149,12 +187,26 @@ install_command() (
   check_owner
   private_directory "$installation/versions"
   private_directory "$installation/generations"
-  read_activation
+  if [[ -e $installation/removing || -L $installation/removing ]]; then
+    [[ $action == remove ]] || fail 'removal interrupted; run tools/native remove again'
+    [[ ! -e $installation/active && ! -L $installation/active ]] || fail 'conflicting active and removal pointers'
+    read_activation removing
+  elif [[ $action == remove && ! -e $installation/active && ! -L $installation/active && -L $installation/removed ]]; then
+    read_activation removed
+    printf 'Direct runtime already removed\n'
+    return
+  else
+    read_activation
+  fi
+  if [[ $action == install || $action == status ]]; then check_activation; fi
   case $action in
+    remove) remove_installation ;;
     status) [[ -n $active_payload ]] || fail 'no active installation'; cat -- "$installation/active/receipt.json" ;;
     rollback)
       [[ -n $previous_payload ]] || fail 'no previous runtime to recover'
+      [[ -d $installation/versions/$previous_payload && ! -L $installation/versions/$previous_payload ]] || fail 'previous runtime is missing or not owned'
       verify_payload "$installation/versions/$previous_payload"
+      [[ $(sha256sum -- "$installation/versions/$previous_payload/payload.json") == "$previous_payload "* ]] || fail 'previous manifest identity differs'
       check_runtime "$installation/versions/$previous_payload"
       activate_payload "$previous_payload" "$active_payload"
       printf 'Restored %s\n' "$previous_payload"

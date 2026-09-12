@@ -63,6 +63,7 @@ not claim them.
 PAYLOAD/tools/native install PAYLOAD
 PAYLOAD/tools/native status
 PAYLOAD/tools/native rollback
+PAYLOAD/tools/native remove
 ```
 
 The installer is self-contained in the payload. It stores runtime versions
@@ -78,8 +79,8 @@ its runtime. One atomic pointer switch activates that pair. The receipt
 records the previous payload, and rollback performs the same activation in
 reverse. Existing runtime generations and interrupted staging directories
 are retained; no automatic pruning is implemented. Settings and desktop
-defaults are untouched. Removal and role reversal are a separate delivery
-task, not implemented by these commands yet.
+defaults are untouched. Removal preserves generation receipts and user data.
+Role reversal still requires runtime's published interface.
 
 The stable launcher resolves its physical runtime once under a shared
 installation lock. Installation and rollback require the exclusive lock and
@@ -129,7 +130,7 @@ and verifies its inner payload again before publishing the output.
 The payload root is normalized to mode 755, as in direct installation, so
 a private input directory does not become a root-only installed runtime.
 
-There is no package install hook. Installing a package selects no desktop
+Installing a package selects no desktop
 roles, defaults, bindings or autostart. User-level installations remain
 separate; the direct installer detects conventional pacman-owned paths and
 refuses updates when they coexist. Package files must be updated or removed
@@ -153,3 +154,37 @@ and checks preservation of the direct receipt and personal-default fixtures.
 It refuses to replace a preexisting fileblade-native package and cleans up
 its own package fixture on failure. Structural fixtures are not a native app
 launch or a real chooser/reveal fallback pass.
+
+## Removal and stale activation
+
+`remove` uses the same owner and exclusive-lock checks as installation. It
+refuses package ownership, changed launchers and changed inventoried payloads.
+After validation it withdraws activation, unlinks its launchers and moves
+owned versions into a private discard directory before deleting them.
+`installation/removing` retains the receipt during deletion; retry `remove`
+if interrupted. Installation refuses while this marker exists. Successful
+removal retains `installation/removed/receipt.json` and generation history.
+Unknown entries and incomplete staging directories are preserved. No setting,
+Note, recovery journal or desktop default is deleted. Repeated removal is
+safe, and a later explicit local installation can reuse the installation root.
+
+Rollback can restore the recorded previous payload when the current payload
+is missing or damaged; it verifies the previous tree and manifest identity
+before activation. A missing activation pointer can be repaired by explicitly
+installing a verified local payload. Invalid receipts or pointers are refused;
+recovery never guesses a generation from timestamps or directory order.
+
+The package launcher retains a shared lock on the package-owned
+`/usr/share/fileblade-native/lock`. An ALPM pre-transaction hook refuses
+upgrade/removal if the lock is held. This hook edits no user defaults. It is
+a busy preflight, not a transaction-wide exclusion: new launches after the
+check, authority drain and conditional role reversal still require runtime's
+lifecycle contract. Direct removal also currently refuses busy sessions;
+it must gain the runtime drain/reversal calls before enabled desktop roles
+or active-operation removal are qualified. External stale role recovery is
+pending that same interface, not inferred from the direct activation receipt.
+
+`tests/vm/expectations/93-delivery-remove.sh PAYLOAD` checks stale activation,
+ownership preservation, busy refusal and an actual process-group kill during
+runtime deletion followed by retry. E92 additionally holds the package lock
+and checks that real pacman removal aborts while preserving installed files.

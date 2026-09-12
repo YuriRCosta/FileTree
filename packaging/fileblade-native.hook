@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = fileblade-native
+
+[Action]
+Description = Checking FileBlade native runtime is idle...
+When = PreTransaction
+Exec = /usr/bin/flock -n -x /usr/share/fileblade-native/lock /usr/bin/true
+AbortOnFail
