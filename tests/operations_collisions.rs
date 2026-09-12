@@ -158,3 +158,49 @@ fn large_conflicting_folder_is_not_scanned_until_merge_is_selected() {
     assert_eq!(plan["items"].as_array().unwrap().len(), 1);
     release(&plan);
 }
+
+#[test]
+fn oversized_merge_consumes_decision_without_changing_either_directory() {
+    use fileblade::operations::collisions::{Decision, execute};
+    let root = tempdir().unwrap();
+    let source = root.path().join("source/folder");
+    let target = root.path().join("target");
+    fs::create_dir_all(&source).unwrap();
+    fs::create_dir_all(target.join("folder")).unwrap();
+    fs::write(target.join("folder/existing"), "keep").unwrap();
+    for index in 0..10_000 {
+        fs::write(source.join(index.to_string()), "source").unwrap();
+    }
+    for copy in [true, false] {
+        let plan = preflight(
+            copy,
+            &[source.to_string_lossy().into_owned()],
+            target.to_str().unwrap(),
+            &AtomicBool::new(false),
+        );
+        assert_eq!(plan["ok"], true, "{plan}");
+        let id = plan["decision_id"].as_str().unwrap();
+        let result = execute(
+            id,
+            &[Decision {
+                id: "0".into(),
+                action: "merge".into(),
+                apply_to_remaining: false,
+            }],
+            false,
+            &mut |_| {},
+            &AtomicBool::new(false),
+        );
+        assert_eq!(result["ok"], false, "{result}");
+        assert_eq!(result["consumed"], true);
+        assert!(result["error"].as_str().unwrap().contains("4096"));
+        assert!(result.get("decision_id").is_none());
+        assert!(!discard(id));
+        assert_eq!(fs::read_dir(&source).unwrap().count(), 10_000);
+        assert_eq!(fs::read_dir(target.join("folder")).unwrap().count(), 1);
+        assert_eq!(
+            fs::read_to_string(target.join("folder/existing")).unwrap(),
+            "keep"
+        );
+    }
+}

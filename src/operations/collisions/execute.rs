@@ -53,7 +53,7 @@ pub fn execute(
         }
         Ok(false) => (),
         Err(error) => {
-            return json!({"ok": false, "consumed": true, "error": error.to_string(), "paths": [], "mappings": [], "completed_sources": []});
+            return json!({"ok": false, "consumed": true, "cancelled": matches!(error, AppError::Cancelled), "error": error.to_string(), "paths": [], "mappings": [], "completed_sources": []});
         }
     }
     let mut run = TransferRun::new(plan.copy);
@@ -103,7 +103,10 @@ pub fn execute(
                 if stat.identity() != item.source_stat.identity() {
                     return Err(AppError::invalid("merged source directory was replaced"));
                 }
-                if !secure::directory_names(&item.source)?.is_empty() {
+                if !secure::directory_names_bounded_cancellable(&item.source, 1, cancelled)?
+                    .0
+                    .is_empty()
+                {
                     run.retained_folders.push(path_text(&item.source));
                     continue;
                 }

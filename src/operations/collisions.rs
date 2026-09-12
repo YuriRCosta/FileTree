@@ -211,9 +211,19 @@ fn expand_merges(
         let target = item.target.clone();
         let target_dir = checked_destination(&path_text(&target))?;
         let target_parent = secure::stat_in(&target_dir.directory, OsStr::new("."))?.identity();
-        let mut names = secure::directory_names(&source)?;
-        names.sort();
-        if items.len().saturating_add(names.len()) > MAX_ITEMS {
+        let (names, truncated) = secure::directory_names_bounded_cancellable(
+            &source,
+            MAX_ITEMS.saturating_sub(items.len()),
+            cancelled,
+        )
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::Interrupted {
+                AppError::Cancelled
+            } else {
+                error.into()
+            }
+        })?;
+        if truncated {
             return Err(AppError::invalid(
                 "merge preflight exceeds 4096 items; transfer smaller selections",
             ));
