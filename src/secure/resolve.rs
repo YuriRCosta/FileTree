@@ -124,10 +124,44 @@ pub fn directory_names_bounded_from(
     fd: &OwnedFd,
     limit: usize,
 ) -> io::Result<(Vec<OsString>, bool)> {
+    let (mut names, truncated) = directory_names_checked_from(fd, limit, || Ok(()))?;
+    names.sort();
+    Ok((names, truncated))
+}
+
+pub fn directory_names_bounded_cancellable(
+    path: &Path,
+    limit: usize,
+    cancelled: &AtomicBool,
+) -> io::Result<(Vec<OsString>, bool)> {
+    let fd = open_absolute_directory(path, true)?;
+    let (mut names, truncated) = directory_names_checked_from(&fd, limit, || {
+        if cancelled.load(Ordering::Relaxed) {
+            Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "operation cancelled",
+            ))
+        } else {
+            Ok(())
+        }
+    })?;
+    if !truncated {
+        names.sort();
+    }
+    Ok((names, truncated))
+}
+
+fn directory_names_checked_from(
+    fd: &OwnedFd,
+    limit: usize,
+    mut check: impl FnMut() -> io::Result<()>,
+) -> io::Result<(Vec<OsString>, bool)> {
+    check()?;
     let mut directory = Dir::read_from(fd).map_err(io::Error::from)?;
     let mut names = Vec::new();
     let mut truncated = false;
     for entry in &mut directory {
+        check()?;
         let entry = entry.map_err(io::Error::from)?;
         let bytes = entry.file_name().to_bytes();
         if bytes != b"." && bytes != b".." {
@@ -138,7 +172,7 @@ pub fn directory_names_bounded_from(
             names.push(OsString::from_vec(bytes.to_vec()));
         }
     }
-    names.sort();
+    check()?;
     Ok((names, truncated))
 }
 
@@ -301,5 +335,91 @@ pub(super) fn stat_value(stat: Stat) -> EntryStat {
         ctime: stat.st_ctime,
         ctime_nsec: stat.st_ctime_nsec as i64,
         kind,
+    }
+}
+
+pub fn directory_mount_id(directory: &OwnedFd) -> io::Result<u64> {
+    use rustix::fs::{StatxFlags, statx};
+    let stat = statx(directory, "", AtFlags::EMPTY_PATH, StatxFlags::MNT_ID)?;
+    if !StatxFlags::from_bits_retain(stat.stx_mask).contains(StatxFlags::MNT_ID) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "mount identity is unavailable",
+        ));
+    }
+    Ok(stat.stx_mnt_id)
+}
+
+pub fn directory_unique_mount_id(directory: &OwnedFd) -> io::Result<u64> {
+    use rustix::fs::{StatxFlags, statx};
+    let unique_mount_id = StatxFlags::from_bits_retain(0x00004000);
+    let stat = statx(directory, "", AtFlags::EMPTY_PATH, unique_mount_id)?;
+    if !StatxFlags::from_bits_retain(stat.stx_mask).contains(unique_mount_id) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "unique mount identity is unavailable",
+        ));
+    }
+    Ok(stat.stx_mnt_id)
+}
+
+pub fn open_directory_within_mount(root: &OwnedFd, relative: &Path) -> io::Result<OwnedFd> {
+    if relative
+        .components()
+        .any(|part| !matches!(part, Component::Normal(_) | Component::CurDir))
+    {
+        return Err(invalid_input("location path must remain within its root"));
+    }
+    openat2(
+        root,
+        if relative.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            relative
+        },
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_XDEV,
+    )
+    .map_err(io::Error::from)
+}
+
+#[cfg(test)]
+mod enumeration_tests {
+    use super::*;
+
+    #[test]
+    fn enumeration_stops_at_budget_and_checks_cancellation_during_read() {
+        let root = tempfile::tempdir().unwrap();
+        for index in 0..10_000 {
+            std::fs::write(root.path().join(index.to_string()), b"").unwrap();
+        }
+        let directory = open_directory_nofollow(root.path()).unwrap();
+        for limit in [0, 1, 4095] {
+            let mut checks = 0;
+            let (names, truncated) = directory_names_checked_from(&directory, limit, || {
+                checks += 1;
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(names.len(), limit);
+            assert!(truncated);
+            assert!(checks <= limit + 5, "{checks}");
+        }
+        let mut checks = 0;
+        let error = directory_names_checked_from(&directory, 4095, || {
+            checks += 1;
+            if checks == 32 {
+                Err(io::Error::new(io::ErrorKind::Interrupted, "cancelled"))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+        assert_eq!(checks, 32);
+        assert!(
+            directory_names_bounded_cancellable(root.path(), 1, &AtomicBool::new(true)).is_err()
+        );
     }
 }

@@ -4,11 +4,13 @@ use crate::git::{
     decorate_git_entry, git_metadata_document, ignored_paths, indexed_git_counts_for_path,
     indexed_git_status_for_path, repository_status_index_cancellable,
 };
+use rustix::fd::OwnedFd;
 use serde_json::{Value, json};
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -71,7 +73,21 @@ pub struct WindowRequest {
     pub fresh_git: bool,
 }
 
-type Registry = Mutex<HashMap<ListingKey, Arc<Mutex<DirListing>>>>;
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum CacheKey {
+    Path(ListingKey),
+    Directory(ListingKey, u64, u64, u64),
+}
+
+impl CacheKey {
+    fn path(&self) -> &Path {
+        match self {
+            Self::Path(key) | Self::Directory(key, ..) => &key.path,
+        }
+    }
+}
+
+type Registry = Mutex<HashMap<CacheKey, Arc<Mutex<DirListing>>>>;
 
 fn registry() -> &'static Registry {
     static REGISTRY: OnceLock<Registry> = OnceLock::new();
@@ -187,11 +203,21 @@ fn acquire(
     fresh: bool,
     cancelled: &AtomicBool,
 ) -> io::Result<Arc<Mutex<DirListing>>> {
-    let key = ListingKey {
+    let key = CacheKey::Path(ListingKey {
         path: path.to_path_buf(),
         show_hidden,
-    };
-    let stamp = directory_stamp(path)?;
+    });
+    acquire_listing(key, directory_stamp(path)?, fresh, || {
+        scan(path, show_hidden, cancelled)
+    })
+}
+
+fn acquire_listing(
+    key: CacheKey,
+    stamp: (i64, i64, u64),
+    fresh: bool,
+    scan: impl FnOnce() -> io::Result<(Vec<Listed>, bool)>,
+) -> io::Result<Arc<Mutex<DirListing>>> {
     let now = Instant::now();
     let slot = {
         let mut slots = lock(registry());
@@ -226,7 +252,7 @@ fn acquire(
         let mut listing = lock(&slot);
         listing.last_used = now;
         if fresh || listing.stamp != stamp {
-            let (entries, capped) = scan(path, show_hidden, cancelled)?;
+            let (entries, capped) = scan()?;
             listing.entries = entries;
             listing.capped = capped;
             listing.stamp = stamp;
@@ -247,7 +273,7 @@ pub fn forget(raw_path: &str) {
     let Ok(path) = parse_path(raw_path) else {
         return;
     };
-    lock(registry()).retain(|key, _| key.path != path);
+    lock(registry()).retain(|key, _| key.path() != path);
 }
 
 pub fn invalidate_all() {
@@ -256,7 +282,7 @@ pub fn invalidate_all() {
 
 pub fn invalidate_within(path: &Path) {
     for (key, slot) in lock(registry()).iter() {
-        if path.starts_with(&key.path) || key.path.starts_with(path) {
+        if path.starts_with(key.path()) || key.path().starts_with(path) {
             lock(slot).order = None;
         }
     }
@@ -356,17 +382,201 @@ pub fn window(request: &WindowRequest, cancelled: &AtomicBool) -> Value {
         Ok(path) => path,
         Err(error) => return failure(&request.path, &error),
     };
-    let text = path_text(&path);
+    let slot = match acquire(&path, request.show_hidden, request.fresh, cancelled) {
+        Ok(slot) => slot,
+        Err(error) => return failure(&path_text(&path), &error),
+    };
+    let mut response = render_window(request, &path, &slot, cancelled, |entry, created| {
+        stat_row(entry, created, request.git_enabled)
+    });
+    if request.git_enabled
+        && response["ok"] == true
+        && let Some(entries) = response["entries"].as_array_mut()
+        && let Some(git) = decorate(&path, entries, request.fresh_git, cancelled)
+    {
+        response["git"] = git;
+    }
+    response
+}
+
+pub fn window_from_directory(
+    request: &WindowRequest,
+    directory: &OwnedFd,
+    cancelled: &AtomicBool,
+) -> Value {
+    let path = match parse_path(&request.path) {
+        Ok(path) => path,
+        Err(error) => return failure(&request.path, &error),
+    };
+    if cancelled.load(Ordering::Relaxed) {
+        return failure(
+            &request.path,
+            &io::Error::new(io::ErrorKind::Interrupted, "operation cancelled"),
+        );
+    }
+    let slot = (|| -> io::Result<_> {
+        let stat = crate::secure::stat_in(directory, std::ffi::OsStr::new("."))?;
+        let mount = crate::secure::directory_unique_mount_id(directory)?;
+        let key = CacheKey::Directory(
+            ListingKey {
+                path: path.clone(),
+                show_hidden: request.show_hidden,
+            },
+            stat.dev,
+            stat.ino,
+            mount,
+        );
+        let stamp = (
+            stat.mtime * 1_000_000_000 + stat.mtime_nsec,
+            stat.ctime * 1_000_000_000 + stat.ctime_nsec,
+            stat.ino,
+        );
+        acquire_listing(key, stamp, request.fresh, || {
+            scan_directory(directory, &path, request.show_hidden, cancelled)
+        })
+    })();
+    let slot = match slot {
+        Ok(slot) => slot,
+        Err(error) => return failure(&request.path, &error),
+    };
+    let mut response = render_window(request, &path, &slot, cancelled, |entry, created| {
+        directory_row(directory, entry, created)
+    });
+    if request.git_enabled {
+        response["git_available"] = json!(false);
+        response["git_unavailable_reason"] = json!("location-boundary");
+    }
+    response
+}
+
+fn scan_directory(
+    directory: &OwnedFd,
+    path: &Path,
+    show_hidden: bool,
+    cancelled: &AtomicBool,
+) -> io::Result<(Vec<Listed>, bool)> {
+    use rustix::fs::{Dir, FileType};
+    let mut stream = Dir::read_from(directory)?;
+    let mut entries = Vec::new();
+    let mut scanned = 0;
+    let mut capped = false;
+    for item in &mut stream {
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "operation cancelled",
+            ));
+        }
+        let item = item?;
+        let raw = std::ffi::OsStr::from_bytes(item.file_name().to_bytes());
+        if matches!(raw.as_bytes(), b"." | b"..") {
+            continue;
+        }
+        if scanned >= LISTING_ENTRY_CAP {
+            capped = true;
+            break;
+        }
+        scanned += 1;
+        if !show_hidden && raw.as_bytes().starts_with(b".") {
+            continue;
+        }
+        let kind = item.file_type();
+        let (is_dir, is_link) = if kind == FileType::Unknown {
+            match directory_child(directory, raw).and_then(|file| file.metadata()) {
+                Ok(metadata) => (metadata.is_dir(), metadata.is_symlink()),
+                Err(error) if error.raw_os_error() == Some(libc::EXDEV) => (true, false),
+                Err(_) => continue,
+            }
+        } else {
+            (kind == FileType::Directory, kind == FileType::Symlink)
+        };
+        entries.push(Listed {
+            name: crate::common::display_path(Path::new(raw)),
+            path: path.join(raw),
+            is_dir,
+            is_link,
+        });
+    }
+    entries.sort_by(|left, right| natural(&left.name, &right.name));
+    Ok((entries, capped))
+}
+
+fn directory_child(directory: &OwnedFd, name: &std::ffi::OsStr) -> io::Result<fs::File> {
+    use rustix::fs::{Mode, OFlags, ResolveFlags, openat2};
+    openat2(
+        directory,
+        name,
+        OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_XDEV,
+    )
+    .map(fs::File::from)
+    .map_err(io::Error::from)
+}
+
+fn directory_row(directory: &OwnedFd, entry: &Listed, include_created: bool) -> Option<Value> {
+    let file = match directory_child(directory, entry.path.file_name()?) {
+        Ok(file) => file,
+        Err(error) if error.raw_os_error() == Some(libc::EXDEV) => {
+            return Some(boundary_row(entry));
+        }
+        Err(_) => return None,
+    };
+    let metadata = file.metadata().ok()?;
+    let mut row = basic_entry_with_git(
+        &entry.path,
+        &metadata,
+        metadata.is_dir(),
+        metadata.is_symlink(),
+        false,
+    );
+    if include_created {
+        use rustix::fs::{AtFlags, StatxFlags, statx};
+        let created = statx(&file, "", AtFlags::EMPTY_PATH, StatxFlags::BTIME)
+            .ok()
+            .filter(|stat| StatxFlags::from_bits_retain(stat.stx_mask).contains(StatxFlags::BTIME))
+            .and_then(|stat| {
+                u64::try_from(stat.stx_btime.tv_sec)
+                    .ok()
+                    .filter(|seconds| *seconds > 0)
+                    .and_then(|seconds| {
+                        std::time::UNIX_EPOCH
+                            .checked_add(Duration::new(seconds, stat.stx_btime.tv_nsec))
+                    })
+            })
+            .map(crate::common::timestamp)
+            .unwrap_or_default();
+        row["created"] = json!(created);
+    }
+    Some(row)
+}
+
+fn boundary_row(entry: &Listed) -> Value {
+    json!({
+        "name": entry.name, "path": path_text(&entry.path),
+        "is_dir": entry.is_dir, "is_symlink": false, "is_git_repo": false, "is_deleted": false,
+        "size": -1, "size_text": "", "modified": "", "created": "", "stat_fingerprint": "",
+        "kind": "Mount point", "mime": crate::filesystem::entry_mime(&entry.name, entry.is_dir),
+        "git_repo_root": "", "git_status": "", "git_status_label": "", "git_index_status": "",
+        "git_worktree_status": "", "git_original_path": "", "git_modified_count": 0,
+        "git_deleted_count": 0, "git_new_count": 0, "mount_boundary": true
+    })
+}
+
+fn render_window(
+    request: &WindowRequest,
+    path: &Path,
+    slot: &Arc<Mutex<DirListing>>,
+    cancelled: &AtomicBool,
+    row: impl Fn(&Listed, bool) -> Option<Value>,
+) -> Value {
+    let text = path_text(path);
     let sort = if SORT_KEYS.contains(&request.sort.as_str()) {
         request.sort.clone()
     } else {
         "name".to_string()
     };
-    let slot = match acquire(&path, request.show_hidden, request.fresh, cancelled) {
-        Ok(slot) => slot,
-        Err(error) => return failure(&text, &error),
-    };
-    let mut listing = lock(&slot);
+    let mut listing = lock(slot);
     let started = Instant::now();
     let cached = listing
         .order
@@ -399,7 +609,7 @@ pub fn window(request: &WindowRequest, cancelled: &AtomicBool) -> Value {
                 partial = true;
                 break;
             }
-            rows[index] = stat_row(entry, include_created, request.git_enabled);
+            rows[index] = row(entry, include_created);
         }
     }
     let order = if let Some(order) = cached {
@@ -472,11 +682,7 @@ pub fn window(request: &WindowRequest, cancelled: &AtomicBool) -> Value {
         }
         let row = match rows.get_mut(*index).and_then(Option::take) {
             Some(row) => row,
-            None => match stat_row(
-                &listing.entries[*index],
-                include_created,
-                request.git_enabled,
-            ) {
+            None => match row(&listing.entries[*index], include_created) {
                 Some(row) => row,
                 None => continue,
             },
@@ -484,12 +690,7 @@ pub fn window(request: &WindowRequest, cancelled: &AtomicBool) -> Value {
         entries.push(row);
     }
     let capped = listing.capped;
-    drop(listing);
-    let git = request
-        .git_enabled
-        .then(|| decorate(&path, &mut entries, request.fresh_git, cancelled))
-        .flatten();
-    let mut response = json!({
+    json!({
         "ok": true,
         "path": text,
         "entries": entries,
@@ -502,11 +703,7 @@ pub fn window(request: &WindowRequest, cancelled: &AtomicBool) -> Value {
         "sort": sort,
         "descending": request.descending,
         "limit": request.count.max(1)
-    });
-    if let Some(git) = git {
-        response["git"] = git;
-    }
-    response
+    })
 }
 
 fn decorate(

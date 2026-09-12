@@ -38,6 +38,8 @@ pub enum BackendCommand {
     FrecencyList(FrecencyListArgs),
     ArchiveList(PathArg),
     ArchiveExtract(ArchiveExtractArgs),
+    ArchiveCreate(ArchiveCreateArgs),
+    PermissionsSet(PermissionsSetArgs),
     Preview(PreviewArgs),
     Thumbnail(ThumbnailArgs),
     ThumbnailRender(ThumbnailRenderArgs),
@@ -75,6 +77,10 @@ pub enum BackendCommand {
     ActionRun(ActionRunArgs),
     Copy(TransferArgs),
     Move(TransferArgs),
+    Locations,
+    List(LocationListArgs),
+    TransferPreflight(TransferPreflightArgs),
+    TransferExecute(TransferExecuteArgs),
     Rename(RenameArgs),
     Create(CreateArgs),
     Color(ColorArgs),
@@ -125,7 +131,8 @@ where
 pub fn mutating(command: &BackendCommand) -> bool {
     matches!(
         command,
-        BackendCommand::Copy(_)
+        BackendCommand::TransferExecute(_)
+            | BackendCommand::Copy(_)
             | BackendCommand::Move(_)
             | BackendCommand::Rename(_)
             | BackendCommand::Create(_)
@@ -142,6 +149,8 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::BinRemove(_)
             | BackendCommand::BinPurge(_)
             | BackendCommand::ArchiveExtract(_)
+            | BackendCommand::ArchiveCreate(_)
+            | BackendCommand::PermissionsSet(_)
             | BackendCommand::PluginInstall
             | BackendCommand::MountVolume(_)
             | BackendCommand::UnmountVolume(_)
@@ -150,6 +159,11 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::HelperWrite(_)
             | BackendCommand::PreferencesSet(_)
             | BackendCommand::KeybindingsPrepare
+            | BackendCommand::StateWrite(_)
+            | BackendCommand::LayoutWrite(_)
+            | BackendCommand::FrecencyVisit(_)
+            | BackendCommand::Visit(_)
+            | BackendCommand::Recover
     )
 }
 
@@ -171,6 +185,17 @@ fn dispatch_command(
     }
     let mutates = mutating(&command);
     let value = match command {
+        BackendCommand::List(options) => crate::locations::list(&options, cancelled),
+        BackendCommand::Locations => crate::locations::payload(cancelled)?,
+        BackendCommand::TransferPreflight(options) => crate::operations::collisions::preflight(
+            options.operation == "copy",
+            &options.source,
+            &options.destination,
+            cancelled,
+        ),
+        BackendCommand::TransferExecute(options) => {
+            transfer_execute(&options, cancelled, progress)?
+        }
         BackendCommand::Agents => crate::agents::installed_agents(),
         BackendCommand::HelperRead(options) => options.execute(false, cancelled)?,
         BackendCommand::HelperWrite(options) => options.execute(true, cancelled)?,
@@ -240,6 +265,15 @@ fn dispatch_command(
             crate::frecency::visit(&options.path[..options.path.len().min(64)])
         }
         BackendCommand::ArchiveList(options) => crate::archive::list(&options.path, cancelled),
+        BackendCommand::ArchiveCreate(options) => crate::archive::create(
+            &options.source,
+            &options.destination,
+            &options.format,
+            cancelled,
+        ),
+        BackendCommand::PermissionsSet(options) => {
+            crate::operations::permissions::set(&options.path, &options.mode, cancelled)
+        }
         BackendCommand::ArchiveExtract(options) => crate::archive::extract(
             &options.path,
             options.destination.as_deref(),

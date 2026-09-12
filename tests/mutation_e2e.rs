@@ -904,7 +904,7 @@ fn backend_with_tools(root: &Path, arguments: &[&str], tools: Option<&Path>) -> 
 }
 
 #[test]
-fn clipboard_text_writes_one_absolute_path_per_line() {
+fn clipboard_text_refuses_outside_the_resident_session() {
     let temporary = tempdir().unwrap();
     let tools = temporary.path().join("tools");
     fs::create_dir(&tools).unwrap();
@@ -932,17 +932,17 @@ fn clipboard_text_writes_one_absolute_path_per_line() {
         ],
         Some(&tools),
     );
-    assert_eq!(payload["ok"], true, "{payload}");
-    assert_eq!(payload["paths"], 2);
-    assert_eq!(
-        fs::read_to_string(&capture).unwrap(),
-        format!("{}\n{}", odd.display(), temporary.path().display())
+    assert_eq!(payload["ok"], false, "{payload}");
+    assert!(
+        payload["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("resident FileBlade server"),
+        "{payload}"
     );
-    assert_eq!(
-        fs::read_to_string(format!("{}.args", capture.display()))
-            .unwrap()
-            .trim(),
-        "--type text/plain"
+    assert!(
+        !capture.exists(),
+        "a one-shot backend must not offer the clipboard without the resident session"
     );
 }
 

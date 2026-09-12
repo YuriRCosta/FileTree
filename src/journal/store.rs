@@ -145,7 +145,7 @@ pub(super) fn valid_entry(entry: &JournalEntry) -> bool {
     !entry.id.is_empty()
         && matches!(
             entry.kind.as_str(),
-            "copy" | "move" | "rename" | "create" | "trash" | "color"
+            "copy" | "move" | "rename" | "create" | "trash" | "color" | "transfer" | "permissions"
         )
         && !entry.items.is_empty()
         && entry.items.iter().all(|item| valid_item(&entry.kind, item))
@@ -153,6 +153,12 @@ pub(super) fn valid_entry(entry: &JournalEntry) -> bool {
 
 pub(super) fn valid_item(kind: &str, item: &JournalItem) -> bool {
     match kind {
+        "transfer" => valid_compound_item(item),
+        "permissions" => {
+            valid_path(&item.target)
+                && valid_permissions(&item.before_value)
+                && valid_permissions(&item.after_value)
+        }
         "copy" | "move" | "rename" => valid_path(&item.source) && valid_path(&item.target),
         "create" => valid_path(&item.target),
         "trash" => valid_path(&item.source),

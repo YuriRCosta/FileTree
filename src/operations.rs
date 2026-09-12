@@ -11,7 +11,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
+pub mod collisions;
 mod names;
+pub mod permissions;
 pub use names::checked_name;
 use names::{checked_rename_name, unique_copy_target};
 

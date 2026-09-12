@@ -171,6 +171,19 @@ pub fn restore_with_helper(
     restore_entry(module, entry_id, helper, cancelled)
 }
 
+fn same_recovery_route(left: &Route, right: &Route) -> bool {
+    if left.provider == right.provider && left.helper == right.helper {
+        return true;
+    }
+    match (
+        module_helpers::canonical_route(&left.provider, &left.helper),
+        module_helpers::canonical_route(&right.provider, &right.helper),
+    ) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
+}
+
 pub(super) fn restore_payload(
     entry_dir: &Path,
     entry_id: &str,
@@ -179,9 +192,7 @@ pub(super) fn restore_payload(
     cancelled: &AtomicBool,
 ) -> Value {
     let route = match (helper, manifest.restore_helper.as_ref()) {
-        (Some(route), Some(saved))
-            if route.provider != saved.provider || route.helper != saved.helper =>
-        {
+        (Some(route), Some(saved)) if !same_recovery_route(&route, saved) => {
             return refusal(
                 "the recovery helper does not match this record's provider",
                 "",
@@ -221,7 +232,13 @@ pub(super) fn restore_payload(
             "",
         );
     }
-    manifest.restore_helper = Some(route.clone());
+    if manifest
+        .restore_helper
+        .as_ref()
+        .is_none_or(|saved| saved.provider == route.provider && saved.helper == route.helper)
+    {
+        manifest.restore_helper = Some(route.clone());
+    }
     if let Err(error) = save_manifest(entry_dir, manifest) {
         return refusal(format!("Could not save the recovery helper: {error}"), "");
     }
