@@ -35,15 +35,17 @@ TestCase {
     waitForRendering(view)
     function onlyVisible() {
       var paths = Object.values(fakeController.pending)
-      return paths.length > 0 && paths.length < 425 && paths.every(function(path) {
+      return paths.length > 0 && paths.length <= 4 && paths.every(function(path) {
         var tile = view.itemAtIndex(view.indexOfPath(path))
         return tile && tile.y + tile.height > view.contentY && tile.y < view.contentY + view.flickable.height
       })
     }
     tryVerify(onlyVisible)
-    view.positionViewAtIndex(300, GridView.Beginning)
-    waitForRendering(view)
-    tryVerify(onlyVisible)
+    for (var at of [300, 50, 400, 100, 300]) {
+      view.positionViewAtIndex(at, GridView.Beginning)
+      waitForRendering(view)
+      tryVerify(onlyVisible)
+    }
     verify(Object.values(fakeController.pending).indexOf("/0.png") < 0)
     view.visible = false
     compare(Object.keys(fakeController.pending).length, 0)

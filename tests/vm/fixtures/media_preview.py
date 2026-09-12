@@ -3,9 +3,13 @@ import argparse
 import base64
 import json
 import os
+import signal
 from pathlib import Path
 import subprocess
+import struct
 import time
+from urllib.parse import unquote, urlsplit
+from media_formats import inspect_png
 
 
 def run(*args):
@@ -16,6 +20,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['prepare', 'check'])
     parser.add_argument('root', type=Path)
+    parser.add_argument('--matrix', type=Path)
+    parser.add_argument('--external-open', action='store_true')
     args = parser.parse_args()
     if os.environ.get('USER') != 'omarchy':
         raise SystemExit('Run inside harness B')
@@ -73,6 +79,48 @@ def main():
     control('openBlade', 'left')
     control('setBladeWidth', 'left', '600')
     values = []
+    if args.matrix:
+        matrix = json.loads(args.matrix.read_text())
+        for row in matrix:
+            if not row.get('generated'):
+                continue
+            path = row['fixture']
+            control('select', path)
+            value = wait(lambda s: s.get('entry', {}).get('path') == path and not s['loading'])
+            assert value['media'] and value['allowed'] and value['card'] and not value['text'], value
+            assert value['source'] and not value['error'], value
+            preview = unquote(urlsplit(value['source']).path)
+            width, height = struct.unpack('>II', Path(preview).read_bytes()[16:24])
+            pixels = inspect_png({'path': preview, 'width': width, 'height': height}, 1024, 1024)
+            row['properties'] = {'passed': True, 'source': value['source'], 'decoded': pixels}
+            row['recognition'] = {'mime': value['entry']['mime'], 'media': value['media']}
+            if args.external_open:
+                desktop = 'mpv.desktop' if row['family'].startswith('video') else 'imv.desktop'
+                before = {c['address'] for c in json.loads(run('hyprctl', '-j', 'clients'))}
+                control('openWithPath', path, desktop)
+                until = time.monotonic() + 17
+                while time.monotonic() < until:
+                    launch = json.loads(run('omarchy-shell', 'data-goblin.fileblade', 'status'))
+                    if not launch['launchBusy'] and launch['lastLaunchedPath'] == path:
+                        break
+                    time.sleep(.1)
+                assert not launch['launchBusy'] and launch['lastLaunchedPath'] == path, launch
+                windows = [c for c in json.loads(run('hyprctl', '-j', 'clients'))
+                           if c['address'] not in before and c['class'] in ('imv', 'mpv')]
+                row['external_open'] = {'desktop_id': desktop, 'status': launch['launchStatus'],
+                    'error': launch['launchError'], 'windows': [{k: c[k] for k in ('address', 'class', 'title', 'pid')} for c in windows],
+                    'pixel_inspection': 'not measured; window and dispatch only'}
+                for window in windows:
+                    process = Path('/proc') / str(window['pid'])
+                    if process.exists() and os.fsencode(path) in (process / 'cmdline').read_bytes().split(b'\0'):
+                        try:
+                            os.kill(window['pid'], signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                control('openBlade', 'left')
+            print(json.dumps({'family': row['family'], 'fixture': path, 'properties': row['properties'],
+                              'external_open': row['external_open']}), flush=True)
+        (args.root / 'properties-matrix.json').write_text(json.dumps(matrix, indent=2) + '\n')
     for name in ('image.png', 'image.jpg', 'image.webp', 'image.svg', 'video.mp4'):
         path = str(args.root / name)
         control('select', path)
