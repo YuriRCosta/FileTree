@@ -40,6 +40,7 @@ fn identifier(value: &str) -> bool {
 }
 
 pub(super) fn validate(entries: &[Entry]) -> AppResult<()> {
+    let mut payloads = Vec::new();
     for entry in entries.iter().filter(|entry| entry.source == "bin") {
         let parts: Vec<_> = entry.from.iter().collect();
         let module = parts
@@ -72,13 +73,49 @@ pub(super) fn validate(entries: &[Entry]) -> AppResult<()> {
             }
             let value: Value = serde_json::from_slice(bytes)?;
             let directory = entry.from.parent().unwrap();
-            manifest(&value, module, directory, entries)?;
+            manifest(&value, module, directory, entries, &mut payloads)?;
         }
+    }
+    validate_payloads(payloads)
+}
+
+fn validate_payloads(records: Vec<Value>) -> AppResult<()> {
+    if records.is_empty() {
+        return Ok(());
+    }
+    let root = crate::paths::app_root()?;
+    let program = crate::actions::resolve_plugin_program("python/bin/validate-recovery", &root)
+        .map_err(AppError::invalid)?;
+    let bytes = serde_json::to_vec(&serde_json::json!({"records": records}))?;
+    if bytes.len() > 24 * 1024 * 1024 {
+        return Err(refuse("helper payloads exceed byte bound"));
+    }
+    let output = crate::command::CommandSpec::new("/usr/bin/python3")
+        .args(["-I", "-B"])
+        .args([program])
+        .env_clear()
+        .stdin(bytes)
+        .timeout(std::time::Duration::from_secs(8))
+        .limits(128, 4096)
+        .resource_limits(0, 256 * 1024 * 1024)
+        .run()?;
+    if !output.status.success()
+        || output.stdout_truncated
+        || !serde_json::from_slice::<Value>(&output.stdout)
+            .is_ok_and(|response| response == serde_json::json!({"ok": true}))
+    {
+        return Err(refuse("helper payload does not satisfy the restore parser"));
     }
     Ok(())
 }
 
-fn manifest(value: &Value, module: &str, directory: &Path, entries: &[Entry]) -> AppResult<()> {
+fn manifest(
+    value: &Value,
+    module: &str,
+    directory: &Path,
+    entries: &[Entry],
+    payloads: &mut Vec<Value>,
+) -> AppResult<()> {
     if !value.is_object()
         || value["schemaVersion"] != 1
         || value["module"] != module
@@ -100,13 +137,11 @@ fn manifest(value: &Value, module: &str, directory: &Path, entries: &[Entry]) ->
             "manifest has missing or unsupported required fields",
         ));
     }
-    for key in ["deletedAtEpoch"] {
-        if value
-            .get(key)
-            .is_some_and(|value| !value.is_null() && value.as_i64().is_none())
-        {
-            return Err(refuse("invalid manifest timestamp"));
-        }
+    if value
+        .get("deletedAtEpoch")
+        .is_some_and(|value| !value.is_null() && value.as_i64().is_none())
+    {
+        return Err(refuse("invalid manifest timestamp"));
     }
     if value.get("position").is_some_and(|value| {
         !value.is_null()
@@ -215,6 +250,7 @@ fn manifest(value: &Value, module: &str, directory: &Path, entries: &[Entry]) ->
             {
                 return Err(refuse("incomplete core helper payload"));
             }
+            payloads.push(serde_json::json!({"module":module,"payload":payload}));
         }
     }
     let items = value["items"]

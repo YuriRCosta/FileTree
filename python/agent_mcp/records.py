@@ -58,7 +58,7 @@ def detach_json(definition, document: dict) -> dict:
             "position": position, "definition": fingerprint(raw)}
 
 
-def attach_json(document: dict, record: dict) -> bool:
+def validate_json_record(record: dict) -> tuple:
     path, name, raw = record.get("container"), record.get("name"), record.get("raw")
     position = record.get("position")
     if path not in ([], ["mcpServers"], ["mcp"], ["mcp", "servers"]) or not isinstance(name, str) or not name:
@@ -67,6 +67,11 @@ def attach_json(document: dict, record: dict) -> bool:
         raise ValueError("restore record has an invalid definition")
     if fingerprint(raw) != record.get("definition"):
         raise ValueError("restore definition does not match its fingerprint")
+    return path, name, raw, position
+
+
+def attach_json(document: dict, record: dict) -> bool:
+    path, name, raw, position = validate_json_record(record)
     mapping = container(document, path, create=True)
     if name in mapping:
         if fingerprint(mapping[name]) == fingerprint(raw):
@@ -110,7 +115,7 @@ def detach_toml(text: str, name: str, raw: dict) -> tuple[str, dict]:
                      "after": text_digest(updated), "definition": fingerprint(raw)}
 
 
-def attach_toml(text: str, record: dict) -> str | None:
+def validate_toml_record(record: dict) -> tuple:
     name, fragment, offset = record.get("name"), record.get("text"), record.get("offset")
     after = record.get("after")
     if not isinstance(name, str) or not name or not isinstance(fragment, str) or type(offset) is not int or offset < 0:
@@ -124,6 +129,11 @@ def attach_toml(text: str, record: dict) -> str | None:
     raw = mapping[name]
     if not isinstance(raw, dict) or fingerprint(raw) != record.get("definition"):
         raise ValueError("restore definition does not match its fingerprint")
+    return name, fragment, offset, raw
+
+
+def attach_toml(text: str, record: dict) -> str | None:
+    name, fragment, offset, raw = validate_toml_record(record)
     document = parse_toml(text.encode("utf-8"))
     servers = document.setdefault("mcp_servers", {})
     if not isinstance(servers, dict):

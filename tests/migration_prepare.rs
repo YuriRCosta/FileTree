@@ -25,6 +25,27 @@ fn manifest(module: &str, items: serde_json::Value) -> serde_json::Value {
     json!({"schemaVersion":1,"module":module,"id":"definition","name":"Fixture","kind":"","scope":"","detail":"","path":"","realpath":"","deletedAt":"2026-09-12 12:00","items":items})
 }
 
+fn damage_payload(scenario: &str, payload: &mut serde_json::Value) {
+    let parts: Vec<_> = scenario.split('-').collect();
+    if parts.len() != 4 {
+        return;
+    }
+    let field = parts[2];
+    if parts[3] == "missing" {
+        payload.as_object_mut().unwrap().remove(field);
+    } else {
+        payload[field] = match field {
+            "index" | "position" | "offset" => json!(-1),
+            "before" | "after" | "definition" => json!("g".repeat(64)),
+            "fields" => json!({"hooks": []}),
+            "container" => json!(["foreign"]),
+            "text" => json!("[mcp_servers.fixture]\ncommand='printf'\n[foreign]\nx=1\n"),
+            "raw" | "entry" => json!([]),
+            _ => json!(42),
+        };
+    }
+}
+
 fn invalid_native_document(scenario: &str, roots: &Roots) -> Option<(bool, PathBuf, Vec<u8>)> {
     let parts: Vec<_> = scenario.split('-').collect();
     if parts.len() != 3 || !["native", "completed"].contains(&parts[0]) {
@@ -73,7 +94,10 @@ fn migration_worker() {
         [0, 255, 13, 10],
     );
     let record_id = "0123456789abcdef0123456789abcdef";
-    let payload = json!({"format":2,"agent":"claude-code","event":"PreToolUse","source":"/fixture/settings.json","target":"/fixture/settings.json","entry":{"type":"command","command":"printf FIXTURE"},"fields":{},"index":0,"grouped":true,"removedGroup":true,"before":"before","after":"after"});
+    let mut payload = json!({"format":2,"agent":"claude-code","event":"PreToolUse","source":"/fixture/settings.json","target":"/fixture/settings.json","entry":{"type":"command","command":"printf FIXTURE"},"fields":{},"index":0,"group":"","grouped":true,"removedGroup":true,"before":"9b131f3ff5d55b5097a131dfe25290eae7c0d58f68da0e13167ae7c7741ae2e4","after":"74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"});
+    if scenario.starts_with("payload-hooks-") {
+        damage_payload(&scenario, &mut payload);
+    }
     write(&legacy.recovery.join(format!("hooks-recovery/{record_id}.json")), serde_json::to_vec(&json!({"formatVersion":1,"createdAt":1,"context":{},"transactionId":record_id,"definitionId":"definition","payload":payload})).unwrap());
     let bin = base.join("data/fileblade/bin");
     let mut hooks = manifest("hooks", json!([]));
@@ -98,6 +122,26 @@ fn migration_worker() {
         &bin.join("hooks/entry/manifest.json"),
         serde_json::to_vec(&hooks).unwrap(),
     );
+    if scenario.starts_with("payload-json") || scenario.starts_with("payload-toml") {
+        let mut payload = json!({"format":2,"agent":"claude-code","path":"/fixture/mcp.json","target":"/fixture/mcp.json","kind":"json","container":["mcpServers"],"name":"fixture","raw":{"command":"printf","args":["FIXTURE"]},"position":0,"definition":"ac39c42ab90004e9d90639689f8fc0995f4d28e90aeca3ed743fd036018763a0"});
+        if scenario.starts_with("payload-toml") {
+            payload["kind"] = json!("toml");
+            payload["text"] = json!("[mcp_servers.fixture]\ncommand='printf'\nargs=['FIXTURE']\n");
+            payload["offset"] = json!(0);
+            payload["after"] =
+                json!("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        }
+        damage_payload(&scenario, &mut payload);
+        let mut mcp = manifest("mcp", json!([]));
+        mcp["payload"] = payload.clone();
+        mcp["helperRecordId"] = record_id.into();
+        mcp["restoreHelper"] = json!({"provider":"data-goblin.fileblade-mcp","helper":"inventory","directory":"legacy"});
+        write(
+            &bin.join("mcp/entry/manifest.json"),
+            serde_json::to_vec(&mcp).unwrap(),
+        );
+        write(&legacy.recovery.join(format!("mcp-recovery/{record_id}.json")), serde_json::to_vec(&json!({"formatVersion":1,"createdAt":1,"context":{},"transactionId":record_id,"definitionId":"definition","payload":payload})).unwrap());
+    }
     let skills = manifest(
         "skills",
         json!([{"from":"/fixture/link","mode":511,"size":0,"target":"../unavailable-target","stored":"items/0","type":"symlink"}]),
@@ -235,11 +279,34 @@ fn migration_worker() {
     } else {
         None
     };
+    let original_records: Vec<_> = ["hooks", "mcp"]
+        .iter()
+        .flat_map(|module| {
+            [
+                legacy
+                    .recovery
+                    .join(format!("{module}-recovery/{record_id}.json")),
+                bin.join(format!("{module}/entry/manifest.json")),
+            ]
+        })
+        .filter_map(|path| fs::read(&path).ok().map(|bytes| (path, bytes)))
+        .collect();
     let result = prepare(&legacy, &native, &authority).unwrap();
     assert!(matches!(
         authority.write_mode(),
         fileblade::lease::WriteMode::ReadOnly { .. }
     ));
+    if scenario.starts_with("payload-") && !scenario.ends_with("-valid") {
+        assert!(
+            matches!(result.status, Status::Refused { .. }),
+            "{result:?}"
+        );
+        assert!(!result.receipt_path.exists());
+        for (path, bytes) in original_records {
+            assert_eq!(fs::read(path).unwrap(), bytes);
+        }
+        return;
+    }
     if let Some((false, path, bytes)) = &invalid_native {
         assert!(
             matches!(result.status, Status::Refused { .. }),
@@ -478,6 +545,8 @@ fn migration_worker() {
 fn migration_preserves_refuses_and_resumes() {
     let mut scenarios: Vec<String> = [
         "first",
+        "payload-json-valid",
+        "payload-toml-valid",
         "killed-removal",
         "retired-change",
         "legacy-payload",
@@ -518,6 +587,35 @@ fn migration_preserves_refuses_and_resumes() {
     .into_iter()
     .map(str::to_owned)
     .collect();
+    for (module, fields) in [
+        (
+            "hooks",
+            vec![
+                "group",
+                "index",
+                "grouped",
+                "removedGroup",
+                "fields",
+                "entry",
+                "before",
+                "after",
+            ],
+        ),
+        (
+            "json",
+            vec!["container", "name", "raw", "position", "definition"],
+        ),
+        (
+            "toml",
+            vec!["name", "text", "offset", "after", "definition"],
+        ),
+    ] {
+        for field in fields {
+            for damage in ["missing", "wrong"] {
+                scenarios.push(format!("payload-{module}-{field}-{damage}"));
+            }
+        }
+    }
     for phase in ["native", "completed"] {
         for kind in ["state", "settings", "layout", "keybindings"] {
             for fault in ["newer", "malformed", "unsupported"] {
@@ -567,6 +665,11 @@ fn migration_preserves_refuses_and_resumes() {
         command
             .args(["--exact", "migration_worker", "--nocapture"])
             .env("MIGRATION_CASE", scenario)
+            .env(
+                "FILEBLADE_APP_ROOT",
+                fileblade::paths::app_root()
+                    .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
+            )
             .env("HOME", base)
             .env("PATH", base.join("bin"))
             .env("XDG_DATA_HOME", base.join("data"))

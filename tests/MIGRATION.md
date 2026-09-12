@@ -79,3 +79,13 @@ native helper continuation qualification. S2-C3 remains the native helper route
 dependency. The combined source used for this check is published runtime da0b1a2
 plus the recorded core overlays; the exact version-branch merge gate follows
 runtime integration.
+
+Known Hooks and MCP recovery payloads also pass their production restore
+validators before Ready, including when revisiting a completed receipt.
+`python/bin/validate-recovery` validates the inventoried payloads in one bounded
+isolated Python process; it never opens a live source or recovery store.
+Hooks restoration shares `validate_record`; JSON/TOML MCP restoration shares
+`validate_json_record`/`validate_toml_record`, including typed fingerprints and
+the isolated TOML table. Unknown extension payloads remain opaque.
+Missing Python/helper code or a parser refusal preserves the originals and
+refuses writable migration. No additional runtime dependency is introduced.

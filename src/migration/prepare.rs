@@ -192,6 +192,7 @@ fn import(
             if completed != Content::File(completion(&bytes)) {
                 return Err(invalid("migration completion receipt mismatch"));
             }
+            validate(&receipt.entries)?;
             return Ok(());
         }
         (receipt, false)
@@ -253,7 +254,6 @@ fn import(
                 return Err(invalid("legacy source root changed during inventory"));
             }
         }
-        validate(&entries)?;
         (
             Receipt {
                 version: 2,
