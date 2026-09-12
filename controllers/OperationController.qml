@@ -24,6 +24,10 @@ Item {
   property var active: null
   property var activeResponse: null
   property var progress: null
+  property var collisionPlan: null
+  property var collisionDecisions: []
+  property var collisionItem: null
+  property int collisionSerial: 0
   property bool cancelRequested: false
   property int serial: 0
   property var results: []
@@ -574,7 +578,8 @@ Item {
     if (cancelRequested) return "cancelling"
     cancelRequested = true
     notice = "Stopping " + String(active.label || "file operation").toLowerCase() + "…"
-    if (activeBackendRequestId) service.cancelBackendRequest(activeBackendRequestId, String(active.id || ""))
+    if (collisionPlan && !activeBackendRequestId) submitTransfer(true)
+    else if (activeBackendRequestId) service.cancelBackendRequest(activeBackendRequestId, String(active.id || ""))
     return "cancelling"
   }
 
@@ -625,7 +630,7 @@ Item {
   }
 
   function startNext() {
-    if (activeBackendRequestId || queue.length === 0) return
+    if (active || activeBackendRequestId || queue.length === 0) return
     active = queue[0]
     queue = queue.slice(1)
     activeResponse = null
@@ -645,16 +650,126 @@ Item {
     label = active.label
     error = ""
     notice = label + "…"
+    if (["copy", "move"].indexOf(String(active.kind)) >= 0) {
+      preflightTransfer()
+      return
+    }
+    requestActive(active.kind, active.arguments)
+  }
+
+  function requestActive(kind, arguments) {
     var requestGeneration = String(active.id || "")
-    activeBackendRequestId = service.backendRequest(active.kind, active.arguments, requestGeneration, function(response) {
+    activeBackendRequestId = service.backendRequest(kind, arguments, requestGeneration, function(response) {
       if (!controller.active || requestGeneration !== String(controller.active.id || "")) return
       controller.activeBackendRequestId = ""
+      if (kind === "transfer-execute" && response && response.ok && response.requires_decision) {
+        controller.collisionPlan = response
+        controller.collisionDecisions = response.accepted_decisions || []
+        if (controller.cancelRequested) controller.submitTransfer(true)
+        else controller.nextCollision()
+        return
+      }
       controller.activeResponse = response
       controller.finish(0)
     }, function(update) {
       if (!controller.active || requestGeneration !== String(controller.active.id || "")) return
       controller.applyProgress(update)
     }, 900000, { untimed: true })
+  }
+
+
+  function preflightTransfer() {
+    var arguments = []
+    for (var index = 0; index < active.arguments.length; index++) {
+      if (active.arguments[index] === "--journal-id") { index++; continue }
+      arguments.push(active.arguments[index])
+    }
+    arguments.push("--operation", active.kind)
+    var generation = String(active.id)
+    activeBackendRequestId = service.backendRequest("transfer-preflight", arguments, generation, function(response) {
+      if (!controller.active || generation !== String(controller.active.id)) return
+      controller.activeBackendRequestId = ""
+      if (!response || !response.ok) {
+        controller.activeResponse = response || { ok: false, error: "Unable to review the transfer" }
+        controller.finish(0)
+        return
+      }
+      controller.collisionPlan = response
+      controller.collisionDecisions = []
+      if (controller.cancelRequested) controller.submitTransfer(true)
+      else controller.nextCollision()
+    })
+  }
+
+  function decisionFor(id) {
+    for (var index = 0; index < collisionDecisions.length; index++)
+      if (String(collisionDecisions[index].id) === String(id)) return collisionDecisions[index]
+    return null
+  }
+
+  function nextCollision() {
+    if (!collisionPlan || activeBackendRequestId) return
+    if (cancelRequested) { submitTransfer(true); return }
+    var items = collisionPlan.items || []
+    var enabled = ({})
+    for (var index = 0; index < items.length; index++) {
+      var item = items[index]
+      var parent = item.parent
+      enabled[item.id] = parent === null || parent === undefined || (enabled[parent] && decisionFor(parent) && decisionFor(parent).action === "merge")
+      if (!enabled[item.id] || !item.collision || decisionFor(item.id)) continue
+      var scoped = null
+      for (var previous = 0; previous < collisionDecisions.length; previous++) {
+        var candidate = collisionDecisions[previous]
+        if (candidate.apply_to_remaining && Number(candidate.id) < Number(item.id)
+          && sameCollisionScope(items[Number(candidate.id)], item) && item.choices.indexOf(candidate.action) >= 0)
+          scoped = candidate
+      }
+      if (scoped) {
+        collisionDecisions = collisionDecisions.concat([{ id: String(item.id), action: scoped.action }])
+        continue
+      }
+      collisionItem = item
+      collisionSerial++
+      notice = "Choose how to handle " + service.rootName(item.destination)
+      return
+    }
+    collisionItem = null
+    submitTransfer(false)
+  }
+
+  function sameCollisionScope(first, second) {
+    return first.source_identity.kind === second.source_identity.kind
+      && String(first.destination_identity && first.destination_identity.kind || "") === String(second.destination_identity && second.destination_identity.kind || "")
+      && !!first.incoming_collision === !!second.incoming_collision && !!first.same_target === !!second.same_target
+  }
+
+  function resolveCollision(serial, action, remaining) {
+    if (!collisionItem || serial !== collisionSerial || !collisionPlan) return false
+    if (action === "cancel") { cancelActive(); return true }
+    if (collisionItem.choices.indexOf(action) < 0) return false
+    var chosen = collisionItem
+    var values = collisionDecisions.slice()
+    values.push({ id: String(chosen.id), action: action, apply_to_remaining: !!remaining })
+    if (remaining) {
+      var items = collisionPlan.items || []
+      for (var index = Number(chosen.id) + 1; index < items.length; index++) {
+        var item = items[index]
+        if (item.collision && !decisionFor(item.id) && sameCollisionScope(chosen, item) && item.choices.indexOf(action) >= 0)
+          values.push({ id: String(item.id), action: action })
+      }
+    }
+    collisionDecisions = values
+    collisionItem = null
+    Qt.callLater(controller.nextCollision)
+    return true
+  }
+
+  function submitTransfer(cancel) {
+    if (!active || !collisionPlan || activeBackendRequestId) return
+    collisionItem = null
+    var arguments = ["--decision-id", collisionPlan.decision_id, "--decisions", JSON.stringify(collisionDecisions), "--actor", actor]
+    if (cancel) arguments.push("--cancel")
+    requestActive("transfer-execute", arguments)
   }
 
   function finish(exitCode) {
@@ -675,6 +790,9 @@ Item {
     activeResponse = null
     progress = null
     cancelRequested = false
+    collisionPlan = null
+    collisionDecisions = []
+    collisionItem = null
     Qt.callLater(controller.startNext)
   }
 
@@ -696,7 +814,8 @@ Item {
   function finishCancelled(response, effects) {
     notice = label + " stopped"
     error = response.partial_target ? "Check for a partial item at " + String(response.partial_target) : ""
-    clearAfterOperation()
+    if (Array.isArray(response.displaced) && response.displaced.length > 0) error = "Replaced items remain in Trash; Undo restores them"
+    clearAfterOperation(response)
     service.clearSelection()
     refreshAfterOperation(effects)
   }
@@ -704,7 +823,7 @@ Item {
   function finishSucceeded(effects) {
     notice = label + " complete"
     error = ""
-    clearAfterOperation()
+    clearAfterOperation(activeResponse)
     if (active && active.clearSelection) service.clearSelection()
     refreshAfterOperation(effects)
   }
@@ -712,12 +831,26 @@ Item {
   function finishFailed(response, effects) {
     notice = ""
     error = String(response.error || "File operation failed")
+    if (Array.isArray(response.displaced) && response.displaced.length > 0) error += ". Replaced items remain in Trash; Undo restores them"
     if (!effects.changed) return
+    clearAfterOperation(response)
     service.clearSelection()
     refreshAfterOperation(effects)
   }
 
-  function clearAfterOperation() {
+  function clearAfterOperation(response) {
+    var completed = response && Array.isArray(response.completed_sources) ? response.completed_sources : null
+    if (completed) {
+      if (active && active.clearClipboard) {
+        clipboardPaths = clipboardPaths.filter(function(path) { return completed.indexOf(String(path)) < 0 })
+        if (clipboardPaths.length === 0) clipboardMode = "copy"
+      }
+      if (active && active.clearExternal) {
+        externalPaths = externalPaths.filter(function(path) { return completed.indexOf(String(path)) < 0 })
+        if (externalPaths.length === 0) clearExternal()
+      }
+      return
+    }
     if (active && active.clearClipboard) {
       clipboardPaths = []
       clipboardMode = "copy"
