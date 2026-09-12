@@ -3,6 +3,27 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+fn list(location: &locations::Descriptor, path: &str) -> serde_json::Value {
+    let command = fileblade::backend::parse([
+        "fileblade",
+        "list",
+        "--location",
+        &location.id,
+        "--generation",
+        &location.session_generation,
+        "--path",
+        path,
+        "--no-git",
+    ])
+    .unwrap();
+    fileblade::backend::dispatch(
+        command,
+        &std::sync::atomic::AtomicBool::new(false),
+        &mut |_| Ok(()),
+    )
+    .unwrap()
+}
+
 #[test]
 fn confined_open_rejects_mounts_and_keeps_directory_identity_after_rename() {
     let root = tempfile::tempdir().unwrap();
@@ -80,7 +101,17 @@ fn nested_bind_mount_requires_its_own_generation_and_remount_invalidates_it() {
                 .success()
         )
     };
+    let before_mount = list(&descriptor, "");
+    assert_eq!(before_mount["ok"], true, "{before_mount}");
+    assert_eq!(before_mount["entries"][0]["name"], "mounted");
+    assert!(before_mount["entries"][0].get("mount_boundary").is_none());
     bind();
+    let boundary = list(&descriptor, "");
+    assert_eq!(boundary["ok"], true, "{boundary}");
+    assert_eq!(boundary["entries"][0]["mount_boundary"], true);
+    let refused = list(&descriptor, "mounted");
+    assert_eq!(refused["ok"], false, "{refused}");
+    assert_eq!(refused["entries"], serde_json::json!([]));
     assert_eq!(
         secure::stat_in(&pinned, std::ffi::OsStr::new("."))
             .unwrap()
@@ -99,6 +130,11 @@ fn nested_bind_mount_requires_its_own_generation_and_remount_invalidates_it() {
     )
     .unwrap();
     assert!(locations::validate_local(&nested_id, &first.session_generation).is_ok());
+    let nested_listing = list(&first, "");
+    assert_eq!(nested_listing["ok"], true, "{nested_listing}");
+    assert_eq!(nested_listing["entries"][0]["name"], "item");
+    assert_eq!(nested_listing["generation"], first.session_generation);
+    assert_eq!(list(&descriptor, "mounted")["ok"], false);
     let table = fs::read_to_string("/proc/self/mountinfo").unwrap();
     let mount_id = first.local_representation.as_ref().unwrap().mount_id;
     let text = table
@@ -123,10 +159,17 @@ fn nested_bind_mount_requires_its_own_generation_and_remount_invalidates_it() {
     .unwrap();
     assert_eq!(provider.connection, locations::Connection::Unavailable);
     assert!(provider.local_representation.is_none());
+    let unavailable = list(&provider, "");
+    assert_eq!(unavailable["ok"], false, "{unavailable}");
+    assert_eq!(unavailable["entries"], serde_json::json!([]));
+    assert_eq!(list(&descriptor, "mounted")["ok"], false);
     assert!(secure::open_directory_within_mount(&pinned, Path::new("mounted")).is_err());
     unmount();
     bind();
     assert!(locations::validate_local(&nested_id, &first.session_generation).is_err());
+    let stale = list(&first, "");
+    assert_eq!(stale["error_id"], "stale-location", "{stale}");
+    assert_eq!(stale["entries"], serde_json::json!([]));
     let next = locations::local(
         &nested_id,
         locations::Kind::Local,
@@ -141,6 +184,11 @@ fn nested_bind_mount_requires_its_own_generation_and_remount_invalidates_it() {
     );
     assert_ne!(first.session_generation, next.session_generation);
     assert!(locations::validate_local(&nested_id, &next.session_generation).is_ok());
+    let reconnected = list(&next, "");
+    assert_eq!(reconnected["ok"], true, "{reconnected}");
+    assert_eq!(reconnected["entries"][0]["name"], "item");
+    assert_eq!(reconnected["generation"], next.session_generation);
+    assert_eq!(list(&descriptor, "mounted")["ok"], false);
     assert!(secure::open_directory_within_mount(&pinned, Path::new("mounted")).is_err());
     unmount();
     locations::invalidate(&id);

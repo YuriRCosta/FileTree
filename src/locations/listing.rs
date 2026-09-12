@@ -8,14 +8,11 @@ fn refused(options: &LocationListArgs, id: &str, reason: impl ToString) -> Value
 }
 
 pub fn list(options: &LocationListArgs, cancelled: &AtomicBool) -> Value {
-    let root = match validate_local(&options.location, &options.generation) {
-        Ok(root) => root,
-        Err(error) => return refused(options, "stale-location", error),
-    };
-    let session = match session(&options.location, &options.generation) {
-        Ok(session) => session,
-        Err(error) => return refused(options, "stale-location", error),
-    };
+    let (session, root_directory) =
+        match validated_directory(&options.location, &options.generation) {
+            Ok(validated) => validated,
+            Err(error) => return refused(options, "stale-location", error),
+        };
     if !session.capabilities.contains(&Capability::List) {
         return refused(
             options,
@@ -35,8 +32,8 @@ pub fn list(options: &LocationListArgs, cancelled: &AtomicBool) -> Value {
             "location path must be relative and cannot traverse a parent",
         );
     }
-    let path = root.join(relative);
-    let directory = match secure::open_directory_nofollow(&path) {
+    let path = session.proof.path.join(relative);
+    let directory = match secure::open_directory_within_mount(&root_directory, relative) {
         Ok(directory) => directory,
         Err(error) => return refused(options, "location-unavailable", error),
     };
@@ -56,7 +53,7 @@ pub fn list(options: &LocationListArgs, cancelled: &AtomicBool) -> Value {
     if cancelled.load(Ordering::Relaxed) {
         return json!({"ok":false,"cancelled":true,"entries":[]});
     }
-    let mut result = crate::listing::window(
+    let mut result = crate::listing::window_from_directory(
         &crate::listing::WindowRequest {
             path: path_text(&path),
             show_hidden: options.show_hidden,
@@ -75,13 +72,14 @@ pub fn list(options: &LocationListArgs, cancelled: &AtomicBool) -> Value {
             git_enabled: !options.no_git,
             fresh_git: options.fresh_git,
         },
+        &directory,
         cancelled,
     );
     if let Err(error) = validate_local(&options.location, &options.generation) {
         crate::listing::forget(&path_text(&path));
         return refused(options, "stale-location", error);
     }
-    let same = secure::open_directory_nofollow(&path)
+    let same = secure::open_directory_within_mount(&root_directory, relative)
         .and_then(|directory| secure::stat_in(&directory, OsStr::new(".")))
         .is_ok_and(|stat| stat.identity() == before);
     if !same {
