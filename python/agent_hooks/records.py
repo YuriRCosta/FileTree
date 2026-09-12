@@ -73,14 +73,22 @@ def detach(row: dict[str, Any], document: dict[str, Any]) -> dict[str, Any]:
     return record
 
 
-def attach(record: dict[str, Any], document: dict[str, Any]) -> bool:
+def validate_record(record: dict[str, Any]) -> None:
     if (record.get("format") != 2 or type(record.get("index")) is not int
             or not 0 <= record["index"] < MAX_ITEMS_PER_SOURCE ** 2
             or type(record.get("grouped")) is not bool or type(record.get("removedGroup")) is not bool
             or not isinstance(record.get("fields"), dict) or "hooks" in record["fields"]
             or not isinstance(record.get("entry"), dict) or not isinstance(record.get("group"), str)
-            or any(not isinstance(record.get(key), str) or len(record[key]) != 64 for key in ("before", "after"))):
+            or any(not isinstance(record.get(key), str) or len(record[key]) != 64
+                   or any(char not in "0123456789abcdef" for char in record[key]) for key in ("before", "after"))):
         raise ValueError("restore record is incomplete")
+    if (not record["grouped"] and not record["removedGroup"]
+            or record["grouped"] and record["removedGroup"] and record["index"] % MAX_ITEMS_PER_SOURCE):
+        raise ValueError("restore record has an invalid group position")
+
+
+def attach(record: dict[str, Any], document: dict[str, Any]) -> bool:
+    validate_record(record)
     container = mapping(record, document)
     if container is None:
         raise ValueError("the source hook container changed; restore it manually")

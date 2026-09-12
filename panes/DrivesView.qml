@@ -10,7 +10,20 @@ FocusScope {
   property alias list: drivesList
   readonly property var drives: controller.drivesController
 
+  PluginUi.TailnetConnectForm { id: connectForm; drives: root.drives }
+  Connections {
+    target: root.drives
+    function onConnectionRequested(locationId, label, host, user, path) {
+      if (root.visible && root.pane.activeFocus) {
+        connectForm.show(locationId, host, user, path)
+        root.controller.focusTree(root.pane.targetScreen())
+      }
+    }
+  }
+  onVisibleChanged: if (!visible) connectForm.close()
+
   function focusList() {
+    if (connectForm.opened) { connectForm.focusInput(); return }
     if (drivesList.count > 0 && drivesList.currentIndex < 0) drivesList.currentIndex = 0
     drivesList.forceActiveFocus()
   }
@@ -113,7 +126,7 @@ FocusScope {
       valueSample: "999 GB"
       current: driveRow.ListView.isCurrentItem
       hovered: rowHover.hovered
-      actionsVisible: root.drives.actionsAvailable
+      actionsVisible: root.drives.actionAvailableFor(driveRow.source)
       actionsReserved: true
 
       HoverHandler {

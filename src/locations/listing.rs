@@ -8,6 +8,9 @@ fn refused(options: &LocationListArgs, id: &str, reason: impl ToString) -> Value
 }
 
 pub fn list(options: &LocationListArgs, cancelled: &AtomicBool) -> Value {
+    if options.location.starts_with("tailnet:") {
+        return super::sftp::list(options, cancelled);
+    }
     let (session, root_directory) =
         match validated_directory(&options.location, &options.generation) {
             Ok(validated) => validated,

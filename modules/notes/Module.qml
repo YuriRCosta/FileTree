@@ -38,6 +38,17 @@ FocusScope {
   property bool overCap: false
   property bool saveFailed: false
   property bool syncingEditor: false
+  property var pendingNotebook: null
+  property var incomingConflict: null
+  property string observedNotebookText: ""
+  property bool confirmed: false
+  property bool closeAfterSave: false
+  readonly property var host: context ? context.host : null
+  readonly property bool temporary: !!context && !!context.inPopout
+  readonly property string saveStatus: incomingConflict ? "Conflicting version"
+    : saveFailed ? "Save not confirmed" : saving ? "Saving…" : dirty ? "Unsaved changes"
+    : temporary ? "Temporary popout" : confirmed ? "Saved" : "Loaded"
+  readonly property string capacityStatus: bytes + " / " + NotesState.CAP_BYTES + " bytes"
 
   function takeFocus(part) {
     editor.forceActiveFocus()
@@ -51,37 +62,46 @@ FocusScope {
     module.syncingEditor = true
     var source = String(module.activeNote.text || "")
     if (editor.text !== source) editor.text = source
-    if (cursorPosition !== undefined)
-      editor.cursorPosition = Math.max(0, Math.min(Number(cursorPosition), editor.length))
+    if (cursorPosition !== undefined) editor.cursorPosition = NotesState.position(cursorPosition, source)
+    else editor.select(NotesState.position(module.activeNote.anchor, source), NotesState.position(module.activeNote.cursor, source))
     module.syncingEditor = false
+  }
+
+  function rememberEditor() {
+    if (syncingEditor) return
+    var next = NotesState.remember(notebook, editor.cursorPosition, editor.selectionStart, editor.selectionEnd)
+    if (next !== notebook) changed(next)
   }
 
   function changed(next) {
     module.notebook = next
     module.bytes = NotesState.textBytes(next)
+    module.overCap = module.bytes > NotesState.CAP_BYTES
     module.dirty = true
     module.saveFailed = false
-    saveTimer.restart()
+    if (!incomingConflict) saveTimer.restart()
   }
 
   function createNote() {
+    rememberEditor()
     var next = NotesState.addNote(module.notebook)
     if (!next) return false
     changed(next)
-    syncEditor(0)
+    syncEditor()
     editor.forceActiveFocus()
     noteTabs.ensureVisible(module.activeNoteIndex)
     return true
   }
 
   function selectNote(index) {
+    rememberEditor()
     if (index === module.activeNoteIndex) {
       editor.forceActiveFocus()
       return
     }
     changed(NotesState.selectNote(module.notebook, index))
     module.clamped = false
-    syncEditor(0)
+    syncEditor()
     editor.forceActiveFocus()
   }
 
@@ -90,10 +110,11 @@ FocusScope {
   }
 
   function closeNote(index) {
+    rememberEditor()
     if (module.noteItems.length <= 1) return
     var activeBefore = module.activeNote.id
     changed(NotesState.removeNote(module.notebook, index))
-    if (module.activeNote.id !== activeBefore) syncEditor(0)
+    if (module.activeNote.id !== activeBefore) syncEditor()
     editor.forceActiveFocus()
   }
 
@@ -105,7 +126,7 @@ FocusScope {
     module.bytes = plan.bytes
     if (plan.action !== "write") {
       module.overCap = true
-      module.dirty = false
+      module.dirty = true
       saveTimer.stop()
       return
     }
@@ -114,40 +135,109 @@ FocusScope {
     module.saveFailed = false
     module.dirty = true
     if (plan.clamped) syncEditor(cursor)
-    saveTimer.restart()
+    if (!incomingConflict) saveTimer.restart()
   }
 
   function hydrate() {
     if (!context) return
     var incoming = NotesState.normalizeNotebook(
       context.state.get("text", NotesState.FIRST_NOTE_TEXT), context.state.get("rev", 0), context.state.get("label", "Note 1"))
+    var text = JSON.stringify(incoming.notebook)
+    if (text === observedNotebookText) return
+    observedNotebookText = text
+    if (pendingNotebook && text === JSON.stringify(pendingNotebook)) return
+    if (text !== JSON.stringify(notebook) && incoming.notebook.revision >= notebook.revision && (dirty || saving)) {
+      incomingConflict = incoming.notebook
+      saveTimer.stop()
+      closeAfterSave = false
+      return
+    }
     if (NotesState.notebookHydration(incoming, localState()).action !== "apply") return
     module.notebook = incoming.notebook
+    module.confirmed = false
     module.bytes = incoming.bytes
     module.overCap = incoming.overCap
     module.clamped = false
     syncEditor()
     if (incoming.migrated) {
       module.dirty = true
-      saveTimer.restart()
+      if (!incomingConflict) saveTimer.restart()
     }
   }
 
   function flush() {
+    rememberEditor()
     saveTimer.stop()
-    if (!module.dirty || !context) return
-    var next = NotesState.persistedNotebook(module.notebook)
-    module.saving = true
-    var saved = context.state.set("text", next)
-    module.saving = false
-    if (saved === false) {
-      module.saveFailed = true
-      module.dirty = true
+    if (overCap || incomingConflict || saving || !dirty || !context) return
+    if (!temporary && (!host || !host.layoutWritable)) { saveFailed = true; return }
+    var next = NotesState.persistedNotebook(notebook)
+    pendingNotebook = next
+    saving = true
+    saveFailed = false
+    notebook = next
+    dirty = false
+    if (context.state.set("text", next) === false) {
+      saving = false
+      dirty = true
+      saveFailed = true
+      pendingNotebook = null
+      closeAfterSave = false
       return
     }
-    module.notebook = next
-    module.dirty = false
-    module.saveFailed = false
+    if (temporary) {
+      saving = false
+      pendingNotebook = null
+      return
+    }
+    host.save()
+    settleTimer.restart()
+  }
+
+  function settleSave() {
+    if (!saving || !host || !pendingNotebook) return
+    var written = NotesState.writtenNotebook(host.lastWrittenLayoutText, context.slotId)
+    if (JSON.stringify(written) === JSON.stringify(pendingNotebook)) {
+      saving = false
+      pendingNotebook = null
+      confirmed = true
+      saveFailed = false
+      if (dirty) saveTimer.restart()
+      else if (closeAfterSave && !incomingConflict) { closeAfterSave = false; context.closeBlade() }
+    } else if (!host.layoutWriteRequestId && !host.queuedLayoutDocument) {
+      saving = false
+      pendingNotebook = null
+      dirty = true
+      saveFailed = true
+      closeAfterSave = false
+    }
+  }
+
+  function resolveConflict(keepLocal) {
+    if (!incomingConflict || saving) return
+    if (keepLocal) {
+      notebook.revision = Math.max(notebook.revision, incomingConflict.revision)
+      dirty = true
+    } else {
+      notebook = incomingConflict
+      closeAfterSave = false
+      confirmed = false
+      bytes = NotesState.textBytes(notebook)
+      overCap = bytes > NotesState.CAP_BYTES
+      dirty = false
+      saveFailed = false
+      syncEditor()
+    }
+    incomingConflict = null
+    if (keepLocal) flush()
+  }
+
+  function closeWhenSaved() {
+    closeAfterSave = true
+    flush()
+    if (!dirty && !saving && !incomingConflict && !saveFailed) {
+      closeAfterSave = false
+      context.closeBlade()
+    }
   }
 
   onActiveChanged: {
@@ -155,7 +245,7 @@ FocusScope {
     else hydrate()
   }
 
-  Component.onCompleted: hydrate()
+  Component.onCompleted: { hydrate(); Qt.callLater(syncEditor) }
   Component.onDestruction: flush()
 
   Connections {
@@ -163,6 +253,17 @@ FocusScope {
     ignoreUnknownSignals: true
     function onSlotStateChanged() { module.hydrate() }
   }
+
+  Connections {
+    target: module.host
+    ignoreUnknownSignals: true
+    function onLastWrittenLayoutTextChanged() { settleTimer.restart() }
+    function onLayoutWriteRequestIdChanged() { settleTimer.restart() }
+    function onQueuedLayoutDocumentChanged() { settleTimer.restart() }
+  }
+
+  Timer { id: cursorTimer; interval: 0; onTriggered: module.rememberEditor() }
+  Timer { id: settleTimer; interval: 0; onTriggered: Qt.callLater(module.settleSave) }
 
   Timer {
     id: saveTimer
@@ -210,7 +311,7 @@ FocusScope {
     anchors.left: parent.left
     anchors.right: parent.right
     height: visible ? warning.implicitHeight + Style.space(8) : 0
-    visible: module.overCap || module.clamped || module.saveFailed
+    visible: module.overCap || module.clamped || module.saveFailed || !!module.incomingConflict || module.temporary
     color: Qt.rgba(Color.urgent.r, Color.urgent.g, Color.urgent.b, 0.12)
 
     Text {
@@ -222,8 +323,12 @@ FocusScope {
       anchors.rightMargin: Style.space(8)
       textFormat: Text.PlainText
       wrapMode: Text.WordWrap
-      text: module.saveFailed
-        ? "The host rejected these notes. Shorten them, then edit again to retry."
+      text: module.incomingConflict
+        ? "Another version arrived. Your local edits are held here until you choose which version to keep."
+        : module.temporary
+        ? "This popout is temporary. Copy your notes before closing it."
+        : module.saveFailed
+        ? "Saving was not confirmed. Keep this blade open and retry; your edits are still here."
         : module.overCap
         ? "These notes are larger than 64 KiB in total. Saving is paused until they are trimmed."
         : "64 KiB total limit reached. Text beyond the limit was not kept."
@@ -236,7 +341,7 @@ FocusScope {
   Flickable {
     id: scroller
     anchors.top: notice.bottom
-    anchors.bottom: parent.bottom
+    anchors.bottom: footer.top
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.margins: Style.space(6)
@@ -265,7 +370,11 @@ FocusScope {
       font.pixelSize: Style.font.body
       background: null
 
+      objectName: "notesEditor"
       onTextChanged: module.editorChanged(text)
+      onCursorPositionChanged: if (!module.syncingEditor) cursorTimer.restart()
+      onSelectionStartChanged: if (!module.syncingEditor) cursorTimer.restart()
+      onSelectionEndChanged: if (!module.syncingEditor) cursorTimer.restart()
       onActiveFocusChanged: if (!activeFocus) module.flush()
 
       Keys.onPressed: function(event) {
@@ -275,10 +384,55 @@ FocusScope {
         if (action === "focus-next") module.context.focusNext()
         else if (action === "focus-previous") module.context.focusPrevious()
         else {
-          module.flush()
-          module.context.closeBlade()
+          module.closeWhenSaved()
         }
         event.accepted = true
+      }
+    }
+  }
+
+  Column {
+    id: footer
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    padding: Style.space(6)
+    spacing: Style.space(3)
+    Text {
+      text: module.saveStatus + " · " + module.capacityStatus
+      color: module.saveFailed || module.incomingConflict ? Color.urgent : Color.foreground
+      textFormat: Text.PlainText
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+    Row {
+      spacing: Style.space(4)
+      Button {
+        text: "Retry save"
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        visible: module.saveFailed && !module.incomingConflict
+        enabled: !module.saving
+        onClicked: module.flush()
+        background: Rectangle { color: Color.bar.background; border.color: Color.accent; border.width: 1 }
+      }
+      Button {
+        text: "Keep local edits"
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        visible: !!module.incomingConflict
+        enabled: !module.saving
+        onClicked: module.resolveConflict(true)
+        background: Rectangle { color: Color.bar.background; border.color: Color.accent; border.width: 1 }
+      }
+      Button {
+        text: "Load incoming"
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        visible: !!module.incomingConflict
+        enabled: !module.saving
+        onClicked: module.resolveConflict(false)
+        background: Rectangle { color: Color.bar.background; border.color: Color.accent; border.width: 1 }
       }
     }
   }

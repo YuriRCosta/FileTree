@@ -81,11 +81,19 @@ pub(super) fn ipc_target(method: &str) -> &'static str {
 }
 
 pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppResult<String> {
-    let omarchy_path = std::env::var_os("OMARCHY_PATH")
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .ok_or_else(|| AppError::command("OMARCHY_PATH is not set"))?;
-    let config = omarchy_path.join("shell");
+    let config = if crate::lease::selected_root()?.is_some() {
+        std::env::var_os("FILEBLADE_APP_ROOT")
+            .map(PathBuf::from)
+            .filter(|root| root.is_absolute())
+            .ok_or_else(|| AppError::command("native IPC requires an absolute FILEBLADE_APP_ROOT"))?
+            .join("app")
+    } else {
+        std::env::var_os("OMARCHY_PATH")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .ok_or_else(|| AppError::command("OMARCHY_PATH is not set"))?
+            .join("shell")
+    };
     if !config.join("shell.qml").is_file() {
         return Err(AppError::command(format!(
             "omarchy-shell config not found: {}",
@@ -229,6 +237,11 @@ pub(super) fn backend_json_with_timeout(
             .chain(arguments.iter().cloned()),
     )
     .map_err(|error| AppError::invalid(error.to_string().trim().to_string()))?;
+    if crate::lease::selected_root()?.is_some() && crate::server::native_mutating(&command) {
+        return Err(AppError::command(
+            "native owner-unavailable: mutations must be admitted by the native authority",
+        ));
+    }
     let cancelled = Arc::new(AtomicBool::new(false));
     let expired = Arc::new(AtomicBool::new(false));
     let started = Instant::now();

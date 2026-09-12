@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/PathText.js" as PathText
 import "../lib/TreeOrder.js" as TreeOrder
 import "../lib/KeyedRows.js" as KeyedRows
 
@@ -10,6 +11,9 @@ Item {
   readonly property bool stateReady: service.stateReady
   readonly property bool open: service.open
   readonly property string rootPath: service.rootPath
+  readonly property bool remotePath: PathText.isRemote(rootPath)
+  function remoteLocation() { return remotePath ? service.drivesController.descriptorForPath(rootPath) : null }
+  property string treeLocationGeneration: ""
   readonly property bool showHidden: service.showHidden
   readonly property bool gitEnabled: service.gitEnabled
   readonly property bool quickNavActive: service.quickNavActive
@@ -168,6 +172,7 @@ Item {
       activeGitMetadataRequestId = ""
     }
     treeGeneration++
+    treeLocationGeneration = remoteLocation() ? String(remoteLocation().session_generation) : ""
     activeTreeGeneration = -1
     activeTreePaths = []
     activeTreeResponse = null
@@ -256,7 +261,7 @@ Item {
 
   function startNextTreeRequest() {
     if (activeTreeRequestId || treeQueue.length === 0) return
-    var queued = treeQueue.slice(0, directoryBatchLimit)
+    var queued = treeQueue.slice(0, remotePath ? 1 : directoryBatchLimit)
     treeQueue = treeQueue.slice(queued.length)
     var paths = []
     for (var i = 0; i < queued.length; i++) {
@@ -282,12 +287,43 @@ Item {
     }
     activeTreeGeneration = treeGeneration
     var requestGeneration = activeTreeGeneration
-    activeTreeRequestId = service.backendRequest("children-batch", arguments, requestGeneration, function(response) {
+    if (remotePath) {
+      arguments = remoteArguments(paths[0], 0, service.windowLimitFor(paths))
+      if (!arguments) {
+        activeTreeResponse = { ok: false, error: "Remote location is unavailable; reconnect it in Drives" }
+        finishTreeRequest(0)
+        return
+      }
+    }
+    activeTreeRequestId = service.backendRequest(remotePath ? "list" : "children-batch", arguments, requestGeneration, function(response) {
       if (requestGeneration !== controller.activeTreeGeneration) return
       controller.activeTreeRequestId = ""
+      if (controller.remotePath && response) response.path = paths[0]
       controller.activeTreeResponse = response
       controller.finishTreeRequest(0)
     })
+  }
+
+  function remoteArguments(path, start, count) {
+    var peer = remoteLocation()
+    var relative = peer ? service.drivesController.relativePath(peer, path) : null
+    if (!peer || relative === null) return null
+    var arguments = ["--location", peer.id, "--generation", peer.session_generation, "--path", relative,
+      "--start", String(start), "--count", String(count)].concat(listingOrderArguments(count).slice(2))
+    if (gitEnabled) arguments.push("--no-git")
+    if (showHidden) arguments.push("--show-hidden")
+    return arguments
+  }
+
+  Connections {
+    target: controller.service.drivesController || null
+    function onPeerLocationsChanged() {
+      if (!controller.remotePath || !controller.stateReady) return
+      var peer = controller.service.drivesController.descriptorForPath(controller.rootPath)
+      if (String(peer && peer.session_generation || "") === controller.treeLocationGeneration) return
+      controller.clearSelection()
+      controller.resetTree()
+    }
   }
 
   function registerGitRepository(repoRoot, gitDir) {
@@ -392,6 +428,7 @@ Item {
   }
 
   function applyDirectoryGitMetadata(parentIndex, path, response, registerRepository) {
+    if (remotePath) return
     applyModelGitMetadata(treeModel, parentIndex, path, response, registerRepository)
   }
 
@@ -470,6 +507,10 @@ Item {
   }
 
   function applyTreeError(parentIndex, path, response) {
+    if (remotePath && response.error_id === "stale-location" && remoteLocation()) {
+      service.drivesController.invalidatePeer(remoteLocation().id, remoteLocation().session_generation)
+      return
+    }
     if (parentIndex === 0 && !!response.missing && recoverMissingRoot(path)) return
     if (parentIndex === 0 && service.rootRecoveryOrigin) abortMissingRootRecovery()
     treeModel.setProperty(parentIndex, "loaded", true)
@@ -556,7 +597,14 @@ Item {
     if (showHidden) arguments.push("--show-hidden")
     arguments = arguments.concat(listingOrderArguments(windowPage).slice(2))
     var requestGeneration = treeGeneration
-    service.backendRequest("children-window", arguments, requestGeneration, function(response) {
+    if (remotePath) {
+      arguments = remoteArguments(target, loaded, windowPage)
+      if (!arguments) {
+        pendingWindowPaths = pendingWindowPaths.filter(function(item) { return item !== target })
+        return false
+      }
+    }
+    service.backendRequest(remotePath ? "list" : "children-window", arguments, requestGeneration, function(response) {
       controller.pendingWindowPaths = controller.pendingWindowPaths.filter(function(item) { return item !== target })
       if (requestGeneration !== controller.treeGeneration) return
       controller.applyWindowResponse(target, response || { ok: false })
@@ -570,6 +618,10 @@ Item {
     var moreIndex = indexOfTreePath(moreRowPath(path))
     if (moreIndex < 0) return
     if (!response.ok) {
+      if (remotePath && response.error_id === "stale-location" && remoteLocation()) {
+        service.drivesController.invalidatePeer(remoteLocation().id, remoteLocation().session_generation)
+        return
+      }
       treeModel.setProperty(parentIndex, "error", String(response.error || "Unable to read more entries"))
       return
     }
@@ -952,6 +1004,7 @@ Item {
   }
 
   function requestVisibleGitMetadataRefresh(reason) {
+    if (remotePath) return "inactive"
     if (!gitEnabled || !open || !stateReady) return "inactive"
     if (gitMetadataBusy) {
       gitMetadataQueued = true

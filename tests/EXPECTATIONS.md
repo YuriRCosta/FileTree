@@ -815,46 +815,26 @@ shared there.
 245. **E-28-05** If an undo cannot continue safely, I see why; pressing `Shift+U`
      lets me skip that refused undo and continue to an older one.
 
-## 29. Welcome and example extensions
+## 29. Welcome, core blades and help
 
 `tests/vm/expectations/29-welcome.sh`
 
-246. **E-29-01** On my first launch, the right blade holds a Notes tab and opens
-     with a Welcome tab in front of it that asks "Install agent extensions?" and
-     explains that FileBlade can be extended with example extensions for agent
-     memory files, skills, MCPs, and hooks, or with my own extensions.
-     Beneath Install, a yellow note explains that the extensions come directly
-     from public GitHub repositories while awaiting a marketplace listing.
-     Each extension name is a source link, usable by mouse or keyboard, that
-     opens its GitHub repository without starting installation.
-247. **E-29-02** If I click Install in the Welcome tab, the four example
-     extensions are installed and enabled directly from GitHub at the exact
-     versions this FileBlade was released with, with Omarchy's plugin checks
-     and without a marketplace listing or terminal confirmation,
-     the shell reloads once rather than once per extension, and the Welcome
-     tab closes by itself. Installation keeps going through
-     plugin reloads, with progress restored when FileBlade reappears. A pulsing
-     FileBlade folder icon accompanies the installation count; disabling
-     animations keeps the icon steady while preserving the progress text.
-     Installation also works when my plugins directory is a symlink.
-     When installation finishes, Skills, MCP, and Hooks appear together as a
-     new section at the top of the right blade with Skills in front, and
-     Memory joins the Notes section beneath it. The Welcome tab stays, showing
-     "Adding tabs…", until those sections are saved, and it resumes adding them
-     if FileBlade reloads in between. Extensions I had already placed stay
-     where they are and are not added twice.
-248. **E-29-03** If I click "Close and don't show this again", the Welcome tab
-     closes and it does not come back on later launches or after a layout reset.
-249. **E-29-04** After I install the extensions, the Welcome tab does not come
-     back on later launches or after a layout reset, and extensions that are
-     already installed are skipped rather than reinstalled.
-250. **E-29-05** If an install fails, the Welcome tab stays open and shows which
-     extension failed so I can retry. If a repository no longer offers the
-     version this FileBlade was built against, nothing is installed from it and
-     the tab says so. Retrying enables an extension left disabled
-     by an interrupted install and continues with the remaining extensions. If
-     the installed extensions cannot be added to the right blade within thirty
-     seconds, the tab names the ones still missing and Install adds them again.
+246. **E-29-01** On first launch, Welcome opens beside the persistent Notes
+     tab. It introduces Files, Notes, Skills, Memory, Hooks and MCP, with
+     keyboard-accessible entries and real help available offline.
+247. **E-29-02** Opening a core entry selects its existing blade or adds it
+     once. It requires no companion installation, registry or shell restart.
+     The old welcomeInstall IPC reports "built-in" and starts no installer.
+248. **E-29-03** Close Welcome records dismissal and removes only Welcome.
+     Notes and other tabs retain their contents. A read-only or unready
+     layout refuses dismissal.
+249. **E-29-04** Welcome can be reopened from the blade picker after dismissal
+     or a legacy "installed" state. Reopening preserves that saved state;
+     later state/layout hydration and restart do not prune the reopened tab.
+250. **E-29-05** Core entries and local help remain useful offline. An absent,
+     malformed, oversized or newer-schema optional catalog retains the local
+     or last-valid catalog. Its identity, source, compatibility and lifecycle
+     fields are metadata; catalog-supplied commands never execute.
 
 This file was written by an agent.
 
@@ -1060,3 +1040,16 @@ Script: `tests/vm/expectations/38-wheel-config.sh`.
 - **E-38-08** Saving ordinary preferences or editing the wheel preserves unknown members in the surrounding settings and within wheel definitions. Restoring the standard wheel affects only `dropWheel`.
 - **E-38-09** Custom commands run detached, in a new terminal, or in a supported herdr/tmux placement with the expected arguments and working directory. Shell-looking path and argument text stays literal; configuration is never treated as an implicit shell command.
 - **E-38-10** Before running a configured command or custom built-in reference, FileBlade rereads its settings and file facts. A removed, hidden or newly inapplicable entry cannot execute from an old wheel route.
+
+## 39. Application icons
+
+This file was written by an agent.
+
+Fixture: `tests/vm/fixtures/media_icons.py` with its QML fixture.
+
+- **E-39-01** An Open with row for an application in the installed launcher catalogue shows that application's own icon, resolved from the catalogue's icon name. The row keeps its application identity, and invoking it opens the selected path with that application.
+- **E-39-02** An application with a bundled mark and no icon in the desktop theme shows its bundled mark. A generic glyph never replaces a valid bundled mark.
+- **E-39-03** When an application's icon file is missing and an explicit override glyph is configured, the override glyph is what I see. The descriptor's own glyph, the legacy fallback glyph and a blank space are all wrong.
+- **E-39-04** After an icon file fails to load, a later valid candidate for the same application is shown. Changing the application, its override or its identity clears the remembered failures and lets the new icon load. At most four failed sources are remembered per application.
+- **E-39-05** An application icon larger than the space it is drawn in is decoded no larger than 128 device pixels in each dimension, and its aspect ratio is preserved.
+- **E-39-06** A place that shows an icon without naming an application keeps its existing icon name, trusted source and fallback glyph behaviour, and looks up no application catalogue.

@@ -12,6 +12,8 @@ Item {
   property var shell: null
   property var manifest: null
   property var pluginRegistry: null
+  property var chooserSession: null
+  readonly property var backendClient: chooserSession ? chooserSession.backend : ownedBackend
 
   property alias pluginWatcherExcludePattern: pluginWatcherController.excludePattern
   property alias pluginWatcherFiltered: pluginWatcherController.filtered
@@ -23,7 +25,7 @@ Item {
   readonly property string home: Quickshell.env("HOME") || "/"
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")
   readonly property string stateDir: stateHome + "/omarchy/fileblade"
-  readonly property string statePath: stateDir + "/state.json"
+  readonly property string statePath: chooserSession ? "" : stateDir + "/state.json"
   readonly property string fallbackPluginDir: decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, ""))
   readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : fallbackPluginDir
   readonly property string cliPath: pluginDir + "/fileblade"
@@ -45,7 +47,8 @@ Item {
   readonly property string backendError: backendClient.lastError
 
   BackendClient {
-    id: backendClient
+    id: ownedBackend
+    desiredRunning: !service.chooserSession
     cliPath: service.cliPath
     expectedVersion: service.manifest && service.manifest.version ? String(service.manifest.version) : ""
   }
@@ -775,19 +778,20 @@ Item {
   function setSidebarWidth(value, screenWidth, persist) { navigationController.setSidebarWidth(value, screenWidth, persist) }
   function setPropertiesBladeWidth(value, screenWidth, persist) { navigationController.setPropertiesBladeWidth(value, screenWidth, persist) }
   function setPropertiesPlacement(value) { navigationController.setPropertiesPlacement(value) }
-  function setPriorityProperty(value) { return navigationController.setPriorityProperty(value) }
-  function setPriorityColumns(value) { return navigationController.setPriorityColumns(value) }
-  function setGitStatusDetails(value) { return navigationController.setGitStatusDetails(value) }
+  function setPriorityProperty(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityProperty(value) }
+  function setPriorityColumns(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityColumns(value) }
+  function setGitStatusDetails(value) { stateController.markSettingChoice(["gitStatusDetails"]); return navigationController.setGitStatusDetails(value) }
   function setGitSummaryFields(value) {
+    stateController.markSettingChoice(["gitSummaryFields"])
     gitSummaryFields = GitSummary.normalizeFields(value)
     scheduleStateSave()
     return gitSummaryFields
   }
-  function setTreeOrder(sort, filter) { return navigationController.setTreeOrder(sort, filter) }
+  function setTreeOrder(sort, filter) { stateController.markSettingChoice(["treeSort", "treeFilter"]); return navigationController.setTreeOrder(sort, filter) }
   function rerunSearch() { searchController.rerunSearch() }
   function loadMoreSearchRows() { searchController.loadMore() }
   function loadAllSearchRows() { searchController.loadAll() }
-  function cyclePriorityProperty() { return navigationController.cyclePriorityProperty() }
+  function cyclePriorityProperty() { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.cyclePriorityProperty() }
   function setSettingsOpen(value, edge) { navigationController.setSettingsOpen(value, edge) }
   function toggleSettings(edge) { return navigationController.toggleSettings(edge) }
   function focusTree(targetScreen, later) { return later ? navigationController.focusAfterOpen(targetScreen) : navigationController.focusTree(targetScreen) }
@@ -914,6 +918,7 @@ Item {
   }
 
   function setSearchDeep(deep) {
+    stateController.markSettingChoice(["searchDeep"])
     if (searchDeep === !!deep) return false
     searchDeep = !!deep
     scheduleStateSave()
@@ -928,6 +933,7 @@ Item {
   }
 
   function setSearchLayout(tree) {
+    stateController.markSettingChoice(["searchTreeLayout"])
     if (searchTreeLayout === !!tree) return false
     searchTreeLayout = !!tree
     scheduleStateSave()
@@ -936,6 +942,7 @@ Item {
   }
 
   function setSearchOptions(caseSensitive, regex) {
+    stateController.markSettingChoice(["searchCaseSensitive", "searchRegex"])
     var nextCase = !!caseSensitive
     var nextRegex = !!regex
     if (searchCaseSensitive === nextCase && searchRegex === nextRegex) return false
@@ -951,9 +958,10 @@ Item {
   function goHome() { return navigationController.goHome() }
   function goBack(targetScreen) { return navigationController.goBack(targetScreen) }
   function goForward(targetScreen) { return navigationController.goForward(targetScreen) }
-  function setShowHidden(value) { return navigationController.setShowHidden(value) }
+  function setShowHidden(value) { stateController.markSettingChoice(["showHidden"]); return navigationController.setShowHidden(value) }
   function toggleHidden() { return setShowHidden(!showHidden) }
   function setGitEnabled(value) {
+    stateController.markSettingChoice(["gitEnabled"])
     var desired = !!value
     if (gitEnabled === desired) return gitEnabled
     gitEnabled = desired
@@ -961,43 +969,50 @@ Item {
     treeController.resetGitIntegration()
     return gitEnabled
   }
-  function setProjectContext(value) { projectContext = !!value; scheduleStateSave(); return projectContext }
+  function setProjectContext(value) { stateController.markSettingChoice(["projectContext"]); projectContext = !!value; scheduleStateSave(); return projectContext }
   function setPropertyIcons(value) {
+    stateController.markSettingChoice(["propertyIcons"])
     propertyIcons = !!value
     scheduleStateSave()
     return propertyIcons
   }
   function setFolderColorScope(value) {
+    stateController.markSettingChoice(["folderColorScope"])
     folderColorScope = stateController.normalizedFolderColorScope(value)
     scheduleStateSave()
     return folderColorScope
   }
 
   function setConfirmTrash(value) {
+    stateController.markSettingChoice(["confirmTrash"])
     confirmTrash = !!value
     scheduleStateSave()
     return confirmTrash
   }
 
   function setScrollMarks(value) {
+    stateController.markSettingChoice(["scrollMarks"])
     scrollMarks = !!value
     scheduleStateSave()
     return scrollMarks
   }
 
   function setAutoHideSearch(value) {
+    stateController.markSettingChoice(["autoHideSearch"])
     autoHideSearch = !!value
     scheduleStateSave()
     return autoHideSearch
   }
 
   function setShowSystemVolumes(value) {
+    stateController.markSettingChoice(["showSystemVolumes"])
     showSystemVolumes = !!value
     scheduleStateSave()
     return showSystemVolumes
   }
 
   function setModeBadge(value) {
+    stateController.markSettingChoice(["modeBadge"])
     modeBadge = normalizeModeBadge(value)
     scheduleStateSave()
     return modeBadge
@@ -1238,14 +1253,23 @@ Item {
     return pickerController.result(requestId)
   }
 
-  FileTreeIpc {
-    id: fileTreeIpc
-    service: service
-    bladeHost: bladeHost
-    watchController: watchController
+  Loader {
+    id: ipcLoader
+    property var contextService: service
+    property var contextWatch: watchController
+    active: !service.chooserSession
+    sourceComponent: Component {
+      FileTreeIpc {
+        id: fileTreeIpc
+        service: ipcLoader.contextService
+        bladeHost: ipcLoader.contextService.bladeHost
+        watchController: ipcLoader.contextWatch
+      }
+    }
   }
 
-  BladeScreens {
-    host: bladeHost
+  Loader {
+    active: !service.chooserSession
+    sourceComponent: Component { BladeScreens { host: bladeHost } }
   }
 }

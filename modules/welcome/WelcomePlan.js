@@ -1,72 +1,48 @@
 .pragma library
+.import "../../lib/Definitions.js" as Definitions
 
-var HEADING = "Install agent extensions?"
-var BODY = "FileBlade can be extended and customized.\n\nInstall these example extensions which show an overview of all your agent memory files, skills, MCPs, and hooks. You can also make your own extensions, or ask your agent to put an existing Omarchy plugin here."
-var DISMISS = "Close and don't show this again"
-var SOURCE_NOTICE = "Until the plugins are in the Omarchy plugin registry, they are installed from the public GitHub repos. Click each plugin to navigate to its source code."
+var HEADING = "Welcome to FileBlade"
+var BODY = "Browse files, keep notes, and inspect your agent files. These blades are included and work without a registry."
+var DISMISS = "Close Welcome"
 var STATES = ["", "dismissed", "installed"]
-var EXTENSIONS = [
-  { id: "data-goblin.fileblade-memory", module: "data-goblin.fileblade-memory/memory", name: "Memory", glyph: "󰧑",
-    url: "https://github.com/data-goblin/fileblade-memory.git" },
-  { id: "data-goblin.fileblade-skills", module: "data-goblin.fileblade-skills/skills", name: "Skills", glyph: "󰖷",
-    url: "https://github.com/data-goblin/fileblade-skills.git" },
-  { id: "data-goblin.fileblade-mcp", module: "data-goblin.fileblade-mcp/mcp", name: "MCP", glyph: "", image: "../../assets/mcp-logo.svg",
-    url: "https://github.com/data-goblin/fileblade-mcp.git" },
-  { id: "data-goblin.fileblade-hooks", module: "data-goblin.fileblade-hooks/hooks", name: "Hooks", glyph: "󰛢",
-    url: "https://github.com/data-goblin/fileblade-hooks.git" }
+var CORE = [
+  { id: "files", name: "Files", description: "Browse, search and manage your files." },
+  { id: "notes", name: "Notes", description: "A persistent plain-text notebook." },
+  { id: "skills", name: "Skills", description: "Inspect available agent skills." },
+  { id: "memory", name: "Memory", description: "Find agent instruction and memory files." },
+  { id: "hooks", name: "Hooks", description: "Inspect configured event hooks." },
+  { id: "mcp", name: "MCP", description: "Inspect configured MCP servers." }
 ]
-
-var PLACEMENTS = [
-  { module: "data-goblin.fileblade-skills/skills", target: "top" },
-  { module: "data-goblin.fileblade-mcp/mcp", target: "top" },
-  { module: "data-goblin.fileblade-hooks/hooks", target: "top" },
-  { module: "data-goblin.fileblade-memory/memory", target: "notes" }
+var HELP = [
+  { name: "Find your way", text: "Open Files to browse a folder. Use the arrow keys or j/k to move, Enter to activate an entry, and Alt+Up to go to the parent folder. Press / to search or Ctrl+P to choose a location." },
+  { name: "Arrange your blades", text: "Use + in a blade to add a module. Switch modules with their tabs. Welcome can be reopened from the same menu after you close it; closing Welcome does not remove Notes or other tabs." },
+  { name: "Inspect agent files", text: "Skills, Memory, Hooks and MCP show declarations from your folders. Browsing them does not run hooks or start servers. Changing Skills or Memory requires Manage agent files in General settings. Removed items have their own recovery bin." },
+  { name: "Keep a note", text: "Open Notes to write plain text, add a tab or rename one. The notebook has a 64 KiB total limit. Check the save status before closing; opening a note does not send it to an agent." }
 ]
-var PLACEMENT_EDGE = "right"
+var LOCAL_CATALOG = { version: 1, entries: [] }
 
-function topModules() {
-  return PLACEMENTS.filter(function(placement) { return placement.target === "top" }).map(function(placement) { return placement.module })
-}
+function pending(state) { return String(state || "") === "" }
+function normalizeState(state) { return STATES.indexOf(String(state || "")) >= 0 ? String(state || "") : "" }
+function welcomeSlot() { return { id: "welcome", modules: [{ module: "welcome" }, { module: "notes" }], active: 0 } }
 
-function topSlotIndex(slots) {
-  var wanted = topModules()
-  for (var i = 0; i < slots.length; i++) {
-    var modules = slots[i] && slots[i].modules ? slots[i].modules : []
-    for (var j = 0; j < modules.length; j++) {
-      if (wanted.indexOf(String(modules[j].module || "")) >= 0) return i
-    }
+function catalog(text, contractVersion) {
+  if (typeof text !== "string" || text.length > 65536) return null
+  var document
+  try { document = JSON.parse(text) } catch (_) { return null }
+  if (!document || document.version !== 1 || !Array.isArray(document.entries) || document.entries.length > 128) return null
+  var entries = [], ids = Object.create(null)
+  for (var entry of document.entries) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)
+        || typeof entry.id !== "string" || !Definitions.MODULE_ID_PATTERN.test(entry.id) || entry.id.length > 128 || ids[entry.id]
+        || typeof entry.name !== "string" || !entry.name.trim() || entry.name.length > 64
+        || typeof entry.source !== "string" || entry.source.length > 2048 || !/^https:\/\/[A-Za-z0-9.-]+(?:\/[\x21-\x7e]*)?$/.test(entry.source)
+        || !Number.isInteger(entry.hostContract) || entry.hostContract < 1 || entry.hostContract > 65535
+        || ["on-demand", "persistent"].indexOf(entry.lifecycle) < 0) return null
+    var name = Definitions.boundedText(entry.name, "", 64)
+    if (!name.trim()) return null
+    ids[entry.id] = true
+    entries.push({ id: entry.id, name: name, source: entry.source,
+      hostContract: entry.hostContract, compatible: entry.hostContract <= contractVersion, lifecycle: entry.lifecycle })
   }
-  return -1
-}
-
-function unplaced(findModule) {
-  return PLACEMENTS.filter(function(placement) { return !findModule(placement.module) })
-}
-
-function installCommand(extension) {
-  return ["omarchy-plugin-add", String(extension.url), "--yes", "--enable"]
-}
-
-function pending(state) {
-  return String(state || "") === ""
-}
-
-function extensionName(module) {
-  for (var i = 0; i < EXTENSIONS.length; i++) {
-    if (EXTENSIONS[i].module === module) return EXTENSIONS[i].name
-  }
-  return String(module || "")
-}
-
-function normalizeState(state) {
-  var value = String(state || "")
-  return STATES.indexOf(value) >= 0 ? value : ""
-}
-
-function missing(registryHas) {
-  return EXTENSIONS.filter(function(extension) { return !registryHas(extension.module) })
-}
-
-function welcomeSlot() {
-  return { id: "welcome", modules: [{ module: "welcome" }, { module: "notes" }], active: 0 }
+  return { version: 1, entries: entries }
 }

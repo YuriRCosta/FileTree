@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/PathText.js" as PathText
 import "../lib/TreeOrder.js" as TreeOrder
 
 Item {
@@ -11,6 +12,7 @@ Item {
   }
 
   function setOpen(value) {
+    if (service.chooserSession) return service.chooserSession.setOpen(!!value)
     var desired = !!value
     if (!desired && service.pickerActive) {
       var requestId = service.pickerRequestId
@@ -87,13 +89,13 @@ Item {
 
   function setSettingsOpen(value, edge) { service.bladeHost.setSettingsOpen(value, edge) }
   function toggleSettings(edge) { return service.bladeHost.toggleSettings(edge) }
-  function focusTree(screen) { return service.bladeHost.focusModule("files", screen, "tree") }
-  function focusSearch(screen) { return service.bladeHost.focusModule("files", screen, "search") }
+  function focusTree(screen) { return service.chooserSession ? service.chooserSession.focus("tree") : service.bladeHost.focusModule("files", screen, "tree") }
+  function focusSearch(screen) { return service.chooserSession ? service.chooserSession.focus("search") : service.bladeHost.focusModule("files", screen, "search") }
 
   function focusLocation(screen) {
     service.locationValidationError = ""
     if (!service.open) setOpen(true)
-    return service.bladeHost.focusModule("files", screen, "location")
+    return service.chooserSession ? service.chooserSession.focus("location") : service.bladeHost.focusModule("files", screen, "location")
   }
 
   function focusProperties(screen) { return service.bladeHost.focusModule("properties", screen, "") }
@@ -111,7 +113,7 @@ Item {
     service.searchGitRepositoryCount = 0
     service.clearSelection()
     service.resetTree()
-    service.recordZoxideVisit(service.rootPath)
+    if (!PathText.isRemote(service.rootPath)) service.recordZoxideVisit(service.rootPath)
     service.scheduleStateSave()
   }
 
@@ -125,6 +127,12 @@ Item {
 
   function goUp() {
     if (!service.canGoUp) return service.rootPath
+    if (PathText.isRemote(service.rootPath)) {
+      var peer = service.drivesController.descriptorForPath(service.rootPath)
+      var base = peer ? String(peer.canonical_uri).replace(/\/$/, "") : ""
+      var current = String(service.rootPath).replace(/\/$/, "")
+      return service.navigateToLocation(!base || current === base ? service.drivesResource : current.slice(0, current.lastIndexOf("/")), null, "browse")
+    }
     setRootPath(service.parentDirectory(service.rootPath))
     return service.rootPath
   }

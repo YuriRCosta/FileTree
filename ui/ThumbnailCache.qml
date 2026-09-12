@@ -11,6 +11,8 @@ QtObject {
   property int readyCount: 0
   property var ready: ({})
   property var inflight: ({})
+  property var waiting: []
+  property int activeCount: 0
 
   function keyFor(path, stamp, edge) {
     return JSON.stringify([String(path || ""), String(stamp || ""), Math.max(1, Math.floor(Number(edge) || 1))])
@@ -55,22 +57,40 @@ QtObject {
       return false
     }
     var size = String(Math.max(1, Math.floor(Number(edge) || 1)))
-    var generationAtSend = generation
-    flight = { files: files, id: "", generation: generationAtSend, callbacks: [callback] }
+    flight = { files: files, id: "", generation: generation, callbacks: [callback], active: false,
+      args: ["--path", String(path), "--key", key, "--width", size, "--height", size] }
     inflight[key] = flight
-    flight.id = files.backendRequest("thumbnail", ["--path", String(path), "--key", key, "--width", size, "--height", size], generationAtSend, function(response) {
+    waiting.push(key)
+    drain()
+    return true
+  }
+
+  function drain() {
+    while (activeCount < 4 && waiting.length > 0) {
+      var key = waiting.shift()
+      var flight = inflight[key]
+      if (flight) send(key, flight)
+    }
+  }
+
+  function send(key, flight) {
+    var generationAtSend = flight.generation
+    flight.active = true
+    activeCount++
+    flight.id = flight.files.backendRequest("thumbnail", flight.args, generationAtSend, function(response) {
       if (!cache || generationAtSend !== cache.generation) return
       var entry = cache.inflight[key]
       if (entry !== flight) return
       delete cache.inflight[key]
+      cache.activeCount--
       var okay = !!(response && response.ok && String(response.path || "") !== "")
       var result = okay
         ? { ok: true, url: PathText.fileUrl(String(response.path)) }
         : { ok: false, error: String(response && response.error || "Preview unavailable") }
       if (okay) cache.remember(key, result.url)
+      cache.drain()
       for (var i = 0; i < entry.callbacks.length; i++) entry.callbacks[i](result)
     })
-    return true
   }
 
   function cancel(callback) {
@@ -80,9 +100,12 @@ QtObject {
       flight.callbacks = flight.callbacks.filter(function(value) { return value !== callback })
       if (flight.callbacks.length > 0) continue
       delete inflight[keys[i]]
+      if (flight.active) activeCount--
       if (flight.id && flight.files && typeof flight.files.cancelBackendRequest === "function")
         flight.files.cancelBackendRequest(flight.id, flight.generation, true)
     }
+    waiting = waiting.filter(function(key) { return !!cache.inflight[key] })
+    drain()
   }
 
   function reset() {
@@ -92,6 +115,8 @@ QtObject {
     var keys = Object.keys(inflight)
     var pending = inflight
     inflight = ({})
+    waiting = []
+    activeCount = 0
     for (var i = 0; i < keys.length; i++) {
       var flight = pending[keys[i]]
       if (flight && flight.id && flight.files && typeof flight.files.cancelBackendRequest === "function")

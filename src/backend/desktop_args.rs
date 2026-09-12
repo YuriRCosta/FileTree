@@ -12,6 +12,10 @@ pub enum HyprOption {
     BorderSize,
     #[value(name = "animations:enabled")]
     AnimationsEnabled,
+    #[value(name = "decoration:rounding")]
+    Rounding,
+    #[value(name = "general:gaps_out")]
+    GapsOut,
 }
 
 impl HyprOption {
@@ -19,6 +23,8 @@ impl HyprOption {
         match self {
             Self::BorderSize => "general:border_size",
             Self::AnimationsEnabled => "animations:enabled",
+            Self::Rounding => "decoration:rounding",
+            Self::GapsOut => "general:gaps_out",
         }
     }
 }

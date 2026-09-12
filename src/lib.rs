@@ -4,6 +4,7 @@ pub mod archive;
 pub mod artifact_bin;
 pub mod audit;
 pub mod backend;
+pub mod chooser;
 pub mod clipboard;
 pub mod command;
 pub mod common;
@@ -45,3 +46,4 @@ pub mod trash;
 pub mod updates;
 
 pub use error::{AppError, AppResult};
+pub mod lease;

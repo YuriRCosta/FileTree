@@ -2,13 +2,27 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 bundle_root=$PWD
-bundle_target=x86_64-unknown-linux-musl
+bundle_target=${2:-x86_64-unknown-linux-musl}
+bundle_output=$bundle_root
 bundle_version=$(sed -n 's/^channel = "\([^"]*\)"$/\1/p' rust-toolchain.toml)
 bundle_mode=${1:-verify}
-[[ $# -le 1 && $bundle_mode =~ ^(build|verify)$ ]] || {
-  printf '%s\n' 'Usage: tools/bundle [build|verify]' >&2
+[[ ( $# -le 1 || $# == 3 ) && $bundle_mode =~ ^(build|verify)$ ]] || {
+  printf '%s\n' 'Usage: tools/bundle [build|verify] [TARGET EXISTING_OUTPUT_DIRECTORY]' >&2
   exit 2
 }
+
+case $bundle_target in
+  x86_64-unknown-linux-musl) bundle_machine='Advanced Micro Devices X86-64' ;;
+  aarch64-unknown-linux-musl) bundle_machine=AArch64 ;;
+  *) printf 'bundle: unsupported static target: %s\n' "$bundle_target" >&2; exit 2 ;;
+esac
+if [[ $# == 3 ]]; then
+  bundle_output=$(realpath -e -- "$3")
+  [[ -d $bundle_output && $bundle_output != "$bundle_root" ]] || {
+    printf '%s\n' 'bundle: explicit target output must be an existing directory separate from the committed bundle root' >&2
+    exit 2
+  }
+fi
 
 source_id() {
   {
@@ -21,15 +35,16 @@ fail() { printf 'bundle: %s\n' "$*" >&2; exit 1; }
 
 bundle_source=$(source_id)
 if [[ $bundle_mode == verify ]]; then
-  [[ -x fileblade-bin && -f fileblade-bin.sha256 && -f fileblade-bin.source ]] || fail 'missing bundle; run tools/bundle build'
-  sha256sum --strict --check fileblade-bin.sha256 || fail 'bundled binary checksum differs'
-  [[ $(<fileblade-bin.source) == "$bundle_source" ]] || fail 'native source changed; run tools/bundle build'
+  [[ -x $bundle_output/fileblade-bin && -f $bundle_output/fileblade-bin.sha256 && -f $bundle_output/fileblade-bin.source ]] || fail 'missing bundle; run tools/bundle build'
+  (cd -- "$bundle_output" && sha256sum --strict --check fileblade-bin.sha256) || fail 'bundled binary checksum differs'
+  [[ $(<"$bundle_output/fileblade-bin.source") == "$bundle_source" ]] || fail 'native source changed; run tools/bundle build'
 fi
 
 command -v rustup >/dev/null || fail 'maintainer builds require rustup and the pinned rust-toolchain.toml toolchain'
 bundle_sysroot=$(rustup run "$bundle_version" rustc --print sysroot)
 bundle_host=$(rustup run "$bundle_version" rustc -vV | sed -n 's/^host: //p')
-[[ $bundle_host == x86_64-unknown-linux-gnu ]] || fail 'build the x86-64 bundle with the pinned x86_64-unknown-linux-gnu toolchain'
+[[ $bundle_host == x86_64-unknown-linux-gnu || $bundle_host == aarch64-unknown-linux-gnu ]] || fail 'build with the pinned Linux GNU host toolchain'
+[[ -d $bundle_sysroot/lib/rustlib/$bundle_target/lib ]] || fail "the pinned toolchain lacks target $bundle_target; provision it before building"
 bundle_linker="$bundle_sysroot/lib/rustlib/$bundle_host/bin/rust-lld"
 [[ -x $bundle_linker ]] || fail 'the pinned toolchain has no rust-lld linker'
 bundle_work=$(mktemp -d "${FILEBLADE_BUNDLE_TMPDIR:-${TMPDIR:-/tmp}}/fileblade-bundle.XXXXXX")
@@ -44,31 +59,37 @@ bundle_flags=(
   '-Clink-self-contained=yes'
 )
 bundle_encoded=$(IFS=$'\x1f'; printf '%s' "${bundle_flags[*]}")
+bundle_linker_key=CARGO_TARGET_${bundle_target^^}_LINKER
+bundle_linker_key=${bundle_linker_key//-/_}
 bundle_args=(build --release --locked --target "$bundle_target" --bin fileblade)
 [[ ${FILEBLADE_OFFLINE:-0} != 1 ]] || bundle_args+=(--offline)
 env -u RUSTFLAGS -u RUSTC -u RUSTC_WRAPPER -u RUSTC_WORKSPACE_WRAPPER \
   CARGO_TARGET_DIR="$bundle_work" CARGO_ENCODED_RUSTFLAGS="$bundle_encoded" \
-  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER="$bundle_linker" \
+  "$bundle_linker_key=$bundle_linker" \
   CARGO_PROFILE_RELEASE_STRIP=none \
   rustup run "$bundle_version" cargo "${bundle_args[@]}"
 bundle_binary="$bundle_work/$bundle_target/release/fileblade"
 [[ $(source_id) == "$bundle_source" ]] || fail 'source changed during the build; retry after edits finish'
-readelf -h "$bundle_binary" | grep -q 'Advanced Micro Devices X86-64' || fail 'not an x86-64 ELF'
+readelf -h "$bundle_binary" | grep -Fq "$bundle_machine" || fail "not a $bundle_target ELF"
 if readelf -l "$bundle_binary" | grep -q INTERP || readelf -d "$bundle_binary" | grep -q NEEDED; then
   fail 'bundle is dynamically linked'
 fi
-[[ $("$bundle_binary" --version) == "fileblade $(jq -r .version manifest.json)" ]] || fail 'backend and manifest versions differ'
-tools/notices "$bundle_mode"
+if [[ ${bundle_host%%-*} == ${bundle_target%%-*} ]]; then
+  [[ $("$bundle_binary" --version) == "fileblade $(jq -r .version manifest.json)" ]] || fail 'backend and manifest versions differ'
+else
+  printf 'Cross-built %s; execution and backend version require qualification on that architecture\n' "$bundle_target"
+fi
+tools/notices "$bundle_mode" "$bundle_target" "$bundle_output/THIRD_PARTY_NOTICES.html"
 
 if [[ $bundle_mode == verify ]]; then
-  cmp -- "$bundle_binary" fileblade-bin || fail 'bundle is not byte-for-byte reproducible; rebuild with the pinned toolchain'
-  printf '%s\n' 'Bundled backend: source, checksum, static linkage, version and reproducible build verified'
+  cmp -- "$bundle_binary" "$bundle_output/fileblade-bin" || fail 'bundle is not byte-for-byte reproducible; rebuild with the pinned toolchain'
+  printf '%s\n' 'Bundled backend: source, checksum, static linkage and reproducible build verified'
 else
-  bundle_staged=$(mktemp "$bundle_root/.fileblade-bin.XXXXXX")
+  bundle_staged=$(mktemp "$bundle_output/.fileblade-bin.XXXXXX")
   install -m 755 -- "$bundle_binary" "$bundle_staged"
-  mv -f -- "$bundle_staged" fileblade-bin
+  mv -f -- "$bundle_staged" "$bundle_output/fileblade-bin"
   bundle_staged=""
-  sha256sum fileblade-bin > fileblade-bin.sha256
-  printf '%s\n' "$bundle_source" > fileblade-bin.source
+  (cd -- "$bundle_output" && sha256sum fileblade-bin > fileblade-bin.sha256)
+  printf '%s\n' "$bundle_source" > "$bundle_output/fileblade-bin.source"
   printf '%s\n' 'Bundled backend rebuilt; include fileblade-bin, fileblade-bin.sha256 and fileblade-bin.source with the source change'
 fi

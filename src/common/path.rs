@@ -40,6 +40,17 @@ pub fn parse_path(raw: &str) -> io::Result<PathBuf> {
         .get(..5)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("file:"))
     {
+        if raw.split_once(':').is_some_and(|(scheme, _)| {
+            scheme
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_alphabetic)
+                && scheme
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"+.-".contains(&byte))
+        }) {
+            return Err(invalid());
+        }
         return Ok(expanded_path(raw));
     }
     let bytes = raw.as_bytes();
@@ -76,6 +87,30 @@ pub fn parse_path(raw: &str) -> io::Result<PathBuf> {
 
 pub fn path_error(raw: &str, error: &io::Error) -> Value {
     json!({"ok": false, "path": raw, "error": error.to_string()})
+}
+
+#[test]
+fn local_path_parser_refuses_remote_schemes() {
+    for uri in [
+        "sftp://user@peer.test/files",
+        "SFTP://peer.test/",
+        "sftp://",
+        "mtp://device/",
+        "https://peer.test/",
+    ] {
+        assert_eq!(
+            parse_path(uri).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+    assert_eq!(
+        parse_path("/tmp/name:part").unwrap(),
+        PathBuf::from("/tmp/name:part")
+    );
+    assert_eq!(
+        parse_path("file:///tmp/files").unwrap(),
+        PathBuf::from("/tmp/files")
+    );
 }
 
 // Escape literal backslashes too: display text must not impersonate another name.

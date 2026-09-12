@@ -2,7 +2,7 @@
 .import "../../lib/SearchQuery.js" as SearchQuery
 .import "../../lib/TreeOrder.js" as TreeOrder
 
-var IMAGE_EXTENSIONS = "png jpg jpeg jpe jfif webp gif bmp dib ico cur pbm pgm ppm pnm pam svg svgz tif tiff heif heic avif jxl raw arw cr2 cr3 dng nef nrw orf raf rw2 pef srw x3f hdr exr pic psd psb xcf kra ora ai eps".split(" ")
+var IMAGE_EXTENSIONS = "png jpg jpeg jpe jfif webp gif bmp dib ico cur pbm pgm ppm pnm pam pfm svg svgz tif tiff heif heic avif jxl raw arw cr2 cr3 dng nef nrw orf raf rw2 pef srw x3f hdr exr pic psd psb xcf kra ora ai eps".split(" ")
 var VIDEO_EXTENSIONS = "mp4 m4v mov qt mkv webm avi mpeg mpg mpe m2v mts m2ts ts vob ogv ogm 3gp 3g2 flv wmv asf rm rmvb divx mxf".split(" ")
 
 function kind(row) {

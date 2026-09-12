@@ -1,7 +1,8 @@
 use crate::common::{display_path, parse_path, path_error, path_text};
 use crate::filesystem::entry_for_path;
 use crate::index;
-use crate::secure::{read_private_bounded, write_private_atomic};
+use crate::lease::durable::write_private_atomic;
+use crate::secure::read_private_bounded;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashMap;

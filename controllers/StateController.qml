@@ -67,8 +67,9 @@ Item {
 
   PersistentProperties {
     id: persisted
-    reloadableId: "kurt-filetree-layout"
+    reloadableId: service.chooserSession ? "fileblade-chooser-state-" + service.chooserSession.handle : "kurt-filetree-layout"
     property bool hydrated: false
+    property var retainedFields: ({})
     property bool showHidden: true
     property string welcomeState: ""
     property bool searchCaseSensitive: false
@@ -144,6 +145,7 @@ Item {
     if (path === service.trashResource || path === "trash://") return service.trashResource
     if (path === service.recentResource || path === "recent://") return service.recentResource
     if (path === service.drivesResource || path === "drives://") return service.drivesResource
+    if (PathText.isRemote(path)) return path
     return PathText.normalize(path, service.home)
   }
 
@@ -572,6 +574,9 @@ Item {
   }
 
   function resetSettings() {
+    var fields = StateDocument.mergeFields(persisted.retainedFields, {})
+    for (var key of StateDocument.preferenceKeys) delete fields[key]
+    persisted.retainedFields = fields
     var base = defaults()
     showHidden = base.showHidden
     searchCaseSensitive = false
@@ -622,6 +627,7 @@ Item {
     }
     var base = defaults()
     var state = parseState(raw)
+    persisted.retainedFields = state
     showHidden = service.boolValue(state.showHidden, base.showHidden)
     welcomeState = typeof state.welcomeState === "string" && ["dismissed", "installed"].indexOf(state.welcomeState) >= 0 ? state.welcomeState : ""
     searchCaseSensitive = service.boolValue(state.searchCaseSensitive, false)
@@ -680,7 +686,7 @@ Item {
   }
 
   function document() {
-    return {
+    return StateDocument.mergeFields(persisted.retainedFields, {
       version: 12,
       showHidden: showHidden,
       welcomeState: welcomeState,
@@ -711,7 +717,17 @@ Item {
       favorites: favorites,
       trashLastClearedAt: trashLastClearedAt,
       updateCheckedAt: updateCheckedAt
+    }, StateDocument.preferenceKeys)
+  }
+
+  function markSettingChoice(keys) {
+    if (!ready || !stateWritable) return
+    var fields = StateDocument.mergeFields(persisted.retainedFields, {})
+    for (var key of keys) {
+      if (StateDocument.preferenceKeys.indexOf(key) >= 0) fields[key] = persisted[key]
     }
+    persisted.retainedFields = fields
+    scheduleSave()
   }
 
   function markUpdateChecked(timestamp) {
@@ -737,6 +753,7 @@ Item {
   }
 
   function writeState(text) {
+    if (service.chooserSession) return
     if (stateWriteRequestId) {
       queuedStateDocument = text
       return
@@ -754,6 +771,11 @@ Item {
   }
 
   function requestStateRead() {
+    if (service.chooserSession) {
+      stateWritable = false
+      if (!ready) applyState("")
+      return
+    }
     if (stateReadRequestId) {
       stateReadQueued = true
       return

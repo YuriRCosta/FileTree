@@ -1,0 +1,11 @@
+module qs.Ui
+BorderOverlay 1.0 BorderOverlay.qml
+BorderSurface 1.0 BorderSurface.qml
+Button 1.0 Button.qml
+PanelToolTip 1.0 PanelToolTip.qml
+TextField 1.0 TextField.qml
+BarIconButton 1.0 BarIconButton.qml
+BarWidget 1.0 BarWidget.qml
+KeyboardPanel 1.0 KeyboardPanel.qml
+WidgetButton 1.0 WidgetButton.qml
+OpticalGlyph 1.0 OpticalGlyph.qml

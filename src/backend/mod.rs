@@ -27,6 +27,7 @@ pub struct BackendCli {
 #[derive(Clone, Debug, Subcommand)]
 pub enum BackendCommand {
     Agents,
+    Chooser(crate::chooser::transport::ChooserArgs),
     Recover,
     ProjectRoot(ProjectRootArgs),
     ChildrenBatch(ChildrenArgs),
@@ -78,6 +79,8 @@ pub enum BackendCommand {
     Copy(TransferArgs),
     Move(TransferArgs),
     Locations,
+    LocationConnect(LocationConnectArgs),
+    LocationDisconnect(LocationDisconnectArgs),
     List(LocationListArgs),
     TransferPreflight(TransferPreflightArgs),
     TransferExecute(TransferExecuteArgs),
@@ -98,6 +101,8 @@ pub enum BackendCommand {
     PluginInstall,
     PluginInstallStatus,
     HyprOption(HyprOptionArgs),
+    NativeBarState,
+    FontMatch,
     UpdateCheck(UpdateArgs),
     ActiveWindow,
     FocusWindow(FocusWindowArgs),
@@ -131,7 +136,9 @@ where
 pub fn mutating(command: &BackendCommand) -> bool {
     matches!(
         command,
-        BackendCommand::TransferExecute(_)
+        BackendCommand::LocationConnect(_)
+            | BackendCommand::LocationDisconnect(_)
+            | BackendCommand::TransferExecute(_)
             | BackendCommand::Copy(_)
             | BackendCommand::Move(_)
             | BackendCommand::Rename(_)
@@ -183,8 +190,19 @@ fn dispatch_command(
     if cancelled.load(Ordering::Relaxed) {
         return Err(crate::AppError::Cancelled);
     }
-    let mutates = mutating(&command);
+    let invalidates_files = mutating(&command)
+        && !matches!(
+            command,
+            BackendCommand::StateWrite(_)
+                | BackendCommand::LayoutWrite(_)
+                | BackendCommand::FrecencyVisit(_)
+                | BackendCommand::Visit(_)
+        );
     let value = match command {
+        BackendCommand::LocationConnect(options) => crate::locations::connect(&options, cancelled)?,
+        BackendCommand::LocationDisconnect(options) => {
+            crate::locations::sftp::disconnect(&options.location, &options.generation, cancelled)
+        }
         BackendCommand::List(options) => crate::locations::list(&options, cancelled),
         BackendCommand::Locations => crate::locations::payload(cancelled)?,
         BackendCommand::TransferPreflight(options) => crate::operations::collisions::preflight(
@@ -197,6 +215,7 @@ fn dispatch_command(
             transfer_execute(&options, cancelled, progress)?
         }
         BackendCommand::Agents => crate::agents::installed_agents(),
+        BackendCommand::Chooser(args) => crate::chooser::transport::run(args, cancelled),
         BackendCommand::HelperRead(options) => options.execute(false, cancelled)?,
         BackendCommand::HelperWrite(options) => options.execute(true, cancelled)?,
         BackendCommand::Recover => crate::recovery::sweep(),
@@ -338,11 +357,15 @@ fn dispatch_command(
         }
         BackendCommand::StateRead => private_document_read(&state_path()),
         BackendCommand::StateWrite(options) => {
-            private_document_write(&state_path(), &options.document)
+            let path = state_path();
+            crate::lease::persistence::check_write(&path)?;
+            private_document_write(&path, &options.document)
         }
         BackendCommand::LayoutRead => private_document_read(&layout_path()),
         BackendCommand::LayoutWrite(options) => {
-            private_document_write(&layout_path(), &options.document)
+            let path = layout_path();
+            crate::lease::persistence::check_write(&path)?;
+            private_document_write(&path, &options.document)
         }
         BackendCommand::SaveTarget(options) => {
             crate::filesystem::validate_save_target(&options.path)
@@ -472,6 +495,21 @@ fn dispatch_command(
         BackendCommand::HyprOption(options) => {
             crate::hyprland::hypr_query(&format!("getoption {}", options.name.as_str()))?
         }
+        BackendCommand::NativeBarState => json!({
+            "ok": true,
+            "hidden": crate::common::expanded_path("~/.local/state/omarchy/toggles/bar-off").is_file()
+        }),
+        BackendCommand::FontMatch => {
+            let output = crate::command::CommandSpec::new("fc-match")
+                .args(["-f", "%{family[0]}", "monospace"])
+                .limits(4096, 4096)
+                .run_cancellable(cancelled)?;
+            json!({
+                "ok": output.status.success() && !output.stdout_truncated,
+                "family": String::from_utf8_lossy(&output.stdout).trim(),
+                "error": String::from_utf8_lossy(&output.stderr).trim()
+            })
+        }
         BackendCommand::ActiveWindow => crate::hyprland::active_window(),
         BackendCommand::FocusWindow(options) => crate::hyprland::focus_window(&options.address),
         BackendCommand::PlaceBladeWindow(options) => crate::hyprland::place_blade_window(
@@ -550,7 +588,7 @@ fn dispatch_command(
             })
         }
     };
-    if mutates {
+    if invalidates_files {
         crate::index::invalidate_all();
         crate::listing::invalidate_all();
         crate::frecency::remap_from(&value);

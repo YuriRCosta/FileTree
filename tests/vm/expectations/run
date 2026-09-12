@@ -2,15 +2,17 @@
 # Run every UI expectation script against the headless Omarchy VM.
 # Usage: [OVM=...] [SKIP_PUSH=1] tests/vm/expectations/run [script-glob]
 set -u
+OVM=${OVM:?set OVM to the headless VM harness executable}
+[[ $OVM == /* ]] || OVM=$PWD/$OVM
 cd "$(dirname "$0")"
 REPO=$(cd ../../.. && pwd)
-export OVM=${OVM:?set OVM to the headless VM harness executable}
+export OVM
 [[ -x $OVM ]] || { echo "ovm harness not found at $OVM" >&2; exit 2; }
 
 # One VM, many agents. Key on real guest activity rather than on whether some
 # agent is merely working in the repo: another ovm process, or a screenshot
 # written in the last 90 seconds, both mean someone else is driving.
-SHOTS_DIR=${SHOTS_DIR:-$HOME/.local/share/test-omarchy-plugin/run/shots}
+SHOTS_DIR=${SHOTS_DIR:-${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin}/run/shots}
 # An ovm invocation is `bash <path>/scripts/ovm <subcommand>`, so the script path
 # is argv[0] or argv[1]. Matching the whole command line also catches any wrapper
 # whose -c string merely mentions the path, including this runner's own launcher.

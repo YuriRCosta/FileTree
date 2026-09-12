@@ -21,7 +21,7 @@ Item {
   readonly property string home: Quickshell.env("HOME") || "/"
   readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")
   readonly property string configDir: configHome + "/omarchy/fileblade"
-  readonly property string layoutPath: configDir + "/blades.json"
+  readonly property string layoutPath: service && service.chooserSession ? "" : configDir + "/blades.json"
   readonly property var edges: ["left", "right"]
   readonly property int minimumWidth: 280
   readonly property int minimumSlotHeight: Style.space(116)
@@ -102,7 +102,7 @@ Item {
 
   PersistentProperties {
     id: persisted
-    reloadableId: "kurt-filetree-blades"
+    reloadableId: host.service && host.service.chooserSession ? "fileblade-chooser-layout-" + host.service.chooserSession.handle : "kurt-filetree-blades"
     property bool hydrated: false
     property var layout: ({
       left: { open: false, width: 380, mode: "docked", slots: [] },
@@ -857,6 +857,7 @@ Item {
     writeLayout(text)
   }
   function writeLayout(text) {
+    if (service && service.chooserSession) return
     if (layoutWriteRequestId) {
       queuedLayoutDocument = text
       return
@@ -876,6 +877,11 @@ Item {
     })
   }
   function requestLayoutRead() {
+    if (service && service.chooserSession) {
+      layoutWritable = false
+      if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, false, false)
+      return
+    }
     if (layoutReadRequestId) {
       layoutReadQueued = true
       return
