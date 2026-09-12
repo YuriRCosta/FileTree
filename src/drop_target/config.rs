@@ -105,7 +105,7 @@ fn array<'a>(entry: &'a Value, key: &str, diagnostics: &mut Vec<String>) -> Opti
 
 fn identity(row: &Value) -> String {
     let desktop = text_field(row, "desktop_id");
-    if desktop.is_empty() {
+    if desktop.is_empty() || row["configured_builtin"] == true {
         text_field(row, "id")
     } else {
         desktop
@@ -320,6 +320,7 @@ fn custom_node(
         if entry.get("command").is_some() {
             return Err("choose builtin or command, not both".into());
         }
+        row["configured_builtin"] = json!(true);
         let action = text_field(reference, "action");
         let placement = text_field(reference, "placement");
         let mut source = catalogue
@@ -578,7 +579,7 @@ fn finish_rows(rows: &mut [Value], parent: &[String]) {
     for row in rows {
         let mut route = parent.to_vec();
         route.push(identity(row));
-        if row.get("command").is_some() {
+        if row.get("command").is_some() || row["configured_builtin"] == true {
             row["command_route"] = json!(route);
         }
         if let Some(children) = row.get_mut("placements").and_then(Value::as_array_mut) {

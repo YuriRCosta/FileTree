@@ -157,6 +157,23 @@ TestCase {
     compare(JSON.parse(launches[0][3]), ["custom:inspect", "format", "two"])
   }
 
+  function test_custom_builtin_alias_uses_current_configuration_route() {
+    begin()
+    wheel.endDrag(500, 500, true)
+    var value = nestedResult()
+    value.actions[0].placements[0].placements[0] = {
+      id: "alias", label: "Shell", key: "a", builtin_action: "terminal",
+      builtin_placement: "", command_route: ["custom:inspect", "format", "alias"]
+    }
+    callbacks[0](value)
+    wheel.activateKey("i", false)
+    wheel.activateKey("f", false)
+    verify(wheel.activateKey("a", false))
+    compare(launches.length, 1)
+    compare(launches[0][1], "configured")
+    compare(JSON.parse(launches[0][3]), ["custom:inspect", "format", "alias"])
+  }
+
   function test_third_ring_back_returns_one_level_at_a_time() {
     begin()
     wheel.endDrag(500, 500, true)

@@ -143,11 +143,16 @@ option syntax of arbitrary programs.
 | `terminal` | Use the desktop's terminal launcher with that directory and argv |
 | `multiplexer` | Use the resolved herdr/tmux target, with required `placement` from its table above |
 
-Multiplexer transport uses the existing argument-quoting helpers. Its
-transport may require a quoted command string internally; the configuration
-itself remains argv. Ambiguous or stale targets are refused. A custom command
-is resolved from current settings and current file facts again on dispatch.
-Removing or hiding it invalidates an old wheel's route.
+Terminal and multiplexer transport pass a fixed launcher with byte-encoded arguments
+and working directory. That launcher decodes the payload and executes the
+argument array; the configured command never becomes shell program text.
+The fixed decoder uses `python3`, already provided by the desktop; if it is
+unavailable, FileBlade refuses the configured terminal/multiplexer launch.
+Literal file URIs, empty arguments and non-UTF-8 path bytes retain their
+meaning in every run mode. Ambiguous or stale targets are refused. Custom
+commands and custom built-in references are resolved from current settings
+and current file facts again on dispatch. Removing, hiding or making an entry
+inapplicable invalidates an old wheel's route.
 
 ## Worked example
 

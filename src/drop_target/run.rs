@@ -75,17 +75,33 @@ fn run_configured(
     {
         return Err(AppError::invalid("Choose a placement first"));
     }
+    if row["configured_builtin"] == true {
+        let action = text_field(row, "builtin_action");
+        let placement = text_field(row, "builtin_placement");
+        return match action.as_str() {
+            "application" => run_application(runner, &text_field(row, "desktop_id"), facts),
+            "review" => run_review(runner, &placement, target, facts),
+            "open" | "terminal" | "copy-paths" => run_generic(runner, &action, facts),
+            _ => run_target(runner, &action, &placement, target, facts),
+        };
+    }
     let command = config::expand(&row["command"], facts)?;
     let cwd = text_field(facts, "folder");
+    let folder = parse_path(&cwd)?;
+    let initial_folder = folder.ancestors().find_map(Path::to_str).unwrap_or("/");
     match text_field(row, "runMode").as_str() {
         "detached" => runner.detached(command, Some(&cwd))?,
         "terminal" => {
             let mut launch = vec![
                 OsString::from("xdg-terminal-exec"),
-                native_directory_arg(&cwd)?,
+                native_directory_arg(initial_folder)?,
                 OsString::from("-e"),
             ];
-            launch.extend(command);
+            launch.extend(
+                configured_launcher(&command, &cwd)?
+                    .into_iter()
+                    .map(OsString::from),
+            );
             runner.detached(wrapped(launch), None)?;
         }
         "multiplexer" => {
@@ -93,15 +109,12 @@ fn run_configured(
                 return Err(AppError::invalid(reason));
             }
             revalidate_title_target(target).map_err(AppError::invalid)?;
-            let command = command
-                .iter()
-                .map(|arg| command_text(arg))
-                .collect::<Vec<_>>();
+            let command = configured_launcher(&command, &cwd)?;
             let result = run_multiplexer_command(
                 runner,
                 &text_field(row, "placement"),
                 target,
-                &cwd,
+                initial_folder,
                 &command,
             )?;
             if result["ok"] == true {

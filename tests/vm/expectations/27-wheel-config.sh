@@ -4,6 +4,7 @@ set -euo pipefail
 [[ ${OVM_HOME:-} == "$HOME/.local/share/test-omarchy-plugin-e" && ${OVM_SSH_PORT:-} == 2822 ]]
 python3 - <<'PY'
 import base64
+import copy
 import json
 import os
 import shlex
@@ -15,6 +16,12 @@ plugin = '/home/omarchy/.config/omarchy/plugins/data-goblin.fileblade'
 fixture = '/tmp/fb-wheel-config'
 source = fixture + "/item ' $(echo injection) #%.txt"
 receipt = fixture + '/receipt'
+native_folder = os.fsencode(fixture) + b'/cwd-\xff'
+native_source = native_folder + b'/odd-\xff.txt'
+native_uri = 'file://' + fixture + '/cwd-%FF/odd-%FF.txt'
+literal_args = ['file:///tmp/example%20name', '', "$(touch /tmp/fb-wheel-injected); 'quoted' \\ backslash\n\n"]
+byte_command = ['python3','-c',"import pathlib,sys,time,os,json;pathlib.Path(sys.argv[1]).write_text(json.dumps([os.getcwdb().hex(),*[os.fsencode(arg).hex() for arg in sys.argv[2:]]]));time.sleep(3)",receipt,'{paths}','{cwd}',*literal_args]
+expected_bytes = [value.hex() for value in [native_folder,native_source,os.fsencode(source),native_folder,*map(os.fsencode,literal_args)]]
 checks = 0
 
 
@@ -73,6 +80,7 @@ document['dropWheel'] = dict(version=1, future=dict(preserve=True), actions=[dic
     dict(id='custom:invalid', label='Invalid fixture', command='invalid shell string')])
 try:
     guest('from pathlib import Path;import subprocess;p=Path(' + repr(fixture) + ');p.mkdir(exist_ok=True);Path(' + repr(source) + ').write_text("fixture");subprocess.run(["git","init","-q",str(p)],check=True);Path(' + repr(receipt) + ').unlink(missing_ok=True);Path("/tmp/fb-wheel-injected").unlink(missing_ok=True)')
+    guest('import os;from pathlib import Path;os.makedirs(' + repr(native_folder) + ',exist_ok=True);open(' + repr(native_source) + ',"wb").write(b"fixture")')
     save(document)
     backend('preferences-set', '--trash-retention-days', '0')
     saved = backend('preferences-read')['settings']
@@ -101,6 +109,14 @@ try:
     check('literal shell-looking argument never executes', 'False', guest('from pathlib import Path;print(Path("/tmp/fb-wheel-injected").exists())'))
     wait(lambda: not state()['open'])
     check('successful custom action closes wheel', False, state()['open'])
+    document['dropWheel']['customActions'] = [dict(id='custom:bytes',label='Byte receipt',command=byte_command)]
+    save(document)
+    guest('from pathlib import Path;Path(' + repr(receipt) + ').unlink(missing_ok=True)')
+    result = backend('drop-run','--action','configured','--placement','["custom:bytes"]','--target','{"kind":"desktop"}','--path',native_uri,'--path',source)
+    check('detached byte probe dispatch accepted',True,result['ok'])
+    wait(lambda: guest('from pathlib import Path;print(Path(' + repr(receipt) + ').exists())') == 'True')
+    check('detached preserves native cwd and complete child argv bytes',expected_bytes,json.loads(guest('from pathlib import Path;print(Path(' + repr(receipt) + ').read_text())')))
+    check('detached never evaluates shell-looking arguments','False',guest('from pathlib import Path;print(Path("/tmp/fb-wheel-injected").exists())'))
     terminal_preferences = guest('from pathlib import Path;import base64;p=Path.home()/".config/xdg-terminals.list";print(base64.b64encode(p.read_bytes()).decode() if p.exists() else "MISSING")')
     try:
         for terminal, desktop in [('foot', 'foot.desktop'), ('footclient', 'footclient.desktop')]:
@@ -127,7 +143,7 @@ try:
                         ready = details.get('pane_id') if mode == 'herdr' else details.get('session')
                         return target if details.get('multiplexer') == mode and ready else None
                     target = wait(resolved)
-                command = ['python3','-c',"import pathlib,sys,time,os;pathlib.Path(sys.argv[1]).write_text(os.getcwd()+'\\n'+sys.argv[2]);time.sleep(3)",receipt,'{path}']
+                command = byte_command
                 entry = dict(id='custom:mode',label='Mode probe',key='u',command=command,runMode='terminal' if mode == 'terminal' else 'multiplexer')
                 if mode != 'terminal':
                     entry['placement'] = 'right'
@@ -135,12 +151,13 @@ try:
                 document['dropWheel']['actions'] = [dict(id='custom:mode')]
                 save(document)
                 guest('from pathlib import Path;Path(' + repr(receipt) + ').unlink(missing_ok=True)')
-                outcome = backend('drop-run','--action','configured','--placement',json.dumps(['custom:mode']),'--target',json.dumps(target),'--path',source)
+                outcome = backend('drop-run','--action','configured','--placement',json.dumps(['custom:mode']),'--target',json.dumps(target),'--path',native_uri,'--path',source)
                 print(json.dumps(dict(terminal=terminal,mode=mode,target=target,outcome=outcome)),flush=True)
                 check(terminal + '/' + mode + ' custom dispatch accepted',True,outcome['ok'])
                 wait(lambda: guest('from pathlib import Path;print(Path(' + repr(receipt) + ').exists())') == 'True')
-                actual = json.loads(guest('from pathlib import Path;import json;print(json.dumps(Path(' + repr(receipt) + ').read_text().splitlines()))'))
-                check(terminal + '/' + mode + ' preserves cwd and exact selected path',[fixture,source],actual)
+                actual = json.loads(guest('from pathlib import Path;print(Path(' + repr(receipt) + ').read_text())'))
+                check(terminal + '/' + mode + ' preserves native cwd and complete child argv bytes',expected_bytes,actual)
+                check(terminal + '/' + mode + ' never evaluates shell-looking arguments','False',guest('from pathlib import Path;print(Path("/tmp/fb-wheel-injected").exists())'))
                 clients = json.loads(call('hypr','clients'))
                 check(terminal + '/' + mode + ' runs in the expected terminal class',True,any(client['class'] == terminal for client in clients))
                 print(json.dumps(dict(shot=call('shot','pebbleclaw-27-' + terminal + '-' + mode))),flush=True)
@@ -150,6 +167,30 @@ try:
             guest('from pathlib import Path;(Path.home()/".config/xdg-terminals.list").unlink(missing_ok=True)')
         else:
             guest('from pathlib import Path;import base64;(Path.home()/".config/xdg-terminals.list").write_bytes(base64.b64decode(' + repr(terminal_preferences) + '))')
+    alias = dict(id='custom:alias',label='Current alias',key='a',builtin=dict(action='terminal'),conditions=dict(path=[fixture+'/*']))
+    document['dropWheel'] = dict(version=1,actions=[dict(id='custom:alias')],customActions=[alias])
+    save(document)
+    context = backend('drop-context','--x','900','--y','500','--path',source)
+    captured = next(row for row in context['actions'] if row['id'] == 'custom:alias')
+    check('custom built-in alias receives a configured route',['custom:alias'],captured.get('command_route'))
+    route = json.dumps(captured['command_route'])
+    result = backend('drop-run','--action','configured','--placement',route,'--target','{"kind":"desktop"}','--path',source,'--dry-run')
+    check('current alias invokes the fixed terminal implementation',True,result['ok'] and any('xdg-terminal-exec' in arg for cmd in result['commands'] for arg in cmd))
+    for change in ['removed','hidden','path condition','mime condition','target kind']:
+        changed = copy.deepcopy(alias)
+        if change == 'hidden':
+            changed['hidden'] = True
+        if change == 'path condition':
+            changed['conditions'] = dict(path=['/unavailable/*'])
+        if change == 'mime condition':
+            changed['conditions'] = dict(mime=['image/*'])
+        if change == 'target kind':
+            changed['targetKinds'] = ['editor']
+        document['dropWheel']['customActions'] = [] if change == 'removed' else [changed]
+        save(document)
+        result = backend('drop-run','--action','configured','--placement',route,'--target','{"kind":"desktop"}','--path',source,'--dry-run')
+        check(change + ' invalidates a captured built-in alias',False,result['ok'])
+        check(change + ' alias launches no command',[],result['commands'])
     document['dropWheel']['customActions'] = []
     save(document)
     result = backend('drop-run', '--action', 'configured', '--placement', json.dumps(['custom:inspect','format','capture']), '--target', '{"kind":"desktop"}', '--path', source, '--dry-run')

@@ -108,6 +108,34 @@ fn placement_overrides_and_builtin_aliases_keep_dispatch_identity() {
     assert_eq!(children[1]["builtin_action"], "terminal");
     assert_eq!(children[1]["icon"], "old");
     assert_eq!(children[1]["icon_source"], "file:///old.png");
+    assert_eq!(
+        children[1]["command_route"],
+        json!(["mux-open", "custom:shell"])
+    );
+    assert!(children[0].get("command_route").is_none());
+}
+
+#[test]
+fn application_aliases_keep_separate_configured_identities() {
+    let defaults = [
+        json!({"id":"open-with","placements":[{"id":"application","desktop_id":"viewer.desktop","label":"Viewer"}]}),
+    ];
+    let mut document = json!({"version":1,"customActions":[
+        {"id":"custom:first","label":"First","builtin":{"action":"open-with","placement":"viewer.desktop"}},
+        {"id":"custom:second","label":"Second","builtin":{"action":"open-with","placement":"viewer.desktop"}}
+    ]});
+    let (rows, errors) = config::merge(&defaults, &document, &json!({}), &json!({}));
+    assert!(errors.is_empty(), "{errors:?}");
+    for (index, id) in [(1, "custom:first"), (2, "custom:second")] {
+        assert_eq!(rows[index]["command_route"], json!([id]));
+        assert_eq!(rows[index]["desktop_id"], "viewer.desktop");
+        assert_eq!(rows[index]["builtin_action"], "application");
+    }
+    document["actions"] = json!([{"id":"custom:first","hidden":true}]);
+    let (rows, errors) = config::merge(&defaults, &document, &json!({}), &json!({}));
+    assert!(errors.is_empty(), "{errors:?}");
+    assert!(!rows.iter().any(|row| row["id"] == "custom:first"));
+    assert_eq!(rows[1]["command_route"], json!(["custom:second"]));
 }
 
 #[test]
