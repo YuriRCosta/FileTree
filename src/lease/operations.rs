@@ -7,7 +7,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
-
 const RESULT_LIFETIME: u64 = 24 * 60 * 60;
 const RESULT_LIMIT: usize = 256;
 const RESULT_BYTES: usize = 1024 * 1024 * 1024;
