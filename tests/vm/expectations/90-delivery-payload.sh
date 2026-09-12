@@ -9,6 +9,7 @@ trap 'rm -rf -- "$work"' EXIT
 "$native" stage "$source_root" "$2" "$3" "$4" "$work/payload"
 payload=$work/payload
 "$native" check "$payload"
+[[ -s $payload/modules/welcome/../../docs/agent-written/keybindings.md && -s $payload/modules/welcome/../../EXTENSIONS.md ]]
 printf 'PASS E-90-01 complete inventory and compatible runtime\n'
 reject() {
   if "$native" "$1" "$2" >"$work/rejection" 2>&1; then
