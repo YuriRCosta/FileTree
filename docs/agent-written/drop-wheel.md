@@ -279,8 +279,15 @@ preview. This is not a standalone save validator: unavailable actions and
 conditions depend on that context. The lane adds no preference-write API or
 settings-form implementation; those remain with the settings owner.
 
-Application icons continue through the existing `icon`/`icon_source` path.
-The central resolver consumer hookup follows media's published interface
-after task 8.3 under R42. Explicit overrides and inherited alias icons already
-work. Existing herdr/tmux marks remain; this baseline has no bundled hunk
-mark, so hunk retains its glyph fallback.
+All three wheel rings consume
+`FileIcons.resolveApplication(entry, override, desktopEntry, iconPath)` when
+available. Application rows carry their desktop identity, which the wheel
+looks up through Quickshell DesktopEntries; explicit icon or glyph overrides
+are passed separately so they take precedence. The returned `icon`,
+`icon_source` and `glyph` feed the existing bounded icon renderer. Built-in
+action ids remain stable when desktop identity is present.
+
+The media implementation lands separately. Until then, the wheel retains its
+existing icon/source behavior. Bundled herdr/tmux and pane marks remain
+available with either path; this baseline has no bundled hunk mark, so hunk
+retains its glyph fallback.

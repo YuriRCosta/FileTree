@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+native_tool=$(readlink -f -- "${BASH_SOURCE[0]}")
+native_root=$(cd -- "$(dirname -- "$native_tool")/.." && pwd -P)
+fail() { printf 'fileblade native: %s\n' "$*" >&2; exit 1; }
+source "$native_root/packaging/payload.sh"
+case ${1:-} in
+  stage)
+    [[ $# == 6 ]] || fail 'usage: tools/native stage SOURCE BACKEND TARGET NOTICES OUTPUT'
+    stage_payload "$2" "$3" "$4" "$5" "$6"
+    ;;
+  verify)
+    [[ $# == 2 ]] || fail 'usage: tools/native verify PAYLOAD'
+    verify_payload "$2"
+    ;;
+  check)
+    [[ $# == 2 ]] || fail 'usage: tools/native check PAYLOAD'
+    verify_payload "$2"
+    check_runtime "$2"
+    ;;
+  install|rollback|status)
+    source "$native_root/packaging/install.sh"
+    install_command "$@"
+    ;;
+  *) fail 'usage: tools/native {stage|verify|check|install|rollback|status}' ;;
+esac

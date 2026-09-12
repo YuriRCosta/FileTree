@@ -109,11 +109,12 @@ fn array<'a>(entry: &'a Value, key: &str, diagnostics: &mut Vec<String>) -> Opti
 }
 
 fn identity(row: &Value) -> String {
+    let id = text_field(row, "id");
     let desktop = text_field(row, "desktop_id");
-    if desktop.is_empty() || row["configured_builtin"] == true {
-        text_field(row, "id")
-    } else {
+    if !desktop.is_empty() && (id.is_empty() || id == "application") {
         desktop
+    } else {
+        id
     }
 }
 

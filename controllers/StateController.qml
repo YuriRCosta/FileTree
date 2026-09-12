@@ -69,6 +69,7 @@ Item {
     id: persisted
     reloadableId: "kurt-filetree-layout"
     property bool hydrated: false
+    property var retainedFields: ({})
     property bool showHidden: true
     property string welcomeState: ""
     property bool searchCaseSensitive: false
@@ -622,6 +623,7 @@ Item {
     }
     var base = defaults()
     var state = parseState(raw)
+    persisted.retainedFields = state
     showHidden = service.boolValue(state.showHidden, base.showHidden)
     welcomeState = typeof state.welcomeState === "string" && ["dismissed", "installed"].indexOf(state.welcomeState) >= 0 ? state.welcomeState : ""
     searchCaseSensitive = service.boolValue(state.searchCaseSensitive, false)
@@ -680,7 +682,7 @@ Item {
   }
 
   function document() {
-    return {
+    return StateDocument.mergeFields(persisted.retainedFields, {
       version: 12,
       showHidden: showHidden,
       welcomeState: welcomeState,
@@ -711,7 +713,7 @@ Item {
       favorites: favorites,
       trashLastClearedAt: trashLastClearedAt,
       updateCheckedAt: updateCheckedAt
-    }
+    })
   }
 
   function markUpdateChecked(timestamp) {
