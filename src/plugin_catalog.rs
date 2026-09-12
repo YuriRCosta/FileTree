@@ -118,7 +118,13 @@ pub fn catalog() -> crate::AppResult<Value> {
         }
     }
     entries.sort();
-    for path in entries {
+    let directory_names: Vec<_> = entries
+        .iter()
+        .filter(|path| path.is_dir())
+        .filter_map(|path| path.file_name()?.to_str())
+        .filter(|name| !name.starts_with('.') && *name != CORE_ID)
+        .collect();
+    for path in &entries {
         if providers.len() >= MAX_PROVIDERS || bytes >= MAX_MANIFEST_TOTAL_BYTES {
             truncated = true;
             break;
@@ -214,6 +220,7 @@ pub fn catalog() -> crate::AppResult<Value> {
     Ok(json!({
         "ok": true,
         "providers": providers,
+        "directory_names": directory_names,
         "activation": if truncated { "unknown" } else { activation_state },
         "complete": !truncated,
         "truncated": truncated,

@@ -85,8 +85,10 @@ QtObject {
       var trusted = catalog.activation === "known" && catalog.complete
       catalog.providers = trusted ? rows : catalog.withoutAuthority(rows)
       if (watchPaths.length === 4) {
+        var names = Array.isArray(response.directory_names) ? response.directory_names.slice(0, maximumProviders * 2) : []
+        var directories = names.filter(function(name) { return typeof name === "string" && name.length > 0 && name.length <= 255 && name[0] !== "." && name.indexOf("/") < 0 && name.indexOf("\u0000") < 0 }).map(function(name) { return catalog.watchPaths[2] + "/" + name })
         var known = catalog.providers.map(function(provider) { return catalog.watchPaths[2] + "/" + provider.id })
-        catalog.extensionDirectories = known.concat(catalog.extensionDirectories).filter(function(path, index, all) { return all.indexOf(path) === index }).slice(0, maximumProviders * 2)
+        catalog.extensionDirectories = known.concat(directories, catalog.extensionDirectories).filter(function(path, index, all) { return all.indexOf(path) === index }).slice(0, maximumProviders * 2)
         Qt.callLater(catalog.watch)
       }
       catalog.refreshed()

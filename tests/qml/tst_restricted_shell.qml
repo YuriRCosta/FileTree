@@ -253,6 +253,23 @@ TestCase {
     compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late", directory: true, events: ["delete"] }), true)
     catalog.watch()
     verify(fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.late") < 0)
+    var retiredEvent = fakeService.watchEvent
+    catalog.watchSignature = ""
+    catalog.watch()
+    retiredEvent({ path: "/config/fileblade/extensions/acme.handoff", directory: true, events: ["create"] })
+    verify(catalog.extensionDirectories.indexOf("/config/fileblade/extensions/acme.handoff") < 0)
+    fakeService.reply = { ok: true, activation: "known", providers: [], directory_names: ["acme.handoff", "../escape", "a/b", "", ".hidden", null] }
+    catalog.checkedAt = 0
+    fakeService.emitWatchReady()
+    tryVerify(function() { return fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.handoff") >= 0 })
+    compare(catalog.providers.length, 0)
+    verify(catalog.extensionDirectories.every(function(path) { return path.indexOf("/config/fileblade/extensions/acme.") === 0 }))
+    fakeService.reply = { ok: true, activation: "known", providers: [{ id: "acme.handoff", dir: "/config/fileblade/extensions/acme.handoff", manifest: companionManifest, enabled: true }], directory_names: ["acme.handoff"] }
+    catalog.checkedAt = 0
+    fakeService.watchEvent({ path: "/config/fileblade/extensions/acme.handoff/Module.qml", events: ["close_write"] })
+    compare(catalog.providers.length, 1)
+    compare(catalog.providers[0].id, "acme.handoff")
+    compare(catalog.providers[0].enabled, true)
     catalog.unwatch()
     catalog.extensionDirectories = []
     catalog.watchPaths = original
