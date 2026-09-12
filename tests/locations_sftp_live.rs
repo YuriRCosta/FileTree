@@ -121,7 +121,9 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
     ])
     .unwrap();
     let denied = backend::dispatch(command, &cancelled, &mut |_| Ok(())).unwrap();
+    let denied_connect = sftp::connect(&candidates[0], &saved, &cancelled);
     fs::set_permissions(&remote, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(denied_connect.is_err(), "{denied_connect:?}");
     assert_eq!(denied["ok"], false, "{denied}");
     assert_eq!(denied["error_id"], "stale-location", "{denied}");
     assert!(sftp::snapshot(&connected.id).is_none());
@@ -134,5 +136,5 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
         sftp::disconnect(&reconnected.id, &reconnected.session_generation, &cancelled);
     assert_eq!(disconnected["ok"], true, "{disconnected}");
     assert!(sftp::snapshot(&reconnected.id).is_none());
-    fs::write(root.join("results.json"), serde_json::to_vec_pretty(&json!({"candidate":candidate,"connected":connected,"listing":listed,"denied":denied,"disconnected":disconnected,"discovery":"synthetic status fixture","transport":"real loopback SSH through GVfs"})).unwrap()).unwrap();
+    fs::write(root.join("results.json"), serde_json::to_vec_pretty(&json!({"candidate":candidate,"connected":connected,"listing":listed,"denied":denied,"denied_connect":denied_connect.unwrap_err().to_string(),"disconnected":disconnected,"discovery":"synthetic status fixture","transport":"real loopback SSH through GVfs"})).unwrap()).unwrap();
 }

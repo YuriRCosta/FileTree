@@ -137,6 +137,11 @@ pub fn payload(cancelled: &AtomicBool) -> AppResult<Value> {
     if cancelled.load(Ordering::Relaxed) {
         return Err(AppError::Cancelled);
     }
+    for cleanup in sftp::cleanup_locations() {
+        if !locations.iter().any(|location| location.id == cleanup.id) {
+            locations.push(cleanup);
+        }
+    }
     let (saved, saved_error) = match saved::read() {
         Ok(entries) => (entries, None),
         Err(error) => (Vec::new(), Some(error.to_string())),
@@ -500,12 +505,13 @@ pub fn connect(
         path: options.path.clone(),
     };
     let location = sftp::connect(&candidate, &saved, cancelled)?;
-    let save_error = if options.save {
+    let connected = location.connection == Connection::Connected;
+    let save_error = if connected && options.save {
         saved::remember(&saved).err().map(|error| error.to_string())
     } else {
         None
     };
     Ok(
-        json!({"ok":true,"location":location,"saved":options.save && save_error.is_none(),"save_error":save_error}),
+        json!({"ok":connected,"error":location.error,"location":location,"saved":connected && options.save && save_error.is_none(),"save_error":save_error}),
     )
 }

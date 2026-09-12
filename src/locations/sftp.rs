@@ -3,7 +3,7 @@ use crate::command::{CommandSpec, which};
 use crate::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -51,20 +51,20 @@ impl Saved {
 }
 
 static CONNECTED: Mutex<Option<HashMap<String, Descriptor>>> = Mutex::new(None);
-static CONNECTING: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+static CONNECTING: Mutex<BTreeMap<String, Option<String>>> = Mutex::new(BTreeMap::new());
 
 struct Pending(String);
 impl Pending {
-    fn reserve(id: &str, connecting: bool) -> AppResult<Self> {
+    fn reserve(id: &str, host: Option<&str>) -> AppResult<Self> {
         let mut pending = CONNECTING
             .lock()
             .map_err(|_| AppError::command("SFTP connections unavailable"))?;
-        if pending.contains(id) {
+        if pending.contains_key(id) {
             return Err(AppError::invalid(
                 "a connection change is already pending for this peer",
             ));
         }
-        if connecting {
+        if host.is_some() {
             let sessions = CONNECTED
                 .lock()
                 .map_err(|_| AppError::command("SFTP connections unavailable"))?;
@@ -75,14 +75,14 @@ impl Pending {
                 ));
             }
             let reserved = pending
-                .iter()
+                .keys()
                 .filter(|id| connected.is_none_or(|sessions| !sessions.contains_key(*id)))
                 .count();
             if connected.map_or(0, HashMap::len) + reserved >= 64 {
                 return Err(AppError::invalid("at most 64 SFTP peers can be connected"));
             }
         }
-        pending.insert(id.to_owned());
+        pending.insert(id.to_owned(), host.map(str::to_owned));
         Ok(Self(id.to_owned()))
     }
 }
@@ -132,32 +132,18 @@ pub fn connect(
     }
     let uri = saved.uri()?;
     let id = candidate.location.id.clone();
-    let _pending = Pending::reserve(&id, true)?;
+    let _pending = Pending::reserve(&id, Some(&candidate.host))?;
     let query = [
         "info",
         "--attributes=standard::type,access::can-read",
         "--",
         uri.as_str(),
     ];
-    let info = match gio(&query, cancelled) {
-        Ok(info) => info,
-        Err(_) if !cancelled.load(Ordering::Relaxed) => {
-            gio(&["mount", "--", &uri], cancelled)?;
-            gio(&query, cancelled)?
-        }
-        Err(error) => return Err(error),
-    };
-    if !info.lines().any(|line| line.trim() == "standard::type: 2") {
-        return Err(AppError::invalid("selected remote path is not a directory"));
-    }
-    if cancelled.load(Ordering::Relaxed) {
-        return Err(AppError::Cancelled);
-    }
-    let descriptor = Descriptor {
+    let mut descriptor = Descriptor {
         schema: 1,
         id: id.clone(),
         kind: Kind::Sftp,
-        canonical_uri: uri,
+        canonical_uri: uri.clone(),
         label: candidate.location.label.clone(),
         connection: Connection::Connected,
         session_generation: uuid::Uuid::new_v4().to_string(),
@@ -165,28 +151,111 @@ pub fn connect(
         capabilities: BTreeSet::from([Capability::List]),
         error: None,
     };
-    let mut sessions = CONNECTED
-        .lock()
-        .map_err(|_| AppError::command("SFTP sessions unavailable"))?;
-    let sessions = sessions.get_or_insert_with(HashMap::new);
-    sessions.insert(id, descriptor.clone());
-    Ok(descriptor)
+    let mut mounted = false;
+    let result = (|| {
+        let info = match gio(&query, cancelled) {
+            Ok(info) => info,
+            Err(_) if !cancelled.load(Ordering::Relaxed) => {
+                gio(&["mount", "--", &uri], cancelled)?;
+                mounted = true;
+                gio(&query, cancelled)?
+            }
+            Err(error) => return Err(error),
+        };
+        if !info.lines().any(|line| line.trim() == "standard::type: 2") {
+            return Err(AppError::invalid("selected remote path is not a directory"));
+        }
+        match info
+            .lines()
+            .find_map(|line| line.trim().strip_prefix("access::can-read: "))
+        {
+            Some("FALSE" | "false" | "0") => {
+                return Err(AppError::invalid("remote directory denies read access"));
+            }
+            Some("TRUE" | "true" | "1") => {}
+            _ => {
+                gio(&["list", "--nofollow-symlinks", "--", &uri], cancelled)?;
+            }
+        }
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(AppError::Cancelled);
+        }
+        let pending = CONNECTING
+            .lock()
+            .map_err(|_| AppError::command("SFTP connections unavailable"))?;
+        if pending.get(&id).and_then(Option::as_deref) != Some(candidate.host.as_str()) {
+            return Err(AppError::invalid(
+                "peer discovery changed during connect; refresh Locations",
+            ));
+        }
+        CONNECTED
+            .lock()
+            .map_err(|_| AppError::command("SFTP sessions unavailable"))?
+            .get_or_insert_with(HashMap::new)
+            .insert(id.clone(), descriptor.clone());
+        Ok(descriptor.clone())
+    })();
+    if let Err(error) = &result
+        && mounted
+        && let Err(cleanup) = gio(&["mount", "--unmount", "--", &uri], &AtomicBool::new(false))
+    {
+        descriptor.connection = Connection::Unavailable;
+        descriptor.capabilities.clear();
+        descriptor.error = Some(format!("{error}; disconnect required: {cleanup}"));
+        CONNECTED
+            .lock()
+            .map_err(|_| AppError::command("SFTP sessions unavailable"))?
+            .get_or_insert_with(HashMap::new)
+            .insert(id, descriptor.clone());
+        return Ok(descriptor);
+    }
+    result
 }
 
 pub fn retain_candidates(candidates: &[tailnet::Candidate]) {
+    let Ok(mut pending) = CONNECTING.lock() else {
+        return;
+    };
+    let valid = |id: &str, host: &str| {
+        candidates
+            .iter()
+            .any(|candidate| candidate.location.id == id && candidate.host == host)
+    };
+    for (id, host) in pending.iter_mut() {
+        if host.as_ref().is_some_and(|host| !valid(id, host)) {
+            *host = None;
+        }
+    }
     if let Ok(mut connected) = CONNECTED.lock()
         && let Some(connected) = connected.as_mut()
     {
         connected.retain(|id, session| {
-            candidates.iter().any(|candidate| {
-                candidate.location.id == *id
-                    && url::Url::parse(&candidate.location.canonical_uri)
-                        .ok()
-                        .zip(url::Url::parse(&session.canonical_uri).ok())
-                        .is_some_and(|(candidate, session)| candidate.host() == session.host())
-            })
+            session.connection == Connection::Unavailable
+                || candidates.iter().any(|candidate| {
+                    candidate.location.id == *id
+                        && url::Url::parse(&candidate.location.canonical_uri)
+                            .ok()
+                            .zip(url::Url::parse(&session.canonical_uri).ok())
+                            .is_some_and(|(candidate, session)| candidate.host() == session.host())
+                })
         });
     }
+}
+
+pub fn cleanup_locations() -> Vec<Descriptor> {
+    CONNECTED
+        .lock()
+        .ok()
+        .and_then(|sessions| {
+            sessions.as_ref().map(|sessions| {
+                sessions
+                    .values()
+                    .filter(|session| session.connection == Connection::Unavailable)
+                    .cloned()
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
 }
 
 pub fn snapshot(id: &str) -> Option<Descriptor> {
@@ -205,7 +274,7 @@ fn invalidate(id: &str, generation: &str) {
 }
 
 pub fn disconnect(id: &str, generation: &str, cancelled: &AtomicBool) -> Value {
-    let _pending = match Pending::reserve(id, false) {
+    let _pending = match Pending::reserve(id, None) {
         Ok(pending) => pending,
         Err(error) => return json!({"ok":false,"error":error.to_string(),"location":id}),
     };
@@ -219,7 +288,16 @@ pub fn disconnect(id: &str, generation: &str, cancelled: &AtomicBool) -> Value {
     ) {
         Ok(_) => json!({"ok":true,"location":id,"disconnected":true}),
         Err(error) => {
-            json!({"ok":false,"location":id,"disconnected":true,"error":error.to_string()})
+            let mut cleanup = current;
+            cleanup.connection = Connection::Unavailable;
+            cleanup.capabilities.clear();
+            cleanup.error = Some(error.to_string());
+            if let Ok(mut sessions) = CONNECTED.lock() {
+                sessions
+                    .get_or_insert_with(HashMap::new)
+                    .insert(id.to_owned(), cleanup.clone());
+            }
+            json!({"ok":false,"location":cleanup,"disconnected":false,"error":error.to_string()})
         }
     }
 }
@@ -282,9 +360,10 @@ pub fn list(options: &crate::backend::LocationListArgs, cancelled: &AtomicBool) 
             return result;
         }
     };
-    if snapshot(&options.location)
-        .is_none_or(|value| value.session_generation != options.generation)
-    {
+    if snapshot(&options.location).is_none_or(|value| {
+        value.session_generation != options.generation
+            || !value.capabilities.contains(&Capability::List)
+    }) {
         return stale(&options.location, &options.generation);
     }
     match parse_listing(&output, &uri, options) {
@@ -428,18 +507,20 @@ mod tests {
     #[test]
     fn pending_changes_reserve_capacity_and_exclude_reconnect_until_disconnect_finishes() {
         let mut pending = (0..64)
-            .map(|index| Pending::reserve(&format!("tailnet:capacity-{index}"), true).unwrap())
+            .map(|index| {
+                Pending::reserve(&format!("tailnet:capacity-{index}"), Some("peer")).unwrap()
+            })
             .collect::<Vec<_>>();
-        assert!(Pending::reserve("tailnet:overflow", true).is_err());
-        assert!(Pending::reserve("tailnet:capacity-0", false).is_err());
+        assert!(Pending::reserve("tailnet:overflow", Some("peer")).is_err());
+        assert!(Pending::reserve("tailnet:capacity-0", None).is_err());
         pending.pop();
-        let released = Pending::reserve("tailnet:overflow", true).unwrap();
+        let released = Pending::reserve("tailnet:overflow", Some("peer")).unwrap();
         drop(released);
         drop(pending);
-        let disconnect = Pending::reserve("tailnet:disconnecting", false).unwrap();
-        assert!(Pending::reserve("tailnet:disconnecting", true).is_err());
+        let disconnect = Pending::reserve("tailnet:disconnecting", None).unwrap();
+        assert!(Pending::reserve("tailnet:disconnecting", Some("peer")).is_err());
         drop(disconnect);
-        assert!(Pending::reserve("tailnet:disconnecting", true).is_ok());
+        assert!(Pending::reserve("tailnet:disconnecting", Some("peer")).is_ok());
     }
 
     fn options() -> crate::backend::LocationListArgs {
