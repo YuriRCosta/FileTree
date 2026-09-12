@@ -77,6 +77,7 @@ struct Proof {
     path: PathBuf,
     identity: EntryIdentity,
     mount_id: u64,
+    unique_mount_id: u64,
 }
 
 #[derive(Clone)]
@@ -179,10 +180,16 @@ pub fn local(
         }
     };
     let identity = secure::stat_in(&directory, OsStr::new("."))?.identity();
+    if secure::directory_mount_id(&directory)? != mount.mount_id {
+        invalidate(id);
+        descriptor.error = Some("location mount changed during validation".into());
+        return Ok(descriptor);
+    }
     let proof = Proof {
         path: path.clone(),
         identity,
         mount_id: mount.mount_id,
+        unique_mount_id: secure::directory_unique_mount_id(&directory)?,
     };
     descriptor.connection = Connection::Connected;
     descriptor.local_representation = Some(LocalRepresentation {
@@ -299,25 +306,24 @@ fn session(id: &str, generation: &str) -> AppResult<Session> {
         .ok_or_else(|| AppError::invalid("location session is disconnected or stale"))
 }
 
-pub fn validate_local(id: &str, generation: &str) -> AppResult<PathBuf> {
+fn validated_directory(id: &str, generation: &str) -> AppResult<(Session, rustix::fd::OwnedFd)> {
     let session = session(id, generation)?;
     let directory = secure::open_directory_nofollow(&session.proof.path)?;
     let identity = secure::stat_in(&directory, OsStr::new("."))?.identity();
-    let table = MountTable::read()?;
-    let mount = table
-        .records()
-        .iter()
-        .filter(|record| session.proof.path.starts_with(&record.mountpoint))
-        .max_by_key(|record| record.mountpoint.components().count());
     if identity != session.proof.identity
-        || mount.is_none_or(|mount| mount.mount_id != session.proof.mount_id)
+        || secure::directory_mount_id(&directory)? != session.proof.mount_id
+        || secure::directory_unique_mount_id(&directory)? != session.proof.unique_mount_id
     {
         return Err(AppError::invalid(
             "location representation changed since validation",
         ));
     }
     self::session(id, generation)?;
-    Ok(session.proof.path.clone())
+    Ok((session, directory))
+}
+
+pub fn validate_local(id: &str, generation: &str) -> AppResult<PathBuf> {
+    validated_directory(id, generation).map(|(session, _)| session.proof.path)
 }
 
 fn volume_descriptor(volume: &Volume, table: &MountTable) -> AppResult<Descriptor> {

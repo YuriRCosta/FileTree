@@ -65,7 +65,11 @@ fn local_identity_has_stable_generation_until_replacement_or_disconnect() {
 fn read_only_and_unvalidated_provider_mounts_never_advertise_writes() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().to_str().unwrap();
-    let table = MountTable::from_text(&format!("41 1 0:40 / {path} ro - ext4 /dev/example ro\n"));
+    let directory = fileblade::secure::open_directory_nofollow(root.path()).unwrap();
+    let mount_id = fileblade::secure::directory_mount_id(&directory).unwrap();
+    let table = MountTable::from_text(&format!(
+        "{mount_id} 1 0:40 / {path} ro - ext4 /dev/example ro\n"
+    ));
     let id = format!("readonly:{path}");
     let local = locations::local(&id, Kind::Usb, path, "Read-only", &table).unwrap();
     assert_eq!(local.connection, Connection::Connected);
@@ -80,7 +84,9 @@ fn read_only_and_unvalidated_provider_mounts_never_advertise_writes() {
     ] {
         assert!(!local.capabilities.contains(&capability));
     }
-    let table = MountTable::from_text(&format!("41 1 0:40 / {path} rw - ext4 /dev/example ro\n"));
+    let table = MountTable::from_text(&format!(
+        "{mount_id} 1 0:40 / {path} rw - ext4 /dev/example ro\n"
+    ));
     let super_readonly =
         locations::local(&id, Kind::Usb, path, "Read-only filesystem", &table).unwrap();
     assert!(!super_readonly.capabilities.contains(&Capability::Write));

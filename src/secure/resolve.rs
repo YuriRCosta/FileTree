@@ -328,6 +328,52 @@ pub(super) fn stat_value(stat: Stat) -> EntryStat {
     }
 }
 
+pub fn directory_mount_id(directory: &OwnedFd) -> io::Result<u64> {
+    use rustix::fs::{StatxFlags, statx};
+    let stat = statx(directory, "", AtFlags::EMPTY_PATH, StatxFlags::MNT_ID)?;
+    if !StatxFlags::from_bits_retain(stat.stx_mask).contains(StatxFlags::MNT_ID) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "mount identity is unavailable",
+        ));
+    }
+    Ok(stat.stx_mnt_id)
+}
+
+pub fn directory_unique_mount_id(directory: &OwnedFd) -> io::Result<u64> {
+    use rustix::fs::{StatxFlags, statx};
+    let unique_mount_id = StatxFlags::from_bits_retain(0x00004000);
+    let stat = statx(directory, "", AtFlags::EMPTY_PATH, unique_mount_id)?;
+    if !StatxFlags::from_bits_retain(stat.stx_mask).contains(unique_mount_id) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "unique mount identity is unavailable",
+        ));
+    }
+    Ok(stat.stx_mnt_id)
+}
+
+pub fn open_directory_within_mount(root: &OwnedFd, relative: &Path) -> io::Result<OwnedFd> {
+    if relative
+        .components()
+        .any(|part| !matches!(part, Component::Normal(_) | Component::CurDir))
+    {
+        return Err(invalid_input("location path must remain within its root"));
+    }
+    openat2(
+        root,
+        if relative.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            relative
+        },
+        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+        Mode::empty(),
+        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_XDEV,
+    )
+    .map_err(io::Error::from)
+}
+
 #[cfg(test)]
 mod enumeration_tests {
     use super::*;
