@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${OVM:?set OVM to the harness executable}"
-[[ ${OVM_HOME:-} == "$HOME/.local/share/test-omarchy-plugin-e" && ${OVM_SSH_PORT:-} == 2822 ]]
+[[ -n ${OVM_HOME:-} && -n ${OVM_SSH_PORT:-} ]]
+FILEBLADE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+export FILEBLADE_EXPECTATIONS_LIB
 python3 - <<'PY'
 import base64
 import copy
@@ -12,8 +14,12 @@ import subprocess
 import time
 
 ovm = os.environ['OVM']
+LIB_SH = os.environ['FILEBLADE_EXPECTATIONS_LIB']
 plugin = '/home/omarchy/.config/omarchy/plugins/data-goblin.fileblade'
 fixture = '/tmp/fb-wheel-config'
+config_path = 'Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))'
+settings_path = config_path + ' / "omarchy/fileblade/settings.json"'
+terminals_path = config_path + ' / "xdg-terminals.list"'
 source = fixture + "/item ' $(echo injection) #%.txt"
 receipt = fixture + '/receipt'
 native_folder = os.fsencode(fixture) + b'/cwd-\xff'
@@ -38,7 +44,12 @@ def guest(code):
 
 
 def control(*args):
-    return call('ssh', shlex.join(['omarchy-shell', 'data-goblin.fileblade.control', *map(str, args)]))
+    result = subprocess.run(
+        ['bash', '-c', 'source "$1" && ctl "${@:2}"', 'fileblade-ctl', LIB_SH, *map(str, args)],
+        capture_output=True, text=True, timeout=45)
+    if result.returncode:
+        raise RuntimeError(result.stdout + result.stderr)
+    return result.stdout.strip()
 
 
 def state():
@@ -47,6 +58,13 @@ def state():
 
 def backend(*args):
     return json.loads(call('ssh', shlex.join([plugin + '/fileblade', '_backend', *args])))
+
+
+def shot(expectations, label):
+    time.sleep(.6)
+    path = call('shot', 'pebbleclaw-38-' + '-'.join(expectations) + '-' + label)
+    for expectation in expectations:
+        print(json.dumps(dict(expectation=expectation, shot=path)), flush=True)
 
 
 def check(action, expected, observed):
@@ -69,10 +87,10 @@ def wait(predicate):
 
 
 def save(document):
-    guest('from pathlib import Path;import json,os;p=Path.home()/".config/omarchy/fileblade/settings.json";p.parent.mkdir(parents=True,exist_ok=True);p.write_text(' + repr(json.dumps(document)) + ');p.chmod(0o600)')
+    guest('from pathlib import Path;import json,os;p=' + settings_path + ';p.parent.mkdir(parents=True,exist_ok=True);p.write_text(' + repr(json.dumps(document)) + ');p.chmod(0o600)')
 
 
-original = guest('from pathlib import Path;import base64;p=Path.home()/".config/omarchy/fileblade/settings.json";print(base64.b64encode(p.read_bytes()).decode() if p.exists() else "MISSING")')
+original = guest('from pathlib import Path;import base64,os;p=' + settings_path + ';print(base64.b64encode(p.read_bytes()).decode() if p.exists() else "MISSING")')
 document = json.loads(base64.b64decode(original)) if original != 'MISSING' else dict(version=1, trashRetentionDays=0)
 document['futureWheelTest'] = dict(preserve=True)
 document['dropWheel'] = dict(version=1, future=dict(preserve=True), actions=[dict(id='custom:inspect'), dict(id='terminal', label='Shell', icon='utilities-terminal'), dict(id='open', hidden=True)], customActions=[
@@ -97,11 +115,10 @@ try:
     control('showDropWheel', '900', '500')
     wait(lambda: state()['open'] and not state()['loading'])
     check('live wheel uses configured order', 'custom:inspect', state()['actions'][0]['id'])
-    print(json.dumps(dict(shot=call('shot', 'pebbleclaw-27-configured'))), flush=True)
+    shot(['E-38-01', 'E-38-02', 'E-38-03', 'E-38-07', 'E-38-08'], 'configured')
     call('key', 'i')
     call('key', 'f')
-    time.sleep(.6)
-    print(json.dumps(dict(shot=call('shot', 'pebbleclaw-27-third-ring'))), flush=True)
+    shot(['E-38-04', 'E-38-06'], 'third-ring')
     call('key', 'c')
     wait(lambda: guest('from pathlib import Path;print(Path(' + repr(receipt) + ').exists())') == 'True')
     observed = json.loads(guest('from pathlib import Path;import json;print(json.dumps(Path(' + repr(receipt) + ').read_text().splitlines()))'))
@@ -117,10 +134,10 @@ try:
     wait(lambda: guest('from pathlib import Path;print(Path(' + repr(receipt) + ').exists())') == 'True')
     check('detached preserves native cwd and complete child argv bytes',expected_bytes,json.loads(guest('from pathlib import Path;print(Path(' + repr(receipt) + ').read_text())')))
     check('detached never evaluates shell-looking arguments','False',guest('from pathlib import Path;print(Path("/tmp/fb-wheel-injected").exists())'))
-    terminal_preferences = guest('from pathlib import Path;import base64;p=Path.home()/".config/xdg-terminals.list";print(base64.b64encode(p.read_bytes()).decode() if p.exists() else "MISSING")')
+    terminal_preferences = guest('from pathlib import Path;import base64,os;p=' + terminals_path + ';print(base64.b64encode(p.read_bytes()).decode() if p.exists() else "MISSING")')
     try:
         for terminal, desktop in [('foot', 'foot.desktop'), ('footclient', 'footclient.desktop')]:
-            guest('from pathlib import Path;(Path.home()/".config/xdg-terminals.list").write_text(' + repr(desktop + '\n') + ')')
+            guest('from pathlib import Path;import os;(' + terminals_path + ').write_text(' + repr(desktop + '\n') + ')')
             for mode in ['terminal', 'herdr', 'tmux']:
                 call('ssh', 'pkill -x foot || true; pkill -x ghostty || true; herdr --session wheel-config server stop >/dev/null 2>&1 || true; tmux kill-session -t wheelconfig 2>/dev/null || true')
                 wait(lambda: not json.loads(call('hypr', 'clients')))
@@ -160,19 +177,27 @@ try:
                 check(terminal + '/' + mode + ' never evaluates shell-looking arguments','False',guest('from pathlib import Path;print(Path("/tmp/fb-wheel-injected").exists())'))
                 clients = json.loads(call('hypr','clients'))
                 check(terminal + '/' + mode + ' runs in the expected terminal class',True,any(client['class'] == terminal for client in clients))
-                print(json.dumps(dict(shot=call('shot','pebbleclaw-27-' + terminal + '-' + mode))),flush=True)
+                expectations = ['E-38-05', 'E-38-09'] if terminal == 'foot' and mode == 'herdr' else ['E-38-09']
+                shot(expectations, terminal + '-' + mode)
     finally:
         call('ssh', 'pkill -x foot || true; pkill -x ghostty || true; herdr --session wheel-config server stop >/dev/null 2>&1 || true; tmux kill-session -t wheelconfig 2>/dev/null || true')
         if terminal_preferences == 'MISSING':
-            guest('from pathlib import Path;(Path.home()/".config/xdg-terminals.list").unlink(missing_ok=True)')
+            guest('from pathlib import Path;import os;(' + terminals_path + ').unlink(missing_ok=True)')
         else:
-            guest('from pathlib import Path;import base64;(Path.home()/".config/xdg-terminals.list").write_bytes(base64.b64decode(' + repr(terminal_preferences) + '))')
+            guest('from pathlib import Path;import base64,os;p=' + terminals_path + ';p.write_bytes(base64.b64decode(' + repr(terminal_preferences) + '))')
     alias = dict(id='custom:alias',label='Current alias',key='a',builtin=dict(action='terminal'),conditions=dict(path=[fixture+'/*']))
     document['dropWheel'] = dict(version=1,actions=[dict(id='custom:alias')],customActions=[alias])
     save(document)
     context = backend('drop-context','--x','900','--y','500','--path',source)
     captured = next(row for row in context['actions'] if row['id'] == 'custom:alias')
     check('custom built-in alias receives a configured route',['custom:alias'],captured.get('command_route'))
+    control('openBlade', 'left')
+    control('focusBlade', 'left')
+    control('setRoot', fixture)
+    control('select', source)
+    control('showDropWheel', '900', '500')
+    wait(lambda: state()['open'] and not state()['loading'])
+    shot(['E-38-10'], 'alias-route')
     route = json.dumps(captured['command_route'])
     result = backend('drop-run','--action','configured','--placement',route,'--target','{"kind":"desktop"}','--path',source,'--dry-run')
     check('current alias invokes the fixed terminal implementation',True,result['ok'] and any('xdg-terminal-exec' in arg for cmd in result['commands'] for arg in cmd))
@@ -199,8 +224,8 @@ try:
 finally:
     control('hideDropWheel')
     if original == 'MISSING':
-        guest('from pathlib import Path;(Path.home()/".config/omarchy/fileblade/settings.json").unlink(missing_ok=True)')
+        guest('from pathlib import Path;import os;(' + settings_path + ').unlink(missing_ok=True)')
     else:
-        guest('from pathlib import Path;import base64;p=Path.home()/".config/omarchy/fileblade/settings.json";p.write_bytes(base64.b64decode(' + repr(original) + '));p.chmod(0o600)')
+        guest('from pathlib import Path;import base64,os;p=' + settings_path + ';p.write_bytes(base64.b64decode(' + repr(original) + '));p.chmod(0o600)')
 print(str(checks) + ' wheel configuration checks passed')
 PY

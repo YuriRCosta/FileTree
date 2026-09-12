@@ -3,6 +3,8 @@
 # Prerequisite: real Hunk at ~/fb-hunk-wheel/bin/hunk in the guest.
 set -euo pipefail
 : "${OVM:?set OVM to the headless VM harness}"
+FILEBLADE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+export FILEBLADE_EXPECTATIONS_LIB
 python3 - <<'PY'
 import json
 import math
@@ -15,6 +17,7 @@ from pathlib import Path
 
 OVM = os.environ['OVM']
 PLUGIN = 'data-goblin.fileblade'
+LIB_SH = os.environ['FILEBLADE_EXPECTATIONS_LIB']
 ROOT = '/home/omarchy/fb-hunk-wheel'
 REPO = ROOT + '/repo'
 FILE = REPO + "/nested/quote' and space.txt"
@@ -31,7 +34,12 @@ def guest(command):
     return ovm('ssh', command)
 
 def ctl(*args):
-    return guest(shlex.join(['omarchy-shell', PLUGIN + '.control', *map(str, args)]))
+    result = subprocess.run(
+        ['bash', '-c', 'source "$1" && ctl "${@:2}"', 'fileblade-ctl', LIB_SH, *map(str, args)],
+        capture_output=True, text=True, timeout=45)
+    if result.returncode:
+        raise RuntimeError(f'{args}: {result.stderr} {result.stdout}')
+    return result.stdout.strip()
 
 def status():
     return json.loads(ovm('ipc', PLUGIN, 'status'))
@@ -106,7 +114,8 @@ def open_wheel(mux, client=None):
         x, y = 1000, 500
     ovm('mouse', 'move', x, y)
     ctl('select', FILE)
-    assert ctl('showDropWheel', x, y) == 'open'
+    ctl('showDropWheel', x, y)
+    wait(lambda: status()['dropWheel']['open'])
     def loaded():
         wheel = status()['dropWheel']
         return wheel if wheel['open'] and not wheel['loading'] and wheel['actions'] else None
