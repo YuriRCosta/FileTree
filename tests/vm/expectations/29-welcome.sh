@@ -35,7 +35,7 @@ else
 fi
 expect_missing E-29-02 "Welcome has no install offer" "$(screen_text)" "Install agent extensions"
 expect_true E-29-02 "all four agent blades are core modules" 'status | jq -e '\''.bladeModules | contains(["skills","memory","hooks","mcp"])'\'''
-expect_true E-29-02 "legacy install IPC reports built-in" '[[ $(guest "omarchy-shell $PLUGIN.control welcomeInstall") == built-in ]]'
+expect_true E-29-02 "legacy install IPC reports built-in" '[[ $("$OVM" ipc "$PLUGIN.control" welcomeInstall) == built-in ]]'
 expect E-29-02 "no installer is running" welcomeInstalling false
 
 ctl welcomeDismiss

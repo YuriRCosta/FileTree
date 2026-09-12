@@ -37,6 +37,15 @@ ctl() {
   guest "$cmd" >/dev/null
 }
 ctl_path() { ctl "$1" "$2"; }
+backend() {
+  if [[ $FILEBLADE_SHAPE == native ]]; then
+    "$OVM" ipc _backend "$@"
+    return
+  fi
+  local command="$GUEST_PLUGIN/fileblade _backend" argument
+  for argument in "$@"; do command+=" $(printf '%q' "$argument")"; done
+  guest "$command"
+}
 status() { "$OVM" ipc "$PLUGIN" status 2>/dev/null; }
 field() { status | jq -r ".$1"; }
 tree_names() { "$OVM" ipc "$PLUGIN" tree "${1:-200}" 2>/dev/null | jq -r '[.entries[]?|.name]|join(",")'; }
@@ -218,8 +227,13 @@ focus_tree() { "$OVM" mouse click "$ROW_X" "$(row_y 1)"; sleep 1.5; }
 double_click() {
   local point_x=$1 point_y=$2
   [[ $point_x =~ ^[0-9]+$ && $point_y =~ ^[0-9]+$ ]] || return 1
+  local fixture_source fixture_data
+  fixture_source="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)/tests/vm/double-click.toml"
+  [[ -f $fixture_source ]] || return 1
+  fixture_data=$(base64 -w0 "$fixture_source") || return 1
   guest "double_click_dir=\$(mktemp -d /tmp/fileblade-double-click.XXXXXX)
-    sed 's/POINT_X/$point_x/g; s/POINT_Y/$point_y/g' $GUEST_PLUGIN/tests/vm/double-click.toml > \"\$double_click_dir/input.toml\"
+    printf '%s' $fixture_data | base64 -d > \"\$double_click_dir/template.toml\"
+    sed 's/POINT_X/$point_x/g; s/POINT_Y/$point_y/g' \"\$double_click_dir/template.toml\" > \"\$double_click_dir/input.toml\"
     democtl record \"\$double_click_dir/input.toml\" --out \"\$double_click_dir/record\" >/dev/null 2>&1
     double_click_status=\$?
     rm -rf -- \"\$double_click_dir\"
@@ -248,7 +262,7 @@ picker_text() {
 }
 # The trash view keeps its own model, so the tree verb never serves its rows.
 trash_names() {
-  guest "~/.config/omarchy/plugins/$PLUGIN/fileblade _backend trash-list" | jq -r '[.entries[]?|.name]|join(",")' 2>/dev/null
+  backend trash-list | jq -r '[.entries[]?|.name]|join(",")' 2>/dev/null
 }
 search_names() { "$OVM" ipc "$PLUGIN" searchResults "${1:-200}" 2>/dev/null | jq -r '[.entries[]?|.name]|join(",")'; }
 tree_text() { ocr_crop ocr-tree 378x560+0+135 300% 11 '5%,30%'; }
@@ -272,7 +286,11 @@ GUEST_PLUGIN=/home/omarchy/.config/omarchy/plugins/$PLUGIN
 left_modules() { "$OVM" ipc "$PLUGIN" blades | jq -c '[.blades.left.slots[].modules[].module]'; }
 reset_modules() {
   [[ $(left_modules) == '["files","properties"]' ]] && return 0
-  guest "$GUEST_PLUGIN/fileblade blade set left files,properties" >/dev/null 2>&1
+  if [[ $FILEBLADE_SHAPE == native ]]; then
+    ctl setBladeSlots left "base64:$(printf '%s' '[{"module":"files"},{"module":"properties"}]' | base64 -w0)"
+  else
+    guest "$GUEST_PLUGIN/fileblade blade set left files,properties" >/dev/null 2>&1
+  fi
   # The slots are rebuilt asynchronously and the Files module comes back with
   # its default root; wait for the list, then let the layout settle before
   # goto_root runs.
