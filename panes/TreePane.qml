@@ -7,6 +7,7 @@ import "../lib/KeyRouter.js" as KeyRouter
 import "../lib/ScrollMarks.js" as ScrollMarks
 import "../modules/files" as Files
 import "../modules/files/MediaModel.js" as MediaModel
+import "../modules/files/ViewChrome.js" as ViewChrome
 
 FocusScope {
   id: root
@@ -31,9 +32,15 @@ FocusScope {
   property string mediaQuery: ""
   property bool mediaQueryReady: false
   property int mediaSizeStep: 2
+  property int ordinaryDensityStep: 2
+  readonly property real ordinaryDensity: [0.85, 0.925, 1, 1.075, 1.15][Math.max(0, Math.min(4, ordinaryDensityStep))]
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
   readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode
+  readonly property var folderCount: {
+    controller.treeStructureRevision
+    return ViewChrome.folderCount(controller.treeModel)
+  }
   readonly property var mediaMatches: MediaModel.matching(mediaProvider.rows, mediaQuery,
     { caseSensitive: controller.searchCaseSensitive, regex: controller.searchRegex }, controller.treeFilter)
 
@@ -44,6 +51,27 @@ FocusScope {
     context.state.set("mediaQuery", mediaQuery)
     context.state.set("mediaQueryReady", mediaQueryReady)
     context.state.set("mediaSizeStep", mediaSizeStep)
+    context.state.set("ordinaryDensityStep", ordinaryDensityStep)
+  }
+
+  function changeDensity(step) {
+    var view = root.activeList
+    var path = controller.rootPath
+    var first = view.indexAt(1, view.contentY + 1)
+    var anchor = first >= 0 ? String(view.model.get(first).path || "") : ""
+    var item = first >= 0 ? view.itemAtIndex(first) : null
+    var offset = item ? Math.max(0, view.contentY - item.y) : 0
+    ordinaryDensityStep = Math.max(0, Math.min(4, step))
+    Qt.callLater(function() {
+      if (root.mediaActive || root.activeList !== view || controller.rootPath !== path || !anchor) return
+      view.forceLayout()
+      for (var i = 0; i < view.count; i++) {
+        if (String(view.model.get(i).path) !== anchor) continue
+        view.positionViewAtIndex(i, ListView.Beginning)
+        view.contentY = Math.min(view.originY + Math.max(0, view.contentHeight - view.height), view.contentY + offset)
+        break
+      }
+    })
   }
 
   function toggleMedia() {
@@ -93,12 +121,14 @@ FocusScope {
   onMediaRecursiveChanged: persistMedia()
   onMediaQueryChanged: { persistMedia(); if (!mediaProvider.busy) reconcileMediaSelection() }
   onMediaSizeStepChanged: persistMedia()
+  onOrdinaryDensityStepChanged: persistMedia()
   onMediaMatchesChanged: if (!mediaProvider.busy) reconcileMediaSelection()
 
   Component.onCompleted: {
     if (!context || !context.state) return
     mediaQuery = String(context.state.get("mediaQuery", ""))
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
+    ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
     mediaQueryReady = context.state.get("mediaQueryReady", mediaMode) === true
@@ -516,6 +546,13 @@ FocusScope {
   }
 
   function handleListKey(event, view, treeMode) {
+    if (view !== mediaView && !controller.trashMode && !controller.drivesMode
+        && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+        && [Qt.Key_Plus, Qt.Key_Equal, Qt.Key_Minus, Qt.Key_Underscore].indexOf(event.key) >= 0) {
+      root.changeDensity(root.ordinaryDensityStep + (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore ? -1 : 1))
+      event.accepted = true
+      return
+    }
     if (controller.dropWheel.handleDragKey(event)) {
       treeKeys.reset()
       event.accepted = true
@@ -907,7 +944,6 @@ FocusScope {
   PluginUi.MediaView {
     id: mediaView
     anchors.fill: treeList
-    anchors.bottomMargin: mediaFooter.height
     visible: root.mediaActive
     controller: root.controller
     pane: root
@@ -935,29 +971,66 @@ FocusScope {
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     height: visible ? Style.space(28) : 0
-    visible: root.mediaActive
+    visible: !controller.trashMode && !controller.drivesMode
     color: Color.bar.background
-    Text {
-      textFormat: Text.PlainText
+    Column {
       anchors.left: parent.left
       anchors.leftMargin: Style.space(8)
       anchors.right: mediaSize.left
+      anchors.rightMargin: Style.space(4)
       anchors.verticalCenter: parent.verticalCenter
-      text: mediaProvider.error || (mediaView.count + " media" + (mediaProvider.busy ? " · loading" : "")
-        + (mediaProvider.limited ? " · partial scope" : "") + (root.mediaRecursive ? " · recursive" : " · folder")
-        + (controller.selectedCount ? " · " + controller.selectedCount + " selected" : ""))
-      elide: Text.ElideRight
-      color: Color.muted
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+      Text {
+        id: footerCount
+        width: parent.width
+        textFormat: Text.PlainText
+        text: root.mediaActive
+          ? (mediaView.count === mediaProvider.rows.length ? mediaView.count : mediaView.count + "/" + mediaProvider.rows.length) + " media"
+          : (controller.searching ? controller.searchResultCount + " matches"
+            : (controller.recentMode ? recentList.count + " recent" : root.folderCount.total + (Object.keys(controller.treeFilter).length ? " matching" : " items")))
+        color: Color.muted
+        elide: Text.ElideRight
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+      Text {
+        id: footerDetail
+        width: parent.width
+        textFormat: Text.PlainText
+        text: {
+          var parts = []
+          if (controller.selectedCount) parts.push(controller.selectedCount + " selected")
+          if (root.mediaActive) {
+            if (mediaProvider.error) parts.push(mediaProvider.error)
+            if (mediaProvider.busy) parts.push("loading")
+            if (mediaProvider.limited) parts.push("partial")
+            parts.push(root.mediaRecursive ? "recursive" : "folder")
+          } else if (controller.searching) parts.push(controller.searchBusy ? "searching" : "search")
+          else if (controller.recentMode) parts.push("history")
+          else {
+            if (controller.treeLoading) parts.push("loading")
+            if (root.folderCount.loaded < root.folderCount.total) parts.push(root.folderCount.loaded + " loaded")
+            parts.push("folder")
+          }
+          return parts.join(" · ")
+        }
+        color: root.mediaActive && mediaProvider.error ? Color.urgent : Color.muted
+        elide: Text.ElideRight
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
     }
-    PluginUi.ImageSizeControl {
+    PluginUi.DensitySlider {
       id: mediaSize
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      step: root.mediaSizeStep
-      onStepRequested: function(step) { mediaView.rememberAnchor(); root.mediaSizeStep = step }
-      onKeyPressed: function(event) { root.handleListKey(event, mediaView, false) }
+      step: root.mediaActive ? root.mediaSizeStep : root.ordinaryDensityStep
+      label: root.mediaActive ? "Preview size" : "Row density"
+      labels: root.mediaActive ? ["XS", "S", "M", "L", "XL"] : ["85%", "93%", "100%", "108%", "115%"]
+      onStepRequested: function(step) {
+        if (root.mediaActive) { mediaView.rememberAnchor(); root.mediaSizeStep = step }
+        else root.changeDensity(step)
+      }
+      onKeyPressed: function(event) { root.handleListKey(event, root.mediaActive ? mediaView : root.activeList, root.activeList === treeList) }
     }
   }
 
@@ -966,7 +1039,7 @@ FocusScope {
     reuseItems: true
     anchors.top: statusText.bottom
     anchors.topMargin: controller.searching ? 0 : Style.space(7)
-    anchors.bottom: parent.bottom
+    anchors.bottom: mediaFooter.top
     anchors.left: parent.left
     anchors.right: parent.right
     visible: !root.mediaActive && !controller.searching && !controller.trashMode && !controller.recentMode && !controller.drivesMode
@@ -978,6 +1051,7 @@ FocusScope {
     onFlickStarted: treeAnchor.clear()
 
     delegate: BrowserRow {
+      density: root.ordinaryDensity
       controller: root.controller
       pane: root
       treeMode: true
@@ -1002,6 +1076,7 @@ FocusScope {
     onContentYChanged: if (contentHeight - contentY - height < Style.space(42) * 6) controller.loadMoreSearchRows()
 
     delegate: BrowserRow {
+      density: root.ordinaryDensity
       controller: root.controller
       pane: root
       treeMode: false
@@ -1025,6 +1100,7 @@ FocusScope {
     currentIndex: -1
 
     delegate: BrowserRow {
+      density: root.ordinaryDensity
       controller: root.controller
       pane: root
       treeMode: false

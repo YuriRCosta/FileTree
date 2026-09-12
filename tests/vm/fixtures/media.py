@@ -38,6 +38,13 @@ def prepare(state, plugin):
         viewHeight: mediaView.height, cell: mediaView.cell, focused: mediaView.activeFocus,
         columns: mediaView.columns, anchor: mediaView.anchorPath, sorts: controller.treeSort, visual: root.visualMode,
         values: mediaView.rows.slice(0, 1000).map(function(row) { return { name: row.name, size: row.size, modified: row.modified } }),
+        ordinary: { step: root.ordinaryDensityStep, density: root.ordinaryDensity,
+          count: root.activeList.count, footerCount: footerCount.text, footerDetail: footerDetail.text,
+          first: root.activeList.indexAt(1, root.activeList.contentY + 1),
+          current: root.activeList.currentIndex,
+          rows: !root.mediaActive && !controller.trashMode && !controller.drivesMode ? Array.from({length: Math.min(1000, root.activeList.count)}, function(_, i) { var row = root.activeList.model.get(i); return {path: row.path, depth: row.depth, kind: row.kind} }) : [],
+          rowHeight: root.activeList.currentItem ? root.activeList.currentItem.height : 0,
+          y: root.activeList.contentY },
         slider: { x: mediaSize.mapToItem(null, 0, 0).x + root.originX(),
           y: mediaSize.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0),
           width: mediaSize.width, height: mediaSize.height, focused: mediaSize.activeFocus, pressed: mediaSize.pressed },
@@ -52,6 +59,17 @@ def prepare(state, plugin):
           x: mediaView.timeline.mapToItem(null, 0, 0).x + root.originX(),
           y: mediaView.timeline.mapToItem(null, 0, 0).y + (root.context ? Number(root.context.surfaceOriginY) || 0 : 0) },
         firstVisible: mediaView.flickable.indexAt(1, mediaView.contentY + 1) })
+    }
+    property var independentView: null
+    function independent(opened: bool): string {
+      if (independentView) { independentView.destroy(); independentView = null }
+      if (!opened) return "closed"
+      var component = Qt.createComponent(Qt.resolvedUrl("../blades/BladePopout.qml"))
+      if (component.status !== Component.Ready) return component.errorString()
+      independentView = component.createObject(root, { host: root.context.host, shell: root.context.shell,
+        services: root.context.services, screen: root.targetScreen(), moduleId: "files", opened: true,
+        width: 300, height: 400, visible: false })
+      return independentView ? "created" : component.errorString()
     }
     function sort(value: string): void { filesView.setSorts(JSON.parse(Qt.atob(value))) }
     function scroll(value: int): void { mediaView.contentY = value }
@@ -68,6 +86,8 @@ def prepare(state, plugin):
     function toggle(): void { root.toggleMedia() }
     function recursive(): void { root.mediaRecursive = !root.mediaRecursive }
     function query(value: string): void { root.mediaQuery = value }
+    function density(value: int): void { root.changeDensity(value) }
+    function ordinaryChoose(index: int): void { root.selectIndex(root.activeList, root.activeList === treeList, index, "replace"); root.activeList.forceActiveFocus() }
     function size(value: int): void { mediaView.rememberAnchor(); root.mediaSizeStep = value }
     function choose(index: int, mode: string): void { root.selectIndex(mediaView, false, index, mode); mediaView.forceActiveFocus() }
     function action(value: string): void { root.runListAction(value, { modifiers: 0 }, mediaView, false) }
