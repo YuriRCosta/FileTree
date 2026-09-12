@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export OVM_HOME=/home/kurt/.local/share/test-omarchy-plugin-a
+export OVM_HOME=$HOME/.local/share/test-omarchy-plugin-a
 export OVM_SSH_PORT=2422
-ovm=/home/kurt/.claude/skills/test-omarchy-plugin/scripts/ovm
+ovm=$HOME/.claude/skills/test-omarchy-plugin/scripts/ovm
 native=/home/omarchy/fileblade-runtime-spike
 prelude='export FILEBLADE_APP_ROOT=/home/omarchy/fileblade-runtime-spike FILEBLADE_BINARY=/home/omarchy/fileblade-runtime-spike/target/release/fileblade
 export XDG_CONFIG_HOME=/home/omarchy/fileblade-runtime-state/config XDG_STATE_HOME=/home/omarchy/fileblade-runtime-state/state FILEBLADE_NATIVE_STATE_ROOT=/home/omarchy/fileblade-runtime-state/state/omarchy/fileblade

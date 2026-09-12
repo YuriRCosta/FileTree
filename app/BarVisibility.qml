@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import qs.Commons
 
 Item {
@@ -14,10 +13,21 @@ Item {
   property string watchId: ""
   property int generation: 0
   property bool probeAgain: false
+  property bool probeRunning: false
 
   function refresh() {
-    if (probe.running) probeAgain = true
-    else probe.running = true
+    if (!service || !service.backendReady) return
+    if (probeRunning) { probeAgain = true; return }
+    probeRunning = true
+    var current = generation
+    service.backendRequest("native-bar-state", [], current, function(response) {
+      root.probeRunning = false
+      if (current === root.generation && response.ok) root.barHidden = response.hidden
+      if (root.probeAgain || current !== root.generation) {
+        root.probeAgain = false
+        root.refresh()
+      }
+    })
   }
 
   function subscribe() {
@@ -41,18 +51,6 @@ Item {
     function onBackendReadyChanged() { if (root.service.backendReady) root.subscribe() }
   }
   Timer { id: retry; interval: 1000; onTriggered: root.subscribe() }
-  Process {
-    id: probe
-    running: true
-    command: ["sh", "-c", "if [ -f \"$1\" ]; then echo yes; else echo no; fi", "fileblade-bar", root.toggles + "/bar-off"]
-    stdout: SplitParser { onRead: function(line) { root.barHidden = String(line).trim() === "yes" } }
-    onExited: {
-      if (root.probeAgain) {
-        root.probeAgain = false
-        running = true
-      }
-    }
-  }
   Component.onDestruction: {
     if (service && watchId) service.cancelBackendRequest(watchId, generation, true)
   }

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
-export OVM_HOME=/home/kurt/.local/share/test-omarchy-plugin-a OVM_SSH_PORT=2422
+export OVM_HOME=$HOME/.local/share/test-omarchy-plugin-a OVM_SSH_PORT=2422
 python3 - "$repo" <<'PY'
 import base64,json,pathlib,subprocess,sys,time
 repo=pathlib.Path(sys.argv[1]); ovm=str(repo/'app/ovm-spike')
-base='/home/kurt/.claude/skills/test-omarchy-plugin/scripts/ovm'
+base=str(pathlib.Path.home()/'.claude/skills/test-omarchy-plugin/scripts/ovm')
 out=repo/'.claude/evidence/sootscale/integration/bar-state'; out.mkdir(parents=True,exist_ok=True)
 def run(*args): return subprocess.check_output([ovm,*map(str,args)],text=True,timeout=20).strip()
 def guest(command): return subprocess.check_output([base,'ssh',command],text=True,timeout=20).strip()
