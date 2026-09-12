@@ -104,13 +104,15 @@ pub fn run(arguments: Vec<OsString>, output: Arc<Output>) -> AppResult<bool> {
                         ));
                     }
                 }
-                let envelope_ok = frame.get("ok") == Some(&Value::Bool(true));
+                if frame.get("ok") != Some(&Value::Bool(true)) {
+                    return Err(AppError::command(frame_error(&frame)));
+                }
                 let payload_ok = frame
                     .get("payload")
                     .and_then(Value::as_object)
                     .and_then(|payload| payload.get("ok"))
                     != Some(&Value::Bool(false));
-                return Ok(envelope_ok && payload_ok);
+                return Ok(payload_ok);
             }
             Some("error") => return Err(AppError::command(frame_error(&frame))),
             Some(kind) => {
