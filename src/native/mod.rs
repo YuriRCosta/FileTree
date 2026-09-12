@@ -6,6 +6,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 mod backend;
+mod drain;
 
 #[derive(Clone, Debug, ClapArgs)]
 pub struct Args {
@@ -20,6 +21,12 @@ enum Command {
         #[arg(last = true, num_args = 1..)]
         arguments: Vec<OsString>,
     },
+    Drain {
+        #[arg(long, default_value_t = 30000, value_parser = clap::value_parser!(u64).range(1..=300000))]
+        timeout_ms: u64,
+        #[arg(long)]
+        json: bool,
+    },
     Ipc {
         #[arg(last = true, num_args = 2..)]
         arguments: Vec<OsString>,
@@ -28,6 +35,19 @@ enum Command {
 
 pub fn run(args: Args, output: Arc<Output>) -> ExitCode {
     let result = match args.command {
+        Command::Drain { timeout_ms, .. } => {
+            let result = drain::run(timeout_ms);
+            let code = match result["status"].as_str() {
+                Some("drained" | "already_stopped") => 0,
+                Some("busy") => 3,
+                _ => 1,
+            };
+            return if output.machine(&result).is_ok() {
+                ExitCode::from(code)
+            } else {
+                ExitCode::FAILURE
+            };
+        }
         Command::Backend { arguments } => match backend::run(arguments, Arc::clone(&output)) {
             Ok(true) => return ExitCode::SUCCESS,
             Ok(false) => return ExitCode::FAILURE,

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -261,6 +262,7 @@ pub fn serve() -> AppResult<()> {
     let root = crate::lease::selected_root()?.unwrap_or_else(|| {
         crate::paths::xdg_home("XDG_STATE_HOME", "~/.local/state").join("omarchy/fileblade")
     });
+    let authority = connect_authority(&root)?;
     let requests: Requests = Arc::new(Mutex::new(HashMap::new()));
     let connection = zbus::blocking::connection::Builder::session()
         .and_then(|builder| {
@@ -282,10 +284,20 @@ pub fn serve() -> AppResult<()> {
     connection
         .request_name(BACKEND)
         .map_err(|error| AppError::command(error.to_string()))?;
+    let authority_stop = authority.try_clone()?;
+    let monitor = std::thread::spawn({
+        let connection = connection.clone();
+        move || monitor_authority(authority, connection)
+    });
+    let mut bus_error = None;
     for change in changes {
-        let args = change
-            .args()
-            .map_err(|error| AppError::command(error.to_string()))?;
+        let args = match change.args() {
+            Ok(args) => args,
+            Err(error) => {
+                bus_error = Some(AppError::command(error.to_string()));
+                break;
+            }
+        };
         if args.name().as_str() == FRONTEND {
             for request in requests.lock().unwrap().values() {
                 if args
@@ -298,8 +310,54 @@ pub fn serve() -> AppResult<()> {
             }
         }
     }
+    let _ = authority_stop.shutdown(Shutdown::Both);
+    let _ = monitor.join();
     for request in requests.lock().unwrap().values() {
         request.cancel();
     }
-    Err(AppError::command("Portal session bus disconnected"))
+    Err(bus_error.unwrap_or_else(|| AppError::command("Portal session bus disconnected")))
+}
+
+fn connect_authority(root: &Path) -> AppResult<UnixStream> {
+    let mut stream = crate::lease::transport::connect(root).map_err(|error| {
+        AppError::command(format!("Native portal authority unavailable: {error}"))
+    })?;
+    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+    stream.write_all(b"{\"v\":1,\"type\":\"hello\",\"view\":false}\n")?;
+    stream.flush()?;
+    let mut reader = BufReader::new(stream);
+    let mut line = String::new();
+    let count = (&mut reader).take(4096).read_line(&mut line)?;
+    if count == 0 || !line.ends_with('\n') {
+        return Err(AppError::command(
+            "Native portal authority handshake failed",
+        ));
+    }
+    let hello: Value = serde_json::from_str(&line)?;
+    if hello.get("v").and_then(Value::as_u64) != Some(1)
+        || hello.get("type").and_then(Value::as_str) != Some("hello")
+        || hello.get("ok") != Some(&Value::Bool(true))
+        || hello.get("authority") != Some(&Value::Bool(true))
+    {
+        return Err(AppError::command(
+            "Native portal authority handshake failed",
+        ));
+    }
+    let stream = reader.into_inner();
+    stream.set_read_timeout(None)?;
+    Ok(stream)
+}
+
+fn monitor_authority(mut stream: UnixStream, connection: zbus::blocking::Connection) {
+    let mut buffer = [0; 4096];
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) | Err(_) => {
+                let _ = connection.close();
+                return;
+            }
+            Ok(_) => {}
+        }
+    }
 }

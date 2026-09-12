@@ -33,7 +33,7 @@ pub(super) fn run(options: ServeArgs, authority: Arc<Authority>) -> AppResult<()
     let mut clients = Vec::new();
     let stopping = Arc::new(AtomicBool::new(false));
     let result = (|| {
-        while !input::interrupted() {
+        while !input::interrupted() && !operations.closing() {
             if authority.verify().is_err() {
                 operations.stop_after_identity_loss();
             }
@@ -128,6 +128,7 @@ fn session(
     let mut seen = RecentKeys::default();
     let mut workers = Vec::new();
     let mut view = false;
+    let drain_owner = uuid::Uuid::new_v4().to_string();
     let result = (|| {
         match read_bounded_line(&mut reader, MAX_LINE_BYTES)? {
             InputLine::Line(line) => {
@@ -140,7 +141,7 @@ fn session(
                     return Err(AppError::invalid("native session requires hello"));
                 }
                 if object.get("view") == Some(&Value::Bool(true)) {
-                    operations.attach_view();
+                    operations.attach_view()?;
                     view = true;
                 }
                 emit(
@@ -169,6 +170,8 @@ fn session(
                     &json!({"v": VERSION, "type": "error", "ok": false, "error": "request exceeds the line limit"}),
                 )?,
                 InputLine::Line(line) if line.iter().all(u8::is_ascii_whitespace) => {}
+                InputLine::Line(line)
+                    if lifecycle_request(&line, &drain_owner, &output, &operations)? => {}
                 InputLine::Line(line) => process_line(
                     &line,
                     max_concurrency,
@@ -182,6 +185,7 @@ fn session(
         }
         Ok(())
     })();
+    operations.resume(&drain_owner);
     output.detach();
     if view {
         operations.detach_view();
@@ -198,6 +202,65 @@ fn session(
     stopping.store(true, Ordering::Relaxed);
     let _ = monitor.join();
     result
+}
+
+fn lifecycle_request(
+    line: &[u8],
+    owner: &str,
+    output: &Arc<Output>,
+    operations: &Operations,
+) -> AppResult<bool> {
+    let Ok(Value::Object(object)) = serde_json::from_slice::<Value>(line) else {
+        return Ok(false);
+    };
+    let kind = text(&object, "type");
+    if kind != "drain" {
+        if operations.draining() && matches!(kind.as_str(), "request" | "subscribe") {
+            emit(
+                output,
+                &error_frame(
+                    &object,
+                    "native authority is draining; retry after it resumes",
+                ),
+            )?;
+            return Ok(true);
+        }
+        return Ok(false);
+    }
+    require_version(&object)?;
+    if operations.authority_lost() {
+        emit(
+            output,
+            &error_frame(
+                &object,
+                "authority-lost: storage identity changed during drain",
+            ),
+        )?;
+        return Ok(true);
+    }
+    let action = text(&object, "action");
+    let ok = match action.as_str() {
+        "status" => true,
+        "quiesce" => {
+            let timeout = object
+                .get("timeout_ms")
+                .and_then(Value::as_u64)
+                .filter(|value| (1..=300000).contains(value));
+            match timeout {
+                Some(timeout) => operations.quiesce(owner, Duration::from_millis(timeout)),
+                None => false,
+            }
+        }
+        "resume" => operations.resume(owner),
+        "exit" => operations.commit_exit(owner),
+        _ => false,
+    };
+    emit(
+        output,
+        &json!({"v": VERSION, "type": "drain", "action": action, "ok": ok,
+        "payload": operations.drain_status()}),
+    )?;
+    Ok(true)
 }
 
 pub(super) fn operation_request(

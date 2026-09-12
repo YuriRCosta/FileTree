@@ -1050,3 +1050,180 @@ fn portal_boundary_authenticates_sender_closes_and_cancels_on_name_loss() {
     assert!(results.is_empty());
     wait_for_offer(&mut observer, lost_handle, false);
 }
+
+#[test]
+fn drain_wire_quiesces_by_owner_expires_and_exits_after_views_leave() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let mut resident = Resident::start();
+    let view = {
+        let stream = UnixStream::connect(resident.root.join("authority.sock")).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let reader = BufReader::new(stream.try_clone().unwrap());
+        let mut view = Session { stream, reader };
+        view.send(json!({"v":1,"type":"hello","view":true}));
+        assert_eq!(view.receive()["ok"], true);
+        view
+    };
+    let mut owner = resident.session();
+    owner.send(json!({"v":1,"type":"drain","action":"status"}));
+    let status = owner.receive();
+    assert_eq!(status["type"], "drain", "{status}");
+    assert_eq!(status["ok"], true, "{status}");
+    assert_eq!(status["payload"]["views"], 1, "{status}");
+    assert_eq!(status["payload"]["pid"], resident.child.id(), "{status}");
+
+    owner.send(json!({"v":1,"type":"drain","action":"quiesce","timeout_ms":5000}));
+    let paused = owner.receive();
+    assert_eq!(paused["ok"], true, "{paused}");
+    assert_eq!(paused["payload"]["views"], 1, "{paused}");
+    owner.send(json!({"v":1,"type":"drain","action":"exit"}));
+    assert_eq!(owner.receive()["ok"], false);
+    assert!(resident.child.try_wait().unwrap().is_none());
+
+    let mut second = resident.session();
+    second.send(json!({"v":1,"type":"drain","action":"quiesce","timeout_ms":5000}));
+    let refused_drain = second.receive();
+    assert_eq!(refused_drain["type"], "drain", "{refused_drain}");
+    assert_eq!(refused_drain["ok"], false, "{refused_drain}");
+    second.send(
+        json!({"v":1,"type":"request","id":"drain-paused-write","generation":1,
+        "command":"state-write","arguments":["--document","not-json"]}),
+    );
+    let refused_write = second.receive();
+    assert_eq!(refused_write["ok"], false, "{refused_write}");
+    assert!(
+        refused_write["error"]
+            .as_str()
+            .is_some_and(|error| error.contains("draining")),
+        "{refused_write}"
+    );
+    second.send(
+        json!({"v":1,"type":"subscribe","id":"drain-paused-subscribe","generation":1,
+        "topic":"filesystem","paths":[resident.temporary.path()]}),
+    );
+    let refused_subscribe = second.receive();
+    assert_eq!(refused_subscribe["ok"], false, "{refused_subscribe}");
+    assert!(
+        refused_subscribe["error"]
+            .as_str()
+            .is_some_and(|error| error.contains("draining")),
+        "{refused_subscribe}"
+    );
+
+    let rejected_view = UnixStream::connect(resident.root.join("authority.sock")).unwrap();
+    rejected_view
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let mut rejected_view_reader = BufReader::new(rejected_view.try_clone().unwrap());
+    let mut rejected_view = rejected_view;
+    serde_json::to_writer(
+        &mut rejected_view,
+        &json!({"v":1,"type":"hello","view":true}),
+    )
+    .unwrap();
+    rejected_view.write_all(b"\n").unwrap();
+    let mut rejected_view_response = String::new();
+    assert_eq!(
+        rejected_view_reader
+            .read_line(&mut rejected_view_response)
+            .unwrap(),
+        0
+    );
+
+    drop(owner);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let resumed_operation = loop {
+        second.send(
+            json!({"v":1,"type":"request","id":"drain-resume-write","generation":1,
+            "command":"state-write","arguments":["--document","not-json"]}),
+        );
+        let response = second.receive();
+        if response["type"] == "accepted" {
+            break response["op"].as_str().unwrap().to_owned();
+        }
+        assert_eq!(response["ok"], false, "{response}");
+        assert!(
+            response["error"]
+                .as_str()
+                .is_some_and(|error| error.contains("draining")),
+            "{response}"
+        );
+        assert!(
+            Instant::now() < deadline,
+            "drain owner EOF did not resume admission"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let resumed_result = second.receive();
+    assert_eq!(resumed_result["type"], "response");
+    assert_eq!(resumed_result["op"], resumed_operation);
+    assert_eq!(resumed_result["payload"]["ok"], false, "{resumed_result}");
+
+    second.send(json!({"v":1,"type":"drain","action":"quiesce","timeout_ms":30}));
+    let short_pause = second.receive();
+    assert_eq!(short_pause["ok"], true, "{short_pause}");
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let expired_operation = loop {
+        second.send(
+            json!({"v":1,"type":"request","id":"drain-expiry-write","generation":1,
+            "command":"state-write","arguments":["--document","not-json"]}),
+        );
+        let response = second.receive();
+        if response["type"] == "accepted" {
+            break response["op"].as_str().unwrap().to_owned();
+        }
+        assert_eq!(response["ok"], false, "{response}");
+        assert!(
+            response["error"]
+                .as_str()
+                .is_some_and(|error| error.contains("draining")),
+            "{response}"
+        );
+        assert!(Instant::now() < deadline, "short drain did not expire");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let expired_result = second.receive();
+    assert_eq!(expired_result["type"], "response");
+    assert_eq!(expired_result["op"], expired_operation);
+    assert_eq!(expired_result["payload"]["ok"], false, "{expired_result}");
+
+    drop(view);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        second.send(json!({"v":1,"type":"drain","action":"status"}));
+        let status = second.receive();
+        assert_eq!(status["ok"], true, "{status}");
+        if status["payload"]["views"] == 0 {
+            break;
+        }
+        assert!(Instant::now() < deadline, "view EOF did not detach");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    second.send(json!({"v":1,"type":"drain","action":"quiesce","timeout_ms":5000}));
+    let final_pause = second.receive();
+    assert_eq!(final_pause["ok"], true, "{final_pause}");
+    assert_eq!(final_pause["payload"]["views"], 0, "{final_pause}");
+    second.send(json!({"v":1,"type":"drain","action":"exit"}));
+    let exited = second.receive();
+    assert_eq!(exited["type"], "drain", "{exited}");
+    assert_eq!(exited["ok"], true, "{exited}");
+    drop(second);
+
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let status = loop {
+        if let Some(status) = resident.child.try_wait().unwrap() {
+            break status;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "drain exit did not stop the authority"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert!(status.success(), "{status}");
+    assert!(!resident.root.join("authority.sock").exists());
+    let reacquired = Authority::acquire(&resident.root).unwrap();
+    drop(reacquired);
+}
