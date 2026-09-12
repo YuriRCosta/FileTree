@@ -14,13 +14,15 @@ fn ctrl_f_toggles_deep_search_and_focuses_its_field_from_every_focus_state() {
 
     assert!(service.contains("function toggleSearchDeep() { return setSearchDeep(!searchDeep) }"));
     assert!(pane.contains(
-        "function toggleDeepSearch() {\n    if (controller.quickNavActive) controller.stopQuickNav()\n    controller.toggleSearchDeep()\n    focusSearch()\n  }"
+        "function toggleDeepSearch() {\n    if (controller.quickNavActive) controller.stopQuickNav()\n    if (mediaActive) mediaRecursive = !mediaRecursive\n    else controller.toggleSearchDeep()\n    focusSearch()\n  }"
     ));
     assert!(pane.contains(
         "if (KeyRouter.listModeAction(event, false) === \"deep\") {\n      toggleDeepSearch()\n      return true"
     ));
     assert!(pane.contains("deep: function() { toggleDeepSearch() }"));
-    assert!(pane.contains("onDeepToggled: controller.toggleSearchDeep()"));
+    assert!(pane.contains(
+        "onDeepToggled: { if (root.mediaActive) root.mediaRecursive = !root.mediaRecursive; else controller.toggleSearchDeep() }"
+    ));
     assert!(pane.contains("Keys.priority: Keys.BeforeItem"));
     assert!(quick_nav.contains("import \"../../lib/KeyRouter.js\" as KeyRouter"));
     assert!(quick_nav.contains("if (KeyRouter.listModeAction(event, false) === \"deep\")"));

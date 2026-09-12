@@ -75,6 +75,7 @@ Item {
   ExtensionProviders {
     id: extensionProviders
     providers: extensionCatalog.providers
+    builtinProviders: bladeHost.registry.builtinProviders
     disclosed: service.pluginRegistry && service.pluginRegistry.installedPlugins ? service.pluginRegistry.installedPlugins : ({})
     files: service
     inventoryUrl: service.pluginDir ? "file://" + service.pluginDir + "/ui/ArtifactInventory.qml" : ""

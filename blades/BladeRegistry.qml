@@ -1,5 +1,4 @@
 import QtQuick
-import qs.Commons
 import "../lib/Definitions.js" as Definitions
 import "../lib/PathText.js" as PathText
 
@@ -21,11 +20,36 @@ QtObject {
   property int revision: 0
   property var fileModules: ({})
   property var catalogProviders: []
+  readonly property var coreModules: ["skills", "memory", "hooks", "mcp"]
+  readonly property var moduleAliases: ({
+    "data-goblin.fileblade-skills/skills": "skills",
+    "data-goblin.fileblade-memory/memory": "memory",
+    "data-goblin.fileblade-hooks/hooks": "hooks",
+    "data-goblin.fileblade-mcp/mcp": "mcp",
+    "kurt.agent-skills/skills": "skills",
+    "kurt.agent-memory/memory": "memory",
+    "kurt.agent-hooks/hooks": "hooks",
+    "kurt.agent-mcp/mcp": "mcp"
+  })
+  readonly property var builtinProviders: {
+    var rows = []
+    for (var i = 0; i < coreModules.length; i++) {
+      var found = fileModules[coreModules[i]]
+      if (found && found.source === "builtin" && found.providerState === "owned" && found.compatible)
+        rows.push({ id: found.providerId, dir: found.sourceDir, entry: found.providerEntry })
+    }
+    return rows
+  }
   readonly property int maximumModules: 128
   readonly property int maximumIdLength: 128
   readonly property int maximumTextLength: 512
 
   signal registryChanged()
+
+  function canonicalModule(id) {
+    var name = String(id || "").trim()
+    return moduleAliases[name] || name
+  }
 
   function isSafeRelativePath(value) {
     var text = String(value || "")
@@ -61,7 +85,8 @@ QtObject {
       entryUrl: PathText.fileUrl(PathText.join(directory, entry)),
       sourceDir: directory,
       source: boundedText(source, "builtin", maximumTextLength),
-      providerId: boundedText(idPrefix, "", maximumIdLength),
+      providerId: source === "builtin" && !idPrefix && coreModules.indexOf(id) >= 0
+        ? "fileblade.core." + id : boundedText(idPrefix, "", maximumIdLength),
       singleton: raw.singleton === undefined ? true : !!raw.singleton,
       minHeight: Math.max(0, Math.min(4096, Number(raw.minHeight) || 0)),
       hostContract: hostContract,
@@ -138,6 +163,8 @@ QtObject {
     var count = Object.keys(target).length
     for (var i = 0; i < ids.length && count < maximumModules; i++) {
       var id = ids[i]
+      var canonical = canonicalModule(id)
+      if (canonical !== id && fileModules[canonical] && fileModules[canonical].source === "builtin") continue
       if (target[id] || other[id]) continue
       target[id] = candidates[id]
       count++
@@ -225,11 +252,11 @@ QtObject {
   }
 
   function module(id) {
-    return modules[String(id || "")] || null
+    return modules[canonicalModule(id)] || null
   }
 
   function disabledModule(id) {
-    return disabledModules[String(id || "")] || null
+    return disabledModules[canonicalModule(id)] || null
   }
 
   function entryUrl(id) {
