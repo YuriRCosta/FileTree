@@ -3,7 +3,7 @@ use crate::common::{own_binary, parse_path, path_text};
 use crate::paths::xdg_home;
 use crate::secure::{self, read_bounded_nofollow};
 use crate::{AppError, AppResult};
-use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
+use image::{DynamicImage, ImageDecoder, ImageEncoder, ImageFormat, ImageReader, Limits};
 use serde_json::{Value, json};
 use std::io::Cursor;
 use std::os::unix::fs::MetadataExt;
@@ -46,7 +46,7 @@ pub fn thumbnail(
         Err(error) => return failure(&text, &error.to_string()),
     };
     let output = cache_path(&format!(
-        "oriented-v1\n{text}\n{version}\n{key}\n{width}x{height}"
+        "oriented-icc-v2\n{text}\n{version}\n{key}\n{width}x{height}"
     ));
     if let Some(ready) = cached(&output, width, height) {
         return ready;
@@ -105,6 +105,21 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
     let orientation = decoder
         .orientation()
         .map_err(|error| AppError::Invalid(format!("{text}: {error}")))?;
+    let profile = decoder
+        .icc_profile()
+        .map_err(|error| AppError::Invalid(format!("{text}: {error}")))?;
+    if let Some(profile) = &profile {
+        let space = if decoder.color_type().has_color() {
+            b"RGB "
+        } else {
+            b"GRAY"
+        };
+        if profile.len() > 1024 * 1024 || profile.get(16..20) != Some(space.as_slice()) {
+            return Err(AppError::Invalid(
+                "Preview colour profile is unsupported or above the size limit".into(),
+            ));
+        }
+    }
     let mut decoded = DynamicImage::from_decoder(decoder)
         .map_err(|error| AppError::Invalid(format!("{text}: {error}")))?;
     decoded.apply_orientation(orientation);
@@ -114,10 +129,25 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
         decoded
     };
     let mut encoded = Cursor::new(Vec::new());
-    scaled
-        .to_rgba8()
-        .write_to(&mut encoded, ImageFormat::Png)
-        .map_err(|error| AppError::Invalid(error.to_string()))?;
+    if let Some(profile) = profile {
+        let mut encoder = image::codecs::png::PngEncoder::new(&mut encoded);
+        encoder
+            .set_icc_profile(profile)
+            .map_err(|error| AppError::Invalid(error.to_string()))?;
+        scaled
+            .write_with_encoder(encoder)
+            .map_err(|error| AppError::Invalid(error.to_string()))?;
+    } else {
+        scaled
+            .to_rgba8()
+            .write_to(&mut encoded, ImageFormat::Png)
+            .map_err(|error| AppError::Invalid(error.to_string()))?;
+    }
+    if encoded.get_ref().len() > CACHE_BYTES {
+        return Err(AppError::Invalid(
+            "Thumbnail output exceeds the cache limit".into(),
+        ));
+    }
     secure::write_private_atomic(output, encoded.get_ref())
         .map_err(|error| AppError::Invalid(error.to_string()))?;
     Ok(json!({
