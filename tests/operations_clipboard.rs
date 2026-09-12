@@ -2,7 +2,6 @@ use serde_json::Value;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use std::process::Command;
 use tempfile::tempdir;
 
 fn tool(root: &Path, name: &str, body: &str) {
@@ -11,21 +10,46 @@ fn tool(root: &Path, name: &str, body: &str) {
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
 }
 
+#[path = "support/clipboard.rs"]
+mod resident_clipboard;
+
 fn backend(root: &Path, arguments: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
-        .args(["--output", "json", "_backend"])
-        .args(arguments)
-        .env("PATH", root)
-        .env("CLIPBOARD_CAPTURE", root.join("capture"))
-        .env("XDG_STATE_HOME", root.join("state"))
-        .output()
-        .unwrap();
-    if output.status.success() {
-        serde_json::from_slice(&output.stdout).unwrap()
-    } else {
-        assert_eq!(output.status.code(), Some(2), "{output:?}");
-        serde_json::from_slice(&output.stderr).unwrap()
-    }
+    resident_clipboard::request(root, arguments, root)
+}
+
+#[test]
+fn resident_clipboard_text_writes_one_absolute_path_per_line() {
+    let temporary = tempdir().unwrap();
+    let root = temporary.path();
+    tool(
+        root,
+        "wl-copy",
+        "printf '%s\\n' \"$*\" > \"$CLIPBOARD_CAPTURE.args\"\n/bin/cat > \"$CLIPBOARD_CAPTURE\"\nexec /bin/sleep 600",
+    );
+    let odd = root.join("it's |odd| name.txt");
+    fs::write(&odd, "x").unwrap();
+    let payload = backend(
+        root,
+        &[
+            "clipboard-text",
+            "--path",
+            odd.to_str().unwrap(),
+            "--path",
+            root.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(payload["ok"], true, "{payload}");
+    assert_eq!(payload["paths"], 2);
+    assert_eq!(
+        fs::read_to_string(root.join("capture")).unwrap(),
+        format!("{}\n{}", odd.display(), root.display())
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("capture.args"))
+            .unwrap()
+            .trim(),
+        "--foreground --type text/plain"
+    );
 }
 
 #[test]
@@ -35,7 +59,7 @@ fn exported_cut_preserves_intent_and_encoded_names_on_import() {
     tool(
         root,
         "wl-copy",
-        "printf '%s' \"$2\" > \"$CLIPBOARD_CAPTURE.mime\"\n/bin/cat > \"$CLIPBOARD_CAPTURE\"",
+        "printf '%s' \"$3\" > \"$CLIPBOARD_CAPTURE.mime\"\n/bin/cat > \"$CLIPBOARD_CAPTURE\"\nexec /bin/sleep 600",
     );
     tool(
         root,
@@ -87,7 +111,7 @@ fn ordinary_copy_retains_uri_list_and_source_files() {
     tool(
         root,
         "wl-copy",
-        "printf '%s' \"$2\" > \"$CLIPBOARD_CAPTURE.mime\"\n/bin/cat > \"$CLIPBOARD_CAPTURE\"",
+        "printf '%s' \"$3\" > \"$CLIPBOARD_CAPTURE.mime\"\n/bin/cat > \"$CLIPBOARD_CAPTURE\"\nexec /bin/sleep 600",
     );
     let path = root.join("a file");
     fs::write(&path, "unchanged").unwrap();
@@ -109,7 +133,11 @@ fn ordinary_copy_retains_uri_list_and_source_files() {
 fn invalid_selection_does_not_replace_the_clipboard() {
     let temporary = tempdir().unwrap();
     let root = temporary.path();
-    tool(root, "wl-copy", "/bin/cat > \"$CLIPBOARD_CAPTURE\"");
+    tool(
+        root,
+        "wl-copy",
+        "/bin/cat > \"$CLIPBOARD_CAPTURE\"\nexec /bin/sleep 600",
+    );
     fs::write(root.join("capture"), "previous clipboard").unwrap();
     for arguments in [
         vec!["clipboard-write", "--cut"],
@@ -147,6 +175,11 @@ fn clipboard_owner_failure_is_reported_without_mutating_sources() {
         &["clipboard-write", "--cut", "--path", path.to_str().unwrap()],
     );
     assert_eq!(written["ok"], false, "{written}");
-    assert_eq!(written["error"], "clipboard unavailable");
+    assert!(
+        written["error"]
+            .as_str()
+            .unwrap()
+            .contains("clipboard unavailable")
+    );
     assert_eq!(fs::read_to_string(path).unwrap(), "unchanged");
 }
