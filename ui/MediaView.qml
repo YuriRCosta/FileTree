@@ -128,7 +128,8 @@ FocusScope {
       width: media.cell
       height: media.cell + media.labelHeight
       item: modelData
-      thumbnails: media.visible ? mediaThumbnails : null
+      thumbnails: media.visible && y + height > grid.contentY && y < grid.contentY + grid.height
+        ? mediaThumbnails : null
       edge: ImageGallery.thumbnailEdge(media.sizeStep)
       current: index === media.currentIndex
       dragEnabled: media.pane.mediaAllows("copy") && media.pane.mediaAllows("cut")
