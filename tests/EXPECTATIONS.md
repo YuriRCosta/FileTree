@@ -965,6 +965,15 @@ This file was written by an agent.
 
 This file was written by an agent.
 
+Script: `tests/vm/expectations/36-cleanup.sh`. It preserves complete saved
+documents and isolates existing Trash/recovery before testing positive policies.
+Screenshots name the E number; pending subcases are reported separately.
+The current script qualifies the shared Service in harness C at 1920×1080,
+with 380/360-pixel blades. It refuses the native shape until R65 supplies
+authority routing and an isolated fixture strategy for the sealed payload.
+The fixture journals originals and retained scenario data; it does not isolate
+Trash stores on other mounts.
+
 - **E-36-01** A fresh install and an existing install without a recorded answer ask
   “Should FileBlade automatically empty the trash?” Never, 1 day, 7 days, 30 days
   and 90 days appear as a list with Never selected. Escape does nothing; Confirm
@@ -983,10 +992,11 @@ This file was written by an agent.
   enabling Manage agent files after its explanation; disabling it refuses further
   management actions, including CLI bin removal and restore.
 - **E-36-05** Purging an MCP or Hooks removal deletes its private recovery too.
-  Repeating removal and purge does not fill an invisible undo quota. Disabled
-  companions must be explicitly enabled before restore or cleanup can run.
-- **E-36-06** Welcome preserves an existing modified or differently pinned checkout
-  and explains why it did not enable it. An update check downloads no Git objects
+  Repeating removal and purge does not fill an invisible undo quota. Core recovery
+  needs no companion activation. An unavailable helper refuses recovery or cleanup
+  while keeping its evidence recoverable.
+- **E-36-06** Welcome remains built in, dismissible and reopenable, without installing
+  companions or changing their existing checkouts. An update check downloads no Git objects
   and does not invent history details when those objects are not available.
 
 ## 37. Image galleries and bar popouts
@@ -1040,3 +1050,232 @@ Script: `tests/vm/expectations/38-wheel-config.sh`.
 - **E-38-08** Saving ordinary preferences or editing the wheel preserves unknown members in the surrounding settings and within wheel definitions. Restoring the standard wheel affects only `dropWheel`.
 - **E-38-09** Custom commands run detached, in a new terminal, or in a supported herdr/tmux placement with the expected arguments and working directory. Shell-looking path and argument text stays literal; configuration is never treated as an implicit shell command.
 - **E-38-10** Before running a configured command or custom built-in reference, FileBlade rereads its settings and file facts. A removed, hidden or newly inapplicable entry cannot execute from an old wheel route.
+
+## 39. Application icons
+
+This file was written by an agent.
+
+Fixture: `tests/vm/fixtures/media_icons.py` with its QML fixture.
+
+- **E-39-01** An Open with row for an application in the installed launcher catalogue shows that application's own icon, resolved from the catalogue's icon name. The row keeps its application identity, and invoking it opens the selected path with that application.
+- **E-39-02** An application with a bundled mark and no icon in the desktop theme shows its bundled mark. A generic glyph never replaces a valid bundled mark.
+- **E-39-03** When an application's icon file is missing and an explicit override glyph is configured, the override glyph is what I see. The descriptor's own glyph, the legacy fallback glyph and a blank space are all wrong.
+- **E-39-04** After an icon file fails to load, a later valid candidate for the same application is shown. Changing the application, its override or its identity clears the remembered failures and lets the new icon load. At most four failed sources are remembered per application.
+- **E-39-05** An application icon larger than the space it is drawn in is decoded no larger than 128 device pixels in each dimension, and its aspect ratio is preserved.
+- **E-39-06** A place that shows an icon without naming an application keeps its existing icon name, trusted source and fallback glyph behaviour, and looks up no application catalogue.
+
+## 90. Checking the native app before installation
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/90-delivery-payload.sh SOURCE BACKEND TARGET NOTICES`,
+run inside the assigned VM. These checks inspect the staged app; opening it and
+using its modules are separate installed-app expectations.
+
+- **E-90-01** When I check a complete native app for a supported system with its
+  required software available, the check succeeds. The app includes its runtime
+  files, notices, keyboard reference and extension reference.
+- **E-90-02-digest** If an app file has changed since the package was prepared,
+  checking it fails instead of accepting the changed copy.
+- **E-90-02-mode** If an app file's access permissions differ from those recorded
+  for it, checking the app fails.
+- **E-90-02-extra** If the app contains an unrecorded file, checking it fails.
+- **E-90-02-missing** If a recorded app file is missing, checking it fails.
+- **E-90-02-symlink** If a recorded app file has been replaced with a link to a file
+  elsewhere, checking it fails.
+- **E-90-03-duplicate** If the app's file list records the same file twice,
+  checking it fails.
+- **E-90-03-traversal** If the app's file list names a path outside its own
+  directory, checking it fails.
+- **E-90-04-architecture** If the app's recorded processor architecture does not
+  match its executable, checking it fails.
+- **E-90-04-abi** If the app's recorded Linux runtime type does not match its
+  executable, checking it fails.
+- **E-90-05-missing-dependency** If a required command is unavailable on my system,
+  checking the app fails and names the missing command.
+- **E-90-06** After I restore the app's original files, permissions and file list,
+  checking it succeeds again.
+- **E-90-07-find-verify** If checking the app cannot finish reading its directory,
+  it reports failure rather than calling a partial check successful.
+- **E-90-07-find-stage** If preparing the app cannot finish reading its directory,
+  it fails without publishing an incomplete app.
+- **E-90-07-sort-verify** If checking the app cannot finish ordering its file list,
+  it reports failure rather than accepting an incomplete list.
+- **E-90-07-sort-stage** If preparing the app cannot finish ordering its file list,
+  it fails without publishing an incomplete app.
+- **E-90-08** The installed app does not include the source repository's root
+  `AGENTS.md`, and its file list does not claim to include that file.
+
+## 91. Installing and recovering a user-local app
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/91-delivery-install.sh PAYLOAD`, run inside the
+assigned VM. The script uses temporary home directories, controlled update
+copies and process interruptions. Its settings and Notes checks cover files
+already saved on disk; they do not prove that unsaved edits survive shutdown.
+
+- **E-91-01** If an unrelated command already occupies my `fileblade` launcher
+  path, installation refuses to overwrite it and leaves its contents intact.
+- **E-91-02** I can install FileBlade in my own home, including when its path
+  contains spaces. The launcher points to the installed app, and installing the
+  same app again keeps that version active.
+- **E-91-03** Installing another version makes it active while keeping the
+  previous version recoverable. Rolling back selects that previous version.
+- **E-91-04** While the installed app is still in use, I can inspect its status,
+  but an update cannot replace the active version until it is safe to do so.
+- **E-91-05** If installation stops during copying or just before or after
+  switching versions, the selected app remains complete and agrees with its
+  installation record. I can retry the installation and roll back afterward.
+- **E-91-06** Installing, updating, retrying an interrupted installation and
+  rolling back preserve my saved settings and Notes files.
+- **E-91-07** If the installation record no longer identifies FileBlade as its
+  owner, or its owned launcher has changed, an update refuses to replace the
+  installation.
+- **E-91-08** If the installation directory is a link to an unrelated directory,
+  installation refuses and leaves that directory and its files untouched.
+- **E-91-09** An update with a different dependency contract is refused even
+  when its own dependency check succeeds. My current version stays selected,
+  and I can still roll back and return to it.
+
+## 92. Installing and removing the Arch package
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/92-delivery-package.sh SOURCE PAYLOAD`, run inside
+the assigned VM with package-management access. It uses real package
+transactions and checks the protection against starting FileBlade during them.
+
+- **E-92-01** The Arch package contains the same verified app I supplied and
+  declares its required software. Preparing it from a private directory does
+  not leave the packaged app accessible only to its owner.
+- **E-92-02** After installation, the package manager recognizes the FileBlade
+  launcher and executable as belonging to the package. The installed app matches
+  the supplied copy, and I can request help through its launcher when idle.
+- **E-92-03** If package-owned FileBlade files coexist with my user-local install,
+  the direct installer refuses to update or remove them and tells me to use
+  `pacman`. Both installations stay intact.
+- **E-92-04** Removing the Arch package prevents a new FileBlade launch during
+  removal and removes its packaged commands and app files. My separate user-local
+  installation, file-manager preference and chooser preference remain intact.
+- **E-92-05** If the packaged app is still in use, package removal refuses to
+  proceed and leaves the package installed.
+- **E-92-06** If I try to launch FileBlade after a package upgrade has checked
+  that it is idle but before the transaction finishes, the launch is refused
+  with a request to retry afterward. The upgrade preserves the verified app.
+
+## 93. Removing an owned app and recovering interruptions
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/93-delivery-remove.sh PAYLOAD`, run inside the
+assigned VM. The script changes a temporary installation and interrupts removal.
+Its personal-data checks cover saved files, not unsaved Notes or desktop-role
+restoration.
+
+- **E-93-01** If the active app's files are missing, rollback refuses to guess
+  which installation is safe. Restoring the verified files lets me roll back.
+- **E-93-02** If the record selecting my active installation is missing, another
+  install refuses to overwrite its history. Restoring that selection lets me
+  install again.
+- **E-93-03** Removal refuses to delete an installation whose launcher has changed
+  or whose app directory contains an unrecorded file. Those changes remain intact.
+- **E-93-04** Removal refuses to delete the app while it is still in use.
+- **E-93-05** If removal stops after deleting only part of the app, another install
+  refuses until removal finishes. Retrying removal completes it, removes the launcher,
+  retains the removal record and preserves my saved Notes and desktop defaults.
+  Repeating the completed removal succeeds harmlessly.
+- **E-93-06** After removing FileBlade, I can install it again and remove that
+  installation successfully.
+- **E-93-07** After I remove one installation and install another, the older
+  removal record cannot stand in for a missing current installation record.
+  Another install or removal refuses, rather than overwriting the newer app or
+  reporting that it has already been removed.
+
+## 94. Waiting for a safe update or removal
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/94-delivery-lifecycle.sh SOURCE PAYLOAD`, run inside
+the assigned VM. A temporary launcher supplies controlled maintenance responses;
+this proves how the installer handles them, not that real work or unsaved Notes
+finish safely. The script also runs sections 91 and 93 against that fixture.
+
+- **E-94-01** If removal cannot confirm that FileBlade has reversed its managed
+  desktop roles and finished its running work, it refuses to delete the app.
+  The active installation record stays unchanged and the launcher remains available.
+- **E-94-02** If the selected installation changes while an update is waiting
+  for FileBlade to stop, the update refuses to continue against a different
+  installation and explains that the selection changed.
+- **E-94-03** When I remove FileBlade, removal requests reversal of its managed
+  desktop roles before asking the app to finish its running work and stop.
+
+## 95. Using an installed app through update, rollback and removal
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/95-delivery-installed.sh PHASE PAYLOAD`, run inside
+the assigned VM. The phases are `install`, `check`, `update`, `rollback` and
+`remove`; each receives the app expected to be active afterward, or the app being
+removed. These checks use actual app payloads and their installer. Run the scoped
+UI expectations between installation and update; this script alone does not prove
+UI behavior or preservation of unsaved Notes.
+
+- **E-95-01** When I install FileBlade into a profile with no active installation,
+  the requested app becomes active, its files verify successfully and my stable
+  launcher points to that installation.
+- **E-95-02** When I check the installed app, its installation record and launcher
+  identify the expected app, and its complete file inventory verifies successfully.
+- **E-95-03** When I update FileBlade to a different app payload, that app becomes
+  active and verifies successfully. The installation record keeps the identity of
+  the app I was using before the update.
+- **E-95-04** When I roll back, the expected previous app becomes active, its files
+  verify successfully and the same launcher points to the restored installation.
+- **E-95-05** When I remove FileBlade, the active and previous app files and the
+  stable launcher are removed. The removal record preserves the installation
+  record I had before removal.
+
+## 96. Using the native VM harness without changing commands
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/96-delivery-adapter.sh ADAPTER`, run inside the
+assigned VM. A temporary recording command checks forwarding and refusals; it
+does not install an app or exercise the real desktop.
+
+- **E-96-01** If I send an SSH command through the native harness, empty values,
+  spaces, newlines, quotes and shell-looking text reach the underlying harness
+  unchanged. I receive the same success or failure status.
+- **E-96-02** Requests to ordinary desktop IPC targets keep their arguments
+  unchanged and return the underlying harness's success or failure status.
+- **E-96-03** Status, fresh start, stop and screenshot requests keep their
+  arguments and return the underlying harness's success or failure status.
+- **E-96-04** If I have not explicitly enabled pushing, a push request is refused
+  before any command reaches the VM.
+- **E-96-05** With `SKIP_PUSH=1`, a push request is refused before any command
+  reaches the VM.
+- **E-96-06** If I accidentally select the native adapter itself as its underlying
+  VM harness, the request fails promptly instead of repeating indefinitely.
+
+## 97. Controlling the installed app through the native VM harness
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/97-delivery-adapter-runtime.sh ADAPTER`, run inside
+the assigned VM. A temporary installation and controlled launcher responses
+check routing, restart ordering and refusals. Actual backend effects and safe
+shutdown still require the installed-app and UI scenarios.
+
+- **E-97-01** When I send a native IPC request, its arguments reach the selected
+  installed app unchanged, and the request uses that app's matching state location.
+- **E-97-02** When I use `drop-context`, `drop-run`, `preferences-read` or
+  `preferences-set` through the adapter, the command and all its arguments reach
+  the installed app's backend entry point unchanged.
+- **E-97-03** Both `restart` and `restart-shell` ask the app to finish its work
+  before launching it again. Restart succeeds once the installed app and its
+  bundled modules are ready, including when an additional extension is present.
+- **E-97-04** If the app reports that it is busy, returns an unrecognized shutdown
+  result, or the selected installation changes during shutdown, restart fails
+  without launching another app. A busy refusal returns status 3.
+- **E-97-05** If the installed app's executable is missing, a native status
+  request fails before attempting to launch the app.

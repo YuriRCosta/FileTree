@@ -8,7 +8,7 @@ layout() { "$OVM" ipc "$PLUGIN" blades 2>/dev/null; }
 slots() { layout | jq -c ".blades.$1.slots"; }
 modules() { slots "$1" | jq -c '[.[].modules | map(.module)]'; }
 reopen() { ctl closeBlade "$1"; sleep 1; ctl openBlade "$1"; sleep 2; }
-shot() { "$OVM" shot "sections-20-$1"; }
+shot() { "$OVM" shot "$1"; }
 
 original=$(guest "cat -- $(printf '%q' "$(field bladeLayoutPath)")")
 if ! jq -e '.blades.left.slots and .blades.right.slots' <<<"$original" >/dev/null; then
@@ -16,7 +16,22 @@ if ! jq -e '.blades.left.slots and .blades.right.slots' <<<"$original" >/dev/nul
   summary
 fi
 fixture_dir=""
+drag_pgid=""
+stop_drag() {
+  [[ -n $drag_pgid ]] || return 0
+  [[ $drag_pgid =~ ^[1-9][0-9]+$ ]] || return 1
+  guest "kill -TERM -- -$drag_pgid 2>/dev/null || true"
+  if ! wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 5; then
+    guest "kill -KILL -- -$drag_pgid 2>/dev/null || true"
+    wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 5 || return 1
+  fi
+  drag_pgid=""
+}
 restore() {
+  if ! stop_drag; then
+    fail harness "stop the drag producer before restoration" "process group $drag_pgid could not be stopped; restoration skipped and fixture retained"
+    return 1
+  fi
   set_slots left '[]'
   set_slots right '[]'
   local edge expected observed failed=0
@@ -54,11 +69,12 @@ fi
 read -r output screen_width screen_height scale origin_x origin_y < <("$OVM" hypr monitors | jq -r '.[0] | [.name,.width,.height,.scale,.x,.y] | @tsv')
 if [[ $screen_width != 1920 || $screen_height != 1080 || $scale != 1 || $origin_x != 0 || $origin_y != 0 ]]; then
   for n in $(seq -w 1 12); do pending "E-20-$n" "section arrangement" "pointer fixture requires 1920x1080 at scale 1"; done
+  shot E-20-01-to-E-20-12-unsupported-geometry
   summary
 fi
 
 drag() {
-  local name=$1 sx=$2 sy=$3 tx=$4 ty=$5 script
+  local name=$1 sx=$2 sy=$3 tx=$4 ty=$5 during=${6:-} script
   script=$(cat <<TOML
 [demo]
 name = "sections-20-$name"
@@ -91,7 +107,21 @@ ms = 300
 TOML
 )
   guest "printf '%s' $(printf '%q' "$script") > /tmp/fb-sections-20.toml"
-  if ! guest 'democtl record /tmp/fb-sections-20.toml --out /tmp/fb-sections-20 --force >/tmp/fb-sections-20.log 2>&1'; then
+  if [[ -n $during ]]; then
+    drag_pgid=$(guest "rm -f /tmp/fb-sections-20.status; setsid sh -c 'democtl record /tmp/fb-sections-20.toml --out /tmp/fb-sections-20 --force >/tmp/fb-sections-20.log 2>&1; echo \$? >/tmp/fb-sections-20.status' </dev/null >/dev/null 2>&1 & echo \$!")
+    if [[ ! $drag_pgid =~ ^[1-9][0-9]+$ ]]; then
+      drag_pgid=${drag_pgid:-unknown}
+      fail harness "retain the drag producer" "invalid process group: $drag_pgid"
+      summary
+    fi
+    sleep 2.2
+    shot "$during"
+    if ! wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 30 || [[ $(guest 'cat /tmp/fb-sections-20.status' 2>/dev/null) != 0 ]]; then
+      fail harness "physical drag $name" "democtl failed; see /tmp/fb-sections-20.log"
+      summary
+    fi
+    drag_pgid=""
+  elif ! guest 'democtl record /tmp/fb-sections-20.toml --out /tmp/fb-sections-20 --force >/tmp/fb-sections-20.log 2>&1'; then
     fail harness "physical drag $name" "democtl failed; see /tmp/fb-sections-20.log"
     summary
   fi
@@ -100,16 +130,18 @@ TOML
   shot "$name"
 }
 
-shot initial
+shot sections-20-initial
 "$OVM" mouse click 10 557
 sleep 1
 expect_true E-20-01 "caret collapses Properties" "slots left | jq -e '.[1].collapsed == true'"
-shot collapsed
+shot E-20-01-properties-collapsed
 reopen left
 expect_true E-20-02 "collapsed state survives closing and reopening" "slots left | jq -e '.[1].collapsed == true'"
+shot E-20-02-collapsed-after-reopen
 "$OVM" mouse click 10 1032
 sleep 1
 expect_true E-20-01 "caret expands Properties again" "slots left | jq -e '.[1].collapsed == false'"
+shot E-20-01-properties-expanded
 
 fixture_dir=$(guest 'mktemp -d /tmp/fileblade-sections-20.XXXXXX')
 if [[ ! $fixture_dir =~ ^/tmp/fileblade-sections-20\.[[:alnum:]]+$ ]]; then
@@ -132,39 +164,45 @@ if ! wait_for "guest 'test -f $fixture_dir/after.txt'" 12; then
   summary
 fi
 expect_out E-20-11 "rename a real file before arranging sections" "test -f $fixture_dir/after.txt && echo yes" yes
+shot E-20-11-rename-before-layout-move
 
 before=$(slots left)
-drag invalid 70 557 950 500
+drag E-20-09-invalid-drop-unchanged 70 557 950 500
 expect_true E-20-09 "dropping outside both blades preserves the layout" "[[ \$(slots left) == $(printf '%q' "$before") ]]"
-drag above 70 557 230 100
+drag E-20-03-properties-above-files 70 557 230 100 E-20-06-section-insertion
 expect_true E-20-03 "section title drops above Files" "[[ \$(modules left) == '[[\"properties\"],[\"files\"]]' ]]"
 expect_true E-20-09 "valid drop retains the indicated order" "[[ \$(modules left) == '[[\"properties\"],[\"files\"]]' ]]"
-drag below 70 42 230 1000
+shot E-20-09-valid-drop-order
+drag E-20-03-properties-below-files 70 42 230 1000
 expect_true E-20-03 "section title drops below Files" "[[ \$(modules left) == '[[\"files\"],[\"properties\"]]' ]]"
 expect_true E-20-11 "dragging back reverses a layout move" "[[ \$(modules left) == '[[\"files\"],[\"properties\"]]' ]]"
+shot E-20-11-layout-move-reversed
 
-drag across 70 557 1700 1000
+drag E-20-04-properties-moved-right 70 557 1700 1000
 expect_true E-20-04 "section moves to the other blade" "[[ \$(modules left) == '[[\"files\"]]' && \$(modules right) == '[[\"notes\"],[\"properties\"]]' ]]"
 before=$(slots right)
 reopen right
 expect_true E-20-10 "moved sections survive closing and reopening" "[[ \$(slots right) == $(printf '%q' "$before") ]]"
+shot E-20-10-sections-after-reopen
 ctl focusBlade left
 ctl focusTree
 "$OVM" key ctrl-z
 wait_for "guest 'test -f $fixture_dir/before.txt && test ! -e $fixture_dir/after.txt'" 12
 expect_out E-20-11 "Ctrl+Z reverses the file rename after a layout move" "test -f $fixture_dir/before.txt && test ! -e $fixture_dir/after.txt && echo yes" yes
 expect_true E-20-11 "Ctrl+Z leaves the moved section in place" "[[ \$(modules left) == '[[\"files\"]]' && \$(modules right) == '[[\"notes\"],[\"properties\"]]' ]]"
+shot E-20-11-undo-keeps-layout
 ctl focusBlade right
-drag into-body 1620 557 220 500
+drag E-20-05-properties-becomes-tab 1620 557 220 500 E-20-07-body-target
 expect_true E-20-05 "module dropped on the Files body becomes a tab" "[[ \$(modules left) == '[[\"files\",\"properties\"]]' ]]"
 before=$(slots left)
-drag invalid-tab 190 42 950 500
+drag E-20-09-invalid-tab-drop-unchanged 190 42 950 500
 expect_true E-20-09 "tab dropped outside both blades preserves its layout" "[[ \$(modules left) == '[[\"files\",\"properties\"]]' && \$(slots left) == $(printf '%q' "$before") ]]"
-drag tab-order 190 42 30 42
+drag E-20-05-tabs-reordered 190 42 30 42 E-20-08-tab-insertion
 expect_true E-20-05 "dragging a tab changes its position" "[[ \$(modules left) == '[[\"properties\",\"files\"]]' ]]"
 before=$(slots left)
 reopen left
 expect_true E-20-10 "arranged tabs survive closing and reopening" "[[ \$(modules left) == '[[\"properties\",\"files\"]]' && \$(slots left) == $(printf '%q' "$before") ]]"
+shot E-20-10-tabs-after-reopen
 
 pending E-20-06 "horizontal insertion line during section drag" "drop geometry is not exposed; recordings require visual review"
 pending E-20-07 "section body outlined while receiving a tab" "drop styling is not exposed; recordings require visual review"
@@ -172,12 +210,12 @@ pending E-20-08 "slim tab insertion bar with unobscured titles" "pixel shape and
 
 set_slots left '[{"id":"e20-files","fraction":0.5,"modules":[{"module":"files"}]},{"id":"e20-properties","fraction":0.5,"modules":[{"module":"properties"}]}]'
 sleep 2
-drag divider 250 539 250 400
+drag E-20-12-divider-resized 250 539 250 400
 expect_true E-20-12 "divider changes both adjacent size fractions" "slots left | jq -e '.[0].fraction < 0.45 and .[1].fraction > 0.55 and ((.[0].fraction + .[1].fraction - 1) | fabs) < 0.001'"
 before=$(slots left)
 reopen left
 expect_true E-20-12 "resized sections reopen at the chosen sizes" "[[ \$(slots left) == $(printf '%q' "$before") ]]"
-shot reopened
+shot E-20-12-resized-after-reopen
 restore
 trap - EXIT
 summary

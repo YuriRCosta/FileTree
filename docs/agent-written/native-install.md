@@ -37,19 +37,13 @@ from the named source/target. A digest detects corruption; it is not a signed
 build attestation. These local payloads carry no remote provenance claim.
 Cross-target verification is not an ARM runtime or physical-hardware pass.
 
-The current runtime launcher expects its backend at
-`target/release/fileblade`; the payload retains that path without requiring
+The production runtime launcher `app/launch` resolves its backend at
+`bin/fileblade`; the payload retains that path without requiring
 Cargo or a source checkout at launch. All QML relative imports and core Python
 helpers are preserved. The app-private adapter and its upstream license are
 included. Developer-only app/ovm-spike and app/qualification helpers are
 excluded. Runtime-owned service/portal metadata, when committed beneath app/,
 is included; packaging does not invent or enable a chooser implementation.
-
-The qualified cumulative runtime at ffaa351 still requires FILEBLADE_SPIKE_HOME and
-uses fixture-only write authority. Staging its complete file set does not
-make that launcher a production startup route. Until runtime replaces that
-contract, launch qualification must use an explicitly isolated guest fixture
-and must not be called host install readiness.
 
 Run `tests/vm/expectations/90-delivery-payload.sh SOURCE BACKEND TARGET NOTICES`
 inside the assigned Omarchy guest for integrity, malformed-inventory,
@@ -90,8 +84,8 @@ call `app/launch native drain --timeout-ms 30000 --json`; removal first calls
 `app/launch native roles disable --all --json`. Nonzero exits or unknown,
 malformed or incomplete success results preserve the runtime. A failed drain
 after reversal can leave roles disabled; the diagnostic reports that outcome.
-The current spike does not implement these entry points and therefore refuses
-maintenance. Closing its view alone leaves the authority holding the lock.
+Runtime must implement these entry points before maintenance can succeed.
+Closing the view alone leaves the authority holding the lock.
 A runtime launched directly outside the stable launcher
 does not participate in this delivery lock and must not be updated this way.
 
@@ -111,6 +105,13 @@ case changes a compatible dependency floor and verifies that the prior
 contract prevents activation while preserving rollback. Test-only
 command wrappers inject interruptions; production code has no fault hooks.
 These are process-interruption checks, not physical power-loss tests.
+
+For actual payload lifecycle qualification in the assigned guest, run
+`tests/vm/expectations/95-delivery-installed.sh PHASE PAYLOAD` with phases
+`install`, `check`, `update`, `rollback`, and `remove`. Use the expected active
+payload for each phase, including the genuine previous payload for rollback.
+Run the scoped native UI expectations between install and update. These
+checks require production runtime lifecycle support; they do not simulate it.
 
 ## Arch package from the same payload
 
@@ -142,7 +143,6 @@ through pacman. A direct launcher may still shadow the package after an
 external pacman install; the installer diagnoses that collision and preserves
 both trees.
 
-The current launcher still has the documented spike-only startup contract.
 Package mapping does not qualify that startup, provide a chooser, or register
 runtime-owned desktop/service metadata that has not yet been implemented.
 Mapping those descriptors and checking real companion-mode coexistence remain
@@ -180,14 +180,16 @@ Invalid receipts are refused. Recovery never guesses a generation from
 timestamps or directory order. Runtime recovery for an unavailable active
 maintenance entry point remains unqualified.
 
-The package launcher retains a shared lock on the package-owned
-`/usr/share/fileblade-native/lock`. An ALPM pre-transaction hook refuses
-upgrade/removal if the lock is held. This hook edits no user defaults. It is
-a busy preflight, not a transaction-wide exclusion: new launches after the
-check still requires package transaction coordination. Direct maintenance
-calls are wired, but their runtime implementation and live qualification for
-active operations, dirty Notes and enabled roles remain pending. External
-stale role recovery uses runtime's opaque receipt, never the direct receipt.
+The package launcher takes a shared lock on `/usr/share/fileblade-native/lock`
+before checking pacman's configured database lock and the held lock inode. Existing launches block
+the ALPM idle preflight; new launches refuse throughout a package transaction,
+including after that preflight. Unrelated transactions using the same
+database also prevent launch until their lock is released. A stale pacman lock requires pacman's normal
+recovery; FileBlade does not delete it. Qualification covers the configured
+system database, not ad-hoc `--dbpath` or `--config` overrides. The hook edits
+no user defaults. Active operations, dirty Notes and enabled-role reversal
+still need runtime implementation and live qualification. External stale role
+recovery uses runtime's opaque receipt, never the direct receipt.
 
 `tests/vm/expectations/93-delivery-remove.sh PAYLOAD` checks stale activation,
 ownership preservation, busy refusal and an actual process-group kill during
@@ -199,3 +201,44 @@ explicit maintenance fixture, checks failure/result handling, the active
 launcher path, shared-lock ordering and activation identity changes, then runs
 E91/E93 with it. These are caller/transaction checks; they do not implement or
 qualify runtime draining or desktop-role reversal.
+
+## Installed expectation adapter
+
+Select the adapter and the native shape for installed expectations:
+
+```bash
+export OVM="$PWD/tests/vm/native-ovm"
+export OVM_REAL="$HOME/.claude/skills/test-omarchy-plugin/scripts/ovm"
+export SKIP_PUSH=1 FILEBLADE_SHAPE=native
+"$OVM" ipc data-goblin.fileblade status
+```
+
+Keep the assigned `OVM_HOME` and `OVM_SSH_PORT`. The adapter resolves the
+installed stable user launcher, or the packaged launcher when no user launcher
+exists. `FILEBLADE_NATIVE_LAUNCHER` can name an explicit guest stable launcher.
+It checks the direct activation receipt and manifest identity; installation
+and qualification own the full payload inventory check. It exports the
+published native payload/backend/state environment for native commands.
+
+`ipc` routes FileBlade targets through `native ipc --` on the stable launcher.
+Other targets, `ssh` command strings and other ovm verbs forward unchanged.
+`restart` and `restart-shell` drain first, restart through the stable launcher
+and wait for the installed view and eight built-ins. A refused or incomplete
+drain leaves activation intact. Launch output is retained in
+`$FILEBLADE_NATIVE_STATE_ROOT/native-ovm.log` in the guest.
+
+Push is refused by default. To explicitly install a previously built payload
+whose manifest source matches the given tree's HEAD:
+
+```bash
+FILEBLADE_NATIVE_PAYLOAD=/absolute/path/to/payload SKIP_PUSH=0 "$OVM" push "$PWD"
+```
+
+Push transfers that payload into a temporary guest directory, invokes its
+`tools/native install` and removes the temporary copy. Build the payload using
+the staging command above; the adapter does not choose a backend or notices.
+The shared runner also accepts a relative OVM path. Runtime owns native
+control and stop/restart selection in the shared helpers; wheel owns its
+remaining plugin-specific callers. Production launcher/drain qualification
+and the four backend IPC commands remain pending runtime. SSH strings
+forward unchanged; shape selection belongs in their callers.

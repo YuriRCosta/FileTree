@@ -11,7 +11,7 @@ Preserve unrelated changes and the project's design intent.
   Keep navigation consistent, responsive, and usable without extra setup.
 - Expose workflows through the `fileblade` CLI as well as the UI.
 - Extensions reuse the host's services and interaction conventions. See
-  [EXTENSIONS.md](../EXTENSIONS.md) before adding module-specific infrastructure.
+  [EXTENSIONS.md](EXTENSIONS.md) before adding module-specific infrastructure.
 
 ## Versions
 
@@ -21,14 +21,18 @@ Preserve unrelated changes and the project's design intent.
 
 ## Testing
 
-- Follow [CONTRIBUTING.md](../CONTRIBUTING.md#tests). `tests/run` is the complete
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md#tests). `tests/run` is the complete
   local code and bundle gate; there is no hosted CI (yet! I don't wanna go broke from GH actions!).
-- Validate Rust and QML before live UI tests. Favor regression, integration,
-  and end-to-end coverage over isolated implementation-detail tests.
-- Update [UI expectations](../tests/EXPECTATIONS.md) for user-visible changes,
+- No unit tests. Kurt's rule, 2026-09-12: do not write isolated
+  implementation-detail tests, module-local test blocks or mocked unit
+  suites. Cover behaviour through regression, integration and end-to-end
+  tests, the UI expectations and the VM scenarios instead. A test that only
+  exercises one function through a mock does not earn its maintenance.
+- Validate Rust and QML before live UI tests.
+- Update [UI expectations](tests/EXPECTATIONS.md) for user-visible changes,
   describing behavior from the user's point of view.
 - Run the affected UI scenarios in an isolated VM using the
-  [VM workflow](../CONTRIBUTING.md#testing-the-gui-in-a-vm), not the working desktop.
+  [VM workflow](CONTRIBUTING.md#testing-the-gui-in-a-vm), not the working desktop.
   Report skipped or pending checks honestly.
 
 ## Agent vs human authorship
@@ -39,13 +43,13 @@ Preserve unrelated changes and the project's design intent.
 - Do not edit project memory or human-written context and documentation without
   explicit authorization. Keep task-related technical documentation current.
 - Register new public technical documents in the
-  [documentation catalogue](agent-written/README.md).
+  [documentation catalogue](docs/agent-written/README.md).
 
 ## Cleaning up
 
 - No damn comments in the code write in the docs ya damn clanker
 - Keep Cargo targets and bundle staging on disk, not a memory-backed `/tmp`.
-  See the build settings in [CONTRIBUTING.md](../CONTRIBUTING.md#tests).
+  See the build settings in [CONTRIBUTING.md](CONTRIBUTING.md#tests).
 - Remove your temporary files, screenshots, staging directories, and unused
   worktrees when finished. Check ownership and active use before deletion;
   never remove another session's work or a user's captures.

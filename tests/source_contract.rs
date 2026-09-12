@@ -2067,10 +2067,9 @@ fn script_action_rows_render_plain_text_and_reach_the_controller_through_the_ser
 }
 
 #[test]
-fn no_automatic_agent_instruction_path_is_installed_with_the_plugin() {
+fn agent_instructions_live_at_the_root_and_no_other_tool_path_is_tracked() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let candidates = [
-        "AGENTS.md",
         "CLAUDE.md",
         "GEMINI.md",
         ".cursorrules",
@@ -2091,13 +2090,14 @@ fn no_automatic_agent_instruction_path_is_installed_with_the_plugin() {
     let tracked = String::from_utf8_lossy(&listed.stdout);
     assert!(
         tracked.trim().is_empty(),
-        "cloned into the plugin directory, where coding agents read it on their own: {}",
+        "only AGENTS.md carries agent instructions; these paths stay untracked: {}",
         tracked.trim()
     );
-    let guidelines = text(&root.join("docs/agent-guidelines.md"));
+    let guidelines = text(&root.join("AGENTS.md"));
     assert!(guidelines.contains("# Instructions for agents"));
+    assert!(guidelines.contains("No unit tests."));
     let contributing = text(&root.join("CONTRIBUTING.md"));
-    assert!(contributing.contains("[docs/agent-guidelines.md](docs/agent-guidelines.md)"));
+    assert!(contributing.contains("[AGENTS.md](AGENTS.md)"));
 }
 
 #[test]

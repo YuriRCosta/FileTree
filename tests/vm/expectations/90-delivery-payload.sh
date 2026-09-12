@@ -11,6 +11,9 @@ payload=$work/payload
 "$native" check "$payload"
 [[ -s $payload/modules/welcome/../../docs/agent-written/keybindings.md && -s $payload/modules/welcome/../../EXTENSIONS.md ]]
 printf 'PASS E-90-01 complete inventory and compatible runtime\n'
+[[ ! -e $payload/AGENTS.md && ! -L $payload/AGENTS.md ]]
+jq -e 'all(.files[]; .path != "AGENTS.md")' "$payload/payload.json" >/dev/null
+printf 'PASS E-90-08 root agent instructions excluded from runtime and inventory\n'
 reject() {
   if "$native" "$1" "$2" >"$work/rejection" 2>&1; then
     printf 'FAIL %s: invalid payload accepted\n' "$3" >&2

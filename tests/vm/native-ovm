@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+fail() { printf 'native-ovm: %s\n' "$*" >&2; exit 1; }
+real=${OVM_REAL:-$HOME/.claude/skills/test-omarchy-plugin/scripts/ovm}
+[[ -x $real && ! $real -ef ${BASH_SOURCE[0]} ]] || fail 'OVM_REAL must name the real ovm executable'
+case ${1:-} in
+  push)
+    [[ ${SKIP_PUSH:-1} != 1 ]] || fail 'push refused under SKIP_PUSH=1'
+    [[ $# == 2 ]] || fail 'usage: native-ovm push SOURCE (FILEBLADE_NATIVE_PAYLOAD must name its built payload)'
+    payload=$(realpath -e -- "${FILEBLADE_NATIVE_PAYLOAD:?set FILEBLADE_NATIVE_PAYLOAD to the built payload}")
+    [[ $(jq -r .source "$payload/payload.json") == "$(git -C "$2" rev-parse HEAD)" ]] || fail 'payload source differs from the given tree'
+    guest_stage=$("$real" ssh 'mktemp -d /tmp/fileblade-native-push.XXXXXXXX')
+    [[ $guest_stage =~ ^/tmp/fileblade-native-push\.[A-Za-z0-9]+$ ]] || fail 'unexpected guest staging path'
+    trap '"$real" ssh "rm -rf -- $guest_stage" >/dev/null' EXIT
+    printf -v transport 'ssh -i %q -p %q -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR' "${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin}/id_ed25519" "${OVM_SSH_PORT:-2322}"
+    rsync -a -e "$transport" -- "$payload/" "omarchy@127.0.0.1:$guest_stage/"
+    "$real" ssh "'$guest_stage/tools/native' install '$guest_stage'"
+    exit
+    ;;
+  ipc)
+    case ${2:-} in
+      data-goblin.fileblade|data-goblin.fileblade.*|fileblade.native|_backend|drop-context|drop-run|preferences-read|preferences-set) ;;
+      *) exec "$real" "$@" ;;
+    esac
+    ;;
+  restart|restart-shell) [[ $# == 1 ]] || fail 'restart takes no arguments' ;;
+  *) exec "$real" "$@" ;;
+esac
+remote=$(cat <<'SH'
+set -euo pipefail
+fail() { printf 'native-ovm: %s\n' "$*" >&2; exit 1; }
+verb=$1
+launcher=$2
+shift 2
+if [[ -z $launcher ]]; then
+  launcher=$HOME/.local/bin/fileblade
+  [[ -e $launcher || -L $launcher ]] || launcher=/usr/bin/fileblade
+fi
+[[ -x $launcher ]] || fail 'installed stable launcher is unavailable'
+physical=$(readlink -f -- "$launcher")
+if [[ $physical == /usr/bin/fileblade ]]; then
+  runtime=/usr/lib/fileblade
+else
+  installation=$(dirname -- "$physical")
+  [[ $physical == "$installation/launcher" && -L $installation/active ]] || fail 'launcher does not identify an active direct installation'
+  runtime=$(readlink -f -- "$installation/active/runtime")
+  digest=$(sha256sum -- "$runtime/payload.json"); digest=${digest%% *}
+  [[ $runtime == "$installation/versions/$digest" ]] || fail 'active payload identity differs'
+  jq -e --arg installation "$installation" --arg digest "$digest" '.schema == 1 and .owner == "direct" and .installation == $installation and .payload == $digest' "$installation/active/receipt.json" >/dev/null || fail 'active receipt differs'
+fi
+[[ -x $runtime/app/launch ]] || fail 'installed payload launcher is unavailable'
+export FILEBLADE_APP_ROOT=$runtime FILEBLADE_SOURCE_DIR=$runtime FILEBLADE_BINARY=$runtime/bin/fileblade
+export FILEBLADE_NATIVE_STATE_ROOT=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/fileblade
+[[ -x $FILEBLADE_BINARY ]] || fail 'installed production backend bin/fileblade is unavailable'
+case $verb in
+  ipc)
+    case ${1:-} in
+      _backend) exec "$launcher" "$@" ;;
+      drop-context|drop-run|preferences-read|preferences-set) exec "$launcher" _backend "$@" ;;
+      *) exec "$launcher" native ipc -- "$@" ;;
+    esac
+    ;;
+  restart|restart-shell)
+    result=$("$launcher" native drain --timeout-ms 30000 --json)
+    jq -e -s 'length == 1 and (.[0] | .schema == 1 and .action == "drain" and (.status | IN("drained", "already_stopped")) and .error == "" and (.operation_ids | type == "array" and all(.[]; type == "string")) and (.dirty_note_ids | type == "array" and all(.[]; type == "string")))' <<< "$result" >/dev/null || fail 'drain did not confirm a safe restart'
+    [[ $(readlink -f -- "$launcher") == "$physical" ]] || fail 'stable launcher changed during drain; retry'
+    if [[ -n ${installation:-} ]]; then
+      [[ $(readlink -f -- "$installation/active/runtime") == "$runtime" ]] || fail 'activation changed during drain; retry'
+    fi
+    mkdir -p -- "$FILEBLADE_NATIVE_STATE_ROOT"
+    setsid -f "$launcher" </dev/null >>"$FILEBLADE_NATIVE_STATE_ROOT/native-ovm.log" 2>&1
+    for attempt in {1..60}; do
+      if timeout 2 "$launcher" native ipc -- fileblade.native status | jq -e --arg root "$runtime" '.loaded and .sourceDir == $root' >/dev/null &&
+        timeout 2 "$launcher" native ipc -- data-goblin.fileblade status | jq -e '.bladeModules | contains(["files", "notes", "properties", "welcome", "hooks", "mcp", "memory", "skills"])' >/dev/null; then exit 0; fi
+      sleep 0.5
+    done
+    fail 'installed app did not become ready after restart'
+    ;;
+esac
+SH
+)
+verb=$1
+shift
+printf -v command '%q ' bash -c "$remote" native-ovm "$verb" "${FILEBLADE_NATIVE_LAUNCHER:-}" "$@"
+exec "$real" ssh "$command"

@@ -57,7 +57,10 @@ Item {
   ExtensionCatalog {
     id: extensionCatalog
     service: service
-    watchPaths: [service.home + "/.config/omarchy", service.home + "/.config/omarchy/plugins"]
+    watchPaths: backendClient.nativeAuthority
+      ? [bladeHost.configHome, bladeHost.configHome + "/fileblade",
+         bladeHost.configHome + "/fileblade/extensions", bladeHost.configDir]
+      : [service.home + "/.config/omarchy", service.home + "/.config/omarchy/plugins"]
     onRefreshed: bladeHost.registry.rescan()
   }
 
