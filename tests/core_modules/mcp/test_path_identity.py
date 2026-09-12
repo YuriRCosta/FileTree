@@ -28,6 +28,8 @@ class NativePaths(unittest.TestCase):
         (self.neighbor / ".mcp.json").write_text("neighbor")
         self.env = {"PATH": os.environ["PATH"], "HOME": str(self.home), "PYTHONDONTWRITEBYTECODE": "1",
                     "XDG_DATA_HOME": str(self.base / "data"), "XDG_STATE_HOME": str(self.base / "state")}
+        if "FILEBLADE_BINARY" in os.environ:
+            self.env["FILEBLADE_BINARY"] = os.environ["FILEBLADE_BINARY"]
 
     def run_helper(self, command, *arguments, payload=None):
         result = subprocess.run([str(ROOT / "python/bin/agent-mcpctl"), command, "--json", "--project", path_text(str(self.project)), *arguments],

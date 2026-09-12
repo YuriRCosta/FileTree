@@ -29,6 +29,8 @@ class NativePaths(unittest.TestCase):
         for name in self.names:
             (self.rules / name).write_text("# rule\n")
         self.env = {"PATH": os.environ["PATH"], "HOME": str(self.home), "PYTHONDONTWRITEBYTECODE": "1"}
+        if "FILEBLADE_BINARY" in os.environ:
+            self.env["FILEBLADE_BINARY"] = os.environ["FILEBLADE_BINARY"]
 
     def run_helper(self, command, *arguments):
         raw = subprocess.check_output([str(ROOT / "python/bin/agent-memoryctl"), command, "--json", "--exact",

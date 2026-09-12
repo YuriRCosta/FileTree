@@ -107,11 +107,14 @@ class ApplyCase(unittest.TestCase):
         self.assertNotIn(SENTINEL, " ".join(arguments))
         self.assertNotIn(HEADER_SENTINEL, " ".join(arguments))
         stdout = io.StringIO()
-        with mock.patch.dict(os.environ, {
+        environment = {
             "HOME": str(self.home),
             "XDG_CONFIG_HOME": str(self.config),
             "CODEX_HOME": str(self.home / ".codex"),
-        }, clear=True), mock.patch("sys.stdin", io.StringIO(json.dumps(payload) + "\n")), mock.patch("sys.stdout", stdout):
+        }
+        if "FILEBLADE_BINARY" in os.environ:
+            environment["FILEBLADE_BINARY"] = os.environ["FILEBLADE_BINARY"]
+        with mock.patch.dict(os.environ, environment, clear=True), mock.patch("sys.stdin", io.StringIO(json.dumps(payload) + "\n")), mock.patch("sys.stdout", stdout):
             code = main(arguments)
         restored = json.loads(stdout.getvalue())
         self.assertEqual(code, 0)
@@ -236,11 +239,14 @@ class ApplyCase(unittest.TestCase):
         arguments = ["restore", "--project", str(self.project), "--record-id", "bin:fedcba9876543210fedcba9876543210", "--payload-stdin", "--json"]
         self.assertNotIn(HEADER_SENTINEL, " ".join(arguments))
         stdout = io.StringIO()
-        with mock.patch.dict(os.environ, {
+        environment = {
             "HOME": str(self.home),
             "XDG_CONFIG_HOME": str(self.config),
             "CODEX_HOME": str(self.home / ".codex"),
-        }, clear=True), mock.patch("sys.stdin", io.StringIO(json.dumps(payload) + "\n")), mock.patch("sys.stdout", stdout):
+        }
+        if "FILEBLADE_BINARY" in os.environ:
+            environment["FILEBLADE_BINARY"] = os.environ["FILEBLADE_BINARY"]
+        with mock.patch.dict(os.environ, environment, clear=True), mock.patch("sys.stdin", io.StringIO(json.dumps(payload) + "\n")), mock.patch("sys.stdout", stdout):
             code = main(arguments)
         self.assertEqual(code, 0, stdout.getvalue())
         self.assertNotIn(HEADER_SENTINEL, stdout.getvalue())
@@ -444,6 +450,8 @@ class ApplyCase(unittest.TestCase):
     def test_cli_apply_emits_only_json_and_exit_codes(self) -> None:
         identifier = self.definition_id("local-tool")
         environment = {"HOME": str(self.home), "CODEX_HOME": str(self.home / ".codex")}
+        if "FILEBLADE_BINARY" in os.environ:
+            environment["FILEBLADE_BINARY"] = os.environ["FILEBLADE_BINARY"]
         stdout = io.StringIO()
         with mock.patch.dict(os.environ, environment, clear=True), mock.patch("sys.stdout", stdout):
             code = main(["apply", "--project", str(self.project), "--id", identifier, "--agent", "codex", "--agent", "antigravity", "--state", "on", "--json"])
