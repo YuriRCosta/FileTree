@@ -62,6 +62,7 @@ try:
     bar_hidden(True); time.sleep(1)
     records['bar_hidden']=capture('bar-hidden')
     check(records['bar_hidden']['reserved'][1]==0,'E-43-03 real bar releases its zone while hidden')
+    check(sorted(row['namespace'] for row in records['bar_hidden']['layers'])==['omarchy-fileblade-left','omarchy-fileblade-right'],'E-43-03 both blade surfaces are present')
     check(all(row['y']==0 and row['h']==1080 for row in records['bar_hidden']['layers']),'E-43-03 compositor extends blades to the top edge')
     bar_hidden(False); time.sleep(1)
     records['bar_restored']=capture('bar-restored')
