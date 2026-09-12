@@ -45,7 +45,7 @@ included. Developer-only app/ovm-spike and app/qualification helpers are
 excluded. Runtime-owned service/portal metadata, when committed beneath app/,
 is included; packaging does not invent or enable a chooser implementation.
 
-The cumulative runtime at 405c9f8 still requires FILEBLADE_SPIKE_HOME and
+The qualified cumulative runtime at ffaa351 still requires FILEBLADE_SPIKE_HOME and
 uses fixture-only write authority. Staging its complete file set does not
 make that launcher a production startup route. Until runtime replaces that
 contract, launch qualification must use an explicitly isolated guest fixture
@@ -85,14 +85,15 @@ The stable launcher resolves its physical runtime once under a shared
 installation lock. Installation and rollback require the exclusive lock and
 refuse while a launched session retains the shared lock. This is a safe
 busy refusal, not graceful shutdown or a claim that dirty Notes can already
-be flushed. The actual Quickshell/authority descriptor lifetime still needs
-native qualification. A runtime launched directly outside the stable launcher
+be flushed. Harness qualification confirms that the authority retains the
+lock after the view exits. Updates need runtime shutdown/drain support;
+closing the view alone does not release it. A runtime launched directly outside the stable launcher
 does not participate in this delivery lock and must not be updated this way.
 
 Package-owned conventional executable paths and unrelated launchers are
 refused. Modified owned launchers, invalid receipts and receipt/pointer
-disagreement are also refused. Full package mapping and external package
-removal recovery remain task 9.3/9.4 work. Current payload and installer
+disagreement are also refused. Arch package mapping is described below;
+external package removal recovery remains task 9.4 work. Current payload and installer
 dependency contracts must match; a contract-changing upgrade needs explicit
 compatibility work before it can be accepted.
 
@@ -100,8 +101,9 @@ compatibility work before it can be accepted.
 preservation, repeated install, distinct activation/rollback, busy refusal,
 shared-lock status, settings/Notes preservation, and real process-group kills
 during copy and immediately before/after the activation rename. Its alternate
-payload manifests differ only in legal JSON whitespace, exercising distinct
-transaction identities without inventing another backend version. Test-only
+transaction payload manifests differ only in legal JSON whitespace. A separate
+case changes a compatible dependency floor and verifies that the prior
+contract prevents activation while preserving rollback. Test-only
 command wrappers inject interruptions; production code has no fault hooks.
 These are process-interruption checks, not physical power-loss tests.
 
