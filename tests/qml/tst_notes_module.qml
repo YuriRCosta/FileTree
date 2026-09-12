@@ -108,6 +108,26 @@ TestCase {
     compare(mockHost.layoutWriteRequestId, "")
   }
 
+  function test_typing_before_flush_survives_unchanged_saved_rebind() {
+    compare(view.notebook.revision, 1)
+    editor.text = "typed before flush"
+    compare(view.notebook.revision, 1)
+    var saved = JSON.parse(JSON.stringify(mockContext.slotState))
+    mockContext.slotState = JSON.parse(JSON.stringify(saved))
+    verify(!view.incomingConflict)
+    compare(editor.text, "typed before flush")
+    view.flush()
+    verify(view.saving)
+    mockHost.finish(true)
+    tryCompare(view, "saving", false)
+    compare(mockContext.slotState.text.items[0].text, "typed before flush")
+    compare(mockContext.slotState.text.revision, 2)
+    editor.text = "local second edit"
+    mockContext.slotState = {text: NotesState.normalizeNotebook(NotesState.emptyNotebook("First", "external same revision", 2)).notebook}
+    verify(view.incomingConflict)
+    compare(editor.text, "local second edit")
+  }
+
   function test_conflict_holds_local_until_explicit_choice() {
     editor.text = "local version"
     mockContext.slotState = {text: NotesState.normalizeNotebook(NotesState.emptyNotebook("First", "incoming version", 7)).notebook}
@@ -159,5 +179,51 @@ TestCase {
     view.flush()
     verify(!view.saving)
     compare(mockHost.layoutWriteRequestId, "")
+  }
+
+  function test_deleting_oversized_note_clears_capacity_and_saves() {
+    var oversized = NotesState.emptyNotebook("Large", "x".repeat(NotesState.CAP_BYTES), 9)
+    oversized = NotesState.addNote(oversized)
+    oversized.activeId = oversized.items[0].id
+    oversized.items[1].text = "small"
+    mockContext.slotState = {text: oversized}
+    verify(view.overCap)
+    view.closeNote(0)
+    compare(view.noteItems.length, 1)
+    verify(!view.overCap)
+    view.flush()
+    verify(view.saving)
+    mockHost.finish(true)
+    tryCompare(view, "saving", false)
+    compare(mockContext.slotState.text.items[0].text, "small")
+    compare(mockContext.slotState.text.revision, 10)
+    view.destroy()
+    wait(0)
+    view = createTemporaryObject(notesComponent, test, {context: mockContext})
+    verify(view)
+    editor = findChild(view, "notesEditor")
+    verify(editor)
+    wait(0)
+    compare(view.noteItems.length, 1)
+    compare(view.noteItems[0].text, "small")
+  }
+
+  function test_loading_incoming_after_escape_does_not_close_after_next_save() {
+    editor.text = "local version"
+    mockContext.slotState = {text: NotesState.normalizeNotebook(NotesState.emptyNotebook("First", "incoming version", 7)).notebook}
+    verify(view.incomingConflict)
+    view.closeWhenSaved()
+    compare(mockContext.closes, 0)
+    view.resolveConflict(false)
+    compare(editor.text, "incoming version")
+    verify(!view.incomingConflict)
+    editor.text = "edited incoming"
+    view.flush()
+    verify(view.saving)
+    mockHost.finish(true)
+    tryCompare(view, "saving", false)
+    compare(mockContext.closes, 0)
+    compare(mockContext.slotState.text.items[0].text, "edited incoming")
+    compare(mockContext.slotState.text.revision, 8)
   }
 }

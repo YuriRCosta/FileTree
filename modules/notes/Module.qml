@@ -40,6 +40,7 @@ FocusScope {
   property bool syncingEditor: false
   property var pendingNotebook: null
   property var incomingConflict: null
+  property string observedNotebookText: ""
   property bool confirmed: false
   property bool closeAfterSave: false
   readonly property var host: context ? context.host : null
@@ -75,6 +76,7 @@ FocusScope {
   function changed(next) {
     module.notebook = next
     module.bytes = NotesState.textBytes(next)
+    module.overCap = module.bytes > NotesState.CAP_BYTES
     module.dirty = true
     module.saveFailed = false
     if (!incomingConflict) saveTimer.restart()
@@ -141,6 +143,8 @@ FocusScope {
     var incoming = NotesState.normalizeNotebook(
       context.state.get("text", NotesState.FIRST_NOTE_TEXT), context.state.get("rev", 0), context.state.get("label", "Note 1"))
     var text = JSON.stringify(incoming.notebook)
+    if (text === observedNotebookText) return
+    observedNotebookText = text
     if (pendingNotebook && text === JSON.stringify(pendingNotebook)) return
     if (text !== JSON.stringify(notebook) && incoming.notebook.revision >= notebook.revision && (dirty || saving)) {
       incomingConflict = incoming.notebook
@@ -215,6 +219,7 @@ FocusScope {
       dirty = true
     } else {
       notebook = incomingConflict
+      closeAfterSave = false
       confirmed = false
       bytes = NotesState.textBytes(notebook)
       overCap = bytes > NotesState.CAP_BYTES
