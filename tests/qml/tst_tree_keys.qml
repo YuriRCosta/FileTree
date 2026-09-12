@@ -97,6 +97,19 @@ TestCase {
     compare(press(Qt.Key_Z), "")
     compare(press(Qt.Key_L), "open")
   }
+  function test_unknown_metadata_survives_compile_and_json_round_trip() {
+    var document = JSON.parse('{"version":1,"filebladeVersion":"999.0.0","bindings":{"open":["F3"]},"future":{"ordered":[null,false,42]},"__proto__":{"keep":true}}')
+    var before = JSON.stringify(document)
+    folds.plan = KeyBindings.compile(document)
+    compare(press(Qt.Key_F3), "open")
+    compare(press(Qt.Key_J), "next")
+    compare(JSON.stringify(document), before)
+    var restored = JSON.parse(JSON.stringify(document))
+    folds.plan = KeyBindings.compile(restored)
+    compare(press(Qt.Key_F3), "open")
+    compare(JSON.stringify(restored), before)
+  }
+
   function test_validation_rejects_ambiguous_unknown_and_unbounded_configs() {
     for (var document of [[], {version: 2}, {bindings: []}, {bindings: {unknown: ["F1"]}},
       {bindings: {open: "F1"}}, {bindings: {open: ["Potato"]}}, {bindings: {open: ["Hyper+O"]}},

@@ -573,6 +573,9 @@ Item {
   }
 
   function resetSettings() {
+    var fields = StateDocument.mergeFields(persisted.retainedFields, {})
+    for (var key of StateDocument.preferenceKeys) delete fields[key]
+    persisted.retainedFields = fields
     var base = defaults()
     showHidden = base.showHidden
     searchCaseSensitive = false
@@ -713,7 +716,17 @@ Item {
       favorites: favorites,
       trashLastClearedAt: trashLastClearedAt,
       updateCheckedAt: updateCheckedAt
-    })
+    }, StateDocument.preferenceKeys)
+  }
+
+  function markSettingChoice(keys) {
+    if (!ready || !stateWritable) return
+    var fields = StateDocument.mergeFields(persisted.retainedFields, {})
+    for (var key of keys) {
+      if (StateDocument.preferenceKeys.indexOf(key) >= 0) fields[key] = persisted[key]
+    }
+    persisted.retainedFields = fields
+    scheduleSave()
   }
 
   function markUpdateChecked(timestamp) {
