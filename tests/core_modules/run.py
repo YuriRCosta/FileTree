@@ -8,6 +8,7 @@ import tempfile
 root = Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix="fileblade-core-contracts-") as temporary:
     environment = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=str(root / "python"),
+                       FILEBLADE_BINARY=os.environ.get("FILEBLADE_BINARY", str(root / "fileblade-bin")),
                        XDG_STATE_HOME=temporary)
     cases = {
         "skills": ["unit.py"],

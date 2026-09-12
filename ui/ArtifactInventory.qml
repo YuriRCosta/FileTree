@@ -49,7 +49,7 @@ Item {
   }
 
   function argumentsFor(method, arguments) {
-    return ["--provider", providerId, "--plugin-dir", providerRoot,
+    return ["--provider", providerId, "--plugin-dir", ["fileblade.core.skills", "fileblade.core.memory", "fileblade.core.hooks", "fileblade.core.mcp"].indexOf(providerId) >= 0 ? "" : providerRoot,
             "--helper", helperId, "--method", method, "--arguments", JSON.stringify(arguments)]
   }
 

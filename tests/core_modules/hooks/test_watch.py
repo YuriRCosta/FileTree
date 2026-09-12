@@ -68,7 +68,7 @@ class HooksWatchTests(unittest.TestCase):
 
     def test_declared_helper_runs_through_native_backend(self):
         from fileblade_paths import __file__ as shared_path
-        binary = Path(shared_path).resolve().parents[1] / "target/release/fileblade"
+        binary = Path(os.environ.get("FILEBLADE_BINARY", str(Path(shared_path).resolve().parents[1] / "target/release/fileblade")))
         arguments = ["--project", str(self.project), "--home", str(self.home), "--exact", "--json", "--watch"]
         document = json.loads(subprocess.check_output([
             str(binary), "_backend", "helper-read", "--provider", "fileblade.core.hooks",
