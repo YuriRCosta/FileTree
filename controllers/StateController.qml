@@ -67,7 +67,7 @@ Item {
 
   PersistentProperties {
     id: persisted
-    reloadableId: "kurt-filetree-layout"
+    reloadableId: service.chooserSession ? "fileblade-chooser-state-" + service.chooserSession.handle : "kurt-filetree-layout"
     property bool hydrated: false
     property var retainedFields: ({})
     property bool showHidden: true
@@ -739,6 +739,7 @@ Item {
   }
 
   function writeState(text) {
+    if (service.chooserSession) return
     if (stateWriteRequestId) {
       queuedStateDocument = text
       return
@@ -756,6 +757,11 @@ Item {
   }
 
   function requestStateRead() {
+    if (service.chooserSession) {
+      stateWritable = false
+      if (!ready) applyState("")
+      return
+    }
     if (stateReadRequestId) {
       stateReadQueued = true
       return

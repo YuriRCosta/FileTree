@@ -47,6 +47,7 @@ Item {
   }
 
   function allowsEntry(path, isDir, mime) {
+    if (service.chooserSession) return service.chooserSession.allowsEntry(path, isDir, mime)
     if (!active || isDir) return true
     if (mode === "folder") return false
     if (extensions.length === 0) return true
@@ -168,6 +169,7 @@ Item {
   }
 
   function accept(paths) {
+    if (service.chooserSession) return service.chooserSession.accept(paths)
     var accepted = paths.slice()
     if (!multiple && accepted.length > 1) accepted = [accepted[accepted.length - 1]]
     setResult(requestId, { status: "accepted", mode: mode, paths: accepted })
@@ -209,6 +211,7 @@ Item {
   }
 
   function cancel() {
+    if (service.chooserSession) return service.chooserSession.cancel()
     if (!active) return
     setResult(requestId, { status: "cancelled", mode: mode, paths: [] })
     active = false
