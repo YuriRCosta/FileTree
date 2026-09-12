@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+for argument in "$@"; do
+  if [[ $argument == -d || $argument == --daemonize ]]; then
+    printf '%s\n' 'fileblade: Quickshell daemon mode hangs during Qt D-Bus teardown on the qualified spike tuple; launch in the foreground' >&2
+    exit 2
+  fi
+done
+
+app_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+source_dir=$(cd -- "$app_dir/.." && pwd -P)
+state_root=${FILEBLADE_SPIKE_HOME:?set FILEBLADE_SPIKE_HOME to an isolated absolute directory for the native spike}
+
+if [[ $state_root != /* || $state_root == / ]]; then
+  printf '%s\n' 'fileblade: FILEBLADE_SPIKE_HOME must be an isolated absolute directory' >&2
+  exit 2
+fi
+
+for dependency in qs hyprctl setsid; do
+  if ! command -v "$dependency" >/dev/null; then
+    printf 'fileblade: required native capability is unavailable: %s\n' "$dependency" >&2
+    exit 127
+  fi
+done
+
+if [[ ! -x $source_dir/target/release/fileblade ]]; then
+  printf '%s\n' 'fileblade: build the local release runtime before launching the spike' >&2
+  exit 127
+fi
+
+export FILEBLADE_SOURCE_DIR=$source_dir
+export FILEBLADE_APP_ROOT=$source_dir
+export FILEBLADE_BINARY=$source_dir/target/release/fileblade
+export XDG_CONFIG_HOME=$state_root/config
+export XDG_STATE_HOME=$state_root/state
+mkdir -p -- "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
+export FILEBLADE_NATIVE_STATE_ROOT=$XDG_STATE_HOME/omarchy/fileblade
+mkdir -p -- "$FILEBLADE_NATIVE_STATE_ROOT"
+if ! "$FILEBLADE_BINARY" serve --native-probe >/dev/null 2>&1; then
+  setsid -f "$FILEBLADE_BINARY" serve --native-authority --native-isolated --max-concurrency 16 </dev/null >>"$FILEBLADE_NATIVE_STATE_ROOT/authority.log" 2>&1
+  for attempt in {1..100}; do
+    if "$FILEBLADE_BINARY" serve --native-probe >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.05
+  done
+fi
+if ! "$FILEBLADE_BINARY" serve --native-probe >/dev/null 2>&1; then
+  printf 'fileblade: native authority unavailable; inspect %s\n' "$FILEBLADE_NATIVE_STATE_ROOT/authority.log" >&2
+  exit 1
+fi
+exec qs -n -p "$app_dir" "$@"

@@ -44,7 +44,7 @@ for attempt in {1..30}; do
   sleep 0.1
 done" >/dev/null
     "$ovm" restart-shell
-    exec "$ovm" ssh "setsid env FILEBLADE_SPIKE_HOME=/home/omarchy/fileblade-runtime-state '$native/app/launch' >/tmp/sootscale-native-authority-ui.log 2>&1 </dev/null &"
+    exec "$ovm" ssh "setsid env FILEBLADE_SPIKE_HOME=/home/omarchy/fileblade-runtime-state '$native/app/qualification/launch' >/tmp/sootscale-native-authority-ui.log 2>&1 </dev/null &"
     ;;
   push|install|reset)
     printf '%s\n' 'fileblade: stage the authorized native spike explicitly before using this expectation adapter' >&2

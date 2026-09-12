@@ -7,6 +7,7 @@ ShellRoot {
   id: root
 
   readonly property var loadedService: service.item
+  property bool activationPending: Quickshell.env("FILEBLADE_ACTIVATE") === "1"
   onLoadedServiceChanged: Style.service = loadedService
   readonly property string sourceDir: Quickshell.env("FILEBLADE_SOURCE_DIR")
   property var shellConfig: ({})
@@ -57,6 +58,23 @@ ShellRoot {
         console.error("FileBlade: native browser could not load")
         Qt.quit()
       }
+    }
+  }
+
+  Connections {
+    target: root.loadedService
+    function onStateReadyChanged() { root.activateWhenReady() }
+  }
+
+  Connections {
+    target: root.loadedService ? root.loadedService.bladeHost : null
+    function onLayoutReadyChanged() { root.activateWhenReady() }
+  }
+
+  function activateWhenReady() {
+    if (activationPending && loadedService && loadedService.stateReady && loadedService.bladeHost.layoutReady) {
+      activationPending = false
+      Qt.callLater(function() { root.loadedService.setOpen(true) })
     }
   }
 
