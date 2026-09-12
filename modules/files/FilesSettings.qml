@@ -6,11 +6,22 @@ Column {
   id: root
 
   required property var controller
+  property var pane: null
   signal retentionConsentRequested(int days)
 
   spacing: Style.space(3)
 
   PluginUi.SettingsGroup { title: "Tree" }
+
+  PluginUi.ToggleRow {
+    objectName: "summaryPlacementToggle"
+    width: parent.width
+    glyph: "󰉋"
+    label: "Summary in tree"
+    visible: !!root.pane
+    checked: root.pane ? root.pane.summaryInTree : false
+    onToggled: root.pane.summaryInTree = !root.pane.summaryInTree
+  }
 
   PluginUi.ToggleRow {
     width: parent.width
