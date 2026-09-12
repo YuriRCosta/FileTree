@@ -14,15 +14,27 @@ Item {
   property string requestId: ""
   property int failureCount: 0
   property bool showSystemVolumes: false
+  property var volumeRows: []
+  property var peerLocations: ({})
+  property var peerCandidates: ({})
+  property var savedLocations: []
+  property string locationsRequestId: ""
+  property int locationsGeneration: 0
+  property string peerRequestId: ""
+  property int peerRequestSerial: 0
+
+  signal connectionRequested(string locationId, string label, string host, string user, string path)
+  signal locationRequested(var descriptor, var targetScreen)
 
   ListModel { id: drivesModel }
   ListModel { id: allVolumesModel }
 
   readonly property int count: drivesModel.count
   readonly property int volumeCount: allVolumesModel.count
-  readonly property var tierOrder: ["external", "unmounted", "internal", "system"]
+  readonly property var tierOrder: ["external", "tailnet", "unmounted", "internal", "system"]
 
   function tierLabel(tier) {
+    if (tier === "tailnet") return "Tailnet"
     if (tier === "external") return "External"
     if (tier === "unmounted") return "Not mounted"
     if (tier === "internal") return "Internal"
@@ -45,6 +57,7 @@ Item {
   }
 
   function glyphFor(volume) {
+    if (volume.filesystem === "SFTP") return "󰒋"
     if (volume.image) return "󰗮"
     if (volume.bus === "usb") return "󱊞"
     if (volume.removable) return "󰑹"
@@ -52,6 +65,12 @@ Item {
   }
 
   function actionFor(row) {
+    var peer = peerLocations[String(row.source)]
+    if (peer) {
+      var disconnect = !!peer.session_generation
+      var verb = disconnect ? "Disconnect" : "Connect"
+      return { command: disconnect ? "location-disconnect" : "location-connect", glyph: disconnect ? "󰇪" : "󰄠", tip: verb + " " + row.name, actions: [{ button: "left", text: verb }], context: [] }
+    }
     if (!row.mounted) {
       var context = []
       if (row.readOnly) context.push({ text: "mounts read-only" })
@@ -92,8 +111,18 @@ Item {
   function apply(payload) {
     if (!payload || !Array.isArray(payload.volumes)) return
     actionsAvailable = !!payload.actions
-    var rows = []
-    for (var index = 0; index < payload.volumes.length; index++) rows.push(rowFor(payload.volumes[index]))
+    volumeRows = payload.volumes.map(rowFor)
+    rebuild()
+  }
+
+  function rebuild() {
+    var rows = volumeRows.slice()
+    for (var id in peerLocations) {
+      var peer = peerLocations[id]
+      var connected = peer.connection === "connected" && (peer.capabilities || []).indexOf("list") >= 0
+      rows.push(rowFor({ name: peer.label, source: id, mountpoint: peer.canonical_uri, mounted: connected,
+        filesystem: "SFTP", tier: "tailnet", size_label: connected ? "" : (peer.session_generation ? "Disconnect needed" : "Not connected") }))
+    }
     rows.sort(function(left, right) {
       var byTier = tierRank(left.tier) - tierRank(right.tier)
       return byTier !== 0 ? byTier : left.name.localeCompare(right.name)
@@ -102,9 +131,88 @@ Item {
     allVolumesModel.clear()
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       allVolumesModel.append(rows[rowIndex])
-      if (visibleTier(rows[rowIndex].tier)) drivesModel.append(rows[rowIndex])
+      var row = rows[rowIndex]
+      if (row.tier === "tailnet" ? !!peerLocations[row.source].session_generation : visibleTier(row.tier)) drivesModel.append(row)
     }
   }
+
+  function applyLocations(payload) {
+    var peers = {}
+    var candidates = {}
+    if (payload && payload.ok) {
+      var locations = payload.locations || []
+      for (var index = 0; index < locations.length; index++)
+        if (locations[index].kind === "sftp") peers[locations[index].id] = locations[index]
+      var discovered = payload.tailnet && payload.tailnet.candidates || []
+      for (var candidate = 0; candidate < discovered.length; candidate++) candidates[discovered[candidate].id] = discovered[candidate]
+    }
+    peerLocations = peers
+    peerCandidates = candidates
+    savedLocations = payload && payload.ok && payload.saved || []
+    rebuild()
+  }
+
+  function cancelLocations() {
+    locationsGeneration++
+    if (locationsRequestId) service.cancelBackendRequest(locationsRequestId, locationsGeneration - 1)
+    locationsRequestId = ""
+  }
+
+  function refreshLocations() {
+    if (!service.backendReady || locationsRequestId || peerRequestId) return
+    var serial = ++locationsGeneration
+    locationsRequestId = service.backendRequest("locations", [], serial, function(response) {
+      if (serial !== controller.locationsGeneration) return
+      controller.locationsRequestId = ""
+      controller.applyLocations(response)
+      var failure = String(response && response.ok
+        ? (response.tailnet && response.tailnet.error || response.saved_error || "")
+        : (response && response.error || "Locations unavailable"))
+      if (failure) controller.error = failure
+    })
+  }
+
+  function requestPeerConnection(id) {
+    if (busySource) return
+    var peer = peerCandidates[id]
+    if (!peer) return
+    var saved = savedLocations.filter(function(value) { return value.host === peer.host })[0]
+    connectionRequested(id, String(peer.label), String(peer.host), saved ? String(saved.user) : "", saved ? String(saved.path) : "/")
+  }
+
+  function connectPeer(id, user, path, save) {
+    var peer = peerLocations[id]
+    if (!peer || peer.session_generation || !peerCandidates[id]) return
+    var arguments = ["--location", id, "--user", String(user), "--path", String(path)]
+    if (save) arguments.push("--save")
+    peerAction("location-connect", id, arguments)
+  }
+
+  function peerAction(command, id, arguments) {
+    if (busySource || !service.backendReady) return
+    cancelLocations()
+    busySource = id
+    error = ""
+    var serial = ++peerRequestSerial
+    peerRequestId = service.backendRequest(command, arguments, serial, function(response) {
+      if (serial !== controller.peerRequestSerial) return
+      controller.peerRequestId = ""
+      controller.busySource = ""
+      controller.error = String(response && response.ok ? (response.save_error || "") : (response && response.error || command + " failed"))
+      var peers = Object.assign({}, controller.peerLocations)
+      if (response && response.location && typeof response.location === "object") peers[id] = response.location
+      else delete peers[id]
+      controller.peerLocations = peers
+      controller.rebuild()
+      controller.refreshLocations()
+    }, null, 200000, { untimed: true })
+  }
+
+  function cancelPeerAction() {
+    if (peerRequestId) service.cancelBackendRequest(peerRequestId, peerRequestSerial)
+  }
+
+  function actionAvailableFor(source) { return !!peerLocations[String(source)] || actionsAvailable }
 
   function start() {
     if (!service.backendReady || requestId) return
@@ -168,12 +276,25 @@ Item {
   function runAction(source) {
     var index = indexOfSource(source)
     if (index < 0) return
+    var peer = peerLocations[String(source)]
+    if (peer) {
+      if (peer.session_generation) peerAction("location-disconnect", String(source), ["--location", String(source), "--generation", String(peer.session_generation)])
+      else requestPeerConnection(String(source))
+      return
+    }
     act(actionFor(allVolumesModel.get(index)).command, source)
   }
 
   function openVolume(source, targetScreen) {
+    if (busySource === String(source)) return
     var index = indexOfSource(source)
     if (index < 0) return
+    var peer = peerLocations[String(source)]
+    if (peer) {
+      if (peer.connection === "connected" && (peer.capabilities || []).indexOf("list") >= 0) locationRequested(peer, targetScreen)
+      else runAction(source)
+      return
+    }
     var row = allVolumesModel.get(index)
     if (!row.mounted) {
       mountVolume(source)
@@ -189,12 +310,21 @@ Item {
   }
 
   Connections {
-    target: service
+    target: controller.service
+    function onDrivesModeChanged() { if (controller.service.drivesMode) controller.refreshLocations() }
     function onBackendReadyChanged() {
-      if (service.backendReady) controller.start()
+      if (controller.service.backendReady) {
+        controller.start()
+        if (controller.service.drivesMode) controller.refreshLocations()
+      }
       else {
         controller.requestId = ""
         controller.running = false
+        controller.cancelLocations()
+        controller.peerRequestSerial++
+        controller.peerRequestId = ""
+        controller.busySource = ""
+        controller.applyLocations(null)
       }
     }
   }
