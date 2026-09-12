@@ -20,7 +20,7 @@ fn with_defaults(mut settings: Value) -> Value {
     settings
 }
 
-fn read_document() -> AppResult<Value> {
+pub(crate) fn read_document() -> AppResult<Value> {
     let path = crate::paths::config_dir().join("settings.json");
     let Some(bytes) = secure::read_private_bounded(&path, 64 * 1024).or_else(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
