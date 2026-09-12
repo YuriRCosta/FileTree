@@ -135,6 +135,7 @@ PanelWindow {
     Qt.callLater(function() {
       if (surface.keyboardFocusReleased) return
       if (!surface.ownsFocus(revision)) return
+      if (stack.focusActionMenu()) return
       if (target) target.takeFocus(part)
       else scope.forceActiveFocus()
     })

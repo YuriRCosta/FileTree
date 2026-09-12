@@ -16,7 +16,8 @@ TestCase {
     }
     function rootName(path) { return String(path).split("/").pop() }
     function closeActionMenu() {}
-    function cancelBackendRequest(id, generation) {}
+    property var cancellations: []
+    function cancelBackendRequest(id, generation) { cancellations.push([id, generation]) }
   }
   Controllers.OperationController { id: operations; service: service }
 
@@ -37,6 +38,21 @@ TestCase {
     operations.cancelRequested = false
     operations.busy = false
     service.calls = []
+    service.cancellations = []
+  }
+
+  function test_archive_and_permission_cancellation_data() {
+    return ["archive-create", "archive-extract", "permissions-set"].map(function(command) { return { tag: command, command: command } })
+  }
+
+  function test_archive_and_permission_cancellation(data) {
+    var id = operations.enqueue("Fixture", service.backendCommand(data.command), false)
+    compare(service.calls[0].kind, data.command)
+    compare(operations.active.cancellable, true)
+    compare(operations.cancel(id), "cancelling")
+    compare(service.cancellations, [["request-1", id]])
+    compare(operations.cancel(id), "cancelling")
+    compare(service.cancellations.length, 1)
   }
 
   function begin(items) {
