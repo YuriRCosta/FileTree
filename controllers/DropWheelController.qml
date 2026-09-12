@@ -55,6 +55,11 @@ Item {
   property var outerItems: []
   property int outerHighlighted: -1
   property bool outerFocus: false
+  property int subParentIndex: -1
+  property var subItems: []
+  property int subHighlighted: -1
+  property bool subFocus: false
+  property string diagnostics: ""
   property string error: ""
   property string status: ""
   property string pasteRequestId: ""
@@ -74,7 +79,11 @@ Item {
   readonly property real bandWidth: 46
   readonly property real childInnerRadius: outerRadius + gapRadius
   readonly property real childOuterRadius: childInnerRadius + bandWidth
-  readonly property real extent: outerItems.length > 0 ? childOuterRadius : outerRadius
+  readonly property real subInnerRadius: childOuterRadius + gapRadius
+  readonly property real subOuterRadius: subInnerRadius + bandWidth
+  readonly property real subStep: WheelGeometry.childStep(subItems.length)
+  readonly property real subParentAngle: subParentIndex >= 0 ? childAngle(subParentIndex) : 0
+  readonly property real extent: subItems.length > 0 ? subOuterRadius : outerItems.length > 0 ? childOuterRadius : outerRadius
   readonly property real childStep: WheelGeometry.childStep(outerItems.length)
   readonly property real parentAngle: parentIndex >= 0 ? wedgeAngle(parentIndex) : 0
 
@@ -248,6 +257,7 @@ Item {
     error = ""
     status = ""
     context = null
+    diagnostics = ""
     keyboardFocusReleased = false
     wheelOpen = true
     requestContext()
@@ -260,6 +270,14 @@ Item {
     outerItems = []
     outerHighlighted = -1
     outerFocus = false
+    resetSub()
+  }
+
+  function resetSub() {
+    subParentIndex = -1
+    subItems = []
+    subHighlighted = -1
+    subFocus = false
   }
 
   function screenOffsetX() { return wheelScreen ? Number(wheelScreen.x) || 0 : 0 }
@@ -295,6 +313,7 @@ Item {
       return
     }
     context = result
+    diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics.join(" · ") : ""
     if (!dragDocked && result.at) {
       wheelX = Number(result.at.x) - screenOffsetX()
       wheelY = Number(result.at.y) - screenOffsetY()
@@ -383,18 +402,27 @@ Item {
       childOuterRadius: childOuterRadius,
       count: ringItems.length,
       outerCount: outerItems.length,
-      parentAngle: parentAngle
+      parentAngle: parentAngle,
+      subCount: subItems.length,
+      subOuterRadius: subOuterRadius,
+      subParentAngle: subParentAngle
     }, x, y)
   }
 
   function hover(x, y) {
     var hit = pointAt(x, y)
+    if (hit.ring === "sub") {
+      subHighlighted = hit.index
+      return
+    }
     if (hit.ring === "outer") {
-      outerHighlighted = hit.index
+      if (hit.index === outerHighlighted && subFocus) return
+      setOuterHighlighted(hit.index)
       return
     }
     if (hit.ring === "inner" && hit.index === highlighted && outerFocus) return
     outerHighlighted = -1
+    resetSub()
     setHighlighted(hit.index)
   }
 
@@ -403,10 +431,23 @@ Item {
       highlighted = index
       outerFocus = false
       outerHighlighted = -1
+      resetSub()
     }
     var children = index >= 0 ? childrenOf(ringItems[index]) : []
     parentIndex = children.length > 0 ? index : -1
     outerItems = children
+  }
+
+  function setOuterHighlighted(index) {
+    if (index !== outerHighlighted) resetSub()
+    outerHighlighted = index
+    var children = index >= 0 ? childrenOf(outerItems[index]) : []
+    subParentIndex = children.length > 0 ? index : -1
+    subItems = children
+  }
+
+  function subAngle(index) {
+    return WheelGeometry.childAngle(subParentAngle, subItems.length, index)
   }
 
   function wedgeAngle(index) {
@@ -420,6 +461,7 @@ Item {
   function activateAt(x, y) {
     clearPendingRelease()
     var hit = pointAt(x, y)
+    if (hit.ring === "sub") return activateSub(hit.index)
     if (hit.ring === "outer") return activateChild(hit.index)
     if (hit.ring === "inner") return activate(hit.index)
     resetHighlight()
@@ -429,11 +471,12 @@ Item {
   function enterOuter() {
     if (outerItems.length === 0) return false
     outerFocus = true
-    if (outerHighlighted < 0) outerHighlighted = 0
+    if (outerHighlighted < 0) setOuterHighlighted(0)
     return true
   }
 
   function accept() {
+    if (subFocus && subHighlighted >= 0) return activateSub(subHighlighted)
     if (outerFocus && outerHighlighted >= 0) return activateChild(outerHighlighted)
     if (highlighted >= 0) return activate(highlighted)
     return false
@@ -450,7 +493,7 @@ Item {
       return false
     }
     if (item.custom) return runCustom(item.run, null)
-    return run(String(item.id), "", "")
+    return runItem(item, null)
   }
 
   function activateChild(index) {
@@ -458,10 +501,30 @@ Item {
     var parent = parentItem
     var item = outerItems[index]
     if (!parent || !item) return false
-    outerHighlighted = index
-    if (parent.custom) return runCustom(item.run || parent.run, item)
-    if (parent.id === "open-with") return run("application", "", String(item.desktop_id || ""))
-    return run(String(parent.id), String(item.id), "")
+    setOuterHighlighted(index)
+    if (subItems.length > 0) {
+      outerFocus = true
+      subFocus = true
+      if (subHighlighted < 0) subHighlighted = 0
+      return true
+    }
+    return runItem(item, parent)
+  }
+
+  function activateSub(index) {
+    clearPendingRelease()
+    var item = subItems[index]
+    if (!item) return false
+    subHighlighted = index
+    return runItem(item, parentItem)
+  }
+
+  function runItem(item, parent) {
+    if (Array.isArray(item.command_route)) return run("configured", JSON.stringify(item.command_route), "")
+    if (item.builtin_action) return run(String(item.builtin_action), String(item.builtin_placement || ""), String(item.desktop_id || ""))
+    if (parent && parent.custom) return runCustom(item.run || parent.run, item)
+    if (parent && parent.id === "open-with") return run("application", "", String(item.desktop_id || ""))
+    return run(String(parent ? parent.id : item.id), parent ? String(item.id) : "", "")
   }
 
   function runCustom(callback, placement) {
@@ -491,9 +554,17 @@ Item {
   }
 
   function back() {
+    clearPendingRelease()
+    if (subFocus || subItems.length > 0) {
+      resetSub()
+      outerFocus = true
+      error = ""
+      return
+    }
     if (outerFocus) {
       outerFocus = false
       outerHighlighted = -1
+      resetSub()
       error = ""
       return
     }
@@ -504,6 +575,12 @@ Item {
     var wanted = String(text || "").toLowerCase()
     if (!wanted) return false
     var i
+    if (subFocus || subHighlighted >= 0)
+      for (i = 0; i < subItems.length; i++)
+        if (String(subItems[i].key || "") === wanted) {
+          if (!repeated) activateSub(i)
+          return true
+        }
     if (outerFocus || outerHighlighted >= 0)
       for (i = 0; i < outerItems.length; i++)
         if (String(outerItems[i].key || "") === wanted) {
@@ -519,9 +596,14 @@ Item {
   }
 
   function moveHighlight(delta) {
+    if (subFocus && subItems.length > 0) {
+      var count = subItems.length
+      subHighlighted = subHighlighted < 0 ? (delta > 0 ? 0 : count - 1) : (subHighlighted + delta + count) % count
+      return
+    }
     if (outerFocus && outerItems.length > 0) {
       var children = outerItems.length
-      outerHighlighted = outerHighlighted < 0 ? (delta > 0 ? 0 : children - 1) : (outerHighlighted + delta + children) % children
+      setOuterHighlighted(outerHighlighted < 0 ? (delta > 0 ? 0 : children - 1) : (outerHighlighted + delta + children) % children)
       return
     }
     var count = ringItems.length

@@ -17,6 +17,7 @@ use std::time::{Duration, Instant, SystemTime};
 use url::Url;
 
 mod actions;
+pub mod config;
 mod context;
 mod editors;
 mod entries;

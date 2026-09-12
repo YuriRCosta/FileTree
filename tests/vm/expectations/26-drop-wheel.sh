@@ -117,6 +117,7 @@ expect_missing E-26-04 "but nothing that needs a window under the pointer" "$lab
 pending E-26-06 "placements open a second ring" "the second ring's entries are not in the status document"
 expect_true E-26-09 "releasing on the hub keeps the wheel open" "[[ \$(wheel open) == true && \$(wheel dragging) == false ]]"
 expect_true E-26-09 "as a wheel that no longer follows a drag" "[[ \$(wheel fromDrag) == false ]]"
+"$OVM" shot wheel-26-hub
 
 count=$(status | jq '.dropWheel.actions|length')
 wx=$(wheel x); wy=$(wheel y)
@@ -142,6 +143,7 @@ drag_with_space "$ROW_X" "$(row_y "$(row_index long.txt)")" 560 220 linear 60 30
 wait_for "[[ \$(clients) -ge 1 ]]" 20
 expect_true E-26-07 "releasing on Open in new window opens the file" "[[ \$(clients) -ge 1 ]]"
 expect_true E-26-07 "and the wheel closes" "[[ \$(wheel open) == false ]]"
+"$OVM" shot wheel-26-opened
 kill_windows
 
 pending E-26-10 "the Open with wedge shows an open-folder glyph in every context" "wedge glyphs are not in the status document"

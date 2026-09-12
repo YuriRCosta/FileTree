@@ -25,6 +25,7 @@ PanelWindow {
   readonly property int screenHeight: screen ? screen.height : 0
   readonly property real innerRadius: controller.hubRadius + controller.gapRadius
   readonly property real labelRadius: (innerRadius + controller.outerRadius) / 2
+  readonly property real subLabelRadius: (controller.subInnerRadius + controller.subOuterRadius) / 2
   readonly property real childLabelRadius: (controller.childInnerRadius + controller.childOuterRadius) / 2
   readonly property int wedgeCount: controller.ringItems.length
   readonly property real wedgeStep: wedgeCount > 0 ? 2 * Math.PI / wedgeCount : 0
@@ -71,6 +72,11 @@ PanelWindow {
       ? Qt.resolvedUrl("../assets/marks/" + mark + ".svg") : ""
   }
 
+  function applicationIconSource(item) {
+    if (item.icon_override) return bundledMark(item.icon)
+    return String(item.icon_source || "") || bundledMark(item.icon)
+  }
+
   function labelWidth(radius, step) {
     return Math.min(Style.space(48), Math.max(Style.space(24), radius * step * 0.8))
   }
@@ -112,6 +118,9 @@ PanelWindow {
     function onHighlightedChanged() { ring.requestPaint() }
     function onOuterItemsChanged() { ring.requestPaint() }
     function onOuterHighlightedChanged() { ring.requestPaint() }
+    function onSubItemsChanged() { ring.requestPaint() }
+    function onSubHighlightedChanged() { ring.requestPaint() }
+    function onSubParentIndexChanged() { ring.requestPaint() }
     function onParentIndexChanged() { ring.requestPaint() }
     function onWheelXChanged() { ring.requestPaint() }
     function onWheelYChanged() { ring.requestPaint() }
@@ -149,11 +158,16 @@ PanelWindow {
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     onPositionChanged: function(mouse) { overlay.controller.hover(mouse.x, mouse.y) }
     onClicked: function(mouse) {
+      overlay.controller.clearPendingRelease()
       if (mouse.button !== Qt.LeftButton) {
         overlay.controller.back()
         return
       }
       var hit = overlay.controller.pointAt(mouse.x, mouse.y)
+      if (hit.ring === "sub") {
+        overlay.controller.activateSub(hit.index)
+        return
+      }
       if (hit.ring === "outer") {
         overlay.controller.activateChild(hit.index)
         return
@@ -310,6 +324,13 @@ PanelWindow {
       }
       if (children > 0) childEdges.push(control.childAngle(children - 1) + control.childStep / 2)
       cutSeparators(context, cx, cy, control.childInnerRadius, control.childOuterRadius, childEdges, width)
+      var subEdges = []
+      for (i = 0; i < control.subItems.length; i++) {
+        paintWedge(context, cx, cy, control.subInnerRadius, control.subOuterRadius, control.subAngle(i), control.subStep, i === control.subHighlighted)
+        subEdges.push(control.subAngle(i) - control.subStep / 2)
+      }
+      if (control.subItems.length > 0) subEdges.push(control.subAngle(control.subItems.length - 1) + control.subStep / 2)
+      cutSeparators(context, cx, cy, control.subInnerRadius, control.subOuterRadius, subEdges, width)
       context.beginPath()
       context.arc(cx, cy, control.hubRadius, 0, 2 * Math.PI, false)
       context.fillStyle = Color.popups.background
@@ -343,7 +364,7 @@ PanelWindow {
         anchors.horizontalCenterOffset: Math.cos(wedge.angle) * Style.space(4)
         anchors.verticalCenterOffset: Math.sin(wedge.angle) * Style.space(4)
         iconName: String(wedge.modelData.icon || "")
-        trustedIconSource: String(wedge.modelData.icon_source || "") || overlay.bundledMark(wedge.modelData.icon)
+        trustedIconSource: overlay.applicationIconSource(wedge.modelData)
         monochrome: !wedge.active || monochromeMask !== "alpha"
         monochromeMask: String(wedge.modelData.icon_mask || "alpha")
         iconColor: wedge.active ? Qt.lighter(Color.accent, 1.5) : Color.accent
@@ -376,17 +397,20 @@ PanelWindow {
   }
 
   Repeater {
-    model: overlay.wheelHere ? overlay.controller.outerItems : []
+    model: overlay.wheelHere ? overlay.controller.outerItems.concat(overlay.controller.subItems) : []
 
     delegate: Item {
       id: child
       required property var modelData
       required property int index
-      readonly property bool active: index === overlay.controller.outerHighlighted
-      readonly property real angle: overlay.controller.childAngle(index)
-      readonly property point center: overlay.pointOnRing(angle, overlay.childLabelRadius)
-      readonly property point keyPoint: overlay.pointOnRing(angle, overlay.controller.childInnerRadius + Style.space(8))
-      width: overlay.labelWidth(overlay.childLabelRadius, overlay.controller.childStep)
+      readonly property bool third: index >= overlay.controller.outerItems.length
+      readonly property int localIndex: third ? index - overlay.controller.outerItems.length : index
+      readonly property bool active: localIndex === (third ? overlay.controller.subHighlighted : overlay.controller.outerHighlighted)
+      readonly property real angle: third ? overlay.controller.subAngle(localIndex) : overlay.controller.childAngle(localIndex)
+      readonly property real labelRadius: third ? overlay.subLabelRadius : overlay.childLabelRadius
+      readonly property point center: overlay.pointOnRing(angle, labelRadius)
+      readonly property point keyPoint: overlay.pointOnRing(angle, (third ? overlay.controller.subInnerRadius : overlay.controller.childInnerRadius) + Style.space(8))
+      width: overlay.labelWidth(labelRadius, third ? overlay.controller.subStep : overlay.controller.childStep)
       height: Style.space(22)
       x: center.x - width / 2
       y: center.y - height / 2
@@ -396,7 +420,7 @@ PanelWindow {
         anchors.horizontalCenterOffset: Math.cos(child.angle) * Style.space(3)
         anchors.verticalCenterOffset: Math.sin(child.angle) * Style.space(3)
         iconName: String(child.modelData.icon || "")
-        trustedIconSource: String(child.modelData.icon_source || "") || overlay.bundledMark(child.modelData.icon)
+        trustedIconSource: overlay.applicationIconSource(child.modelData)
         monochrome: !child.active || monochromeMask !== "alpha"
         monochromeMask: String(child.modelData.icon_mask || "alpha")
         iconColor: Qt.lighter(Color.accent, child.active ? 1.75 : 1.45)
@@ -404,6 +428,19 @@ PanelWindow {
         fallbackGlyph: String(child.modelData.glyph || "") || String(child.modelData.key || "").toUpperCase()
         fallbackColor: Qt.lighter(Color.accent, 1.45)
         fallbackSize: Style.font.body + 4
+      }
+
+      Text {
+        visible: !child.third && overlay.controller.childrenOf(child.modelData).length > 0
+        textFormat: Text.PlainText
+        readonly property point at: overlay.pointOnRing(child.angle, overlay.controller.childOuterRadius - Style.space(5))
+        x: at.x - child.x - width / 2
+        y: at.y - child.y - height / 2
+        rotation: child.angle * 180 / Math.PI
+        text: "󰅂"
+        color: Color.popups.text
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
       }
 
       WheelKeyLetter {
@@ -457,7 +494,9 @@ PanelWindow {
     readonly property bool failed: overlay.wheelHere ? overlay.controller.error !== "" : overlay.controller.toastError
     border.color: failed ? Color.urgent : Color.popups.border
 
-    readonly property var highlightedItem: overlay.controller.outerHighlighted >= 0
+    readonly property var highlightedItem: overlay.controller.subHighlighted >= 0
+      ? overlay.controller.subItems[overlay.controller.subHighlighted]
+      : overlay.controller.outerHighlighted >= 0
       ? overlay.controller.outerItems[overlay.controller.outerHighlighted]
       : overlay.controller.highlighted >= 0 ? overlay.controller.ringItems[overlay.controller.highlighted] : null
     readonly property string headline: !overlay.wheelHere
@@ -496,6 +535,19 @@ PanelWindow {
         visible: text !== ""
         text: caption.detail
         color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+
+      Text {
+        visible: overlay.wheelHere && text !== ""
+        textFormat: Text.PlainText
+        text: overlay.controller.diagnostics
+        width: Math.min(implicitWidth, Style.space(520))
+        wrapMode: Text.Wrap
+        maximumLineCount: 3
+        elide: Text.ElideRight
+        color: Color.urgent
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
