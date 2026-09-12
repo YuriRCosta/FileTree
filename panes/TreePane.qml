@@ -40,6 +40,8 @@ FocusScope {
   readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode
   property var folderCountData: ({ loaded: 0, total: 0, known: false })
   readonly property var folderCount: folderCountData
+  readonly property bool folderCountReady: ViewChrome.folderReady(controller.treeModel, controller.rootPath)
+  onFolderCountReadyChanged: Qt.callLater(root.refreshFolderCount)
   readonly property var mediaView: mediaLoader.item
   readonly property var mediaProvider: mediaView ? mediaView.provider : null
   readonly property var mediaMatches: mediaView ? mediaView.matches : ({ rows: [], invalid: false })

@@ -114,6 +114,7 @@ def prepare(state, plugin):
     }
     function densityBurst(): void { root.changeDensity(0); root.changeDensity(4); root.changeDensity(1); root.changeDensity(0) }
     function expandRoot(expanded: bool): void { controller.setDirectoryExpanded(controller.rootPath, expanded) }
+    function failRefresh(): void { controller.reconcileDirectory(controller.rootPath, { ok: false, error: "S12 refresh fixture" }) }
     function hidden(shown: bool): void { controller.setShowHidden(shown) }
     function filter(value: string): void { filesView.setFilter(JSON.parse(Qt.atob(value))) }
     function loadSearch(): void { controller.loadAllSearchRows() }

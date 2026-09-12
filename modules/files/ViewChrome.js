@@ -1,9 +1,12 @@
 .pragma library
 
-function folderCount(model, path) {
+function folderReady(model, path) {
   var root = model.count ? model.get(0) : null
-  if (!root || (path !== undefined && root.path !== path) || !root.expanded || !root.loaded || root.loading || root.error)
-    return { loaded: 0, total: 0, known: false }
+  return !!root && (path === undefined || root.path === path) && root.expanded && root.loaded && !root.loading && !root.error
+}
+
+function folderCount(model, path) {
+  if (!folderReady(model, path)) return { loaded: 0, total: 0, known: false }
   var loaded = 0, total = 0
   for (var i = 0; i < model.count; i++) {
     var row = model.get(i)
