@@ -1,13 +1,11 @@
 This file was written by an agent.
 
-# Bounded native adapter spike
+# Native application runtime
 
-This directory is a bounded development spike, not an installable runtime.
+The production payload places this directory beside `bin/fileblade`.
 The M1 visual gate passes under the coordinator's declared pixel tolerance.
 The shutdown failure reproduces in an empty Quickshell with `-d`; foreground
-launching exits cleanly with FileBlade's original backend cleanup. The
-launcher rejects `-d` and `--daemonize` on the qualified spike tuple. A process
-supervisor must launch Quickshell in the foreground.
+launching exits cleanly with FileBlade's original backend cleanup. A process supervisor must launch Quickshell in the foreground.
 
 `shell.qml` loads the existing `Service.qml` through an absolute file URL.
 Existing QML imports and browser sources are unchanged. The shell facade reads
@@ -20,20 +18,29 @@ Bar visibility, compositor rounding/gaps and font matching are queried through
 the existing resident backend. BackendClient is the only QML process owner;
 the kit starts no shell, hyprctl or fc-match processes itself.
 
-`launch` requires an explicit isolated `FILEBLADE_SPIKE_HOME` and the locally
-built release binary. Its XDG config and state environment isolates
-development records from old plugin writers while inheriting the desktop
-data profile. Artifact records
-use `artifact-bin` beneath the leased native state root. The config/state
-environment also reaches child applications, so it is
-not the production state-isolation design. The launcher starts or attaches
-to the native authority before loading QML. Its kernel OFD lease covers the
-canonical selected state, config and recovery roots; view processes relay to
-its private socket. A replaced identity permanently invalidates the authority.
-Durable records open relative to pinned directory descriptors; accepted work
-stops at its next barrier with an explicit authority-lost result. The isolated
-launcher enables Full only after verifying the three fixture roots. Standard
-native startup stays ReadOnly until the migration outcome is available.
+`launch` resolves its physical payload and runs `bin/fileblade`, inheriting
+normal XDG directories. With no arguments it starts the authority and native
+view, or activates the existing view. It does not change desktop roles.
+`launch native ipc -- TARGET METHOD [ARG ...]` preserves the shared QML IPC
+argv. `launch _backend COMMAND [ARG ...]` sends the existing backend argv to
+the resident authority and returns its JSON payloads, fetching completed
+mutation results after delivery. It never falls back to an ownerless writer.
+
+The authority pins the selected state, config and recovery roots. Normal
+startup prepares the current plugin namespace in place with core's importer
+before persistence or recovery. Ready enables writes; active or unknown
+legacy writers and refused migration keep the app read-only with a reason
+and receipt path. No pre-import rename selects the old `omarchy/filetree`
+namespace. Durable records open relative to pinned directory descriptors;
+identity loss invalidates the authority and stops accepted work at its next
+barrier with an explicit result.
+
+`qualification/launch` retains the isolated M1 fixture entry point. It requires
+`FILEBLADE_SPIKE_HOME` and a local release build, isolates config/state while
+inheriting desktop data, and enables writes only after verifying those fixture
+roots. Its environment also reaches child applications. It is separate from
+the production payload launcher.
+
 Accepted mutations survive view shutdown and retain results in the authority
 until fetched or 24 hours. Process-death recovery still uses durable journals;
 the in-memory result cache does not survive authority process death.

@@ -12,6 +12,9 @@ fn main() -> ExitCode {
     match public_cli::parse(std::env::args_os()) {
         Ok(cli) => {
             let output = Arc::new(Output::new(cli.output.into(), cli.quiet));
+            if let RootCommand::Native(args) = cli.command {
+                return fileblade::native::run(args, output);
+            }
             match execute(cli.command, Arc::clone(&output)) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) if broken_pipe(&error) => ExitCode::SUCCESS,

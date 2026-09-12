@@ -220,7 +220,12 @@ impl Operations {
 }
 
 impl Operation {
-    pub fn publish(&self, mut frame: Value, terminal: bool) {
+    pub fn publish(
+        &self,
+        mut frame: Value,
+        terminal: bool,
+        primary: Option<&dyn Fn(&Output, &Value) -> std::io::Result<()>>,
+    ) -> bool {
         let authority_lost = self.authority.verify().is_err();
         if terminal && authority_lost {
             frame["ok"] = Value::Bool(false);
@@ -266,8 +271,20 @@ impl Operation {
                 crate::hyprland::restore_owned_borders();
             }
         }
+        let mut first = true;
+        let mut delivered = false;
         for output in subscribers {
-            if output.machine(&frame).is_err() {
+            let result = if terminal && first {
+                first = false;
+                delivered = true;
+                primary.map_or_else(
+                    || output.machine(&frame),
+                    |deliver| deliver(&output, &frame),
+                )
+            } else {
+                output.machine(&frame)
+            };
+            if result.is_err() {
                 output.detach();
                 self.state
                     .lock()
@@ -276,6 +293,7 @@ impl Operation {
                     .retain(|subscriber| !subscriber.ptr_eq(&Arc::downgrade(&output)));
             }
         }
+        delivered
     }
 
     pub fn snapshot(&self) -> Value {

@@ -178,6 +178,28 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
                 authority
                     .set_write_mode(crate::lease::WriteMode::Full)
                     .map_err(|error| AppError::command(error.to_string()))?;
+            } else {
+                let roots = crate::migration::Roots {
+                    state: root.clone(),
+                    config: crate::lease::native_config_root(),
+                    recovery: crate::lease::native_recovery_root(),
+                };
+                let preparation = crate::migration::prepare(&roots, &roots, &authority)?;
+                let mode = match preparation.status {
+                    crate::migration::Status::Ready => crate::lease::WriteMode::Full,
+                    crate::migration::Status::ReadOnly { reason }
+                    | crate::migration::Status::Refused { reason } => {
+                        crate::lease::WriteMode::ReadOnly {
+                            reason: format!(
+                                "{reason}; migration receipt: {}",
+                                preparation.receipt_path.display()
+                            ),
+                        }
+                    }
+                };
+                authority
+                    .set_write_mode(mode)
+                    .map_err(|error| AppError::command(error.to_string()))?;
             }
             let _persistence =
                 crate::lease::persistence::PersistenceSession::open(Arc::clone(&authority))?;
