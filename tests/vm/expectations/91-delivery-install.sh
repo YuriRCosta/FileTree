@@ -16,6 +16,14 @@ if "$native" install "$payload"; then exit 1; fi
 [[ $(cat "$HOME/.local/bin/fileblade") == unrelated ]]
 rm -- "$HOME/.local/bin/fileblade"
 printf 'PASS E-91-01 unrelated launcher preserved\n'
+mkdir -m 700 "$work/unrelated"
+printf 'untouched\n' > "$work/unrelated/sentinel"
+mkdir -p "$XDG_DATA_HOME/fileblade"
+ln -s -- "$work/unrelated" "$XDG_DATA_HOME/fileblade/installation"
+if "$native" install "$payload"; then exit 1; fi
+[[ $(find "$work/unrelated" -mindepth 1 -printf '%f\n') == sentinel && $(cat "$work/unrelated/sentinel") == untouched ]]
+rm -- "$XDG_DATA_HOME/fileblade/installation"
+printf 'PASS E-91-08 symlinked installation target untouched\n'
 "$native" install "$payload"
 installation=$XDG_DATA_HOME/fileblade/installation
 first=$(jq -r .payload "$installation/active/receipt.json")
@@ -31,6 +39,18 @@ second=$(jq -r .payload "$installation/active/receipt.json")
 "$native" rollback
 [[ $(jq -r .payload "$installation/active/receipt.json") == "$first" ]]
 printf 'PASS E-91-03 activation and rollback\n'
+cp -a -- "$payload" "$work/contract"
+jq '.packages += ["coreutils>=9.0"]' "$payload/packaging/runtime.json" > "$work/contract/packaging/runtime.json"
+contract_digest=$(sha256sum "$work/contract/packaging/runtime.json")
+jq --arg digest "${contract_digest%% *}" '.files |= map(if .path == "packaging/runtime.json" then .sha256 = $digest else . end)' "$payload/payload.json" > "$work/contract/payload.json"
+"$work/contract/tools/native" check "$work/contract"
+if "$work/contract/tools/native" install "$work/contract"; then exit 1; fi
+[[ $(jq -r .payload "$installation/active/receipt.json") == "$first" ]]
+"$native" rollback
+[[ $(jq -r .payload "$installation/active/receipt.json") == "$second" ]]
+"$native" rollback
+[[ $(jq -r .payload "$installation/active/receipt.json") == "$first" ]]
+printf 'PASS E-91-09 changed dependency contract refused with rollback intact\n'
 cp -- "$installation/active/receipt.json" "$work/receipt"
 jq '.owner = "unrelated"' "$work/receipt" > "$installation/active/receipt.json"
 if "$native" install "$work/next"; then exit 1; fi

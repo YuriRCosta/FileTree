@@ -20,9 +20,9 @@ installation_paths() {
   [[ ${HOME:-} == /* && $HOME != / ]] || fail 'HOME must be an absolute user directory'
   local data=${XDG_DATA_HOME:-$HOME/.local/share}
   [[ $data == /* ]] || data=$HOME/.local/share
-  installation=$(realpath -m -- "$data/fileblade/installation")
+  installation=$data/fileblade/installation
   launcher=$HOME/.local/bin/fileblade
-  [[ $(realpath -m -- "$data/fileblade") == "$data/fileblade" ]] || fail 'installation parent contains a symlink or noncanonical component'
+  [[ $(realpath -m -- "$installation") == "$installation" ]] || fail 'installation path contains a symlink or noncanonical component'
   [[ $(realpath -m -- "$HOME/.local/bin") == "$HOME/.local/bin" ]] || fail 'launcher parent contains a symlink or noncanonical component'
 }
 
@@ -65,6 +65,7 @@ read_activation() {
   [[ -L $installation/$link/runtime && $(readlink -- "$installation/$link/runtime") == "../../versions/$active_payload" ]] || fail 'receipt and runtime pointer disagree'
   [[ -d $installation/versions/$active_payload && ! -L $installation/versions/$active_payload ]] || fail 'active runtime is missing'
   [[ $(sha256sum -- "$installation/versions/$active_payload/payload.json") == "$active_payload "* ]] || fail 'active manifest identity differs'
+  cmp -s -- "$native_root/packaging/runtime.json" "$installation/versions/$active_payload/packaging/runtime.json" || fail 'active runtime dependency contract differs; contract-changing updates require explicit compatibility support'
 }
 
 activate_payload() (
