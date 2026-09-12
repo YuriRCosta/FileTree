@@ -93,3 +93,49 @@ The live `40-native-authority.sh` case drives QML selection and admission for
 a two-file move across filesystems, observes it running, quits the real native
 view, verifies completion and both mappings, relaunches the view, and fetches
 the retained result. It requires the staged spike and harness A.
+
+## Batch 2 root-binding foundation
+
+`Authority::acquire_bound(state, config, recovery)` takes an OFD lock in
+each distinct canonical directory and records all three identities in the
+state lock's `roots` object. Another state authority sharing the config or
+recovery identity is refused. The server selects config at
+`XDG_CONFIG_HOME/omarchy/fileblade` and helper recovery at
+`XDG_STATE_HOME/fileblade`, matching core's published Roots contract.
+`roots()` exposes the canonical paths, device and inode for migration's
+identity comparison. Identity loss is latched; restoring a pathname cannot
+make the same authority valid again.
+
+The native extension root supplied to core is `native_extension_root()`:
+`XDG_CONFIG_HOME/fileblade/extensions`. FileBlade settings remain at
+`native_config_root()/settings.json`. Neither root supplies Omarchy plugin
+activation. Discovery, enabled entries and first-discovery receipts remain
+core's R28 implementation.
+
+The persistence and migration APIs below are a consumer handoff, not a
+completed R16/R17 persistence fix. Existing secure writers do not yet consume
+them. The current server's admission/recovery logic is unchanged, so the
+new write mode is not yet a protocol-wide barrier.
+
+`set_write_mode(WriteMode)` succeeds once; the unset mode is ReadOnly with
+reason `migration has not been prepared`. Core's Ready outcome must set Full;
+ReadOnly and Refused must preserve their reason in ReadOnly. Runtime will
+wire this outcome and request refusal when the migration module is present.
+
+`storage_anchor(path)` returns a duplicate of the original root descriptor
+and a relative path, or None for an unrelated path. Consumers must traverse
+relative to that descriptor without symlinks or parent traversal. They must
+never turn it back into a pathname and reopen from `/`.
+`persistence_anchor(path)` additionally enforces the write mode. Both refuse
+after identity loss. A descriptor already returned before replacement stays
+bound to the original directory; it never redirects into the replacement.
+
+`persistence::PersistenceSession::open(Arc<Authority>)` supplies a scoped
+process registration, with `storage_anchor`, `check_write` and `write_mode`
+functions for the existing persistence consumers. Native callers without a
+registered authority fail owner-unavailable; legacy callers retain their
+existing route. This session is not installed yet: it belongs after core's
+preparation result and mode selection, before recovery, and must outlive all
+workers. Operations owns the secure traversal and write integration. The
+in-flight backend replacement test and E40 extension remain required after
+that integration; descriptor-level tests alone are not that gate.

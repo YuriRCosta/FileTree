@@ -146,8 +146,12 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
     if let Some(root) = crate::lease::selected_root()? {
         if options.native_authority {
             let authority = Arc::new(
-                crate::lease::Authority::acquire(&root)
-                    .map_err(|error| AppError::command(error.to_string()))?,
+                crate::lease::Authority::acquire_bound(
+                    &root,
+                    crate::lease::native_config_root(),
+                    crate::lease::native_recovery_root(),
+                )
+                .map_err(|error| AppError::command(error.to_string()))?,
             );
             return native::run(options, authority);
         }

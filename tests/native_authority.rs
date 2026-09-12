@@ -1,4 +1,4 @@
-use fileblade::lease::{Authority, LeaseError};
+use fileblade::lease::{Authority, LeaseError, WriteMode};
 use serde_json::{Value, json};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -58,6 +58,117 @@ fn replaced_storage_invalidates_the_authority() {
     fs::rename(&root, temporary.path().join("moved")).unwrap();
     fs::create_dir(&root).unwrap();
     assert!(authority.verify().is_err());
+    fs::remove_dir(&root).unwrap();
+    fs::rename(temporary.path().join("moved"), &root).unwrap();
+    assert!(authority.verify().is_err());
+}
+
+#[test]
+fn different_state_roots_cannot_own_the_same_config_or_recovery() {
+    let temporary = tempdir().unwrap();
+    let config = temporary.path().join("config");
+    let recovery = temporary.path().join("recovery");
+    let state = temporary.path().join("state");
+    let first = Authority::acquire_bound(&state, &config, &recovery).unwrap();
+    for (next_config, next_recovery) in [
+        (config.clone(), temporary.path().join("other-recovery")),
+        (temporary.path().join("other-config"), recovery.clone()),
+    ] {
+        assert!(matches!(
+            Authority::acquire_bound(
+                temporary.path().join("other-state"),
+                next_config,
+                next_recovery
+            ),
+            Err(LeaseError::Held { .. })
+        ));
+    }
+    let record: Value =
+        serde_json::from_slice(&fs::read(state.join("authority.lock")).unwrap()).unwrap();
+    for (role, path) in [("config", &config), ("recovery", &recovery)] {
+        let metadata = fs::metadata(path).unwrap();
+        assert_eq!(record["roots"][role]["device"], metadata.dev());
+        assert_eq!(record["roots"][role]["inode"], metadata.ino());
+    }
+    drop(first);
+    Authority::acquire_bound(temporary.path().join("other-state"), config, recovery).unwrap();
+}
+
+#[test]
+fn an_alias_change_latches_identity_loss_even_for_a_deduplicated_root() {
+    let temporary = tempdir().unwrap();
+    let state = temporary.path().join("state");
+    fs::create_dir(&state).unwrap();
+    let alias = temporary.path().join("alias");
+    symlink(&state, &alias).unwrap();
+    let authority = Authority::acquire_bound(&state, &alias, &state).unwrap();
+    fs::remove_file(&alias).unwrap();
+    fs::create_dir(&alias).unwrap();
+    assert!(authority.verify().is_err());
+    fs::remove_dir(&alias).unwrap();
+    symlink(&state, &alias).unwrap();
+    assert!(authority.verify().is_err());
+}
+
+#[test]
+fn migration_modes_are_set_once_and_refuse_persistence_with_the_reason() {
+    let temporary = tempdir().unwrap();
+    let authority = Authority::acquire(temporary.path()).unwrap();
+    let path = temporary.path().join("journal.json");
+    assert!(
+        authority
+            .persistence_anchor(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("migration has not been prepared")
+    );
+    authority
+        .set_write_mode(WriteMode::ReadOnly {
+            reason: "legacy writer active".into(),
+        })
+        .unwrap();
+    assert!(
+        authority
+            .persistence_anchor(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("migration-refused: legacy writer active")
+    );
+    assert!(authority.set_write_mode(WriteMode::Full).is_err());
+    assert!(!path.exists());
+}
+
+#[test]
+fn a_previously_opened_anchor_never_redirects_persistence_to_a_replacement_root() {
+    use std::os::fd::AsRawFd;
+    let temporary = tempdir().unwrap();
+    let root = temporary.path().join("state");
+    let authority = Authority::acquire(&root).unwrap();
+    authority.set_write_mode(WriteMode::Full).unwrap();
+    let (directory, relative) = authority
+        .persistence_anchor(&root.join("journal.json"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(relative, Path::new("journal.json"));
+    let moved = temporary.path().join("original-state");
+    fs::rename(&root, &moved).unwrap();
+    fs::create_dir(&root).unwrap();
+    fs::write(
+        format!("/proc/self/fd/{}/journal.json", directory.as_raw_fd()),
+        b"original",
+    )
+    .unwrap();
+    assert_eq!(fs::read(moved.join("journal.json")).unwrap(), b"original");
+    assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    assert!(authority.verify().is_err());
+    assert!(
+        authority
+            .persistence_anchor(&root.join("audit.jsonl"))
+            .unwrap_err()
+            .to_string()
+            .contains("authority-lost")
+    );
+    assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
 }
 
 struct Resident {
