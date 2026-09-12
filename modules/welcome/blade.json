@@ -2,7 +2,7 @@
   "id": "welcome",
   "name": "Welcome",
   "glyph": "󰋜",
-  "description": "First-launch offer to install the example agent extensions",
+  "description": "Core blades, offline help and extension discovery",
   "entry": "Module.qml",
   "hostContract": 1,
   "singleton": true,

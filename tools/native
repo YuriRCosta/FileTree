@@ -19,9 +19,9 @@ case ${1:-} in
     verify_payload "$2"
     check_runtime "$2"
     ;;
-  install|rollback|status)
+  install|rollback|status|remove)
     source "$native_root/packaging/install.sh"
     install_command "$@"
     ;;
-  *) fail 'usage: tools/native {stage|verify|check|install|rollback|status}' ;;
+  *) fail 'usage: tools/native {stage|verify|check|install|rollback|status|remove}' ;;
 esac

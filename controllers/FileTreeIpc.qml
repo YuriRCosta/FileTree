@@ -709,7 +709,7 @@ QtObject {
   }
 
   function welcomeInstall(): string {
-    return service.welcome.install() ? "started" : "busy"
+    return "built-in"
   }
 
   function welcomeDismiss(): string {

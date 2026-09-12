@@ -5,7 +5,7 @@ license=('MIT')
 provides=('fileblade')
 conflicts=('fileblade')
 options=('!strip' '!debug')
-source=('payload.tar' 'launch')
+source=('payload.tar' 'launch' 'fileblade-native.hook')
 
 package() {
   "$srcdir/payload/tools/native" verify "$srcdir/payload"
@@ -14,4 +14,6 @@ package() {
   install -m 755 -- "$srcdir/launch" "$pkgdir/usr/bin/fileblade"
   ln -s /usr/lib/fileblade/target/release/fileblade "$pkgdir/usr/bin/fileblade-bin"
   ln -s /usr/lib/fileblade/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm 644 "$srcdir/fileblade-native.hook" "$pkgdir/usr/share/libalpm/hooks/fileblade-native.hook"
+  install -Dm 644 /dev/null "$pkgdir/usr/share/fileblade-native/lock"
 }
