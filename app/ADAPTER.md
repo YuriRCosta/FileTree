@@ -12,11 +12,17 @@ supervisor must launch Quickshell in the foreground.
 `shell.qml` loads the existing `Service.qml` through an absolute file URL.
 Existing QML imports and browser sources are unchanged. The shell facade reads
 the real shell configuration for bar placement; the private kit reads the
-current Omarchy theme. The facade cannot observe runtime bar autohide.
+current Omarchy theme. `BarVisibility.qml` subscribes through the resident
+backend to the real Omarchy toggle directory and reads its `bar-off` flag.
+The facade follows explicit hide and restore changes without idle polling;
+timed hover-autohide remains unqualified.
 
 `launch` requires an explicit isolated `FILEBLADE_SPIKE_HOME` and the locally
-built release binary. Its XDG environment isolates development state from old
-plugin writers. That environment also reaches child applications, so it is
+built release binary. Its XDG config and state environment isolates
+development records from old plugin writers while inheriting the desktop
+data profile. Artifact records
+use `artifact-bin` beneath the leased native state root. The config/state
+environment also reaches child applications, so it is
 not the production state-isolation design. The launcher starts or attaches
 to the native authority before loading QML. Its kernel OFD lease covers the
 canonical selected state, config and recovery roots; view processes relay to
@@ -97,19 +103,22 @@ ARM execution remain separate qualification work.
 `ovm-spike` adapts the retained expectation scripts to harness A and the native
 IPC target without changing their source. Other shell targets still address
 the real Omarchy bar. Guest commands use the native XDG roots and binary;
-hardcoded Trash fixture paths are mapped to that isolated data root. Restart
+Trash fixtures use the inherited desktop data profile. The retained suite's
+fixed direct `trash-list` query is routed through the existing authority by
+`qualification/trash-list`, preserving native ownership checks. Restart
 requests restart the foreground native view and the real shell while keeping
 the authority alive. Push, install and reset require explicit staging outside
 this adapter.
 
-Retained Trash expectation E-14-11 remains blocked on R19. The private
-data root receives the trashed file, but the desktop GVfs trash service uses
-the desktop data root and cannot resolve that item through `trash:///`.
-The VM fixture lives under `/home/omarchy/fileblade-runtime-state` to avoid
-the separate cross-filesystem limitation of placing its Trash on `/tmp`.
-Removing the data override also requires isolating FileBlade's artifact bin
-from legacy writers; that path belongs to the operations lane. The bounded
-launcher retains its isolation pending that shared contract change.
+R19 is integrated. Retained E-14-11 passes the original-path metadata and
+GIO checks with the desktop data profile inherited. The final retained E14
+run passes all 23 checks, including trash keyboard selection. Collapse the
+unrelated Properties preview for a stable OCR fixture; earlier OCR failures
+are retained in the evidence. Native and legacy server integration tests
+also verify their distinct artifact roots and
+clipboard ownership across view EOF and authority shutdown using a mock
+foreground clipboard process. Real desktop clipboard interoperability is a
+separate operations gate.
 
 ## Reproducing the opt-in R15 checks
 
@@ -124,8 +133,12 @@ before running a suite. These scripts target harness A only.
   Guest evidence is under `/tmp/fileblade-r15-importers`.
 - `tests/vm/expectations/42-native-layout.sh`: exercises retained E20-01
   through E20-12 with live input, rendered geometry and screenshots. The
-  current tree fails E20-08 because its drag card covers the tab titles;
-  the script preserves that failure while completing the other checks.
+  merged drag-card fix and visible-card probe pass all 18 assertions with
+  the bar visible and hidden, including unobscured titles during tab insertion.
+- `tests/vm/expectations/44-native-bar-state.sh`: compares internal blade
+  coordinates with actual compositor geometry for visible, hidden and
+  restored bars at all four edges, then twenty rapid hide/show cycles.
+  Its fourteen captured states pass; guest config and visibility are restored.
 - `tests/vm/expectations/43-native-parity.sh native`: E43-01 tests keyboard
   capture and release to a terminal; E43-02 measures docked exclusive zones
   and their release; E43-03 records real bar hide/restore geometry. The
@@ -145,11 +158,11 @@ Host evidence for E20 and E43 is under `.claude/evidence/sootscale/r15/`.
 
 On the measured tuple, hiding the real bar changes its top reservation from
 26 to zero. Hyprland expands native blade surfaces from y=26, height=1054 to
-y=0, height=1080. The app facade still reports barHidden=false and a 26-pixel
-surfaceOriginY: drawing follows compositor reservations, while internal
-screen-coordinate calculations retain the stale offset. The visibility flag
-is named bar-off, so `omarchy-toggle-bar on` hides it and `off` shows it.
-The matched plugin run has identical compositor geometry and reservations
-at all eight captured phases, and both shapes pass the same nine assertions.
-This is an explicit visibility-toggle measurement; timed hover-autohide and
-lock/unlock interaction remain unqualified.
+y=0, height=1080. The facade now reports barHidden=true and surfaceOriginY=0;
+restoring the bar restores the 26-pixel internal origin. Bottom, left and
+right reservations also match internal coordinates after each transition.
+The visibility flag is named bar-off, so `omarchy-toggle-bar on` hides it and
+`off` shows it. The earlier matched plugin/native run has identical compositor
+geometry and reservations at all eight captured phases. These are explicit
+visibility-toggle measurements; timed hover-autohide and lock/unlock
+interaction remain unqualified.

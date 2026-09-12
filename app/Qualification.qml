@@ -43,7 +43,7 @@ Item {
     var slots = [], popouts = [], stacks = [], tabs = [], dragCards = [], surfaces = []
     for (var item of objects()) {
       if (item.liveBarSize !== undefined && item.bladeOpen && item.surfaceOriginY !== undefined)
-        surfaces.push({ edge: item.edge, barHidden: item.host.shell.bar.barHidden, liveBarSize: item.liveBarSize, surfaceOriginY: item.surfaceOriginY })
+        surfaces.push({ edge: item.edge, barHidden: item.host.shell.bar.barHidden, liveBarSize: item.liveBarSize, surfaceOriginX: item.surfaceOriginX, surfaceOriginY: item.surfaceOriginY, width: item.width, height: item.height })
       if (item.slotIndex !== undefined && item.moduleItem !== undefined && item.loadFailed !== undefined && item.bladeOpen && item.hostActive) {
         slots.push({ edge: item.edge, index: item.slotIndex, module: item.moduleId,
           loaded: !!item.moduleItem, failed: item.loadFailed, title: item.title,
@@ -51,7 +51,7 @@ Item {
       }
       if (item.refreshActive && item.screenWidth !== undefined && item.active && item.contentItem) {
         for (var child of item.contentItem.children)
-          if (child.width > 0 && child.height > 0 && child.color !== undefined) dragCards.push(geometry(child))
+          if (child.visible && child.opacity > 0 && child.width > 0 && child.height > 0 && child.color !== undefined) dragCards.push(geometry(child))
       }
       if (item.tabItem && item.dropLineX && item.slot && item.slot.bladeOpen && item.visible) {
         var entries = []

@@ -10,10 +10,9 @@ ShellRoot {
   readonly property string sourceDir: Quickshell.env("FILEBLADE_SOURCE_DIR")
   property var shellConfig: ({})
   readonly property var barConfig: shellConfig.bar || ({ position: "top" })
-  readonly property var bar: QtObject {
-    readonly property bool barHidden: false
-    readonly property int barSize: root.barConfig.position === "left" || root.barConfig.position === "right"
-      ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
+  readonly property var bar: BarVisibility {
+    service: root.loadedService
+    barConfig: root.barConfig
   }
 
   FileView {
