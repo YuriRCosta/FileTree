@@ -84,6 +84,59 @@ TestCase {
     compare(Bins.ordered(rows.slice().reverse(), [{ key: "modified", desc: true }]).map(function(record) { return record.item.path }), ["/b", "/a", "/c"])
   }
 
+
+  function test_compacted_ranges_with_descending_names() {
+    var rows = []
+    for (var year = 2000; year <= 2020; year++) rows.push({ path: "/" + year, name: String(year), date: year + "-01-01" })
+    var source = Bins.ordered(rows, [{ key: "name", desc: true }])
+    var overview = Bins.overview(source, 4, rule)
+    compare(overview.level, "ranges")
+    compare(sum(overview), 21)
+    compare(overview.bins[2].key, "2014–2020")
+    compare(overview.bins[2].indices, [0, 1, 2, 3, 4, 5, 6])
+    var bounds = Bins.geometry(overview.bins, 1, 100, 96)
+    compare(bounds[2].top, 0)
+    compare(bounds[2].bottom, 696)
+    compare(Bins.viewport(bounds, 0, 50).first, 2)
+    compare(Bins.viewport(bounds, 1000, 50).first, 1)
+    compare(Bins.viewport(bounds, 2046, 50).first, 0)
+    compare(Bins.seek(bounds, 2, 0, 2096, 50), 0)
+    compare(Bins.seek(bounds, 2, 0.5, 2096, 50), 348)
+    compare(Bins.seek(bounds, 0, 1, 2096, 50), 2046)
+  }
+
+  function test_compacted_ranges_with_disjoint_multicolumn_rows() {
+    var years = [2020, 2019, 2006, 2005, 2013, 2012, 2018, 2017, 2004, 2003, 2011, 2010, 2016, 2015, 2002, 2001, 2009, 2008, 2014, 2000, 2007]
+    var rows = years.map(function(year, index) { return { path: "/" + year, size: index, date: year + "-01-01" } })
+    var source = Bins.ordered(rows.slice().reverse(), [{ key: "size", desc: false }])
+    var overview = Bins.overview(source, 4, rule)
+    var bounds = Bins.geometry(overview.bins, 2, 100, 96)
+    compare(sum(overview), 21)
+    compare(overview.bins[2].indices, [0, 1, 6, 7, 12, 13, 18])
+    compare(bounds[2].segments.map(function(segment) { return segment.top }), [0, 300, 600, 900])
+    compare(bounds[2].length, 384)
+    bounds.forEach(function(bound) {
+      var indices = bound.bin.indices
+      for (var i = 1; i < indices.length; i++) verify(indices[i] > indices[i - 1])
+      var previous = -1
+      bound.segments.forEach(function(segment) {
+        verify(segment.top > previous)
+        verify(segment.bottom > segment.top)
+        previous = segment.bottom
+      })
+    })
+    compare(Bins.viewport(bounds, 0, 50).active, [false, false, true, false])
+    compare(Bins.viewport(bounds, 100, 50).active, [true, false, false, false])
+    compare(Bins.viewport(bounds, 300, 50).first, 2)
+    compare(Bins.viewport(bounds, 950, 50).active, [true, false, true, false])
+    compare(Bins.viewport(bounds, 950, 50).first, 2)
+    compare(Bins.viewport(bounds, 1046, 50).first, 1)
+    compare(Bins.seek(bounds, 2, 0, 1096, 50), 0)
+    compare(Bins.seek(bounds, 2, 0.5, 1096, 50), 600)
+    compare(Bins.seek(bounds, 2, 1, 1096, 50), 996)
+    compare(Bins.seek(bounds, 1, 1, 1096, 50), 1046)
+  }
+
   function test_capacity_and_filtered_counts() {
     var source = records(["2024-02-29", "2026-01-01", "2026-01-02", ""])
     compare(Bins.overview(source, 40, rule).level, "months")
