@@ -66,15 +66,19 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
     let bytes = read_bounded_nofollow(&path, INPUT_BYTES)
         .map_err(|error| AppError::Invalid(error.to_string()))?
         .ok_or_else(|| AppError::Invalid(format!("{text} is missing")))?;
-    let format = image::guess_format(&bytes)
-        .ok()
-        .filter(|format| {
-            matches!(
-                format,
-                ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP
-            )
-        })
-        .ok_or_else(|| AppError::Invalid(format!("{text} is not a PNG, JPEG, or WebP image")))?;
+    let format = image::guess_format(&bytes).ok().filter(|format| {
+        matches!(
+            format,
+            ImageFormat::Png | ImageFormat::Jpeg | ImageFormat::WebP
+        )
+    });
+    let Some(format) = format else {
+        return render_poster(&bytes, output, width, height).map_err(|error| {
+            AppError::Invalid(format!(
+                "{text} is not a PNG, JPEG, or WebP image; poster: {error}"
+            ))
+        });
+    };
     let mut reader = ImageReader::with_format(Cursor::new(&bytes), format);
     let mut limits = Limits::default();
     limits.max_image_width = Some(MAX_SOURCE_EDGE);
@@ -124,6 +128,106 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
         "source_width": source_width,
         "source_height": source_height
     }))
+}
+
+fn poster_command(program: &str, bytes: &[u8]) -> CommandSpec {
+    CommandSpec::new(program)
+        .env_clear()
+        .env("PATH", "/usr/bin:/bin")
+        .env("MALLOC_ARENA_MAX", "2")
+        .args([
+            "-v", "error", "-max_alloc", "67108864",
+            "-protocol_whitelist", "pipe",
+            "-format_whitelist", "bmp_pipe,gif,gif_pipe,tiff_pipe,mov,matroska,webm,jpegxl_pipe,hdr_pipe,exr_pipe,psd_pipe,avi,mpeg,mpegts,ogg,flv,asf",
+            "-codec_whitelist", "bmp,gif,tiff,hevc,av1,libdav1d,libaom-av1,libjxl,libjxl_anim,hdr,exr,psd,h264,vp8,vp9,ffv1,mpeg1video,mpeg2video,mpeg4,theora,flv,wmv1,wmv2,wmv3,vc1,mjpeg",
+            "-max_streams", "16", "-threads", "1",
+        ])
+        .stdin(bytes)
+        .timeout(Duration::from_secs(4))
+        .resource_limits(0, DECODE_MEMORY_BYTES)
+        .limits(CACHE_BYTES, 16 * 1024)
+        .stop_on_output_limit()
+}
+
+fn render_poster(bytes: &[u8], output: &Path, width: u32, height: u32) -> AppResult<Value> {
+    let probe = poster_command("ffprobe", bytes)
+        .args([
+            "-i",
+            "pipe:0",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "json",
+        ])
+        .limits(16 * 1024, 16 * 1024)
+        .run()?;
+    if !probe.status.success() {
+        return Err(AppError::Invalid(
+            String::from_utf8_lossy(&probe.stderr).trim().into(),
+        ));
+    }
+    let metadata: Value = serde_json::from_slice(&probe.stdout)
+        .map_err(|error| AppError::Invalid(error.to_string()))?;
+    let source_width = metadata["streams"][0]["width"].as_u64().unwrap_or(0);
+    let source_height = metadata["streams"][0]["height"].as_u64().unwrap_or(0);
+    if source_width == 0
+        || source_height == 0
+        || source_width > u64::from(MAX_SOURCE_EDGE)
+        || source_height > u64::from(MAX_SOURCE_EDGE)
+        || source_width * source_height > MAX_SOURCE_PIXELS
+    {
+        return Err(AppError::Invalid(
+            "Poster dimensions are unavailable or above the source limit".into(),
+        ));
+    }
+    let scale = format!(
+        "scale=w='min({width},iw)':h='min({height},ih)':force_original_aspect_ratio=decrease"
+    );
+    let frame = poster_command("ffmpeg", bytes)
+        .args([
+            "-filter_threads",
+            "1",
+            "-i",
+            "pipe:0",
+            "-map",
+            "0:v:0",
+            "-frames:v",
+            "1",
+            "-vf",
+            &scale,
+            "-threads",
+            "1",
+            "-f",
+            "image2pipe",
+            "-c:v",
+            "png",
+            "-pix_fmt",
+            "rgba",
+            "pipe:1",
+        ])
+        .run()?;
+    if !frame.status.success() {
+        return Err(AppError::Invalid(
+            String::from_utf8_lossy(&frame.stderr).trim().into(),
+        ));
+    }
+    let (actual_width, actual_height) =
+        ImageReader::with_format(Cursor::new(&frame.stdout), ImageFormat::Png)
+            .into_dimensions()
+            .map_err(|error| AppError::Invalid(error.to_string()))?;
+    if actual_width == 0 || actual_height == 0 || actual_width > width || actual_height > height {
+        return Err(AppError::Invalid(
+            "Poster exceeds requested dimensions".into(),
+        ));
+    }
+    secure::write_private_atomic(output, &frame.stdout)
+        .map_err(|error| AppError::Invalid(error.to_string()))?;
+    Ok(
+        json!({ "ok": true, "path": path_text(output), "width": actual_width, "height": actual_height,
+        "source_width": source_width, "source_height": source_height, "poster": true }),
+    )
 }
 
 fn render_in_child(
