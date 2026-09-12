@@ -80,15 +80,19 @@ records the previous payload, and rollback performs the same activation in
 reverse. Existing runtime generations and interrupted staging directories
 are retained; no automatic pruning is implemented. Settings and desktop
 defaults are untouched. Removal preserves generation receipts and user data.
-Role reversal still requires runtime's published interface.
+Role reversal uses runtime's published maintenance interface.
 
 The stable launcher resolves its physical runtime once under a shared
-installation lock. Installation and rollback require the exclusive lock and
-refuse while a launched session retains the shared lock. This is a safe
-busy refusal, not graceful shutdown or a claim that dirty Notes can already
-be flushed. Harness qualification confirms that the authority retains the
-lock after the view exits. Updates need runtime shutdown/drain support;
-closing the view alone does not release it. A runtime launched directly outside the stable launcher
+installation lock. Maintenance verifies the active payload under a shared
+lock, calls its lifecycle CLI, then takes the exclusive lock and rechecks
+the activation pointer. A changed pointer requires retry. Update and rollback
+call `app/launch native drain --timeout-ms 30000 --json`; removal first calls
+`app/launch native roles disable --all --json`. Nonzero exits or unknown,
+malformed or incomplete success results preserve the runtime. A failed drain
+after reversal can leave roles disabled; the diagnostic reports that outcome.
+The current spike does not implement these entry points and therefore refuses
+maintenance. Closing its view alone leaves the authority holding the lock.
+A runtime launched directly outside the stable launcher
 does not participate in this delivery lock and must not be updated this way.
 
 Package-owned conventional executable paths and unrelated launchers are
@@ -168,23 +172,30 @@ Unknown entries and incomplete staging directories are preserved. No setting,
 Note, recovery journal or desktop default is deleted. Repeated removal is
 safe, and a later explicit local installation can reuse the installation root.
 
-Rollback can restore the recorded previous payload when the current payload
-is missing or damaged; it verifies the previous tree and manifest identity
-before activation. A missing activation pointer can be repaired by explicitly
-installing a verified local payload. Invalid receipts or pointers are refused;
-recovery never guesses a generation from timestamps or directory order.
+Rollback validates its recorded previous payload before requesting drain.
+Missing/damaged current payloads or missing activation with receipt history
+require restoring the verified current runtime/owned pointer first: delivery
+cannot prove a surviving authority stopped by calling a different candidate.
+Invalid receipts are refused. Recovery never guesses a generation from
+timestamps or directory order. Runtime recovery for an unavailable active
+maintenance entry point remains unqualified.
 
 The package launcher retains a shared lock on the package-owned
 `/usr/share/fileblade-native/lock`. An ALPM pre-transaction hook refuses
 upgrade/removal if the lock is held. This hook edits no user defaults. It is
 a busy preflight, not a transaction-wide exclusion: new launches after the
-check, authority drain and conditional role reversal still require runtime's
-lifecycle contract. Direct removal also currently refuses busy sessions;
-it must gain the runtime drain/reversal calls before enabled desktop roles
-or active-operation removal are qualified. External stale role recovery is
-pending that same interface, not inferred from the direct activation receipt.
+check still requires package transaction coordination. Direct maintenance
+calls are wired, but their runtime implementation and live qualification for
+active operations, dirty Notes and enabled roles remain pending. External
+stale role recovery uses runtime's opaque receipt, never the direct receipt.
 
 `tests/vm/expectations/93-delivery-remove.sh PAYLOAD` checks stale activation,
 ownership preservation, busy refusal and an actual process-group kill during
 runtime deletion followed by retry. E92 additionally holds the package lock
 and checks that real pacman removal aborts while preserving installed files.
+
+`tests/vm/expectations/94-delivery-lifecycle.sh SOURCE PAYLOAD` creates an
+explicit maintenance fixture, checks failure/result handling, the active
+launcher path, shared-lock ordering and activation identity changes, then runs
+E91/E93 with it. These are caller/transaction checks; they do not implement or
+qualify runtime draining or desktop-role reversal.

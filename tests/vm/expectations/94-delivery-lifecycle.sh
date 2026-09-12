@@ -11,6 +11,7 @@ cat > "$work/fixture/app/launch" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ $1 == native && ${*: -1} == --json ]]
+[[ ${BASH_SOURCE[0]} == "$XDG_DATA_HOME/fileblade/installation/versions/"*/app/launch ]]
 flock -n -s "$XDG_DATA_HOME/fileblade/installation/lock" true
 if [[ -n ${CINDER_CALLS:-} ]]; then printf '%s\n' "$2" >> "$CINDER_CALLS"; fi
 if [[ $2 == roles ]]; then

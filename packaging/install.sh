@@ -217,6 +217,13 @@ install_command() (
   activation=$(readlink -- "$installation/active" || true)
   generations=("$installation/generations/"generation.*)
   if [[ $action != status && ! -L $installation/removing ]]; then
+    if [[ $action == rollback ]]; then
+      [[ -n $previous_payload ]] || fail 'no previous runtime to recover'
+      [[ -d $installation/versions/$previous_payload && ! -L $installation/versions/$previous_payload ]] || fail 'previous runtime is missing or not owned'
+      verify_payload "$installation/versions/$previous_payload"
+      [[ $(sha256sum -- "$installation/versions/$previous_payload/payload.json") == "$previous_payload "* ]] || fail 'previous manifest identity differs'
+      check_runtime "$installation/versions/$previous_payload"
+    fi
     if [[ -n $active_payload ]]; then
       check_activation
       verify_payload "$installation/versions/$active_payload"
@@ -238,11 +245,6 @@ install_command() (
     remove) remove_installation ;;
     status) [[ -n $active_payload ]] || fail 'no active installation'; cat -- "$installation/active/receipt.json" ;;
     rollback)
-      [[ -n $previous_payload ]] || fail 'no previous runtime to recover'
-      [[ -d $installation/versions/$previous_payload && ! -L $installation/versions/$previous_payload ]] || fail 'previous runtime is missing or not owned'
-      verify_payload "$installation/versions/$previous_payload"
-      [[ $(sha256sum -- "$installation/versions/$previous_payload/payload.json") == "$previous_payload "* ]] || fail 'previous manifest identity differs'
-      check_runtime "$installation/versions/$previous_payload"
       activate_payload "$previous_payload" "$active_payload"
       printf 'Restored %s\n' "$previous_payload"
       ;;
