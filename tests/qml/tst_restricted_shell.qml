@@ -221,6 +221,61 @@ TestCase {
     compare(catalog.relevant(null), false)
   }
 
+  function test_native_activation_and_first_extension_directory_wake_the_catalog() {
+    var original = catalog.watchPaths
+    var originalProviders = catalog.providers
+    catalog.providers = []
+    catalog.watchPaths = ["/config", "/config/fileblade", "/config/fileblade/extensions", "/config/omarchy/fileblade"]
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.one" }), true)
+    compare(catalog.relevant({ path: "/config/omarchy/fileblade/settings.json" }), true)
+    compare(catalog.relevant({ path: "/config/omarchy/fileblade/blades.json" }), false)
+    compare(catalog.relevant({ path: "/config/omarchy/plugins/acme.one" }), false)
+    compare(catalog.relevant({ path: "/config/omarchy/shell.json" }), false)
+    var before = catalog.generation
+    compare(catalog.relevant({ path: "/config/fileblade" }), true)
+    catalog.watch()
+    verify(catalog.generation > before)
+    compare(fakeService.watchPaths, catalog.watchPaths)
+    var subscribedGeneration = catalog.generation
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late", directory: true, events: ["create"] }), true)
+    compare(catalog.generation, subscribedGeneration)
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    catalog.read()
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.sibling", directory: true, events: ["create"] }), true)
+    compare(catalog.generation, subscribedGeneration)
+    tryVerify(function() { return fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.sibling") >= 0 })
+    verify(fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.late") >= 0)
+    subscribedGeneration = catalog.generation
+    compare(catalog.watch(), false)
+    compare(catalog.generation, subscribedGeneration)
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late/manifest.json" }), true)
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late/Module.qml" }), true)
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late", directory: true, events: ["delete"] }), true)
+    catalog.watch()
+    verify(fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.late") < 0)
+    var retiredEvent = fakeService.watchEvent
+    catalog.watchSignature = ""
+    catalog.watch()
+    retiredEvent({ path: "/config/fileblade/extensions/acme.handoff", directory: true, events: ["create"] })
+    verify(catalog.extensionDirectories.indexOf("/config/fileblade/extensions/acme.handoff") < 0)
+    fakeService.reply = { ok: true, activation: "known", providers: [], directory_names: ["acme.handoff", "../escape", "a/b", "", ".hidden", null] }
+    catalog.checkedAt = 0
+    fakeService.emitWatchReady()
+    tryVerify(function() { return fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.handoff") >= 0 })
+    compare(catalog.providers.length, 0)
+    verify(catalog.extensionDirectories.every(function(path) { return path.indexOf("/config/fileblade/extensions/acme.") === 0 }))
+    fakeService.reply = { ok: true, activation: "known", providers: [{ id: "acme.handoff", dir: "/config/fileblade/extensions/acme.handoff", manifest: companionManifest, enabled: true }], directory_names: ["acme.handoff"] }
+    catalog.checkedAt = 0
+    fakeService.watchEvent({ path: "/config/fileblade/extensions/acme.handoff/Module.qml", events: ["close_write"] })
+    compare(catalog.providers.length, 1)
+    compare(catalog.providers[0].id, "acme.handoff")
+    compare(catalog.providers[0].enabled, true)
+    catalog.unwatch()
+    catalog.extensionDirectories = []
+    catalog.watchPaths = original
+    catalog.providers = originalProviders
+  }
+
   function test_a_request_during_a_read_is_kept_and_served_afterwards() {
     fakeService.reply = { ok: true, activation: "known", providers: [] }
     fakeService.defer = true
