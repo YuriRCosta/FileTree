@@ -27,6 +27,7 @@ pub struct BackendCli {
 #[derive(Clone, Debug, Subcommand)]
 pub enum BackendCommand {
     Agents,
+    Chooser(crate::chooser::transport::ChooserArgs),
     Recover,
     ProjectRoot(ProjectRootArgs),
     ChildrenBatch(ChildrenArgs),
@@ -214,6 +215,7 @@ fn dispatch_command(
             transfer_execute(&options, cancelled, progress)?
         }
         BackendCommand::Agents => crate::agents::installed_agents(),
+        BackendCommand::Chooser(args) => crate::chooser::transport::run(args, cancelled),
         BackendCommand::HelperRead(options) => options.execute(false, cancelled)?,
         BackendCommand::HelperWrite(options) => options.execute(true, cancelled)?,
         BackendCommand::Recover => crate::recovery::sweep(),

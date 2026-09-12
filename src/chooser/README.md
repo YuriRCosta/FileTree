@@ -41,7 +41,7 @@ uses fresh in-memory navigation/layout state, and refuses unrelated writes.
 ordinary launches do not activate a desktop role. The final role switch owns
 activation when task 3.3 lands.
 
-The backend enum/dispatch registration is an explicit integration request.
+The backend registers this command group on the resident authority.
 Portal D-Bus registration, exported-parent association and real browser
 upload remain unqualified; this slice does not complete tasks 3.1/3.2.
 
@@ -50,3 +50,13 @@ Runnable checks: compile `cargo test --locked --test chooser_requests
 VM. `tests/vm/expectations/45-native-chooser.sh` checks live window/selection
 isolation with qualification fixtures, independently of portal completion.
 The runtime lane uses only harness A, SSH port 2422.
+
+`46-native-chooser-resident.sh` uses actual socket callers against the freshly
+built native fixture: filtered Open, existing/new Save, multiple and folder
+selection, Escape cancellation and caller EOF. It checks returned URIs and
+unchanged target/state/layout bytes. The native_authority case
+`chooser_offers_leave_completion_capacity_and_cancel_on_real_caller_eof`
+keeps sixteen offers on one connection, refuses a seventeenth, completes and
+cancels requests on that connection, then proves EOF clears the others.
+These checks require no portal registration and do not qualify foreign
+parent association or a real browser upload.

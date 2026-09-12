@@ -67,7 +67,13 @@ pub(super) fn start_request(
                 deadline: Some(Arc::clone(&request.deadline)),
                 deadline_exceeded: Arc::clone(&deadline_exceeded),
                 cancel_on_deadline: !mutating,
-                standing: false,
+                standing: matches!(
+                    &request.command,
+                    backend::BackendCommand::Chooser(crate::chooser::transport::ChooserArgs {
+                        command: crate::chooser::transport::ChooserCommand::Offer { .. }
+                            | crate::chooser::transport::ChooserCommand::Watch { .. }
+                    })
+                ),
                 authority_owned: operation.is_some(),
             },
         );

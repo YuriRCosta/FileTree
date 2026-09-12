@@ -1260,6 +1260,7 @@ Item {
     active: !service.chooserSession
     sourceComponent: Component {
       FileTreeIpc {
+        id: fileTreeIpc
         service: ipcLoader.contextService
         bladeHost: ipcLoader.contextService.bladeHost
         watchController: ipcLoader.contextWatch
