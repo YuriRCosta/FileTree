@@ -201,7 +201,8 @@ pub(super) fn quarantine(path: &Path) {
             &parent.directory,
             destination.file_name().unwrap(),
             rustix::fs::RenameFlags::NOREPLACE,
-        );
+        )
+        .and_then(|()| rustix::fs::fsync(&parent.directory));
     }
 }
 
