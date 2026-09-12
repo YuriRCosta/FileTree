@@ -51,3 +51,20 @@ done < <(jq -r '.commands[]' "$source_root/packaging/runtime.json")
 PATH=$work/path reject check "$payload" E-90-05-missing-dependency
 "$native" verify "$payload"
 printf 'PASS E-90-06 restored payload accepted\n'
+mkdir "$work/failure"
+for producer in find sort; do
+  cat > "$work/failure/$producer" <<'EOF'
+#!/usr/bin/env bash
+"/usr/bin/${0##*/}" "$@"
+exit 73
+EOF
+  chmod 755 "$work/failure/$producer"
+  PATH=$work/failure:$PATH reject verify "$payload" "E-90-07-$producer-verify"
+  if PATH=$work/failure:$PATH "$native" stage "$source_root" "$2" "$3" "$4" "$work/unpublished" > "$work/rejection" 2>&1; then
+    printf 'FAIL E-90-07: failed %s producer published a payload\n' "$producer" >&2
+    exit 1
+  fi
+  [[ ! -e $work/unpublished ]]
+  printf 'PASS E-90-07-%s-stage\n' "$producer"
+  rm -- "$work/failure/$producer"
+done

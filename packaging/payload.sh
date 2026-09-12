@@ -25,7 +25,7 @@ check_elf() {
 
 payload_inventory() {
   local root=$1 entry mode digest
-  while IFS= read -r -d '' entry; do
+  (cd -- "$root" && find . -mindepth 1 -print0) | sort -z | while IFS= read -r -d '' entry; do
     entry=${entry#./}
     [[ $entry != payload.json ]] || continue
     [[ $entry =~ ^[A-Za-z0-9_.+/-]+$ && $entry != /* && $entry != *'//'* && /$entry/ != *'/../'* && /$entry/ != *'/./'* ]] || fail "unsupported payload path: $entry"
@@ -39,7 +39,7 @@ payload_inventory() {
     [[ $mode == 644 || $mode == 755 ]] || fail "invalid payload mode: $entry"
     digest=$(sha256sum -- "$root/$entry")
     printf '%s\t%s\t%s\n' "$entry" "$mode" "${digest%% *}"
-  done < <(cd -- "$root" && find . -mindepth 1 -print0 | sort -z)
+  done
 }
 
 verify_payload() {
