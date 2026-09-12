@@ -79,6 +79,8 @@ pub enum BackendCommand {
     Copy(TransferArgs),
     Move(TransferArgs),
     Locations,
+    LocationConnect(LocationConnectArgs),
+    LocationDisconnect(LocationDisconnectArgs),
     List(LocationListArgs),
     TransferPreflight(TransferPreflightArgs),
     TransferExecute(TransferExecuteArgs),
@@ -134,7 +136,9 @@ where
 pub fn mutating(command: &BackendCommand) -> bool {
     matches!(
         command,
-        BackendCommand::TransferExecute(_)
+        BackendCommand::LocationConnect(_)
+            | BackendCommand::LocationDisconnect(_)
+            | BackendCommand::TransferExecute(_)
             | BackendCommand::Copy(_)
             | BackendCommand::Move(_)
             | BackendCommand::Rename(_)
@@ -195,6 +199,10 @@ fn dispatch_command(
                 | BackendCommand::Visit(_)
         );
     let value = match command {
+        BackendCommand::LocationConnect(options) => crate::locations::connect(&options, cancelled)?,
+        BackendCommand::LocationDisconnect(options) => {
+            crate::locations::sftp::disconnect(&options.location, &options.generation, cancelled)
+        }
         BackendCommand::List(options) => crate::locations::list(&options, cancelled),
         BackendCommand::Locations => crate::locations::payload(cancelled)?,
         BackendCommand::TransferPreflight(options) => crate::operations::collisions::preflight(

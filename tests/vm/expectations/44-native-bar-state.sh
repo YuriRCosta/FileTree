@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
-export OVM_HOME=$HOME/.local/share/test-omarchy-plugin-a OVM_SSH_PORT=2422
+export OVM_HOME=${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin-a} OVM_SSH_PORT=${OVM_SSH_PORT:-2422}
 python3 - "$repo" <<'PY'
 import base64,json,pathlib,subprocess,sys,time
 repo=pathlib.Path(sys.argv[1]); ovm=str(repo/'app/ovm-spike')

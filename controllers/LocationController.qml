@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/PathText.js" as PathText
 
 Item {
   id: controller
@@ -61,6 +62,20 @@ Item {
   function navigate(targetPath, targetScreen, mode) {
     var target = service.normalizeRoot(targetPath)
     var navigationMode = normalizedMode(mode)
+    if (PathText.isRemote(target) && [service.trashResource, service.recentResource, service.drivesResource].indexOf(target) < 0) {
+      cancel(false)
+      busy = true
+      path = target
+      var serial = ++generation
+      activeRequestId = service.backendRequest("locations", [], serial, function(response) {
+        if (serial !== controller.generation) return
+        controller.activeRequestId = ""
+        controller.busy = false
+        service.drivesController.applyLocations(response)
+        controller.navigateDescriptor(service.drivesController.descriptorForPath(target), targetScreen, navigationMode, target)
+      })
+      return "checking"
+    }
     path = target
     error = ""
     if (target === service.normalizeRoot(service.rootPath) && service.treeModel.count > 0) {
@@ -76,6 +91,44 @@ Item {
     }
     start(target, targetScreen, navigationMode)
     return "checking"
+  }
+
+  function navigateDescriptor(descriptor, targetScreen, mode, targetPath) {
+    var target = String(targetPath || descriptor && descriptor.canonical_uri || "")
+    var relative = descriptor ? service.drivesController.relativePath(descriptor, target) : null
+    if (!descriptor || !descriptor.session_generation || relative === null) {
+      error = "Remote location is unavailable; reconnect it in Drives"
+      if (mode === "back" || mode === "forward") handleHistoryFailure({ mode: mode, path: target, origin: service.normalizeRoot(service.rootPath) })
+      return "unavailable"
+    }
+    cancel(false)
+    activePath = target
+    activeMode = normalizedMode(mode)
+    activeOrigin = service.normalizeRoot(service.rootPath)
+    activeTargetScreen = targetScreen || null
+    activeMonitor = service.bladeHost.focusedMonitorName
+    path = target
+    error = ""
+    busy = true
+    var serial = ++generation
+    activeRequestId = service.backendRequest("list", ["--location", descriptor.id, "--generation", descriptor.session_generation,
+      "--path", relative, "--count", "1", "--no-git"], serial, function(response) {
+      if (serial !== controller.generation) return
+      controller.activeRequestId = ""
+      controller.busy = false
+      var request = controller.takeRequest()
+      if (response && response.ok) controller.handleSuccess(request, { path: target, is_dir: true })
+      else {
+        if (response && response.error_id === "stale-location") service.drivesController.invalidatePeer(descriptor.id, descriptor.session_generation)
+        controller.handleFailure(request, String(response && response.error || "Remote directory unavailable"))
+      }
+    })
+    return "checking"
+  }
+
+  Connections {
+    target: controller.service.drivesController || null
+    function onLocationRequested(descriptor, targetScreen) { controller.navigateDescriptor(descriptor, targetScreen, "browse") }
   }
 
   function openVirtual(target, targetScreen, mode) {

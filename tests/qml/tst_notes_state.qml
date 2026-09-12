@@ -206,4 +206,20 @@ TestCase {
     compare(result.notebook.revision, 4)
     compare(NotesState.activeNote(result.notebook).label, "Second")
   }
+  function test_cursor_selection_round_trip_and_unicode_boundaries() {
+    var note = NotesState.emptyNotebook("First", "a😀bc", 0)
+    note = NotesState.remember(note, 1, 1, 4)
+    note = NotesState.persistedNotebook(note)
+    var restored = NotesState.normalizeNotebook(JSON.parse(JSON.stringify(note))).notebook
+    compare(restored.items[0].cursor, 1)
+    compare(restored.items[0].anchor, 4)
+    var second = NotesState.addNote(restored)
+    compare(NotesState.selectNote(second, 0).items[0].anchor, 4)
+    compare(NotesState.position(2, "a😀bc"), 1)
+    compare(NotesState.position(-5, "abc"), 0)
+    compare(NotesState.position(99, "abc"), 3)
+    compare(NotesState.writtenNotebook("broken", "one"), null)
+    compare(NotesState.writtenNotebook(JSON.stringify({blades:{right:{slots:[{id:"one",modules:[{module:"notes",state:{text:note}}]}]}}}), "one"), note)
+  }
+
 }

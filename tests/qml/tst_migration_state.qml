@@ -26,6 +26,20 @@ TestCase {
     compare(second.rootPath, "/tmp/second")
   }
 
+  function test_untouched_preferences_stay_sparse_across_revised_defaults() {
+    var original = { version: 12, gitEnabled: true, future: { keep: [null, false, 42] } }
+    var oldDefaults = { gitEnabled: true, propertyIcons: true }
+    var first = StateDocument.mergeFields(original, oldDefaults, StateDocument.preferenceKeys)
+    compare(first.gitEnabled, true)
+    verify(!Object.prototype.hasOwnProperty.call(first, "propertyIcons"))
+    var newDefaults = { gitEnabled: false, propertyIcons: false }
+    var effective = StateDocument.mergeFields(newDefaults, JSON.parse(JSON.stringify(first)))
+    compare(effective.gitEnabled, true)
+    compare(effective.propertyIcons, false)
+    var second = StateDocument.mergeFields(first, effective, StateDocument.preferenceKeys)
+    compare(JSON.stringify(second), JSON.stringify(first))
+  }
+
   function test_absent_document_uses_current_fields() {
     compare(JSON.stringify(StateDocument.mergeFields(null, { version: 12 })), '{"version":12}')
     compare(JSON.stringify(StateDocument.mergeFields([], { version: 12 })), '{"version":12}')

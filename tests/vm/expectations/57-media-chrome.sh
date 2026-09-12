@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${OVM:?set OVM to the harness executable}"
-[[ ${OVM_HOME:-} == "$HOME/.local/share/test-omarchy-plugin-b" && ${OVM_SSH_PORT:-} == 2522 ]]
+[[ -n ${OVM_HOME:-} && -n ${OVM_SSH_PORT:-} ]]
 python3 - <<'PY'
 import base64
 import json
@@ -81,6 +81,7 @@ control('setRoot', '/tmp/brindle-media/library')
 control('openBlade', 'left')
 control('focusBlade', 'left')
 control('setBladeWidth', 'left', 380)
+probe('summaryInTree', 'true')
 if state()['mode']:
     probe('toggle')
 control('clearSearch')
@@ -186,5 +187,6 @@ probe('bindMinus', 'false')
 ovm('key', 'minus')
 after = wait(lambda s: s['ordinary']['step'] == 1)
 check('unbound minus still changes density', after['ordinary']['step'] == 1, after['ordinary']['step'])
+probe('summaryInTree', 'false')
 print(f'{checks} S8 chrome checks passed', flush=True)
 PY

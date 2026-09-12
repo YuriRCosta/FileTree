@@ -1,4 +1,5 @@
 import QtQuick
+import "../lib/PathText.js" as PathText
 import "../lib/TreeOrder.js" as TreeOrder
 
 Item {
@@ -112,7 +113,7 @@ Item {
     service.searchGitRepositoryCount = 0
     service.clearSelection()
     service.resetTree()
-    service.recordZoxideVisit(service.rootPath)
+    if (!PathText.isRemote(service.rootPath)) service.recordZoxideVisit(service.rootPath)
     service.scheduleStateSave()
   }
 
@@ -126,6 +127,12 @@ Item {
 
   function goUp() {
     if (!service.canGoUp) return service.rootPath
+    if (PathText.isRemote(service.rootPath)) {
+      var peer = service.drivesController.descriptorForPath(service.rootPath)
+      var base = peer ? String(peer.canonical_uri).replace(/\/$/, "") : ""
+      var current = String(service.rootPath).replace(/\/$/, "")
+      return service.navigateToLocation(!base || current === base ? service.drivesResource : current.slice(0, current.lastIndexOf("/")), null, "browse")
+    }
     setRootPath(service.parentDirectory(service.rootPath))
     return service.rootPath
   }

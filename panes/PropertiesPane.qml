@@ -7,6 +7,7 @@ import "../lib/FileIcons.js" as FileIcons
 import "../lib/KeyRouter.js" as KeyRouter
 import "../lib/Highlight.js" as Highlight
 import "../lib/PathText.js" as PathText
+import "../modules/files/MediaModel.js" as MediaModel
 
 FocusScope {
   id: root
@@ -131,11 +132,11 @@ FocusScope {
   readonly property bool actionableEntry: hasEntry && !isDeleted
   readonly property string imageMime: hasEntry ? String(entry.mime || "") : ""
   readonly property bool isImage: actionableEntry && !entry.is_dir && imageMime.indexOf("image/") === 0
+  property var mediaLocationDescriptor: null
   readonly property int imagePreviewByteLimit: 16 * 1024 * 1024
-  readonly property bool imageDecodable: ["image/jpeg", "image/png", "image/webp"].indexOf(imageMime) >= 0
-  readonly property bool imagePreviewAllowed: isImage && imageDecodable
+  readonly property bool imageDecodable: actionableEntry && !entry.is_dir && MediaModel.kind(entry) !== ""
+  readonly property bool imagePreviewAllowed: imageDecodable && MediaModel.allows(mediaLocationDescriptor, "read")
     && !entry.is_symlink
-    && ["image/jpeg", "image/png", "image/webp"].indexOf(imageMime) >= 0
     && Number(entry.size || -1) >= 0
     && Number(entry.size || -1) <= imagePreviewByteLimit
   readonly property string imagePreviewKey: imagePreviewAllowed
@@ -147,7 +148,7 @@ FocusScope {
   property int thumbnailGeneration: 0
   property bool imageLoading: false
   property string imageError: ""
-  readonly property bool previewableFile: actionableEntry && !entry.is_dir && !isImage
+  readonly property bool previewableFile: actionableEntry && !entry.is_dir && !imageDecodable
   readonly property bool isText: previewableFile && !entry.is_symlink && Number(entry.size || 0) >= 0 && Number(entry.size || 0) <= 262144
   readonly property string textPreviewKey: isText
     ? [String(entry.path || ""), String(entry.stat_fingerprint || ""), imageMime, String(entry.size)].join("\n")
@@ -201,9 +202,12 @@ FocusScope {
 
   function imagePreviewMessage() {
     if (!entry) return ""
-    if (entry.is_symlink) return "Linked images open externally to avoid following a link inside the shell."
+    if (!MediaModel.allows(mediaLocationDescriptor, "read")) return "Preview unavailable for this location."
+    if (entry.is_symlink) return isImage
+      ? "Linked images open externally to avoid following a link inside the shell."
+      : "Linked media open externally to avoid following a link inside the shell."
     if (Number(entry.size || -1) < 0 || Number(entry.size || -1) > imagePreviewByteLimit)
-      return "This image is too large to preview inside the shell."
+      return isImage ? "This image is too large to preview inside the shell." : "This media file is too large to preview inside the shell."
     return ""
   }
 
@@ -566,7 +570,7 @@ FocusScope {
       PluginUi.FilePreview {
         id: filePreview
         width: parent.width
-        image: root.isImage && (root.imageDecodable || root.entry.is_symlink)
+        image: root.imageDecodable
         imageAllowed: root.imagePreviewAllowed
         imageSource: root.previewSource
         imageMessage: root.imagePreviewMessage()

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+native_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+fail() { printf 'fileblade package: %s\n' "$*" >&2; exit 1; }
+[[ $# == 2 ]] || fail 'usage: packaging/build PAYLOAD OUTPUT'
+source=$(realpath -e -- "$1")
+output=$(realpath -m -- "$2")
+[[ ! -e $output && ! -L $output && -d ${output%/*} ]] || fail 'package output must be absent with an existing parent'
+"$native_root/tools/native" verify "$source"
+for dependency in makepkg fakeroot bsdtar; do
+  command -v "$dependency" >/dev/null || fail "package build tool unavailable: $dependency"
+done
+stage=$(mktemp -d "${output%/*}/.fileblade-package.XXXXXX")
+trap 'rm -rf -- "$stage"' EXIT
+mkdir "$stage/input"
+cp -a -- "$source/." "$stage/input/payload"
+chmod 755 "$stage/input/payload"
+"$native_root/tools/native" verify "$stage/input/payload"
+version=$(jq -r .version "$stage/input/payload/payload.json")
+architecture=$(jq -r .architecture "$stage/input/payload/payload.json")
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'Arch packaging currently requires a stable version'
+[[ $(uname -m) == "$architecture" ]] || fail 'build the Arch package on its matching architecture'
+dependencies=$(jq -er '.packages[]' "$stage/input/payload/packaging/runtime.json")
+bsdtar -cf "$stage/payload.tar" -C "$stage/input" payload
+cp -- "$native_root/packaging/launch" "$stage/launch"
+cp -- "$native_root/packaging/fileblade-native.hook" "$stage/fileblade-native.hook"
+digest=$(sha256sum "$stage/payload.tar")
+launch_digest=$(sha256sum "$stage/launch")
+hook_digest=$(sha256sum "$stage/fileblade-native.hook")
+{
+  printf 'pkgver=%q\narch=(%q)\nsha256sums=(%q %q %q)\ndepends=(\n' "$version" "$architecture" "${digest%% *}" "${launch_digest%% *}" "${hook_digest%% *}"
+  while IFS= read -r dependency; do printf '  %q\n' "$dependency"; done <<< "$dependencies"
+  printf ')\n'
+  cat -- "$native_root/packaging/PKGBUILD"
+} > "$stage/PKGBUILD"
+(cd -- "$stage" && PKGDEST="$stage" makepkg --noconfirm --cleanbuild --config /etc/makepkg.conf)
+packages=("$stage"/*.pkg.tar.*)
+[[ ${#packages[@]} == 1 && -f ${packages[0]} && ${packages[0]} != *.sig ]] || fail 'makepkg did not produce one package'
+mkdir "$stage/inspect"
+bsdtar -xf "${packages[0]}" -C "$stage/inspect"
+grep -Fx "arch = $architecture" "$stage/inspect/.PKGINFO" >/dev/null || fail 'package architecture differs'
+grep -Fx "pkgver = $version-1" "$stage/inspect/.PKGINFO" >/dev/null || fail 'package version differs'
+"$native_root/tools/native" verify "$stage/inspect/usr/lib/fileblade"
+cmp -s -- "$stage/input/payload/payload.json" "$stage/inspect/usr/lib/fileblade/payload.json" || fail 'package payload identity changed'
+rm -rf -- "$stage/input" "$stage/inspect" "$stage/src" "$stage/pkg"
+mv -T -n -- "$stage" "$output"
+[[ ! -d $stage ]] || fail 'package destination appeared during build'
+printf '%s/%s\n' "$output" "${packages[0]##*/}"

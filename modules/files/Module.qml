@@ -149,6 +149,7 @@ FocusScope {
 
     FilesSettings {
       controller: module.controller
+      pane: tree
     }
   }
 }

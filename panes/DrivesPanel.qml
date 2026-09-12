@@ -58,7 +58,7 @@ Item {
       columnWidths: [Style.space(96)]
       valueSample: "999 GB"
       hovered: rowHover.hovered
-      actionsVisible: drivesSection.drives.actionsAvailable
+      actionsVisible: drivesSection.drives.actionAvailableFor(driveRow.source)
       actionsReserved: true
 
       HoverHandler {
