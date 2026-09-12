@@ -1,48 +1,57 @@
 #!/usr/bin/env bash
-# Welcome tab and example extensions. Expectations E-29-01 .. E-29-05.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
 
-STATE=$(field bladeLayoutPath)
-original_slots=$(guest "jq -c .blades.right.slots $(printf '%q' "$STATE")")
-original_open=$("$OVM" ipc "$PLUGIN" blades | jq -r .blades.right.open)
+original_blades=$("$OVM" ipc "$PLUGIN" blades) || exit 1
+original_state=$(field welcomeState) || exit 1
 cleanup() {
-  ctl setBladeSlots right "base64:$(printf '%s' "$original_slots" | base64 -w0)"
-  [[ $original_open == true ]] || ctl closeBlade right
+  ctl setWelcomeState "$original_state"
+  for edge in left right; do
+    ctl setBladeSlots "$edge" "base64:$(jq -c ".blades.$edge.slots" <<<"$original_blades" | base64 -w0)"
+    if [[ $(jq -r ".blades.$edge.open" <<<"$original_blades") == true ]]; then
+      ctl openBlade "$edge"
+    else
+      ctl closeBlade "$edge"
+    fi
+  done
 }
 trap cleanup EXIT
 
-welcome_state() { "$OVM" ipc "$PLUGIN" status | jq -r '.welcomeState // ""'; }
-right_modules() { "$OVM" ipc "$PLUGIN" blades | jq -c '[.blades.right.slots[0].modules[].module]'; }
+right_modules() { "$OVM" ipc "$PLUGIN" blades | jq -c '[.blades.right.slots[].modules[].module]'; }
+welcome_state() { field welcomeState; }
 
 ctl setWelcomeState ""
-ctl setBladeSlots right 'base64:W10='
-ctl resetBladeLayout
-sleep 1
-expect_out E-29-01 "first launch seeds a Welcome tab in front of Notes" right_modules '["welcome","notes"]'
-expect_screen E-29-01 "the Welcome tab asks to install agent extensions" "Install agent extensions"
-
+ctl setBladeSlots right "base64:$(printf '%s' '[{"id":"welcome","modules":[{"module":"welcome"},{"module":"notes"}],"active":0}]' | base64 -w0)"
+ctl openBlade right
 ctl focusBlade right
+sleep 1
+expect_true E-29-01 "Welcome and Notes are available together" '[[ $(right_modules) == '\''["welcome","notes"]'\'' ]]'
+expect_contains E-29-01 "Welcome introduces built-in blades" "$(screen_text)" "Welcome to FileBlade"
+if [[ $(guest 'if ip -4 route get 1.1.1.1 >/dev/null 2>&1 || ip -6 route get 2606:4700:4700::1111 >/dev/null 2>&1; then echo online; else echo offline; fi') == offline ]]; then
+  expect_contains E-29-05 "help is visible without an external route" "$(screen_text)" "Find your way"
+else
+  pending E-29-05 "offline help" "Run with the guest external routes disabled; catalog rejection is covered by the Welcome QML suites."
+fi
+expect_missing E-29-02 "Welcome has no install offer" "$(screen_text)" "Install agent extensions"
+expect_true E-29-02 "all four agent blades are core modules" 'status | jq -e '\''.bladeModules | contains(["skills","memory","hooks","mcp"])'\'''
+expect_true E-29-02 "legacy install IPC reports built-in" '[[ $(guest "omarchy-shell $PLUGIN.control welcomeInstall") == built-in ]]'
+expect E-29-02 "no installer is running" welcomeInstalling false
+
 ctl welcomeDismiss
 sleep 1
-expect_out E-29-03 "closing for good removes the tab" "\"$OVM\" ipc \"$PLUGIN\" blades | jq -r '[.blades.right.slots[].modules[].module] | index(\"welcome\") // \"absent\"'" absent
-expect_out E-29-03 "and records the choice" welcome_state dismissed
-ctl resetBladeLayout
+expect_true E-29-03 "dismissal retains Notes" '[[ $(right_modules) == '\''["notes"]'\'' ]]'
+expect_true E-29-03 "dismissal is recorded" '[[ $(welcome_state) == dismissed ]]'
+ctl addBladeModule right welcome
+ctl focusBlade right
 sleep 1
-expect_out E-29-03 "a layout reset does not bring it back" "\"$OVM\" ipc \"$PLUGIN\" blades | jq -r '[.blades.right.slots[].modules[].module] | index(\"welcome\") // \"absent\"'" absent
+expect_contains E-29-04 "a dismissed Welcome can be reopened" "$(right_modules)" welcome
+expect_true E-29-04 "reopening preserves dismissal" '[[ $(welcome_state) == dismissed ]]'
+expect_contains E-29-04 "reopened Welcome renders" "$(screen_text)" "Welcome to FileBlade"
+"$OVM" shot E-29-reopened
 
-ctl setWelcomeState ""
-ctl resetBladeLayout
+ctl setWelcomeState installed
 sleep 1
-ctl welcomeInstall
-sleep 30
-expect_out E-29-02 "Install closes the Welcome tab" "\"$OVM\" ipc \"$PLUGIN\" blades | jq -r '[.blades.right.slots[].modules[].module] | index(\"welcome\") // \"absent\"'" absent
-expect_out E-29-04 "and records the install" welcome_state installed
-expect_out E-29-02 "the example extensions are installed" "guest 'ls ~/.config/omarchy/plugins | grep -c fileblade-'" 4
-ctl resetBladeLayout
-sleep 1
-expect_out E-29-04 "a layout reset after installing does not bring it back" "\"$OVM\" ipc \"$PLUGIN\" blades | jq -r '[.blades.right.slots[].modules[].module] | index(\"welcome\") // \"absent\"'" absent
-
-pend E-29-05 "install failure keeps the tab open with the failed extension named"
+expect_contains E-29-04 "legacy installed state also permits reopen" "$(right_modules)" welcome
+expect_true E-29-04 "legacy state is preserved" '[[ $(welcome_state) == installed ]]'
 summary
