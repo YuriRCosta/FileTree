@@ -16,7 +16,22 @@ if ! jq -e '.blades.left.slots and .blades.right.slots' <<<"$original" >/dev/nul
   summary
 fi
 fixture_dir=""
+drag_pgid=""
+stop_drag() {
+  [[ -n $drag_pgid ]] || return 0
+  [[ $drag_pgid =~ ^[1-9][0-9]+$ ]] || return 1
+  guest "kill -TERM -- -$drag_pgid 2>/dev/null || true"
+  if ! wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 5; then
+    guest "kill -KILL -- -$drag_pgid 2>/dev/null || true"
+    wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 5 || return 1
+  fi
+  drag_pgid=""
+}
 restore() {
+  if ! stop_drag; then
+    fail harness "stop the drag producer before restoration" "process group $drag_pgid could not be stopped; restoration skipped and fixture retained"
+    return 1
+  fi
   set_slots left '[]'
   set_slots right '[]'
   local edge expected observed failed=0
@@ -93,13 +108,19 @@ TOML
 )
   guest "printf '%s' $(printf '%q' "$script") > /tmp/fb-sections-20.toml"
   if [[ -n $during ]]; then
-    guest "rm -f /tmp/fb-sections-20.status; setsid sh -c 'democtl record /tmp/fb-sections-20.toml --out /tmp/fb-sections-20 --force >/tmp/fb-sections-20.log 2>&1; echo \$? >/tmp/fb-sections-20.status' </dev/null >/dev/null 2>&1 &"
+    drag_pgid=$(guest "rm -f /tmp/fb-sections-20.status; setsid sh -c 'democtl record /tmp/fb-sections-20.toml --out /tmp/fb-sections-20 --force >/tmp/fb-sections-20.log 2>&1; echo \$? >/tmp/fb-sections-20.status' </dev/null >/dev/null 2>&1 & echo \$!")
+    if [[ ! $drag_pgid =~ ^[1-9][0-9]+$ ]]; then
+      drag_pgid=${drag_pgid:-unknown}
+      fail harness "retain the drag producer" "invalid process group: $drag_pgid"
+      summary
+    fi
     sleep 2.2
     shot "$during"
-    if ! wait_for "! guest 'pgrep -x democtl' | grep -q ." 30 || [[ $(guest 'cat /tmp/fb-sections-20.status' 2>/dev/null) != 0 ]]; then
+    if ! wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 30 || [[ $(guest 'cat /tmp/fb-sections-20.status' 2>/dev/null) != 0 ]]; then
       fail harness "physical drag $name" "democtl failed; see /tmp/fb-sections-20.log"
       summary
     fi
+    drag_pgid=""
   elif ! guest 'democtl record /tmp/fb-sections-20.toml --out /tmp/fb-sections-20 --force >/tmp/fb-sections-20.log 2>&1'; then
     fail harness "physical drag $name" "democtl failed; see /tmp/fb-sections-20.log"
     summary
