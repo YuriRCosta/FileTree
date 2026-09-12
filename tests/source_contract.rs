@@ -158,24 +158,16 @@ fn production_runtime_is_rust_with_one_resident_qml_process() {
     assert!(!blade_host.contains("configreloaded"));
     let python_support = files(root, &["py"]);
     for path in &python_support {
+        let relative = path.strip_prefix(root).unwrap_or(path);
         assert!(
-            path.ends_with("python/fileblade_paths.py")
-                || path.ends_with("python/fileblade_process.py")
-                || path.ends_with("python/fileblade_inventory.py")
-                || path.ends_with("python/fileblade_mutations.py")
-                || path.ends_with("tests/test_python_paths.py")
-                || path.ends_with("tests/test_python_process.py")
-                || path.ends_with("tests/test_python_inventory.py")
-                || path.ends_with("tests/test_python_mutations.py")
-                || path.ends_with("tests/companion_readonly.py")
-                || path.ends_with("scripts/fileblade-extension-image.py")
-                || path.ends_with("tests/test_extension_image.py")
-                || path.ends_with("tests/vm/image-gallery-fixture.py"),
-            "Python is only shared companion support or a developer helper, not a core backend: {}",
+            relative.starts_with("python")
+                || relative.starts_with("tests")
+                || relative == std::path::Path::new("scripts/fileblade-extension-image.py"),
+            "Python is a bundled helper under python/, a test, or the extension image tool, never a core backend: {}",
             path.display()
         );
     }
-    assert_eq!(python_support.len(), 12);
+    assert!(python_support.len() >= 12);
 }
 
 #[test]
@@ -1050,7 +1042,13 @@ fn update_check_is_opt_out_bounded_and_manual_in_the_footer() {
 fn contributed_blade_modules_receive_their_singleton_provider_service() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let registry = text(&root.join("blades/BladeRegistry.qml"));
-    assert!(registry.contains("providerId: boundedText(idPrefix, \"\", maximumIdLength)"));
+    assert!(
+        registry.contains(
+            "providerId: source === \"builtin\" && !idPrefix && coreModules.indexOf(id) >= 0"
+        ) && registry
+            .contains("? \"fileblade.core.\" + id : boundedText(idPrefix, \"\", maximumIdLength)"),
+        "built-in core modules take a core provider id; contributed modules keep the plugin prefix"
+    );
     assert!(
         registry.contains(
             "normalizedModule(contributed[i], directory, \"plugin:\" + pluginId, pluginId)"

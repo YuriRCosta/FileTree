@@ -37,7 +37,7 @@ class NativePaths(unittest.TestCase):
         return json.loads(result.stdout.decode("utf-8"))
 
     def core(self, command, *arguments):
-        raw = subprocess.check_output([str(ROOT / "target/release/fileblade"), "_backend", command, *arguments], env=self.env)
+        raw = subprocess.check_output([os.environ.get("FILEBLADE_BINARY", str(ROOT / "target/release/fileblade")), "_backend", command, *arguments], env=self.env)
         return json.loads(raw)
 
     def test_distinct_paths_names_and_ids(self):
