@@ -4,6 +4,11 @@
 set -u
 OVM=${OVM:?set OVM to the ovm harness path}
 PLUGIN=data-goblin.fileblade
+FILEBLADE_SHAPE=${FILEBLADE_SHAPE:-plugin}
+CONTROL_COMMAND=(omarchy-shell -q "$PLUGIN.control")
+if [[ $FILEBLADE_SHAPE == native ]]; then
+  CONTROL_COMMAND=("$OVM" ipc "$PLUGIN.control")
+fi
 ROOT_DIR=/home/omarchy/fbexp
 fails=0
 checks=0
@@ -23,7 +28,11 @@ require_guest() {
 # with edge whitespace loses it and one starting with # is swallowed as a comment.
 # Quote every argument for the remote shell instead.
 ctl() {
-  local cmd="omarchy-shell -q $PLUGIN.control" a
+  if [[ $FILEBLADE_SHAPE == native ]]; then
+    "${CONTROL_COMMAND[@]}" "$@" >/dev/null
+    return
+  fi
+  local cmd="${CONTROL_COMMAND[*]}" a
   for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
   guest "$cmd" >/dev/null
 }
@@ -95,6 +104,11 @@ wait_for() {
 }
 
 restart_shell() {
+  if [[ $FILEBLADE_SHAPE == native ]]; then
+    "$OVM" restart >/dev/null 2>&1 || return 1
+    wait_for "[[ -n \$(field rootPath) ]]" 25
+    return $?
+  fi
   local attempt
   for attempt in 1 2; do
     "$(dirname "${BASH_SOURCE[0]}")/../stop-shell" || return 1
