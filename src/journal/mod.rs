@@ -13,12 +13,16 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 
+mod compound;
 mod fingerprint;
+mod permissions;
 mod record;
 mod step;
 mod store;
 mod trash;
+pub use compound::*;
 pub use fingerprint::*;
+pub use permissions::*;
 pub use record::*;
 pub use step::*;
 pub use store::*;

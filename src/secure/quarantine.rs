@@ -178,7 +178,7 @@ pub fn quarantine_path(path: &Path) -> io::Result<QuarantinedEntry> {
     quarantine_resolved(resolved_parent(path)?)
 }
 
-pub(super) fn quarantine_resolved(parent: ResolvedParent) -> io::Result<QuarantinedEntry> {
+pub fn quarantine_resolved(parent: ResolvedParent) -> io::Result<QuarantinedEntry> {
     let staging_name = OsString::from(format!(".fileblade-stage-{}", Uuid::new_v4().simple()));
     mkdirat(
         &parent.directory,

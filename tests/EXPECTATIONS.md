@@ -749,6 +749,9 @@ including intentionally empty notes, retain their saved contents.
      full-height right pane respectively.
 231. **E-26-07** If I release the drag on a valid wheel choice, FileBlade runs the
      highlighted action once for all carried items.
+     If I release while the wheel's rows are still loading, FileBlade remembers
+     the release point for at most 800 ms and runs the action there once the rows
+     arrive; past that the wheel stays open for an explicit choice.
 232. **E-26-08** If I cancel the wheel or release without a valid choice, no file
      is opened, moved, or changed.
 233. **E-26-09** If I release the drag on the hub of the wheel, the wheel stays
@@ -1040,3 +1043,20 @@ is maintained separately.
   dropdown under its icon, with the same header, search, chips, grid and
   timeline; Escape or an outside click closes it, and the blade copy of the
   module is unaffected.
+
+## 38. Configuring the drop wheel
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/38-wheel-config.sh`.
+
+- **E-38-01** If I have no `dropWheel` settings, I get the standard available actions. Version 1 enables configuration; an unsupported version leaves the defaults usable and explains the problem.
+- **E-38-02** I can order or hide actions and their placements. Listed available entries come first, unlisted defaults remain, and hiding every built-in placement removes its containing action. I can add custom entries and references to available built-in actions without changing FileBlade source.
+- **E-38-03** I can change labels, shortcut keys, glyphs and icons at every supported level. Keys are unique within each ring. An explicit icon or glyph takes precedence over inherited imagery; a built-in reference otherwise retains its original icon and glyph.
+- **E-38-04** I can define commands as argument arrays using whole-argument `{paths}`, `{path}`, `{cwd}` and `{git_root}` substitutions. Selected path bytes survive unchanged. An embedded substitution, `{path}` with multiple selections, or an unavailable required value is refused with an explanation.
+- **E-38-05** A custom entry appears only for its configured target kinds and when every selected path satisfies its MIME/path conditions. Any pattern in each declared array may match; both arrays must hold when both are present. Unknown MIME does not match. A multiplexer command requires a supported resolved target.
+- **E-38-06** I can navigate an action, its placement and a sub-placement using the pointer or keyboard. Letters select entries, arrows/Tab move within the active ring, and Enter accepts. Escape/Backspace returns one layer at a time and then closes the wheel. Containers expose their children and executable leaves run their action.
+- **E-38-07** An invalid custom entry is skipped and an invalid override leaves its original entry usable, with a visible footer diagnosis. Valid siblings remain usable. Configuration respects three rings, twelve entries per ring, a ninety-six custom-node budget and the documented argument/document limits.
+- **E-38-08** Saving ordinary preferences or editing the wheel preserves unknown members in the surrounding settings and within wheel definitions. Restoring the standard wheel affects only `dropWheel`.
+- **E-38-09** Custom commands run detached, in a new terminal, or in a supported herdr/tmux placement with the expected arguments and working directory. Shell-looking path and argument text stays literal; configuration is never treated as an implicit shell command.
+- **E-38-10** Before running a configured command or custom built-in reference, FileBlade rereads its settings and file facts. A removed, hidden or newly inapplicable entry cannot execute from an old wheel route.

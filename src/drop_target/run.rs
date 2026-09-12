@@ -22,7 +22,9 @@ pub fn drop_run(options: &DropRunOptions) -> Value {
             "dry_run": options.dry_run,
         });
     }
-    let result = if options.action == "application" {
+    let result = if options.action == "configured" {
+        run_configured(&mut runner, &options.placement, &target, &facts)
+    } else if options.action == "application" {
         run_application(&mut runner, &options.desktop_id, &facts)
     } else if options.action == "review" {
         run_review(&mut runner, &options.placement, &target, &facts)
@@ -49,6 +51,80 @@ pub fn drop_run(options: &DropRunOptions) -> Value {
             "dry_run": options.dry_run,
         }),
     )
+}
+
+fn run_configured(
+    runner: &mut Runner,
+    route: &str,
+    target: &Value,
+    facts: &Value,
+) -> AppResult<Value> {
+    if route.len() > 1024 {
+        return Err(AppError::invalid("Invalid configured action route"));
+    }
+    let route: Vec<String> = serde_json::from_str(route)?;
+    if route.is_empty() || route.len() > 3 {
+        return Err(AppError::invalid("Invalid configured action depth"));
+    }
+    let (rows, _) = config::load(&actions_for(target, facts), target, facts);
+    let row = config::resolve(&rows, &route)
+        .ok_or_else(|| AppError::invalid("This configured action is no longer available"))?;
+    if row["placements"]
+        .as_array()
+        .is_some_and(|rows| !rows.is_empty())
+    {
+        return Err(AppError::invalid("Choose a placement first"));
+    }
+    if row["configured_builtin"] == true {
+        let action = text_field(row, "builtin_action");
+        let placement = text_field(row, "builtin_placement");
+        return match action.as_str() {
+            "application" => run_application(runner, &text_field(row, "desktop_id"), facts),
+            "review" => run_review(runner, &placement, target, facts),
+            "open" | "terminal" | "copy-paths" => run_generic(runner, &action, facts),
+            _ => run_target(runner, &action, &placement, target, facts),
+        };
+    }
+    let command = config::expand(&row["command"], facts)?;
+    let cwd = text_field(facts, "folder");
+    let folder = parse_path(&cwd)?;
+    let initial_folder = folder.ancestors().find_map(Path::to_str).unwrap_or("/");
+    match text_field(row, "runMode").as_str() {
+        "detached" => runner.detached(command, Some(&cwd))?,
+        "terminal" => {
+            let mut launch = vec![
+                OsString::from("xdg-terminal-exec"),
+                native_directory_arg(initial_folder)?,
+                OsString::from("-e"),
+            ];
+            launch.extend(
+                configured_launcher(&command, &cwd)?
+                    .into_iter()
+                    .map(OsString::from),
+            );
+            runner.detached(wrapped(launch), None)?;
+        }
+        "multiplexer" => {
+            if let Some(reason) = ambiguous_reason(target) {
+                return Err(AppError::invalid(reason));
+            }
+            revalidate_title_target(target).map_err(AppError::invalid)?;
+            let command = configured_launcher(&command, &cwd)?;
+            let result = run_multiplexer_command(
+                runner,
+                &text_field(row, "placement"),
+                target,
+                initial_folder,
+                &command,
+            )?;
+            if result["ok"] == true {
+                focus_target(runner, target)?;
+            }
+            return Ok(result);
+        }
+        _ => return Err(AppError::invalid("Invalid configured run mode")),
+    }
+    Ok(json!({"ok": true, "error": ""}))
 }
 
 pub fn drop_paste(options: &DropPasteOptions) -> Value {

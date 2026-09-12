@@ -10,6 +10,7 @@ pub const MOUNTINFO_PATH: &str = "/proc/self/mountinfo";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MountRecord {
+    pub mount_id: u64,
     pub device_number: String,
     pub subroot: String,
     pub mountpoint: PathBuf,
@@ -83,6 +84,7 @@ fn parse_line(line: &[u8]) -> Option<MountRecord> {
     let head = fields.get(..separator)?;
     let tail = fields.get(separator + 1..)?;
     Some(MountRecord {
+        mount_id: std::str::from_utf8(head.first()?).ok()?.parse().ok()?,
         device_number: std::str::from_utf8(head.get(2)?).ok()?.to_string(),
         subroot: display_path(Path::new(&unmangle(head.get(3)?))),
         mountpoint: PathBuf::from(unmangle(head.get(4)?)),
@@ -95,11 +97,14 @@ fn parse_line(line: &[u8]) -> Option<MountRecord> {
                 display_path(&source)
             }
         },
-        read_only: head.get(5).is_some_and(|options| {
-            options
-                .split(|byte| *byte == b',')
-                .any(|option| option == b"ro")
-        }),
+        read_only: [head.get(5), tail.get(2)]
+            .into_iter()
+            .flatten()
+            .any(|options| {
+                options
+                    .split(|byte| *byte == b',')
+                    .any(|option| option == b"ro")
+            }),
     })
 }
 
