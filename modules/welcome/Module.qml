@@ -1,262 +1,199 @@
 import QtQuick
-import QtQuick.Effects
+import QtQuick.Controls as Controls
 import qs.Commons
+import "../../ui" as PluginUi
 import "WelcomePlan.js" as WelcomePlan
 
 FocusScope {
   id: module
-
   property var context: null
-
   readonly property string title: "Welcome"
-  readonly property var shortcuts: [
-    { title: "Welcome", items: [{ shortcut: "Enter", text: "Install the example extensions" }, { shortcut: "Esc", text: "Close and do not show again" }] }
-  ]
-  readonly property color paneBackground: Qt.lighter(Color.background, 1.035)
   readonly property var files: context ? context.service("files") : null
-  readonly property var welcome: files ? files.welcome : null
-  readonly property bool installing: !!welcome && welcome.installing
-  readonly property bool placing: !!welcome && welcome.placingActive
-  readonly property bool placementFailed: !!welcome && welcome.placementFailed
-  readonly property string installError: welcome ? String(welcome.error || "") : ""
-  readonly property int missingCount: welcome ? welcome.missing().length : 0
-  readonly property bool installable: (missingCount > 0 || placementFailed) && !installing && !placing
-  readonly property real nameColumnWidth: Math.ceil(nameMetrics.width)
-
-  TextMetrics {
-    id: nameMetrics
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
-    text: WelcomePlan.EXTENSIONS.map(function(item) { return item.name }).reduce(function(longest, name) { return name.length > longest.length ? name : longest }, "")
-  }
+  readonly property var host: files ? files.bladeHost : null
+  readonly property var shortcuts: [
+    { title: "Welcome", items: [{ shortcut: "Enter", text: "Open Files" }, { shortcut: "Esc", text: "Close Welcome" }] }
+  ]
+  property var catalog: WelcomePlan.LOCAL_CATALOG
+  property int helpIndex: 0
+  property string error: ""
 
   function takeFocus(part) { module.forceActiveFocus() }
-  function has(moduleId) { return !!welcome && welcome.registryHas(moduleId) }
-  function install() { if (welcome) welcome.install() }
-  function dismiss() { if (welcome) welcome.dismiss() }
-
+  function info(id) { return host && host.registry ? host.registry.module(id) : null }
+  function acceptCatalog(text) {
+    var next = WelcomePlan.catalog(text, context ? context.contractVersion : 0)
+    if (!next) return false
+    catalog = next
+    return true
+  }
+  function openModule(id) {
+    if (!info(id)) { error = "This blade is unavailable."; return false }
+    var found = host.findModule(id)
+    if (!found) {
+      var welcome = host.findModule("welcome")
+      if (!host.addSlot(welcome ? welcome.edge : "right", id, -1)) { error = "The blade could not be added."; return false }
+      found = host.findModule(id)
+    }
+    if (!found) return false
+    host.setSlotTab(found.edge, found.index, found.tab)
+    host.setOpen(found.edge, true)
+    host.focusModule(id, host.preferredScreen(found.edge), "")
+    error = ""
+    return true
+  }
+  function dismiss() {
+    if (!files || !files.welcome.dismiss()) error = "Welcome could not be closed. Try again when the layout is writable."
+  }
   Keys.onPressed: function(event) {
-    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { module.install(); event.accepted = true }
-    else if (event.key === Qt.Key_Escape) { module.dismiss(); event.accepted = true }
+    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { openModule("files"); event.accepted = true }
+    else if (event.key === Qt.Key_Escape) { dismiss(); event.accepted = true }
   }
 
-  Rectangle { anchors.fill: parent; color: module.paneBackground }
-
-  Column {
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: parent.top
-    anchors.margins: Style.space(12)
-    spacing: Style.space(10)
-
-    Text {
-      textFormat: Text.PlainText
-      width: parent.width
-      text: WelcomePlan.HEADING
-      color: Color.bar.text
-      wrapMode: Text.WordWrap
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.weight: Font.DemiBold
+  component Action: Controls.Button {
+    id: action
+    property string detail: ""
+    property string glyph: ""
+    property string iconUrl: ""
+    width: parent ? parent.width : 0
+    padding: Style.space(8)
+    implicitHeight: body.implicitHeight + padding * 2
+    hoverEnabled: true
+    Keys.onReturnPressed: clicked()
+    Keys.onEnterPressed: clicked()
+    onActiveFocusChanged: {
+      if (activeFocus) scroll.contentY = Math.max(0, Math.min(mapToItem(content, 0, 0).y, scroll.contentHeight - scroll.height))
     }
-
-    Text {
-      textFormat: Text.PlainText
-      width: parent.width
-      text: WelcomePlan.BODY
-      color: Color.muted
-      wrapMode: Text.WordWrap
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-    }
-
-    Column {
-      width: parent.width
-      spacing: Style.space(4)
-      Repeater {
-        model: WelcomePlan.EXTENSIONS
-        delegate: Item {
-          id: extensionRow
-          required property var modelData
-          width: parent ? parent.width : 0
-          height: Style.space(18)
-          activeFocusOnTab: true
-          Accessible.role: Accessible.Link
-          Accessible.name: modelData.name + " source code on GitHub"
-          function openSource() { Qt.openUrlExternally(String(modelData.url).replace(/\.git$/, "")) }
-          Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-              openSource()
-              event.accepted = true
-            }
-          }
-          Item {
-            id: glyphSlot
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            width: Style.space(14)
-            height: parent.height
-            Text {
-              textFormat: Text.PlainText
-              anchors.centerIn: parent
-              visible: !extensionRow.modelData.image
-              text: extensionRow.modelData.glyph
-              color: Color.accent
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
-            }
-            Image {
-              id: logo
-              anchors.centerIn: parent
-              width: Style.space(11)
-              height: width
-              visible: false
-              source: extensionRow.modelData.image ? Qt.resolvedUrl(extensionRow.modelData.image) : ""
-              sourceSize: Qt.size(64, 64)
-              smooth: true
-            }
-            MultiEffect {
-              source: logo
-              anchors.fill: logo
-              visible: !!extensionRow.modelData.image && logo.status === Image.Ready
-              colorization: 1
-              colorizationColor: Color.accent
-            }
-          }
-          Text {
-            id: nameText
-            textFormat: Text.PlainText
-            anchors.left: glyphSlot.right
-            anchors.leftMargin: Style.space(8)
-            anchors.verticalCenter: parent.verticalCenter
-            width: module.nameColumnWidth
-            text: extensionRow.modelData.name
-            color: sourcePointer.containsMouse || extensionRow.activeFocus ? Color.accent : Color.bar.text
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            font.underline: true
-          }
-          Text {
-            textFormat: Text.PlainText
-            anchors.left: nameText.right
-            anchors.leftMargin: Style.space(10)
-            anchors.verticalCenter: parent.verticalCenter
-            visible: module.has(extensionRow.modelData.module)
-            text: "installed"
-            color: Color.muted
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-          }
-          MouseArea {
-            id: sourcePointer
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: extensionRow.openSource()
-          }
-        }
-      }
-    }
-
-    Rectangle {
-      width: installContent.implicitWidth + Style.space(24)
-      height: Style.space(26)
+    background: Rectangle {
       radius: 0
-      color: !module.installable ? Util.alpha(Color.muted, 0.25) : (installPointer.containsMouse ? Qt.lighter(Color.accent, 1.1) : Color.accent)
-      Row {
-        id: installContent
-        anchors.centerIn: parent
-        spacing: Style.space(8)
-        Item {
-          id: busyIcon
-          visible: module.installing || module.placing
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(18)
-          height: width
-          Image {
-            id: busyImage
-            anchors.fill: parent
-            source: "../../assets/fileblade-icon.svg"
-            sourceSize: Qt.size(64, 64)
-            visible: false
-            smooth: true
-          }
-          MultiEffect {
-            source: busyImage
-            anchors.fill: parent
-            colorization: 1
-            colorizationColor: Color.accent
-          }
-          SequentialAnimation on opacity {
-            running: (module.installing || module.placing) && !!module.files && module.files.bladeHost.animateBlades
-            loops: Animation.Infinite
-            onStopped: busyIcon.opacity = 1
-            NumberAnimation { from: 1; to: 0.25; duration: 450; easing.type: Easing.InOutSine }
-            NumberAnimation { from: 0.25; to: 1; duration: 450; easing.type: Easing.InOutSine }
-          }
-        }
+      color: action.hovered || action.activeFocus ? Util.alpha(Color.accent, 0.15) : "transparent"
+      border.width: action.activeFocus ? 1 : 0
+      border.color: Color.accent
+    }
+    contentItem: Row {
+      spacing: Style.space(8)
+      PluginUi.ModuleIcon {
+        width: Style.space(16)
+        height: width
+        glyph: action.glyph
+        iconUrl: action.iconUrl
+        visible: glyph !== "" || iconUrl !== ""
+        color: Color.accent
+      }
+      Column {
+        id: body
+        width: parent.width - (action.glyph !== "" || action.iconUrl !== "" ? Style.space(24) : 0)
+        spacing: Style.space(3)
         Text {
-          id: installLabel
+          width: parent.width
           textFormat: Text.PlainText
-          anchors.verticalCenter: parent.verticalCenter
-          text: module.installing && module.welcome ? "Installing " + (module.welcome.installed + 1) + " of " + module.welcome.queue.length + "…"
-            : module.placing ? "Adding tabs…"
-            : (module.missingCount === 0 && !module.placementFailed ? "Installed" : "Install")
-          color: module.installing || module.placing ? Color.bar.text : (module.installable ? Color.background : Color.muted)
+          text: action.text
+          color: action.enabled ? Color.bar.text : Color.muted
+          wrapMode: Text.WordWrap
           font.family: Style.font.family
           font.pixelSize: Style.font.body
-          font.weight: Font.DemiBold
+        }
+        Text {
+          width: parent.width
+          visible: text !== ""
+          textFormat: Text.PlainText
+          text: action.detail
+          color: Color.muted
+          wrapMode: Text.WordWrap
+          font.family: Style.font.family
+          font.pixelSize: Style.font.bodySmall
         }
       }
-      MouseArea {
-        id: installPointer
-        anchors.fill: parent
-        hoverEnabled: true
-        enabled: module.installable
-        cursorShape: Qt.PointingHandCursor
-        onClicked: module.install()
-      }
-    }
-
-    Text {
-      textFormat: Text.PlainText
-      width: parent.width
-      text: WelcomePlan.SOURCE_NOTICE
-      color: module.files ? module.files.themedFolderColor("yellow", "#e5c07b") : Color.accent
-      wrapMode: Text.WordWrap
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
-    }
-
-    Text {
-      textFormat: Text.PlainText
-      width: parent.width
-      visible: module.installError !== ""
-      text: module.installError
-      color: Color.urgent
-      wrapMode: Text.WordWrap
-      font.family: Style.font.family
-      font.pixelSize: Style.font.bodySmall
     }
   }
 
-  Text {
-    textFormat: Text.PlainText
-    anchors.left: parent.left
-    anchors.bottom: parent.bottom
+  Rectangle { anchors.fill: parent; color: Qt.lighter(Color.background, 1.035) }
+  Flickable {
+    id: scroll
+    anchors.fill: parent
     anchors.margins: Style.space(12)
-    text: WelcomePlan.DISMISS
-    color: dismissPointer.containsMouse ? Color.bar.text : Color.muted
-    font.family: Style.font.family
-    font.pixelSize: Style.font.caption
-    font.underline: true
-    MouseArea {
-      id: dismissPointer
-      anchors.fill: parent
-      anchors.margins: -Style.space(4)
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: module.dismiss()
+    contentWidth: width
+    contentHeight: content.height
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    Controls.ScrollBar.vertical: Controls.ScrollBar {}
+    Column {
+      id: content
+      width: scroll.width
+      spacing: Style.space(8)
+      Text {
+        width: parent.width
+        textFormat: Text.PlainText
+        text: WelcomePlan.HEADING
+        color: Color.bar.text
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.weight: Font.DemiBold
+      }
+      Text {
+        width: parent.width
+        textFormat: Text.PlainText
+        text: WelcomePlan.BODY
+        color: Color.muted
+        wrapMode: Text.WordWrap
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+      Repeater {
+        model: WelcomePlan.CORE
+        delegate: Action {
+          required property var modelData
+          readonly property var entry: module.info(modelData.id)
+          text: modelData.name
+          detail: modelData.description
+          glyph: entry ? entry.glyph : ""
+          iconUrl: entry ? entry.iconUrl : ""
+          enabled: !!entry
+          onClicked: module.openModule(modelData.id)
+        }
+      }
+      PluginUi.SettingsGroup { title: "Help · available offline" }
+      Repeater {
+        model: WelcomePlan.HELP
+        delegate: Action {
+          required property var modelData
+          required property int index
+          text: modelData.name
+          detail: module.helpIndex === index ? modelData.text : ""
+          onClicked: module.helpIndex = index
+        }
+      }
+      Action { text: "Keyboard reference"; onClicked: Qt.openUrlExternally(Qt.resolvedUrl("../../docs/agent-written/keybindings.md")) }
+      Action { text: "Extension authoring guide"; onClicked: Qt.openUrlExternally(Qt.resolvedUrl("../../EXTENSIONS.md")) }
+      PluginUi.SettingsGroup { title: "Extensions" }
+      Text {
+        width: parent.width
+        visible: module.catalog.entries.length === 0
+        textFormat: Text.PlainText
+        text: "Extensions can add more blades. No optional extensions are listed here yet. Installed blades remain available from +."
+        color: Color.muted
+        wrapMode: Text.WordWrap
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+      Repeater {
+        model: module.catalog.entries
+        delegate: Action {
+          required property var modelData
+          text: modelData.name
+          detail: modelData.id + " · " + modelData.lifecycle + "\n" + (modelData.compatible ? "Compatible" : "Requires a newer extension interface") + "\n" + modelData.source
+          onClicked: Qt.openUrlExternally(modelData.source)
+        }
+      }
+      Text {
+        width: parent.width
+        visible: text !== ""
+        textFormat: Text.PlainText
+        text: module.error
+        color: Color.urgent
+        wrapMode: Text.WordWrap
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+      Action { text: WelcomePlan.DISMISS; detail: "Reopen Welcome with + in a blade."; onClicked: module.dismiss() }
     }
   }
 }
