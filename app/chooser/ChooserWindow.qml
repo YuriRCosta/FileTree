@@ -52,6 +52,9 @@ FloatingWindow {
         }
         Panes.PickerBar {
           id: footer
+          acceptLabel: String(session.offer.accept_label || "").replace(/__|_(?=.)/g, function(marker) {
+            return marker === "__" ? "_" : ""
+          })
           anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
           controller: window.controller
           hostWindow: window
