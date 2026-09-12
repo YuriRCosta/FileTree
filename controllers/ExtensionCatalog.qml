@@ -5,6 +5,7 @@ QtObject {
 
   property var service: null
   property var watchPaths: []
+  property var pendingDirectories: []
   property int generation: 0
   property var providers: []
   property string activation: "unknown"
@@ -15,6 +16,7 @@ QtObject {
   property bool complete: true
   property int watchFailures: 0
   property string watchRequestId: ""
+  property string watchSignature: ""
   readonly property int maximumProviders: 128
   readonly property int minimumIntervalMs: 2000
   readonly property int maximumAgeMs: 5000
@@ -73,6 +75,7 @@ QtObject {
       var rows = catalog.accepted(response)
       if (rows === null) {
         catalog.invalidate(response && (response.message || response.error))
+        if (watchPaths.length === 4) Qt.callLater(catalog.watch)
         catalog.pump()
         return
       }
@@ -81,6 +84,11 @@ QtObject {
       catalog.activation = String(response.activation || "unknown")
       var trusted = catalog.activation === "known" && catalog.complete
       catalog.providers = trusted ? rows : catalog.withoutAuthority(rows)
+      if (watchPaths.length === 4) {
+        var known = catalog.providers.map(function(provider) { return catalog.watchPaths[2] + "/" + provider.id })
+        catalog.pendingDirectories = catalog.pendingDirectories.filter(function(path) { return known.indexOf(path) < 0 })
+        Qt.callLater(catalog.watch)
+      }
       catalog.refreshed()
       catalog.pump()
     })
@@ -93,9 +101,17 @@ QtObject {
     var path = String(event.path || event.root || "")
     if (!path) return false
     if (watchPaths.length === 4) {
-      if (watchPaths.indexOf(path) >= 0) {
-        unwatch()
-        watch()
+      var child = path.indexOf(watchPaths[2] + "/") === 0 && path.slice(watchPaths[2].length + 1).indexOf("/") < 0
+      if (child) {
+        var events = Array.isArray(event.events) ? event.events : []
+        var removed = events.indexOf("delete") >= 0 || events.indexOf("moved_from") >= 0
+        if (removed) pendingDirectories = pendingDirectories.filter(function(value) { return value !== path })
+        else if ((events.indexOf("create") >= 0 || events.indexOf("moved_to") >= 0)
+                 && pendingDirectories.indexOf(path) < 0 && pendingDirectories.length < maximumProviders * 2)
+          pendingDirectories = pendingDirectories.concat([path])
+      }
+      if (watchPaths.indexOf(path) >= 0 || child) {
+        watchSignature = ""
         return true
       }
       return path.indexOf(watchPaths[2] + "/") === 0 || path === watchPaths[3] + "/settings.json"
@@ -136,16 +152,26 @@ QtObject {
   }
 
   function watch() {
-    if (!service || watchRequestId || !Array.isArray(watchPaths) || watchPaths.length === 0) return false
+    if (!service || !Array.isArray(watchPaths) || watchPaths.length === 0) return false
+    var paths = watchPaths.slice()
+    if (watchPaths.length === 4)
+      paths = paths.concat(pendingDirectories, providers.map(function(provider) { return catalog.watchPaths[2] + "/" + provider.id })).filter(function(path, index, all) { return all.indexOf(path) === index }).sort()
+    var signature = JSON.stringify(paths)
+    if (watchRequestId) {
+      if (watchPaths.length !== 4 || watchSignature === signature) return false
+      unwatch()
+    }
+    watchSignature = signature
     generation++
     var current = generation
-    watchRequestId = service.backendSubscribe(watchPaths.slice(), current, function(event) {
+    watchRequestId = service.backendSubscribe(paths, current, function(event) {
       if (current !== catalog.generation) return
       if (catalog.relevant(event)) catalog.requestRefresh()
     }, function() {
       if (current !== catalog.generation) return
       catalog.watchFailures = 0
-      catalog.refresh()
+      if (watchPaths.length === 4) catalog.requestRefresh()
+      else catalog.refresh()
     }, function() {
       if (current !== catalog.generation) return
       catalog.watchRequestId = ""

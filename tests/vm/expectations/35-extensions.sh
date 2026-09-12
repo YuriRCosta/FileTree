@@ -13,8 +13,8 @@ else
   extensions=/home/omarchy/.config/omarchy/plugins
 fi
 case_dir=$(guest 'mktemp -d /tmp/fileblade-extensions.XXXXXX') || { fail harness fixture 'mktemp failed'; summary; }
-original=$(guest "head -c 262145 '$layout'" | jq -c '.blades')
-[[ $(jq -r 'has("left") and has("right")' <<< "$original") == true ]] || { fail harness layout 'cannot capture original blades'; summary; }
+original=$(guest "head -c 262145 '$layout'" | jq -ce '.blades')
+[[ $(jq -r '(.left.slots | type) == "array" and (.right.slots | type) == "array"' <<< "$original") == true ]] || { fail harness layout 'cannot preserve original module state on both edges'; summary; }
 ids=(fixture.extensions35-$$ fixture.extensions35-late-$$ fixture.extensions35-old-$$)
 for id in "${ids[@]}"; do
   if [[ $(guest "test -e '$extensions/$id' && echo exists") == exists ]]; then
@@ -47,14 +47,16 @@ trap cleanup EXIT
 create() {
   local code
   code=$(base64 -w0 <<'PY'
-import json,pathlib,sys
+import json,pathlib,sys,time
 root,case,identity,legacy=sys.argv[1:]
 p=pathlib.Path(root)/identity
 p.mkdir()
+if legacy=='delayed': time.sleep(3)
 module={'id':'probe','name':'Extension 35','entry':'Module.qml','hostContract':2}
 if legacy!='legacy': module['provider']='Provider.qml'
 manifest={'schemaVersion':1,'id':identity,'name':'Extension 35','version':'0.1.0','kinds':['service'],'entryPoints':{'service':'Provider.qml'},'extensions':{'data-goblin.fileblade/blade':[module]}}
 (p/'manifest.json').write_text(json.dumps(manifest))
+if legacy=='delayed': time.sleep(3)
 (p/'Module.qml').write_text('import QtQuick\nItem { property var context: null; readonly property string title: "Extension 35"; Text { anchors.centerIn: parent; text: "EXTENSION 35 CONTENT"; color: "white" } }\n')
 marker=json.dumps(case+'/'+identity)
 (p/'Provider.qml').write_text('import QtQuick\nimport Quickshell\nItem { property string providerId: ""; property string providerRoot: ""; property var files: null; property url inventoryComponentUrl: ""; Component.onCompleted: Quickshell.execDetached(["touch", '+marker+' + ".started"]); function shutdown() { Quickshell.execDetached(["touch", '+marker+' + ".stopped"]) } }\n')
@@ -103,8 +105,8 @@ expect_out E-35-02 'disable shuts down the provider' "test -f '$case_dir/${ids[0
 activation enable
 await_list E-35-02 "${ids[0]}" 'enable restores the module without restart'
 
-create "${ids[1]}"
-await_list E-35-03 "${ids[1]}" 'new extension appears while blades stay open'
+create "${ids[1]}" delayed
+await_list E-35-03 "${ids[1]}" 'extension written in stages appears while blades stay open'
 ctl openBlade right
 ctl closeBlade left
 sleep 3

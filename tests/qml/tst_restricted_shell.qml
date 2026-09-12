@@ -223,6 +223,8 @@ TestCase {
 
   function test_native_activation_and_first_extension_directory_wake_the_catalog() {
     var original = catalog.watchPaths
+    var originalProviders = catalog.providers
+    catalog.providers = []
     catalog.watchPaths = ["/config", "/config/fileblade", "/config/fileblade/extensions", "/config/omarchy/fileblade"]
     compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.one" }), true)
     compare(catalog.relevant({ path: "/config/omarchy/fileblade/settings.json" }), true)
@@ -231,10 +233,30 @@ TestCase {
     compare(catalog.relevant({ path: "/config/omarchy/shell.json" }), false)
     var before = catalog.generation
     compare(catalog.relevant({ path: "/config/fileblade" }), true)
+    catalog.watch()
     verify(catalog.generation > before)
     compare(fakeService.watchPaths, catalog.watchPaths)
+    var subscribedGeneration = catalog.generation
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late", directory: true, events: ["create"] }), true)
+    compare(catalog.generation, subscribedGeneration)
+    fakeService.reply = { ok: true, activation: "known", providers: [] }
+    catalog.read()
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.sibling", directory: true, events: ["create"] }), true)
+    compare(catalog.generation, subscribedGeneration)
+    tryVerify(function() { return fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.sibling") >= 0 })
+    verify(fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.late") >= 0)
+    subscribedGeneration = catalog.generation
+    compare(catalog.watch(), false)
+    compare(catalog.generation, subscribedGeneration)
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late/manifest.json" }), true)
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late/Module.qml" }), true)
+    compare(catalog.relevant({ path: "/config/fileblade/extensions/acme.late", directory: true, events: ["delete"] }), true)
+    catalog.watch()
+    verify(fakeService.watchPaths.indexOf("/config/fileblade/extensions/acme.late") < 0)
     catalog.unwatch()
+    catalog.pendingDirectories = []
     catalog.watchPaths = original
+    catalog.providers = originalProviders
   }
 
   function test_a_request_during_a_read_is_kept_and_served_afterwards() {
