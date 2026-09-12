@@ -78,6 +78,8 @@ ShellRoot {
     }
   }
 
+  Drain { id: drain; shell: root; service: root.loadedService }
+
   Loader {
     active: service.status === Loader.Ready && Quickshell.env("FILEBLADE_QUALIFICATION") === "1"
     sourceComponent: Component { Qualification { service: root.loadedService } }
@@ -99,6 +101,10 @@ ShellRoot {
 
   IpcHandler {
     target: "fileblade.native"
+    function drainBegin(token: string, timeoutMs: string): string { return drain.begin(token, Number(timeoutMs)) }
+    function drainStatus(token: string): string { return drain.status(token) }
+    function drainCommit(token: string): string { return drain.commit(token) }
+    function drainAbort(token: string): string { return drain.abort(token) }
     function status(): string {
       return JSON.stringify({
         loaded: service.status === Loader.Ready,

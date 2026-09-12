@@ -45,6 +45,20 @@ Accepted mutations survive view shutdown and retain results in the authority
 until fetched or 24 hours. Process-death recovery still uses durable journals;
 the in-memory result cache does not survive authority process death.
 
+`launch native drain --timeout-ms 30000 --json` flushes ordinary Notes and
+state/layout through their existing writers, waits for active operations,
+pauses new admission, and requires a final QML acknowledgment before exit.
+It waits for the authority lease and matching portal processes to release.
+Its schema-1 JSON reports `drained` or `already_stopped` with exit 0, `busy`
+with exit 3, or `error` with exit 1; invalid arguments return 2. The result
+also carries `action`, `operation_ids`, `dirty_note_ids` and `error`.
+The deadline accepts 1–300000 ms. Busy/error forbids an installer transition;
+there is no forced view or authority kill. Temporary Notes popouts are
+refused because their text is not durable. UI discovery is bounded at 20000
+objects and fails closed when exhausted. On timeout, the authority resumes
+on caller EOF and the QML drain token expires; no cleanup extends the CLI
+deadline. Restart means successful drain followed by no-argument launch.
+
 ## Source accounting
 
 The kit derives from Omarchy v4.0.2, commit

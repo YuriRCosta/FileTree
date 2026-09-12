@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
+use std::time::{Duration, Instant};
 
 const RESULT_LIFETIME: u64 = 24 * 60 * 60;
 const RESULT_LIMIT: usize = 256;
@@ -16,6 +17,8 @@ pub struct Operations {
     entries: Mutex<HashMap<String, Arc<Operation>>>,
     concurrency: usize,
     views: Arc<Mutex<usize>>,
+    drain: Mutex<Option<(String, Instant)>>,
+    closing: AtomicBool,
 }
 
 pub struct Operation {
@@ -40,6 +43,8 @@ impl Operations {
             entries: Mutex::new(HashMap::new()),
             concurrency,
             views: Arc::new(Mutex::new(0)),
+            drain: Mutex::new(None),
+            closing: AtomicBool::new(false),
         }
     }
 
@@ -48,6 +53,16 @@ impl Operations {
         cancelled: Arc<AtomicBool>,
         output: &Arc<Output>,
     ) -> AppResult<Arc<Operation>> {
+        let mut drain = self
+            .drain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self::expire_drain(&mut drain);
+        if drain.is_some() || self.closing() {
+            return Err(AppError::command(
+                "native authority is draining; retry after it resumes",
+            ));
+        }
         self.authority
             .verify()
             .map_err(|error| AppError::command(error.to_string()))?;
@@ -200,11 +215,99 @@ impl Operations {
         }
     }
 
-    pub fn attach_view(&self) {
+    pub fn attach_view(&self) -> AppResult<()> {
+        let mut drain = self
+            .drain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self::expire_drain(&mut drain);
+        if drain.is_some() || self.closing() {
+            return Err(AppError::command("native authority is draining"));
+        }
         *self
             .views
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) += 1;
+        Ok(())
+    }
+
+    fn expire_drain(drain: &mut Option<(String, Instant)>) {
+        if drain
+            .as_ref()
+            .is_some_and(|(_, deadline)| Instant::now() >= *deadline)
+        {
+            *drain = None;
+        }
+    }
+
+    pub fn draining(&self) -> bool {
+        let mut drain = self
+            .drain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self::expire_drain(&mut drain);
+        drain.is_some() || self.closing()
+    }
+
+    pub fn quiesce(&self, owner: &str, timeout: Duration) -> bool {
+        let mut drain = self
+            .drain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self::expire_drain(&mut drain);
+        if self.closing()
+            || self.authority_lost()
+            || drain.as_ref().is_some_and(|(current, _)| current != owner)
+            || self.busy()
+        {
+            return false;
+        }
+        *drain = Some((owner.to_owned(), Instant::now() + timeout));
+        true
+    }
+
+    pub fn resume(&self, owner: &str) -> bool {
+        let mut drain = self
+            .drain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if drain.as_ref().is_some_and(|(current, _)| current == owner) {
+            *drain = None;
+            return true;
+        }
+        false
+    }
+
+    pub fn closing(&self) -> bool {
+        self.closing.load(Ordering::Acquire)
+    }
+
+    pub fn commit_exit(&self, owner: &str) -> bool {
+        let mut drain = self
+            .drain
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self::expire_drain(&mut drain);
+        let ready = !self.authority_lost()
+            && drain.as_ref().is_some_and(|(current, _)| current == owner)
+            && !self.busy()
+            && *self
+                .views
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                == 0;
+        if ready {
+            self.closing.store(true, Ordering::Release);
+        }
+        ready
+    }
+
+    pub fn drain_status(&self) -> Value {
+        json!({"operation_ids": self.list().as_array().unwrap().iter()
+            .filter(|operation| operation["complete"] != true)
+            .map(|operation| operation["op"].clone()).collect::<Vec<_>>(),
+            "views": *self.views.lock().unwrap_or_else(std::sync::PoisonError::into_inner),
+            "pid": std::process::id()})
     }
 
     pub fn detach_view(&self) {
