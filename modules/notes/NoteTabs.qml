@@ -272,7 +272,7 @@ Rectangle {
     y: Style.space(3)
     width: Style.space(140)
     height: parent.height - Style.space(6)
-    radius: Math.min(Style.cornerRadius, Style.space(4))
+    radius: 0
     color: Color.bar.background
     border.width: 1
     border.color: Color.accent
