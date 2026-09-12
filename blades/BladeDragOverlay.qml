@@ -44,6 +44,7 @@ PanelWindow {
 
   Rectangle {
     id: card
+    visible: overlay.host.dropTabBand !== "tabs"
     x: Math.max(0, Math.min(overlay.screenWidth - width, overlay.host.dragScreenX + Style.space(16)))
     y: Math.max(0, Math.min(overlay.screenHeight - height, overlay.host.dragScreenY - height / 2))
     width: content.implicitWidth + Style.space(24)
