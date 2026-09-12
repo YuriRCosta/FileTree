@@ -73,8 +73,18 @@ check_activation() {
 }
 
 lifecycle() {
-  local operation=$1 result
+  local operation=$1 result commands
   shift
+  if [[ $operation == roles_disable ]]; then
+    if ! commands=$("$installation/versions/$active_payload/app/launch" native roles --help 2>&1 9>&-); then
+      if [[ $commands == *"error: unrecognized subcommand 'roles'"* ]]; then
+        printf '%s\n' 'Skipped desktop-role reversal: this runtime has no roles entry point; no desktop role was ever enabled.'
+        return
+      fi
+      printf '%s\n' "$commands" >&2
+      fail 'native role discovery failed; runtime retained'
+    fi
+  fi
   result=$("$installation/versions/$active_payload/app/launch" native "$@" --json 9>&-) || fail "$operation failed; runtime retained (roles may already be disabled)"
   jq -e -s --arg operation "$operation" '
     length == 1 and (.[0] |

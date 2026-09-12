@@ -3,7 +3,8 @@ set -euo pipefail
 [[ $(hostname) == omarchy-test && $# == 2 ]] || { printf '%s\n' 'Run in the assigned guest: 95-delivery-installed.sh {install|check|update|rollback|remove} PAYLOAD' >&2; exit 1; }
 action=$1
 payload=$(realpath -e -- "$2")
-native=$payload/tools/native
+native=${FILEBLADE_NATIVE_TOOL:-$payload/tools/native}
+[[ -x $native ]]
 [[ -x $payload/bin/fileblade && -z ${FILEBLADE_SPIKE_HOME:-} ]]
 digest=$(sha256sum -- "$payload/payload.json"); digest=${digest%% *}
 case $action in
