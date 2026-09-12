@@ -227,7 +227,7 @@ fn run_review(
         return Ok(json!({"ok": false, "error": "This target has no resolved multiplexer"}));
     };
     let destination = match (multiplexer, placement) {
-        (_, "pane") => "pane",
+        (_, "pane" | "right" | "down") => placement,
         ("tmux", "tab") => "window",
         ("tmux", "workspace") => "session",
         (_, "tab" | "workspace") => placement,

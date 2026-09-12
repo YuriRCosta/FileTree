@@ -758,7 +758,8 @@ including intentionally empty notes, retain their saved contents.
      those files.
 
 **E-26-11** When I choose Review with hunk over a Herdr or tmux terminal,
-I can choose New pane, New tab, New space, or New window. In tmux, a tab is
+I can choose Vertical split, Horizontal split, New tab, New space, or New
+window, with the same icons as the herdr and tmux opening actions. In tmux, a tab is
 a tmux window and a space is a session; New window opens a separate terminal.
 Each destination reviews the selected paths from their repository, or compares
 two selected files. Over a plain terminal or empty desktop, Hunk opens directly

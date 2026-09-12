@@ -114,7 +114,7 @@ def open_wheel(mux, client=None):
     expected_target = {'herdr': 'terminal (herdr)', 'tmux': 'terminal (tmux)', 'plain': 'terminal', 'desktop': 'Desktop'}[mux]
     assert wheel['target'] == expected_target, wheel
     index, row = next((i, r) for i, r in enumerate(wheel['actions']) if r['id'] == 'review')
-    expected = ['New pane', 'New tab', 'New space', 'New window'] if mux in ('herdr', 'tmux') else []
+    expected = ['Vertical split', 'Horizontal split', 'New tab', 'New space', 'New window'] if mux in ('herdr', 'tmux') else []
     assert [p['label'] for p in row['placements']] == expected, wheel
     angle = -math.pi / 2 + index * 2 * math.pi / len(wheel['actions'])
     px, py = round(x + 58 * math.cos(angle)), round(y + 58 * math.sin(angle))
