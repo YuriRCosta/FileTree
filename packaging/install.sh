@@ -72,6 +72,25 @@ check_activation() {
   cmp -s -- "$native_root/packaging/runtime.json" "$installation/versions/$active_payload/packaging/runtime.json" || fail 'active runtime dependency contract differs; contract-changing updates require explicit compatibility support'
 }
 
+lifecycle() {
+  local operation=$1 result
+  shift
+  result=$("$installation/versions/$active_payload/app/launch" native "$@" --json 9>&-) || fail "$operation failed; runtime retained (roles may already be disabled)"
+  jq -e -s --arg operation "$operation" '
+    length == 1 and (.[0] |
+    .schema == 1 and .action == $operation and .error == "" and
+    (if $operation == "drain" then
+      (.status | IN("drained", "already_stopped")) and
+      (.operation_ids | type == "array" and all(.[]; type == "string")) and
+      (.dirty_note_ids | type == "array" and all(.[]; type == "string"))
+    else
+      .status == "complete" and .remaining_owned_entries == [] and
+      (.roles | type == "object" and keys == ["autostart", "bindings", "chooser", "folder", "reveal"]) and
+      all(.roles[]; (.status | IN("restored", "preserved_newer", "already_off")) and .remaining_owned_entries == [] and .error == "")
+    end))
+  ' <<< "$result" >/dev/null || fail "$operation returned an unknown or incomplete result; runtime retained (roles may already be disabled)"
+}
+
 activate_payload() (
   local payload=$1 previous=$2 stage generation pointer
   stage=$(mktemp -d "$installation/generations/.generation.XXXXXX")
@@ -159,7 +178,7 @@ remove_installation() {
 }
 
 install_command() (
-  local action=$1 installation launcher active_payload previous_payload source pending_launcher
+  local action=$1 installation launcher active_payload previous_payload source pending_launcher activation directory generations
   case $action in
     install) [[ $# == 2 ]] || fail 'usage: tools/native install PAYLOAD'; source=$(realpath -e -- "$2") ;;
     rollback|status|remove) [[ $# == 1 ]] || fail "usage: tools/native $action" ;;
@@ -179,14 +198,11 @@ install_command() (
   fi
   [[ ! -L $installation/lock && ( ! -e $installation/lock || -f $installation/lock ) ]] || fail 'invalid installation lock'
   exec 9>"$installation/lock"
-  if [[ $action == status ]]; then
-    flock -n -s 9 || fail 'another installer holds the lock'
-  else
-    flock -n -x 9 || fail 'FileBlade is running or another installer holds the lock; close the native session before updating'
-  fi
+  flock -n -s 9 || fail 'another installer holds the lock'
   check_owner
-  private_directory "$installation/versions"
-  private_directory "$installation/generations"
+  for directory in versions generations; do
+    if [[ -e $installation/$directory || -L $installation/$directory ]]; then private_directory "$installation/$directory"; fi
+  done
   if [[ -e $installation/removing || -L $installation/removing ]]; then
     [[ $action == remove ]] || fail 'removal interrupted; run tools/native remove again'
     [[ ! -e $installation/active && ! -L $installation/active ]] || fail 'conflicting active and removal pointers'
@@ -198,7 +214,26 @@ install_command() (
   else
     read_activation
   fi
-  if [[ $action == install || $action == status ]]; then check_activation; fi
+  activation=$(readlink -- "$installation/active" || true)
+  generations=("$installation/generations/"generation.*)
+  if [[ $action != status && ! -L $installation/removing ]]; then
+    if [[ -n $active_payload ]]; then
+      check_activation
+      verify_payload "$installation/versions/$active_payload"
+      if [[ $action == remove ]]; then lifecycle roles_disable roles disable --all; fi
+      lifecycle drain drain --timeout-ms 30000
+    elif [[ ! -L $installation/removed && ( -e ${generations[0]} || -L ${generations[0]} ) ]]; then
+      fail 'activation is missing; restore its owned receipt before lifecycle maintenance'
+    fi
+  fi
+  if [[ $action != status ]]; then
+    flock -n -x 9 || fail 'FileBlade is running or another installer holds the lock; retry after lifecycle maintenance'
+    [[ $(readlink -- "$installation/active" || true) == "$activation" ]] || fail 'activation changed during lifecycle maintenance; retry'
+    check_owner
+    private_directory "$installation/versions"
+    private_directory "$installation/generations"
+  fi
+  if [[ $action == status ]]; then check_activation; fi
   case $action in
     remove) remove_installation ;;
     status) [[ -n $active_payload ]] || fail 'no active installation'; cat -- "$installation/active/receipt.json" ;;
