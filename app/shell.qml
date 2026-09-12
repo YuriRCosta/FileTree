@@ -6,6 +6,7 @@ import qs.Commons
 ShellRoot {
   id: root
 
+  readonly property var loadedService: service.item
   readonly property string sourceDir: Quickshell.env("FILEBLADE_SOURCE_DIR")
   property var shellConfig: ({})
   readonly property var barConfig: shellConfig.bar || ({ position: "top" })
@@ -57,6 +58,11 @@ ShellRoot {
         Qt.quit()
       }
     }
+  }
+
+  Loader {
+    active: service.status === Loader.Ready && Quickshell.env("FILEBLADE_QUALIFICATION") === "1"
+    sourceComponent: Component { Qualification { service: root.loadedService } }
   }
 
   IpcHandler {
