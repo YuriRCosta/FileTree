@@ -1,7 +1,5 @@
 .pragma library
 
-var counts = new WeakMap()
-
 function folderReady(model, path) {
   var root = model.count ? model.get(0) : null
   return !!root && (path === undefined || root.path === path) && root.expanded && root.loaded && !root.loading && !root.error
@@ -9,11 +7,11 @@ function folderReady(model, path) {
 
 function folderCount(model, path, structureRevision, rowsRevision) {
   if (!folderReady(model, path)) {
-    counts.delete(model)
+    model.folderCountCache = null
     return { loaded: 0, total: 0, known: false }
   }
   var version = structureRevision === undefined ? "" : JSON.stringify([path, model.count, structureRevision, rowsRevision])
-  var cached = version ? counts.get(model) : null
+  var cached = version ? model.folderCountCache : null
   if (cached && cached.version === version) return cached.value
   var loaded = 0, total = 0
   for (var i = 0; i < model.count; i++) {
@@ -23,6 +21,6 @@ function folderCount(model, path, structureRevision, rowsRevision) {
     else if (!row.gitDeleted) loaded++
   }
   var value = { loaded: loaded, total: Math.max(loaded, total), known: true }
-  if (version) counts.set(model, { version: version, value: value })
+  if (version) model.folderCountCache = { version: version, value: value }
   return value
 }

@@ -26,7 +26,10 @@ Item {
   readonly property var selectedEntries: service.selectedEntries
   readonly property string selectionAnchorPath: service.selectionAnchorPath
 
-  ListModel { id: treeModel }
+  ListModel {
+    id: treeModel
+    property var folderCountCache: null
+  }
 
   property string expansionRoot: ""
   property bool expansionIncludesIgnored: false
