@@ -18,14 +18,14 @@ pending_shot() {
 
 resolver_interface=$(guest "grep -Fq 'function resolveApplication' '$GUEST_PLUGIN/lib/FileIcons.js' && echo yes || echo no" | tr -d '\r')
 if [[ $resolver_interface != yes ]]; then
-  pending E-26-04 "R31 real wheel row resolves a desktop launcher icon" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
+  pending E-26-04 "R31 real wheel row resolves a desktop launcher icon (E-39-01 renderer portion; no invocation)" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
   pending E-38-03 "R31 explicit wheel imagery override wins" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
-  pending E-38-03 "R31 missing desktop entry falls back to a bundled mark" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
-  pending E-38-03 "R31 failed wheel image displays its fallback glyph" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
-  pending_shot E-26-04-R31-nvim
+  pending E-38-03 "R31 missing desktop entry falls back to a bundled mark (E-39-02 renderer portion)" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
+  pending E-38-03 "R31 failed wheel image displays its legacy fallback glyph (E-39-06 renderer portion only)" "the installed guest lacks the merged FileIcons.resolveApplication and SafeApplicationIcon interface"
+  pending_shot E-26-04-R31-nvim-E-39-01-renderer-only
   pending_shot E-38-03-R31-override
-  pending_shot E-38-03-R31-missing-desktop
-  pending_shot E-38-03-R31-missing-image
+  pending_shot E-38-03-R31-missing-desktop-E-39-02-renderer
+  pending_shot E-38-03-R31-missing-image-E-39-06-legacy
   summary
 fi
 
@@ -334,10 +334,10 @@ json_expect() {
   fi
 }
 
-json_expect E-26-04 "production DropWheel nvim row uses the real desktop launcher icon" '.nvim.resolver_icon == .nvim.safe_icon_name and .nvim.resolver_source == .expected_nvim_source and .nvim.image_ready and .nvim.image_source == .expected_nvim_source'
+json_expect E-26-04 "production DropWheel nvim row uses the real desktop launcher icon (E-39-01 renderer portion; no invocation)" '.nvim.resolver_icon == .nvim.safe_icon_name and .nvim.resolver_source == .expected_nvim_source and .nvim.image_ready and .nvim.image_source == .expected_nvim_source'
 json_expect E-38-03 "explicit nvim row override wins with the herdr imagery" '.override.resolver_icon == "herdr" and (.override.resolver_source | endswith("/assets/marks/herdr.svg")) and .override.image_ready and .override.image_source == .override.resolver_source'
-json_expect E-38-03 "missing desktop entry falls back to the bundled herdr mark" '.missing_entry_found == false and .missing_desktop.resolver_source == .expected_mark and .missing_desktop.image_ready and .missing_desktop.image_source == .expected_mark'
-json_expect E-38-03 "failed wheel image shows the resolved fallback glyph" '.failed_image.image_error and .failed_image.image_source == .failed_image.safe_source and .failed_image.fallback_visible and .failed_image.fallback_text == "Z"'
+json_expect E-38-03 "missing desktop entry falls back to the bundled herdr mark (E-39-02 renderer portion)" '.missing_entry_found == false and .missing_desktop.resolver_source == .expected_mark and .missing_desktop.image_ready and .missing_desktop.image_source == .expected_mark'
+json_expect E-38-03 "failed wheel image shows the resolved legacy fallback glyph (E-39-06 renderer portion only)" '.failed_image.image_error and .failed_image.image_source == .failed_image.safe_source and .failed_image.fallback_visible and .failed_image.fallback_text == "Z"'
 
 if jq -e '.nvim.descriptor_forwarded == true' >/dev/null 2>&1 <<<"$result_json"; then
   printf 'note R31 descriptor forwarding is active; this run still records the legacy image result\n'
@@ -357,10 +357,10 @@ capture_shot() {
   fi
 }
 
-capture_shot 0 E-26-04-R31-nvim
+capture_shot 0 E-26-04-R31-nvim-E-39-01-renderer-only
 capture_shot 1 E-38-03-R31-override
-capture_shot 2 E-38-03-R31-missing-desktop
-capture_shot 3 E-38-03-R31-missing-image
+capture_shot 2 E-38-03-R31-missing-desktop-E-39-02-renderer
+capture_shot 3 E-38-03-R31-missing-image-E-39-06-legacy
 guest "cat '$PROBE_LOG'"
 
 summary

@@ -287,10 +287,12 @@ are passed separately so they take precedence. The returned `icon`,
 `icon_source` and `glyph` feed the existing bounded icon renderer. Built-in
 action ids remain stable when desktop identity is present.
 
-The media implementation lands separately. Until then, the wheel retains its
-existing icon/source behavior. Bundled herdr/tmux and pane marks remain
-available with either path; this baseline has no bundled hunk mark, so hunk
-retains its glyph fallback.
+Application icon resolution is present in the 0.2.0 shared resolver. The
+wheel uses it for application rows when the guest provides the interface and
+retains its existing icon/source behavior for legacy rows; an older guest
+without resolver support leaves the probe cases pending. Bundled herdr/tmux
+and pane marks remain available with either path; this baseline has no bundled
+hunk mark, so hunk retains its glyph fallback.
 
 Guest acceptance runs through the plain `OVM` interface. Section 20 exercises
 section and tab arrangement, section 26 exercises drag selection, and
@@ -308,10 +310,14 @@ rerun even when the same scenarios passed against the plugin.
 
 `tests/vm/expectations/26-wheel-icons.sh` loads the guest's production
 DropWheel and icon renderer in a disposable Quickshell probe. It uses real
-DesktopEntries/theme lookup and checks a Neovim row against its launcher
-icon, an explicit herdr override, a missing desktop entry with the bundled
-mark, and a missing image with its visible fallback glyph. Each case has a
-labelled screenshot. Missing resolver support reports pending cases.
+DesktopEntries/theme lookup and checks the renderer portion of E-39-01 on a
+Neovim row against its launcher icon, without invoking the application; the
+explicit herdr override remains E-38-03, the missing desktop entry checks the
+bundled-mark renderer portion of E-39-02, and the missing image checks the
+legacy fallback-glyph portion related to E-39-06. That fixture still supplies
+a fake desktop id, so it does not qualify E-39-06's unnamed-icon and no-catalogue
+behaviour. E-39-03, E-39-04 and E-39-05 remain unqualified by this probe. Each
+case has a labelled screenshot. Missing resolver support reports pending cases.
 
 The probe supplies row descriptors and a static controller fixture; it does
 not qualify drag dispatch or every wheel ring. Failed-image retry through
