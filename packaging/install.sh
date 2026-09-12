@@ -109,6 +109,11 @@ activate_payload() (
   sync -f -- "$installation/generations"
   pointer=$installation/.active.${generation#*.}
   ln -s -- "generations/$generation" "$pointer"
+  if [[ -e $installation/removed || -L $installation/removed ]]; then
+    (read_activation removed)
+    rm -- "$installation/removed"
+    sync -f -- "$installation"
+  fi
   mv -Tf -- "$pointer" "$installation/active"
   sync -f -- "$installation"
 )
