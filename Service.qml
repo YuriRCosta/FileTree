@@ -12,6 +12,8 @@ Item {
   property var shell: null
   property var manifest: null
   property var pluginRegistry: null
+  property var chooserSession: null
+  readonly property var backendClient: chooserSession ? chooserSession.backend : ownedBackend
 
   property alias pluginWatcherExcludePattern: pluginWatcherController.excludePattern
   property alias pluginWatcherFiltered: pluginWatcherController.filtered
@@ -23,7 +25,7 @@ Item {
   readonly property string home: Quickshell.env("HOME") || "/"
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")
   readonly property string stateDir: stateHome + "/omarchy/fileblade"
-  readonly property string statePath: stateDir + "/state.json"
+  readonly property string statePath: chooserSession ? "" : stateDir + "/state.json"
   readonly property string fallbackPluginDir: decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, ""))
   readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : fallbackPluginDir
   readonly property string cliPath: pluginDir + "/fileblade"
@@ -45,7 +47,8 @@ Item {
   readonly property string backendError: backendClient.lastError
 
   BackendClient {
-    id: backendClient
+    id: ownedBackend
+    desiredRunning: !service.chooserSession
     cliPath: service.cliPath
     expectedVersion: service.manifest && service.manifest.version ? String(service.manifest.version) : ""
   }
@@ -1250,14 +1253,22 @@ Item {
     return pickerController.result(requestId)
   }
 
-  FileTreeIpc {
-    id: fileTreeIpc
-    service: service
-    bladeHost: bladeHost
-    watchController: watchController
+  Loader {
+    id: ipcLoader
+    property var contextService: service
+    property var contextWatch: watchController
+    active: !service.chooserSession
+    sourceComponent: Component {
+      FileTreeIpc {
+        service: ipcLoader.contextService
+        bladeHost: ipcLoader.contextService.bladeHost
+        watchController: ipcLoader.contextWatch
+      }
+    }
   }
 
-  BladeScreens {
-    host: bladeHost
+  Loader {
+    active: !service.chooserSession
+    sourceComponent: Component { BladeScreens { host: bladeHost } }
   }
 }

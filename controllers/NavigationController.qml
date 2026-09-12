@@ -12,6 +12,7 @@ Item {
   }
 
   function setOpen(value) {
+    if (service.chooserSession) return service.chooserSession.setOpen(!!value)
     var desired = !!value
     if (!desired && service.pickerActive) {
       var requestId = service.pickerRequestId
@@ -88,13 +89,13 @@ Item {
 
   function setSettingsOpen(value, edge) { service.bladeHost.setSettingsOpen(value, edge) }
   function toggleSettings(edge) { return service.bladeHost.toggleSettings(edge) }
-  function focusTree(screen) { return service.bladeHost.focusModule("files", screen, "tree") }
-  function focusSearch(screen) { return service.bladeHost.focusModule("files", screen, "search") }
+  function focusTree(screen) { return service.chooserSession ? service.chooserSession.focus("tree") : service.bladeHost.focusModule("files", screen, "tree") }
+  function focusSearch(screen) { return service.chooserSession ? service.chooserSession.focus("search") : service.bladeHost.focusModule("files", screen, "search") }
 
   function focusLocation(screen) {
     service.locationValidationError = ""
     if (!service.open) setOpen(true)
-    return service.bladeHost.focusModule("files", screen, "location")
+    return service.chooserSession ? service.chooserSession.focus("location") : service.bladeHost.focusModule("files", screen, "location")
   }
 
   function focusProperties(screen) { return service.bladeHost.focusModule("properties", screen, "") }
