@@ -358,6 +358,9 @@ Item {
   }
 
   function runSearch() {
+    if (PathText.isRemote(service.rootPath) && (!quickNavActive || quickNavChannel === "files")) {
+      cancelSearch(); clearRows(); busy = false; error = "Remote search is unavailable"; return
+    }
     var value = query.trim()
     var mode = quickNavActive ? "zoxide" : "filesystem"
     if (mode === "filesystem" && !value && !listActive) return

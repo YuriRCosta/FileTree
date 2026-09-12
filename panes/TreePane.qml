@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Ui
 import "../ui" as PluginUi
 import "../lib/KeyRouter.js" as KeyRouter
+import "../lib/PathText.js" as PathText
 import "../lib/ScrollMarks.js" as ScrollMarks
 import "../modules/files/MediaModel.js" as MediaModel
 import "../modules/files/ViewChrome.js" as ViewChrome
@@ -44,7 +45,7 @@ FocusScope {
   readonly property real ordinaryDensity: [0.85, 0.925, 1, 1.075, 1.15][Math.max(0, Math.min(4, ordinaryDensityStep))]
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
-  readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode
+  readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode && !PathText.isRemote(controller.rootPath)
   property var folderCountData: ({ loaded: 0, total: 0, known: false })
   readonly property var folderCount: folderCountData
   readonly property bool folderCountReady: ViewChrome.folderReady(controller.treeModel, controller.rootPath)
@@ -84,7 +85,7 @@ FocusScope {
   }
 
   function refreshFolderCount() {
-    if (mediaActive || controller.trashMode || controller.drivesMode || controller.recentMode) return
+    if (mediaActive || controller.trashMode || controller.drivesMode || controller.recentMode || PathText.isRemote(controller.rootPath)) return
     folderCountData = ViewChrome.folderCount(controller.treeModel, controller.rootPath,
       controller.treeStructureRevision, controller.treeRowsRevision)
   }

@@ -1,4 +1,7 @@
 mod listing;
+pub mod saved;
+pub mod sftp;
+pub mod tailnet;
 pub use listing::list;
 
 use crate::common::{parse_path, path_text};
@@ -118,8 +121,34 @@ pub fn payload(cancelled: &AtomicBool) -> AppResult<Value> {
     {
         sessions.retain(|id, _| ids.contains(id.as_str()));
     }
+    let tailnet = match tailnet::discover(cancelled) {
+        Ok(candidates) => {
+            sftp::retain_candidates(&candidates);
+            locations.extend(candidates.iter().map(|candidate| {
+                sftp::snapshot(&candidate.location.id).unwrap_or_else(|| candidate.location.clone())
+            }));
+            json!({"available":true,"candidates":candidates})
+        }
+        Err(error) => {
+            sftp::retain_candidates(&[]);
+            json!({"available":false,"candidates":[],"error":error.to_string()})
+        }
+    };
+    if cancelled.load(Ordering::Relaxed) {
+        return Err(AppError::Cancelled);
+    }
+    for cleanup in sftp::cleanup_locations() {
+        if !locations.iter().any(|location| location.id == cleanup.id) {
+            locations.push(cleanup);
+        }
+    }
+    let (saved, saved_error) = match saved::read() {
+        Ok(entries) => (entries, None),
+        Err(error) => (Vec::new(), Some(error.to_string())),
+    };
     Ok(
-        json!({"ok":true,"schema":1,"locations":locations,"volumes":volumes.iter().map(Volume::json).collect::<Vec<_>>(),"actions":crate::mounts::actions::available()}),
+        json!({"ok":true,"schema":1,"locations":locations,"tailnet":tailnet,"saved":saved,"saved_error":saved_error,
+        "volumes":volumes.iter().map(Volume::json).collect::<Vec<_>>(),"actions":crate::mounts::actions::available()}),
     )
 }
 
@@ -458,4 +487,31 @@ pub fn canonical_uri(kind: Kind, raw: &str) -> AppResult<String> {
         uri.set_path("/");
     }
     Ok(uri.to_string())
+}
+
+pub fn connect(
+    options: &crate::backend::LocationConnectArgs,
+    cancelled: &AtomicBool,
+) -> AppResult<Value> {
+    let candidate = tailnet::discover(cancelled)?
+        .into_iter()
+        .find(|candidate| candidate.location.id == options.location)
+        .ok_or_else(|| {
+            AppError::invalid("peer is no longer in the tailnet inventory; refresh Locations")
+        })?;
+    let saved = sftp::Saved {
+        host: options.expected_host.clone(),
+        user: options.user.clone(),
+        path: options.path.clone(),
+    };
+    let location = sftp::connect(&candidate, &saved, cancelled)?;
+    let connected = location.connection == Connection::Connected;
+    let save_error = if connected && options.save {
+        saved::remember(&saved).err().map(|error| error.to_string())
+    } else {
+        None
+    };
+    Ok(
+        json!({"ok":connected,"error":location.error,"location":location,"saved":connected && options.save && save_error.is_none(),"save_error":save_error}),
+    )
 }
