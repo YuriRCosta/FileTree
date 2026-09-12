@@ -49,7 +49,7 @@ Item {
   }
 
   function argumentsFor(method, arguments) {
-    return ["--provider", providerId, "--plugin-dir", providerRoot,
+    return ["--provider", providerId, "--plugin-dir", ["fileblade.core.skills", "fileblade.core.memory", "fileblade.core.hooks", "fileblade.core.mcp"].indexOf(providerId) >= 0 ? "" : providerRoot,
             "--helper", helperId, "--method", method, "--arguments", JSON.stringify(arguments)]
   }
 
@@ -94,7 +94,7 @@ Item {
 
   function mutate(method, arguments, input, callback) {
     if (!ready || applying || !Array.isArray(arguments)) return false
-    if (["data-goblin.fileblade-skills", "data-goblin.fileblade-memory"].indexOf(providerId) >= 0 && files.agentManagementEnabled !== true) {
+    if (["fileblade.core.skills", "fileblade.core.memory", "data-goblin.fileblade-skills", "data-goblin.fileblade-memory"].indexOf(providerId) >= 0 && files.agentManagementEnabled !== true) {
       applyError = "Enable Manage agent files in General settings to change Skills or Memory"
       return false
     }

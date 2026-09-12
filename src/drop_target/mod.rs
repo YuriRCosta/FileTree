@@ -117,13 +117,20 @@ const NVIM_PLACEMENTS: [Placement; 3] = [
     ("split", "Split", "s", "󰤼", "One vertical split per file"),
 ];
 
-const REVIEW_PLACEMENTS: [Placement; 4] = [
+const REVIEW_PLACEMENTS: [Placement; 5] = [
     (
-        "pane",
-        "New pane",
-        "p",
+        "right",
+        "Vertical split",
+        "v",
         "󰯌",
-        "Review in a new multiplexer pane",
+        "Review in a new pane to the right of the focused pane",
+    ),
+    (
+        "down",
+        "Horizontal split",
+        "h",
+        "󰯋",
+        "Review in a new pane below the focused pane",
     ),
     (
         "tab",

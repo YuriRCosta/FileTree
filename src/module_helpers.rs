@@ -13,6 +13,71 @@ const OUTPUT_LIMIT: usize = 2 * 1024 * 1024;
 const ARGUMENT_BYTES: usize = 64 * 1024;
 const EXTENSION: &str = "data-goblin.fileblade/helper";
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CoreRoute {
+    Skills,
+    Memory,
+    Hooks,
+    Mcp,
+}
+
+impl CoreRoute {
+    pub fn module(self) -> &'static str {
+        match self {
+            Self::Skills => "skills",
+            Self::Memory => "memory",
+            Self::Hooks => "hooks",
+            Self::Mcp => "mcp",
+        }
+    }
+
+    pub fn provider(self) -> &'static str {
+        match self {
+            Self::Skills => "fileblade.core.skills",
+            Self::Memory => "fileblade.core.memory",
+            Self::Hooks => "fileblade.core.hooks",
+            Self::Mcp => "fileblade.core.mcp",
+        }
+    }
+
+    fn permits(self, method: &str, write: bool) -> bool {
+        match (self, write) {
+            (_, false) => {
+                method == "list"
+                    || matches!(self, Self::Hooks | Self::Mcp) && method == "recovery-list"
+            }
+            (Self::Skills | Self::Memory, true) => method == "apply",
+            (Self::Hooks | Self::Mcp, true) => {
+                matches!(
+                    method,
+                    "apply" | "prepare-remove" | "remove-prepared" | "restore" | "discard"
+                ) || self == Self::Hooks && method == "label"
+            }
+        }
+    }
+}
+
+pub fn canonical_route(provider_id: &str, helper_id: &str) -> Option<CoreRoute> {
+    if helper_id != "inventory" {
+        return None;
+    }
+    match provider_id {
+        "fileblade.core.skills" | "data-goblin.fileblade-skills" | "kurt.agent-skills" => {
+            Some(CoreRoute::Skills)
+        }
+        "fileblade.core.memory" | "data-goblin.fileblade-memory" | "kurt.agent-memory" => {
+            Some(CoreRoute::Memory)
+        }
+        "fileblade.core.hooks" | "data-goblin.fileblade-hooks" | "kurt.agent-hooks" => {
+            Some(CoreRoute::Hooks)
+        }
+        "fileblade.core.mcp" | "data-goblin.fileblade-mcp" | "kurt.agent-mcp" => {
+            Some(CoreRoute::Mcp)
+        }
+        _ => None,
+    }
+}
+
 pub struct Request<'a> {
     pub provider: &'a str,
     pub directory: &'a str,
@@ -59,6 +124,7 @@ struct Declaration {
     root: PathBuf,
     program: PathBuf,
     timeout: Duration,
+    core: Option<CoreRoute>,
 }
 
 fn declaration(request: &Request<'_>) -> AppResult<Declaration> {
@@ -69,6 +135,32 @@ fn declaration(request: &Request<'_>) -> AppResult<Declaration> {
         return Err(AppError::invalid(
             "invalid provider, helper or method identifier",
         ));
+    }
+    if let Some(core) = canonical_route(request.provider, request.helper) {
+        if request.provider == core.provider() && !request.directory.is_empty() {
+            return Err(AppError::invalid(
+                "core helpers do not accept a caller-supplied directory",
+            ));
+        }
+        if !core.permits(request.method, request.write) {
+            return Err(AppError::invalid(
+                "core helper method is not declared for this request kind",
+            ));
+        }
+        let root = crate::paths::app_root()?;
+        let entry = format!("python/bin/agent-{}ctl", core.module());
+        let program = resolve_plugin_program(&entry, &root).map_err(AppError::invalid)?;
+        return Ok(Declaration {
+            root,
+            program,
+            timeout: Duration::from_secs(8),
+            core: Some(core),
+        });
+    }
+    if request.provider.starts_with("fileblade.core.")
+        || canonical_route(request.provider, "inventory").is_some()
+    {
+        return Err(AppError::invalid("unknown core helper route"));
     }
     let root = plugin_root(request.directory).map_err(AppError::invalid)?;
     let manifest = read_manifest(&root).map_err(AppError::invalid)?;
@@ -123,6 +215,7 @@ fn declaration(request: &Request<'_>) -> AppResult<Declaration> {
         root,
         program,
         timeout: Duration::from_millis(timeout),
+        core: None,
     })
 }
 
@@ -171,13 +264,10 @@ pub fn run(request: &Request<'_>, cancelled: &AtomicBool) -> AppResult<Value> {
         return Err(AppError::invalid("helper input exceeds 64 KiB"));
     }
     let declared = declaration(request)?;
-    crate::plugin_catalog::require_enabled(request.provider, &declared.root)?;
-    if request.write
-        && matches!(
-            request.provider,
-            "data-goblin.fileblade-memory" | "data-goblin.fileblade-skills"
-        )
-    {
+    if declared.core.is_none() {
+        crate::plugin_catalog::require_enabled(request.provider, &declared.root)?;
+    }
+    if request.write && matches!(declared.core, Some(CoreRoute::Skills | CoreRoute::Memory)) {
         crate::preferences::require_agent_management()?
     }
     let mut command = CommandSpec::new(declared.program)

@@ -40,7 +40,9 @@ if [[ ! -x "$runner" ]]; then
   exit 1
 fi
 for suite in tests/qml/tst_*.qml; do
-  if output=$(env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_STYLE_OVERRIDE=Basic \
+  suite_env=()
+  [[ $suite == tests/qml/tst_wheel_release.qml ]] && suite_env=(QML_XHR_ALLOW_FILE_READ=1)
+  if output=$(env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_STYLE_OVERRIDE=Basic "${suite_env[@]}" \
     "$runner" -platform offscreen -import tests/imports -input "$suite" 2>&1); then
     status=0
   else
@@ -60,5 +62,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_process.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_inventory.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_mutations.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_extension_image.py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/core_modules/run.py
+PYTHONDONTWRITEBYTECODE=1 python3 -B tests/companion_readonly.py
 tools/bundle verify
 printf '%s\n' 'Rust, QML, companion support and bundled backend checks: ok'
