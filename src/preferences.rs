@@ -10,6 +10,17 @@ pub struct Changes {
 }
 
 pub fn read() -> AppResult<Value> {
+    read_document().map(with_defaults)
+}
+
+fn with_defaults(mut settings: Value) -> Value {
+    let fields = settings.as_object_mut().unwrap();
+    fields.entry("agentManagement").or_insert(json!(false));
+    fields.entry("trashRetentionDays").or_insert(Value::Null);
+    settings
+}
+
+fn read_document() -> AppResult<Value> {
     let path = crate::paths::config_dir().join("settings.json");
     let Some(bytes) = secure::read_private_bounded(&path, 64 * 1024).or_else(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
@@ -19,9 +30,7 @@ pub fn read() -> AppResult<Value> {
         }
     })?
     else {
-        return Ok(
-            json!({"version":1,"filebladeVersion":env!("CARGO_PKG_VERSION"),"agentManagement":false,"trashRetentionDays":null}),
-        );
+        return Ok(json!({"version":1,"filebladeVersion":env!("CARGO_PKG_VERSION")}));
     };
     let settings: Value = serde_json::from_slice(&bytes)?;
     if !settings.is_object()
@@ -43,7 +52,7 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
     let _directory = secure::ensure_private_directory(path.parent().unwrap())?;
     let _lock = secure::try_open_private_lock(&crate::paths::state_dir().join("preferences.lock"))?
         .ok_or_else(|| AppError::invalid("preferences are busy; retry"))?;
-    let mut settings = read()?;
+    let mut settings = read_document()?;
     if let Some(days) = changes.trash_retention_days {
         if days > 3650 {
             return Err(AppError::invalid("Trash retention exceeds 3650 days"));
@@ -55,8 +64,14 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
     }
     settings["version"] = json!(1);
     settings["filebladeVersion"] = json!(env!("CARGO_PKG_VERSION"));
-    crate::lease::durable::write_private_atomic(&path, &serde_json::to_vec_pretty(&settings)?)?;
-    Ok(settings)
+    let encoded = serde_json::to_vec_pretty(&settings)?;
+    if encoded.len() > 64 * 1024 {
+        return Err(AppError::invalid(
+            "versioned settings exceed 64 KiB; the file was preserved",
+        ));
+    }
+    crate::lease::durable::write_private_atomic(&path, &encoded)?;
+    Ok(with_defaults(settings))
 }
 
 pub fn require_agent_management() -> AppResult<()> {
