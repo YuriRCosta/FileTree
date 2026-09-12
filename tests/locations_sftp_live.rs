@@ -52,6 +52,8 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
         "location-connect",
         "--location",
         &candidates[0].location.id,
+        "--expected-host",
+        &candidates[0].host,
         "--user",
         "omarchy",
         "--path",

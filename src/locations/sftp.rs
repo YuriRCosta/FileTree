@@ -460,7 +460,7 @@ fn parse_listing(
         };
         let modified = timestamp("time::modified=").map(date).unwrap_or_default();
         let created = timestamp("time::created=").map(date).unwrap_or_default();
-        entries.push(json!({"name":name,"path":uri.as_str(),"is_dir":fields[2]=="(directory)","is_link":fields[2]=="(symlink)",
+        entries.push(json!({"name":name,"path":uri.as_str(),"is_dir":fields[2]=="(directory)","is_symlink":fields[2]=="(symlink)",
             "size":size,"modified":modified,"created":created,"location":options.location,"generation":options.generation}));
     }
     entries.sort_by(|a, b| {

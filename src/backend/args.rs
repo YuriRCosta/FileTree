@@ -448,6 +448,8 @@ pub struct LocationConnectArgs {
     #[arg(long)]
     pub location: String,
     #[arg(long)]
+    pub expected_host: String,
+    #[arg(long)]
     pub user: String,
     #[arg(long, default_value = "/")]
     pub path: String,

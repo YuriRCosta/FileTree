@@ -84,6 +84,42 @@ fn mode(root: &Path, mode: &str) {
 }
 
 #[test]
+fn changed_host_is_refused_after_backend_rediscovery_before_any_gio_effect() {
+    let Some(root) = fixture() else { return };
+    let status = serde_json::json!({"BackendState":"Running","Peer":{"test":{"ID":"test","DNSName":"changed.tail.test"}}});
+    let tool = root.join("tailscale");
+    fs::write(
+        &tool,
+        format!("#!/usr/bin/python3\nprint({:?})\n", status.to_string()),
+    )
+    .unwrap();
+    fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
+    mode(&root, "allowed");
+    let command = fileblade::backend::parse([
+        "fileblade",
+        "location-connect",
+        "--location",
+        &candidate().location.id,
+        "--expected-host",
+        "peer.tail.test",
+        "--user",
+        "user",
+        "--path",
+        "/files",
+    ])
+    .unwrap();
+    let result = fileblade::backend::dispatch(command, &AtomicBool::new(false), &mut |_| Ok(()));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("selected peer changed")
+    );
+    assert!(!root.join("mounted").exists());
+    assert!(sftp::snapshot(&candidate().location.id).is_none());
+}
+
+#[test]
 fn refreshed_discovery_and_cancellation_cannot_publish_an_older_connect() {
     let Some(root) = fixture() else { return };
     let candidate = candidate();

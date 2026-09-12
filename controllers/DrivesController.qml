@@ -180,10 +180,10 @@ Item {
     connectionRequested(id, String(peer.label), String(peer.host), saved ? String(saved.user) : "", saved ? String(saved.path) : "/")
   }
 
-  function connectPeer(id, user, path, save) {
+  function connectPeer(id, host, user, path, save) {
     var peer = peerLocations[id]
     if (!peer || peer.session_generation || !peerCandidates[id]) return
-    var arguments = ["--location", id, "--user", String(user), "--path", String(path)]
+    var arguments = ["--location", id, "--expected-host", String(host), "--user", String(user), "--path", String(path)]
     if (save) arguments.push("--save")
     peerAction("location-connect", id, arguments)
   }
@@ -213,6 +213,34 @@ Item {
   }
 
   function actionAvailableFor(source) { return !!peerLocations[String(source)] || actionsAvailable }
+
+  function descriptorForPath(path) {
+    var matches = Object.keys(peerLocations).map(function(id) { return controller.peerLocations[id] }).filter(function(peer) {
+      var base = String(peer.canonical_uri).replace(/\/$/, "")
+      return peer.connection === "connected" && (peer.capabilities || []).indexOf("list") >= 0
+        && (path === base || path === peer.canonical_uri || String(path).indexOf(base + "/") === 0)
+    })
+    return matches.sort(function(a, b) { return b.canonical_uri.length - a.canonical_uri.length })[0] || null
+  }
+
+  function relativePath(peer, path) {
+    var base = String(peer.canonical_uri).replace(/\/$/, "")
+    if (path === base || path === peer.canonical_uri) return "."
+    if (String(path).indexOf(base + "/") !== 0) return null
+    try {
+      var parts = String(path).slice(base.length + 1).split("/").map(decodeURIComponent)
+      if (parts.some(function(part) { return part === ".." || part.indexOf("/") >= 0 || part.indexOf("\0") >= 0 })) return null
+      return parts.join("/")
+    } catch (_) { return null }
+  }
+
+  function invalidatePeer(id, generation) {
+    var peers = Object.assign({}, peerLocations)
+    if (!peers[id] || peers[id].session_generation !== generation) return
+    delete peers[id]
+    peerLocations = peers
+    rebuild()
+  }
 
   function start() {
     if (!service.backendReady || requestId) return

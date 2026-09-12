@@ -500,7 +500,7 @@ pub fn connect(
             AppError::invalid("peer is no longer in the tailnet inventory; refresh Locations")
         })?;
     let saved = sftp::Saved {
-        host: candidate.host.clone(),
+        host: options.expected_host.clone(),
         user: options.user.clone(),
         path: options.path.clone(),
     };
