@@ -957,6 +957,7 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       step: root.mediaSizeStep
       onStepRequested: function(step) { mediaView.rememberAnchor(); root.mediaSizeStep = step }
+      onKeyPressed: function(event) { root.handleListKey(event, mediaView, false) }
     }
   }
 

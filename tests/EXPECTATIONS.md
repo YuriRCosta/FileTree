@@ -1025,8 +1025,9 @@ is maintained separately.
   application; a right-click or `m` opens the same file actions menu as the
   Files tree, naming the picture.
 - **E-37-03** `-` and `=`/`+` step the preview size through five sizes; the
-  toolbar stepper shows the current step and the choice survives a shell
-  restart in the blade.
+  toolbar slider shows the current step with a straight track and filled-centre
+  Omarchy mark. Dragging reaches all five stops; arrows and Home/End work while
+  focused without losing focus. The choice survives a shell restart in the blade.
 - **E-37-04** Typing in the gallery search narrows the tiles live using the
   Files search grammar (`character:bink`, `-tag:danger`); the status shows
   “N of M”; Escape clears the query first and closes the blade only on the
