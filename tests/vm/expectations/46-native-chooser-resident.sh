@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-export OVM_HOME=$HOME/.local/share/test-omarchy-plugin-a
-export OVM_SSH_PORT=2422
+repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)
+export OVM_HOME=${OVM_HOME:-$HOME/.local/share/test-omarchy-plugin-a}
+export OVM_SSH_PORT=${OVM_SSH_PORT:-2422}
 export FILEBLADE_CHOOSER_EVIDENCE=${FILEBLADE_CHOOSER_EVIDENCE:-.claude/evidence/sootscale/chooser/resident-ui}
-python3 - <<'PY'
+python3 - "$repo" <<'PY'
 import json
 import os
 from pathlib import Path
@@ -12,8 +13,10 @@ import subprocess
 import time
 import uuid
 
-ovm = str(Path.cwd() / 'app/ovm-spike')
-app = '/home/omarchy/fileblade-runtime-spike/app'
+repo = Path(__import__('sys').argv[1])
+ovm = os.environ.get('OVM') or str(repo / 'app/ovm-spike')
+native_root = os.environ.get('FILEBLADE_NATIVE_ROOT', '/home/omarchy/fileblade-runtime-spike')
+app = native_root + '/app'
 out = Path(os.environ['FILEBLADE_CHOOSER_EVIDENCE'])
 out.mkdir(parents=True, exist_ok=True)
 fixture = '/tmp/fileblade-chooser-' + uuid.uuid4().hex
@@ -59,9 +62,9 @@ path=pathlib.Path(sys.argv[2]); temporary=path.with_suffix('.pending')
 temporary.write_text(json.dumps(response)); temporary.replace(path)
 '''
 
-def offer(name, mode='open', multiple=False, filters=None, current_name=''):
+def offer(name, mode='open', multiple=False, filters=None, current_name='', accept_label=''):
     handle = fixture.rsplit('/', 1)[-1] + '-' + name
-    document = dict(handle=handle, caller='qualification:' + name, parent_window='', title='R58 ' + name, accept_label='', modal=True, current_folder=fixture, current_name=current_name, mode=mode, multiple=multiple, filters=filters or [], current_filter=None)
+    document = dict(handle=handle, caller='qualification:' + name, parent_window='', title='R58 ' + name, accept_label=accept_label, modal=True, current_folder=fixture, current_name=current_name, mode=mode, multiple=multiple, filters=filters or [], current_filter=None)
     result = fixture + '/' + name + '.result'
     command = shlex.join(['python3', '-c', client, json.dumps(document), result])
     pid = int(call('ssh', 'setsid ' + command + ' >' + shlex.quote(fixture + '/' + name + '.log') + ' 2>&1 </dev/null & echo $!'))
@@ -94,7 +97,7 @@ guest('python3', '-c', "from pathlib import Path; import sys; p=Path(sys.argv[1]
 time.sleep(1)
 before = ordinary()
 try:
-    opened = offer('open', filters=[['Text', [[0, '*.txt']]]])
+    opened = offer('open', filters=[['Text', [[0, '*.txt']]]], accept_label='_Upload')
     saved = offer('save', mode='save', current_name='alpha.txt')
     assert len(ipc('status')['sessions']) == 2
     rows = session(opened)['rows']
@@ -106,17 +109,17 @@ try:
     wait(lambda: len(session(opened)['selected']) == 1)
     (out / 'two-requests.json').write_text(json.dumps(ipc('status'), indent=2))
     (out / 'two-shot.txt').write_text(call('shot', 'r58-chooser-two') + '\n')
-    click(opened, 'buttonGeometry', 'Open')
+    click(opened, 'buttonGeometry', 'Upload')
     assert result(opened)['uris'] == [Path(fixture + '/alpha.txt').as_uri()]
     assert session(saved)['opened']
-    print('PASS E46-01: filtered Open returns its URI through the resident authority while Save stays open')
+    print('PASS E-46-01: caller-labelled Upload returns the filtered file URI while Save stays open')
     click(saved, 'buttonGeometry', 'Save')
     wait(lambda: session(saved)['overwrite'])
     (out / 'overwrite-shot.txt').write_text(call('shot', 'r58-chooser-overwrite') + '\n')
     click(saved, 'buttonGeometry', 'Replace')
     assert result(saved)['uris'] == [Path(fixture + '/alpha.txt').as_uri()]
     assert guest('cat', fixture + '/alpha.txt') == 'original'
-    print('PASS E46-02: Save confirms replacement and returns a URI without writing the target')
+    print('PASS E-46-02: Save confirms replacement and returns a URI without writing the target')
     multiple = offer('multiple', multiple=True)
     click(multiple, 'rowGeometry', fixture + '/alpha.txt')
     call('hold', 'ctrl')
@@ -127,30 +130,30 @@ try:
     wait(lambda: len(session(multiple)['selected']) == 2)
     click(multiple, 'buttonGeometry', 'Open')
     assert set(result(multiple)['uris']) == {Path(fixture + '/' + name).as_uri() for name in ['alpha.txt', 'beta.png']}
-    print('PASS E46-07: real multi-selection returns both local URIs')
-    new = offer('new', mode='save', current_name='new file.txt')
-    click(new, 'buttonGeometry', 'Save')
+    print('PASS E-46-07: real multi-selection returns both local URIs')
+    new = offer('new', mode='save', current_name='new file.txt', accept_label='Save__copy')
+    click(new, 'buttonGeometry', 'Save_copy')
     assert result(new)['uris'] == [Path(fixture + '/new file.txt').as_uri()]
     guest('test', '!', '-e', fixture + '/new file.txt')
-    print('PASS E46-08: new Save destination returns its URI without creating the file')
+    print('PASS E-46-08: Save_copy preserves a literal underscore and returns a new destination without creating the file')
     folder = offer('folder', mode='folder')
     click(folder, 'rowGeometry', fixture + '/folder')
     click(folder, 'buttonGeometry', 'Open')
     assert result(folder)['uris'] == [Path(fixture + '/folder').as_uri()]
-    print('PASS E46-03: folder selection completes through the same authority')
+    print('PASS E-46-03: folder selection completes through the same authority')
     cancelled = offer('cancel')
     click(cancelled, 'rowGeometry', fixture + '/alpha.txt')
     call('key', 'esc')
     assert result(cancelled)['status'] == 'cancelled'
-    print('PASS E46-04: real Escape returns cancellation to the resident caller')
+    print('PASS E-46-04: real Escape returns cancellation to the resident caller')
     disconnected = offer('disconnect')
     guest('kill', '-TERM', str(callers[disconnected][0]))
     wait(lambda: session(disconnected) is None)
     del callers[disconnected]
-    print('PASS E46-05: caller process exit closes its chooser via actual socket EOF')
+    print('PASS E-46-05: caller process exit closes its chooser via actual socket EOF')
     assert ordinary() == before
     (out / 'ordinary.json').write_text(json.dumps({'before': before, 'after': ordinary()}, indent=2))
-    print('PASS E46-06: resident chooser completion preserves ordinary state and layout')
+    print('PASS E-46-06: resident chooser completion preserves ordinary state and layout')
 except BaseException:
     (out / 'failure.json').write_text(json.dumps(ipc('status'), indent=2))
     (out / 'failure-shot.txt').write_text(call('shot', 'r58-chooser-failure') + '\n')

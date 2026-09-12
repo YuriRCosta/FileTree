@@ -54,14 +54,14 @@ try:
         return sessions if len(sessions) == 2 and all(s['root'] == '/tmp/fileblade-chooser-e45/' + s['handle'][-1] and len(s['rows']) == 2 for s in sessions) else None
     sessions = wait(ready)
     assert json.loads(call('ipc', 'data-goblin.fileblade', 'status'))['focusedBlade'] == ''
-    print('PASS: opening a chooser yields the ordinary blade focus grab')
+    print('PASS E-45-01: opening a chooser yields the ordinary blade focus grab')
     (out / 'two-offers.json').write_text(json.dumps(sessions, indent=2))
-    print('PASS: two live chooser windows retain distinct roots and rows')
+    print('PASS E-45-02: two live chooser windows retain distinct roots and rows')
     process_probe = "import pathlib,subprocess,json; pid=subprocess.check_output(['pgrep','-f','^qs -n -p /home/omarchy/fileblade-runtime-spike/app$'],text=True).strip(); children=pathlib.Path('/proc/'+pid+'/task/'+pid+'/children').read_text().split(); print(json.dumps([pathlib.Path('/proc/'+child+'/cmdline').read_bytes().replace(bytes([0]),b' ').decode() for child in children]))"
     processes = json.loads(call('ssh', shlex.join(['python3', '-c', process_probe])))
     (out / 'view-children.json').write_text(json.dumps(processes, indent=2))
     assert len(processes) == 1 and 'serve' in processes[0]
-    print('PASS: two chooser views share the one resident QML backend process')
+    print('PASS E-45-03: two chooser views share the one resident QML backend process')
     for name, filename in [('a', 'one.txt'), ('b', 'two.txt')]:
         handle = 'e45-' + name
         path = '/tmp/fileblade-chooser-e45/' + name + '/' + filename
@@ -74,16 +74,16 @@ try:
         wait(lambda: any(s['handle'] == handle and [entry['path'] for entry in s['selected']] == [path] for s in state()['sessions']))
     selected = state()
     (out / 'selected.json').write_text(json.dumps(selected, indent=2))
-    print('PASS: real pointer selects a different file in each request')
+    print('PASS E-45-04: real pointer selects a different file in each request')
     shot = call('shot', 'e45-native-chooser-two')
     (out / 'shot.txt').write_text(shot + '\n')
     assert ordinary() == before
-    print('PASS: chooser navigation and selection leave ordinary root/state/layout unchanged')
+    print('PASS E-45-05: chooser navigation and selection leave ordinary root/state/layout unchanged')
     call('key', 'esc')
     wait(lambda: any(s['handle'] == 'e45-b' and not s['opened'] for s in state()['sessions']))
     remaining = next(s for s in state()['sessions'] if s['handle'] == 'e45-a')
     assert remaining['opened'] and remaining['selected'][0]['path'].endswith('/a/one.txt')
-    print('PASS: Escape closes one chooser and leaves the other request and selection intact')
+    print('PASS E-45-06: Escape closes one chooser and leaves the other request and selection intact')
 except BaseException:
     (out / 'failure.json').write_text(json.dumps(state(), indent=2))
     (out / 'failure-shot.txt').write_text(call('shot', 'e45-native-chooser-failure') + '\n')

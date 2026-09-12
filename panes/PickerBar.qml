@@ -7,6 +7,7 @@ FocusScope {
 
   required property var controller
   required property var hostWindow
+  property string acceptLabel: ""
 
   implicitHeight: controller.pickerMode === "save" ? Style.space(112) : Style.space(78)
 
@@ -124,8 +125,8 @@ FocusScope {
         PickerButton {
           text: controller.pickerMode === "save"
             ? (controller.pickerSaveValidationBusy ? "Checking…"
-              : (controller.pickerOverwriteArmed ? "Replace" : "Save"))
-            : "Open"
+              : (controller.pickerOverwriteArmed ? "Replace" : (root.acceptLabel || "Save")))
+            : (root.acceptLabel || "Open")
           primary: true
           danger: controller.pickerMode === "save" && controller.pickerOverwriteArmed
           enabled: !controller.pickerSaveValidationBusy
