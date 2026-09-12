@@ -442,3 +442,23 @@ pub struct LocationListArgs {
     #[arg(long)]
     pub fresh_git: bool,
 }
+
+#[derive(Clone, Debug, Args)]
+pub struct LocationConnectArgs {
+    #[arg(long)]
+    pub location: String,
+    #[arg(long)]
+    pub user: String,
+    #[arg(long, default_value = "/")]
+    pub path: String,
+    #[arg(long)]
+    pub save: bool,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct LocationDisconnectArgs {
+    #[arg(long)]
+    pub location: String,
+    #[arg(long)]
+    pub generation: String,
+}
