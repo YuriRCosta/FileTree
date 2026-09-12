@@ -1,5 +1,6 @@
 use fileblade::lease::{Authority, LeaseError, WriteMode};
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
@@ -827,4 +828,225 @@ fn chooser_watch_admission_is_bounded_and_eof_drains_the_waiter() {
         std::thread::sleep(Duration::from_millis(20));
     }
     assert!(fileblade::lease::transport::probe(&resident.root).is_ok());
+}
+
+const PORTAL_FRONTEND: &str = "org.freedesktop.portal.Desktop";
+const PORTAL_BACKEND: &str = "org.freedesktop.impl.portal.desktop.fileblade";
+const PORTAL_PATH: &str = "/org/freedesktop/portal/desktop";
+const PORTAL_INTERFACE: &str = "org.freedesktop.impl.portal.FileChooser";
+const REQUEST_INTERFACE: &str = "org.freedesktop.impl.portal.Request";
+
+struct PrivateBus {
+    child: Child,
+    address: String,
+}
+
+impl PrivateBus {
+    fn start() -> Self {
+        let mut child = Command::new("dbus-daemon")
+            .args(["--session", "--nofork", "--nopidfile", "--print-address=1"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut address = String::new();
+        BufReader::new(child.stdout.take().unwrap())
+            .read_line(&mut address)
+            .unwrap();
+        assert!(
+            !address.trim().is_empty(),
+            "private D-Bus daemon gave no address"
+        );
+        Self {
+            child,
+            address: address.trim().to_owned(),
+        }
+    }
+}
+
+impl Drop for PrivateBus {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+struct PortalProcess {
+    child: Child,
+}
+
+impl PortalProcess {
+    fn start(resident: &Resident, bus: &PrivateBus) -> Self {
+        let child = isolated_command(resident.temporary.path(), &resident.root)
+            .env("DBUS_SESSION_BUS_ADDRESS", &bus.address)
+            .args(["native", "portal"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        Self { child }
+    }
+}
+
+impl Drop for PortalProcess {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn bus_connection(bus: &PrivateBus) -> zbus::blocking::Connection {
+    zbus::blocking::connection::Builder::address(bus.address.as_str())
+        .unwrap()
+        .build()
+        .unwrap()
+}
+
+fn named_bus_connection(bus: &PrivateBus) -> zbus::blocking::Connection {
+    zbus::blocking::connection::Builder::address(bus.address.as_str())
+        .unwrap()
+        .name(PORTAL_FRONTEND)
+        .unwrap()
+        .build()
+        .unwrap()
+}
+
+fn wait_for_bus_name(connection: &zbus::blocking::Connection, name: &str) {
+    let proxy = zbus::blocking::fdo::DBusProxy::new(connection).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !proxy
+        .name_has_owner(zbus::names::BusName::try_from(name).unwrap())
+        .unwrap_or(false)
+    {
+        assert!(
+            Instant::now() < deadline,
+            "D-Bus name did not appear: {name}"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn portal_open(
+    connection: &zbus::blocking::Connection,
+    handle: &str,
+) -> zbus::Result<(u32, HashMap<String, zbus::zvariant::OwnedValue>)> {
+    let proxy =
+        zbus::blocking::Proxy::new(connection, PORTAL_BACKEND, PORTAL_PATH, PORTAL_INTERFACE)?;
+    let handle = zbus::zvariant::OwnedObjectPath::try_from(handle).unwrap();
+    proxy.call(
+        "OpenFile",
+        &(
+            handle,
+            "org.test.browser",
+            "",
+            "Upload",
+            HashMap::<String, zbus::zvariant::OwnedValue>::new(),
+        ),
+    )
+}
+
+fn portal_close(connection: &zbus::blocking::Connection, handle: &str) -> zbus::Result<()> {
+    let proxy = zbus::blocking::Proxy::new(connection, PORTAL_BACKEND, handle, REQUEST_INTERFACE)?;
+    proxy.call("Close", &())
+}
+
+fn wait_for_offer(session: &mut Session, handle: &str, present: bool) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut serial = 0;
+    loop {
+        serial += 1;
+        session.send(
+            json!({"v":1,"type":"request","id":format!("portal-watch-{handle}-{present}-{serial}"),"generation":1,
+            "command":"chooser","arguments":["watch"],"deadline_ms":60000}),
+        );
+        let frame = session.receive();
+        assert_eq!(frame["payload"]["ok"], true, "{frame}");
+        let found = frame["payload"]["offers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|offer| offer["handle"] == handle);
+        if found == present {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "chooser offer presence did not settle"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[test]
+fn portal_boundary_authenticates_sender_closes_and_cancels_on_name_loss() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let bus = PrivateBus::start();
+    let resident = Resident::start();
+    let _portal = PortalProcess::start(&resident, &bus);
+    let frontend = named_bus_connection(&bus);
+    wait_for_bus_name(&frontend, PORTAL_BACKEND);
+    let attacker = bus_connection(&bus);
+    let mut observer = resident.session();
+    let accepted_handle = "/org/freedesktop/portal/desktop/request/test/accepted";
+    let accepted = std::thread::spawn({
+        let frontend = frontend.clone();
+        move || portal_open(&frontend, accepted_handle)
+    });
+    wait_for_offer(&mut observer, accepted_handle, true);
+    let denied_open = portal_open(
+        &attacker,
+        "/org/freedesktop/portal/desktop/request/test/unauthorized",
+    )
+    .unwrap_err();
+    assert!(
+        denied_open.to_string().contains("AccessDenied"),
+        "{denied_open}"
+    );
+    let denied = portal_close(&attacker, accepted_handle).unwrap_err();
+    assert!(denied.to_string().contains("AccessDenied"), "{denied}");
+    let path = resident.temporary.path().join("browser-upload.txt");
+    fs::write(&path, "portal upload").unwrap();
+    let mut chooser = resident.session();
+    chooser.send(json!({"v":1,"type":"request","id":"portal-choose","generation":1,
+        "command":"chooser","arguments":["choose","--handle",accepted_handle,"--path",path],"deadline_ms":60000}));
+    assert_eq!(chooser.receive()["payload"]["ok"], true);
+    let (response, results) = accepted.join().unwrap().unwrap();
+    assert_eq!(response, 0);
+    let uris: Vec<String> = results
+        .into_iter()
+        .find_map(|(key, value)| (key == "uris").then(|| value.try_into().unwrap()))
+        .unwrap();
+    assert_eq!(
+        uris,
+        vec![url::Url::from_file_path(&path).unwrap().to_string()]
+    );
+    wait_for_offer(&mut observer, accepted_handle, false);
+
+    let closed_handle = "/org/freedesktop/portal/desktop/request/test/closed";
+    let closed = std::thread::spawn({
+        let frontend = frontend.clone();
+        move || portal_open(&frontend, closed_handle)
+    });
+    wait_for_offer(&mut observer, closed_handle, true);
+    portal_close(&frontend, closed_handle).unwrap();
+    let (response, results) = closed.join().unwrap().unwrap();
+    assert_eq!(response, 1);
+    assert!(results.is_empty());
+    wait_for_offer(&mut observer, closed_handle, false);
+
+    frontend.release_name(PORTAL_FRONTEND).unwrap();
+    let frontend = named_bus_connection(&bus);
+    let lost_handle = "/org/freedesktop/portal/desktop/request/test/lost";
+    let lost = std::thread::spawn({
+        let frontend = frontend.clone();
+        move || portal_open(&frontend, lost_handle)
+    });
+    wait_for_offer(&mut observer, lost_handle, true);
+    frontend.release_name(PORTAL_FRONTEND).unwrap();
+    let (response, results) = lost.join().unwrap().unwrap();
+    assert_eq!(response, 1);
+    assert!(results.is_empty());
+    wait_for_offer(&mut observer, lost_handle, false);
 }

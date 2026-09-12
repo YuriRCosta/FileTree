@@ -1,3 +1,4 @@
+pub mod portal;
 pub mod transport;
 
 use crate::{AppError, AppResult, filesystem};

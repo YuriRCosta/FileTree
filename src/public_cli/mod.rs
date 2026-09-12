@@ -79,6 +79,7 @@ impl From<OutputFormat> for Format {
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum RootCommand {
+    Native(crate::native::Args),
     #[command(name = "_companion-mutate", hide = true)]
     CompanionMutate,
     #[command(name = "_backend", hide = true)]
@@ -211,9 +212,12 @@ pub fn run(command: RootCommand) -> AppResult<PublicResult> {
 
 fn run_command(command: RootCommand) -> AppResult<PublicResult> {
     match command {
-        RootCommand::Backend { .. } | RootCommand::Serve(_) | RootCommand::CompanionMutate => Err(
-            AppError::invalid("internal command routed through the public CLI"),
-        ),
+        RootCommand::Native(_)
+        | RootCommand::Backend { .. }
+        | RootCommand::Serve(_)
+        | RootCommand::CompanionMutate => Err(AppError::invalid(
+            "internal command routed through the public CLI",
+        )),
         RootCommand::Preferences(changes) => {
             let settings =
                 if changes.trash_retention_days.is_some() || changes.agent_management.is_some() {

@@ -31,7 +31,7 @@ Item {
           var row = service.treeModel.get(i)
           rows.push({ path: row.path, name: row.name, isDir: row.isDir, selectable: item.allowsEntry(row.path, row.isDir, row.mime) })
         }
-        sessions.push({ handle: handle, opened: item.opened, root: service ? service.rootPath : "", selected: service ? service.selectedEntries : [], rows: rows, error: service ? service.operationError : "", overwrite: service ? service.pickerOverwriteArmed : false })
+        sessions.push({ handle: handle, title: item.offer.title || "Choose a file — FileBlade", opened: item.opened, root: service ? service.rootPath : "", selected: service ? service.selectedEntries : [], rows: rows, error: service ? service.operationError : "", overwrite: service ? service.pickerOverwriteArmed : false })
       }
       return JSON.stringify({ sessions: sessions, error: probe.manager.error })
     }
