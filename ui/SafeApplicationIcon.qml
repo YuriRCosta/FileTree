@@ -16,7 +16,17 @@ Item {
   property color fallbackColor: Color.accent
   property real fallbackSize: Style.font.body
   property real iconSize: Style.space(18)
+  property string desktopId: ""
+  property var applicationDescriptor: null
+  property var applicationOverride: null
+  readonly property var desktopEntry: desktopId === "" ? null : DesktopEntries.applications.values.find(function(entry) {
+    return entry.id === root.desktopId.replace(/\.desktop$/, "")
+  }) || null
+  readonly property var applicationIcon: desktopId === "" && applicationDescriptor === null ? null
+    : FileIcons.resolveApplication(applicationDescriptor || { icon: iconName, glyph: fallbackGlyph },
+        applicationOverride, desktopEntry, Quickshell.iconPath)
   readonly property string resolvedSource: {
+    if (applicationIcon !== null) return applicationIcon.icon_source
     if (trustedIconSource !== "") return trustedIconSource
     var safeName = FileIcons.safeThemeIconName(iconName)
     return safeName ? Quickshell.iconPath(safeName, true) : ""
