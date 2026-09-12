@@ -4,27 +4,42 @@ source "$(dirname "$0")/lib.sh"
 
 require_guest
 
+shot() { "$OVM" shot "$1"; }
 wheel() { status | jq -r ".dropWheel.$1"; }
 wheel_labels() { status | jq -r '[.dropWheel.actions[]?.label]|join(",")'; }
 wheel_index() { status | jq -r --arg n "$1" '[.dropWheel.actions[]?.label]|index($n)'; }
 clients() { "$OVM" hypr clients 2>/dev/null | jq length; }
 kill_windows() { "$OVM" ssh 'pkill -x foot; pkill -x nvim' >/dev/null 2>&1; wait_for "[[ \$(clients) == 0 ]]" 15; }
+
+space_helper=""
+space_pid=""
+cleanup_space_helper() {
+  [[ ! $space_pid =~ ^[0-9]+$ ]] || guest "kill -- -$space_pid" >/dev/null 2>&1
+  [[ -z $space_helper ]] || guest "rm -f -- $(printf '%q' "$space_helper")" >/dev/null 2>&1
+}
+trap cleanup_space_helper EXIT
+trap 'exit 130' INT TERM
+space_source="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)/demos/hold-space-near.sh"
+if [[ ! -f $space_source ]]; then
+  fail harness "stage the modifier helper" "source helper is absent: $space_source"
+  summary
+fi
+space_helper=$(guest 'mktemp /tmp/fileblade-drop-wheel-space.XXXXXX')
+if [[ ! $space_helper =~ ^/tmp/fileblade-drop-wheel-space\.[[:alnum:]]+$ ]]; then
+  fail harness "stage the modifier helper" "guest temporary path is invalid"
+  summary
+fi
+space_data=$(base64 -w0 "$space_source")
+if ! guest "printf '%s' $space_data | base64 -d > $(printf '%q' "$space_helper") && chmod 700 $(printf '%q' "$space_helper")"; then
+  fail harness "stage the modifier helper" "could not copy the helper into the guest"
+  summary
+fi
 # Wedge i of n is centred at -90 + i * 360 / n degrees, on the ring between the
 # hub and the rim (WheelGeometry.wedgeAngle; labelRadius is 58 at scale 1).
 wedge_point() { awk -v x="$1" -v y="$2" -v n="$3" -v i="$4" 'BEGIN { a = (-90 + i * 360 / n) * 3.14159265 / 180; printf "%d %d\n", x + 58 * cos(a), y + 58 * sin(a) }'; }
 
-# The drag is a democtl script inside the guest, a real pointer from press to
-# release. Space is held by demos/hold-space-near.sh from the pushed plugin: it
-# waits until the pointer comes within REACH px of the drop point, then holds
-# Space for HOLD ms. A small reach on an eased path opens the wheel where the
-# drag ends, so the release lands on the hub; a large reach on a linear path
-# opens it REACH px early, so the release lands on the wedge in the direction
-# of travel. While the recording runs the host polls the status document and
-# keeps two snapshots: the first that shows the wheel open, for the drag facts,
-# and the first that shows its rows loaded, for the target; the backend answers
-# a moment after the wheel appears, often after the release.
 drag_with_space() {
-  local sx=$1 sy=$2 tx=$3 ty=$4 ease=$5 reach=$6 hold=$7 script
+  local sx=$1 sy=$2 tx=$3 ty=$4 ease=$5 reach=$6 hold=$7 drag_shot=${8:-} pending_shot=${9:-} open_shot=${10:-} loaded_shot=${11:-} script
   script=$(cat <<TOML
 [demo]
 name = "expect-wheel"
@@ -77,15 +92,28 @@ ms = 1500
 TOML
 )
   guest "printf '%s\n' $(printf '%q' "$script") > /tmp/fb-wheel.toml"
-  guest "setsid $GUEST_PLUGIN/demos/hold-space-near.sh $tx $ty $reach $hold >/tmp/fb-wheel-space.log 2>&1 </dev/null &" >/dev/null
+  space_pid=$(guest "setsid $(printf '%q' "$space_helper") $tx $ty $reach $hold >/tmp/fb-wheel-space.log 2>&1 </dev/null & echo \$!")
   guest 'setsid democtl record /tmp/fb-wheel.toml --out /tmp --force >/tmp/fb-wheel-record.log 2>&1 </dev/null &' >/dev/null
-  mid_drag=""; loaded=""
+  mid_drag=""; loaded=""; local drag_seen=0
   local deadline=$((SECONDS + 12)) snapshot
+  local blade_width; blade_width=$(field sidebarWidth)
   while ((SECONDS < deadline)); do
     snapshot=$(status | jq -c '.dropWheel' 2>/dev/null)
+    if [[ $drag_seen == 0 && -n $drag_shot && $(jq -r '.dragging and (.open | not)' <<<"$snapshot" 2>/dev/null) == true ]] && (( $("$OVM" hypr cursorpos | jq -r .x) > blade_width + 40 )); then
+      shot "$drag_shot"
+      [[ -z $pending_shot ]] || shot "$pending_shot"
+      drag_seen=1
+    fi
     if [[ $(jq -r '.open' <<<"$snapshot" 2>/dev/null) == true ]]; then
-      [[ -z $mid_drag ]] && mid_drag=$snapshot
-      if [[ $(jq -r '.loading | not' <<<"$snapshot" 2>/dev/null) == true ]]; then loaded=$snapshot; break; fi
+      if [[ -z $mid_drag ]]; then
+        mid_drag=$snapshot
+        [[ -z $open_shot ]] || shot "$open_shot"
+      fi
+      if [[ $(jq -r '.loading | not' <<<"$snapshot" 2>/dev/null) == true ]]; then
+        loaded=$snapshot
+        [[ -z $loaded_shot ]] || shot "$loaded_shot"
+        break
+      fi
     fi
     sleep 0.2
   done
@@ -103,7 +131,7 @@ focus_tree
 ctl hideDropWheel >/dev/null 2>&1
 
 # Release on the hub: the wheel must open under the pointer and then stay.
-drag_with_space "$ROW_X" "$(row_y "$(row_index alpha.txt)")" 900 500 ease_in_out 12 3000
+drag_with_space "$ROW_X" "$(row_y "$(row_index alpha.txt)")" 900 500 ease_in_out 12 3000 E-26-01-drag-ghost E-26-02-multi-item-ghost-pending E-26-03-wheel-open E-26-04-desktop-actions
 expect_true E-26-01 "leaving the blade with a row starts a drag" "[[ \$(mid dragging) == true ]]"
 expect_true E-26-01 "that carries one item" "[[ \$(mid count) == 1 ]]"
 pending E-26-02 "the ghost names the last grabbed row and counts the items" "the ghost caption is not in the status document; the carried count is covered by E-26-01"
@@ -117,17 +145,26 @@ expect_missing E-26-04 "but nothing that needs a window under the pointer" "$lab
 pending E-26-06 "placements open a second ring" "the second ring's entries are not in the status document"
 expect_true E-26-09 "releasing on the hub keeps the wheel open" "[[ \$(wheel open) == true && \$(wheel dragging) == false ]]"
 expect_true E-26-09 "as a wheel that no longer follows a drag" "[[ \$(wheel fromDrag) == false ]]"
-"$OVM" shot wheel-26-hub
+shot E-26-09-hub-released
+shot E-26-10-open-with-pending
 
 count=$(status | jq '.dropWheel.actions|length')
 wx=$(wheel x); wy=$(wheel y)
+open_with_index=$(wheel_index "Open with")
+if [[ $count -gt 0 && $open_with_index != null ]]; then
+  read -r px py <<<"$(wedge_point "$wx" "$wy" "$count" "$open_with_index")"
+  "$OVM" mouse move "$px" "$py"; sleep 1.5
+fi
+shot E-26-06-placement-ring-pending
 terminal_index=$(wheel_index "New terminal")
 if [[ $count -gt 0 && $terminal_index != null ]]; then
   read -r px py <<<"$(wedge_point "$wx" "$wy" "$count" "$terminal_index")"
   "$OVM" mouse move "$px" "$py"; sleep 1.5
   expect_true E-26-05 "the pointer highlights the wedge under it" "[[ \$(wheel highlighted) == $terminal_index ]]"
+  shot E-26-05-wedge-highlight
   "$OVM" mouse move "$wx" "$wy"; sleep 1.2
   expect_true E-26-05 "and the hub highlights nothing" "[[ \$(wheel highlighted) == -1 ]]"
+  shot E-26-05-hub-highlight-clear
 else
   fail E-26-05 "the pointer highlights the wedge under it" "no wheel stayed open to move around in"
 fi
@@ -135,15 +172,16 @@ fi
 expect_true E-26-08 "escape closes the wheel" "[[ \$(wheel open) == false ]]"
 expect_true E-26-08 "without opening anything" "[[ \$(clients) == 0 ]]"
 expect_out E-26-08 "and the file is untouched" "test -f $ROOT_DIR/alpha.txt && echo yes || echo no" yes
+shot E-26-08-cancelled
 
 # Release on a wedge: the wheel opens 60 px before the drop, so the release
 # lands on the wedge in the direction of travel. From a low row up and right
 # the angle is about -42 degrees, inside the top wedge, Open in new window.
-drag_with_space "$ROW_X" "$(row_y "$(row_index long.txt)")" 560 220 linear 60 3000
+drag_with_space "$ROW_X" "$(row_y "$(row_index long.txt)")" 560 220 linear 60 3000 "" "" "" ""
 wait_for "[[ \$(clients) -ge 1 ]]" 20
 expect_true E-26-07 "releasing on Open in new window opens the file" "[[ \$(clients) -ge 1 ]]"
 expect_true E-26-07 "and the wheel closes" "[[ \$(wheel open) == false ]]"
-"$OVM" shot wheel-26-opened
+shot E-26-07-file-opened
 kill_windows
 
 pending E-26-10 "the Open with wedge shows an open-folder glyph in every context" "wedge glyphs are not in the status document"
