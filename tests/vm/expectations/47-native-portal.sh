@@ -85,6 +85,9 @@ def chooser_window(session):
 
 def click_chooser(session, path):
     window = chooser_window(session)
+    time.sleep(0.7)
+    call('key', 'end')
+    time.sleep(0.3)
     row = ipc('rowGeometry', session['handle'], path)
     if row.get('width', 0) <= 0 or row.get('height', 0) <= 0:
         raise AssertionError('chooser row has no visible geometry: ' + json.dumps(row))
