@@ -199,3 +199,44 @@ explicit maintenance fixture, checks failure/result handling, the active
 launcher path, shared-lock ordering and activation identity changes, then runs
 E91/E93 with it. These are caller/transaction checks; they do not implement or
 qualify runtime draining or desktop-role reversal.
+
+## Installed expectation adapter
+
+Select the adapter and the native shape for installed expectations:
+
+```bash
+export OVM="$PWD/tests/vm/native-ovm"
+export OVM_REAL="$HOME/.claude/skills/test-omarchy-plugin/scripts/ovm"
+export SKIP_PUSH=1 FILEBLADE_SHAPE=native
+"$OVM" ipc data-goblin.fileblade status
+```
+
+Keep the assigned `OVM_HOME` and `OVM_SSH_PORT`. The adapter resolves the
+installed stable user launcher, or the packaged launcher when no user launcher
+exists. `FILEBLADE_NATIVE_LAUNCHER` can name an explicit guest stable launcher.
+It checks the direct activation receipt and manifest identity; installation
+and qualification own the full payload inventory check. It exports the
+published native payload/backend/state environment for native commands.
+
+`ipc` routes FileBlade targets through `native ipc --` on the stable launcher.
+Other targets, `ssh` command strings and other ovm verbs forward unchanged.
+`restart` and `restart-shell` drain first, restart through the stable launcher
+and wait for the installed view and eight built-ins. A refused or incomplete
+drain leaves activation intact. Launch output is retained in
+`$FILEBLADE_NATIVE_STATE_ROOT/native-ovm.log` in the guest.
+
+Push is refused by default. To explicitly install a previously built payload
+whose manifest source matches the given tree's HEAD:
+
+```bash
+FILEBLADE_NATIVE_PAYLOAD=/absolute/path/to/payload SKIP_PUSH=0 "$OVM" push "$PWD"
+```
+
+Push transfers that payload into a temporary guest directory, invokes its
+`tools/native install` and removes the temporary copy. Build the payload using
+the staging command above; the adapter does not choose a backend or notices.
+The shared runner also accepts a relative OVM path. Runtime owns native
+control and stop/restart selection in the shared helpers; wheel owns its
+remaining plugin-specific callers. Production launcher/drain qualification
+and the four backend IPC commands remain pending runtime. SSH strings
+forward unchanged; shape selection belongs in their callers.
