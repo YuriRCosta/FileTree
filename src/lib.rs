@@ -19,6 +19,7 @@ pub mod hyprland;
 pub mod index;
 pub mod journal;
 pub mod listing;
+pub mod migration;
 pub mod module_dirs;
 pub mod module_helpers;
 pub mod modules;

@@ -23,6 +23,58 @@ const CLI_TIMEOUT: Duration = Duration::from_secs(2);
 const CLI_STDOUT_LIMIT: usize = 128 * 1024;
 const CLI_STDERR_LIMIT: usize = 4 * 1024;
 
+pub(crate) fn legacy_activation(config_root: &std::path::Path) -> Result<Vec<String>, String> {
+    let config_home = config_root
+        .parent()
+        .and_then(std::path::Path::parent)
+        .ok_or("legacy config root has no XDG parent")?;
+    let (activation, state) = enabled_ids_for(config_home);
+    if state != "known" {
+        return Err("legacy plugin activation is unknown".into());
+    }
+    let enabled: Vec<String> = activation
+        .into_iter()
+        .filter(|(id, enabled)| {
+            *enabled
+                && (id == CORE_ID
+                    || crate::module_helpers::canonical_route(id, "inventory").is_some()
+                        && !id.starts_with("fileblade.core."))
+        })
+        .map(|(id, _)| id)
+        .collect();
+    if enabled.is_empty() {
+        let path = config_home.join("omarchy/shell.json");
+        let bytes = read_regular_file(&path, SHELL_CONFIG_LIMIT)
+            .map_err(|_| "legacy shell activation configuration is unavailable")?;
+        let config: Value = serde_json::from_slice(&bytes)
+            .map_err(|_| "legacy shell activation configuration is malformed")?;
+        if !config.is_object()
+            || !config["plugins"].is_array()
+            || config["plugins"]
+                .as_array()
+                .is_some_and(|rows| rows.iter().any(|row| row["id"].as_str().is_none()))
+            || config.get("disabledPlugins").is_some_and(|value| {
+                !value.is_array()
+                    || value
+                        .as_array()
+                        .is_some_and(|rows| rows.iter().any(|id| !id.is_string()))
+            })
+        {
+            return Err("legacy shell activation configuration is malformed".into());
+        }
+        let shell = ShellActivation::parse(&config);
+        if shell.listed.iter().any(|id| {
+            shell.enabled(id)
+                && (id == CORE_ID
+                    || crate::module_helpers::canonical_route(id, "inventory").is_some()
+                        && !id.starts_with("fileblade.core."))
+        }) {
+            return Err("legacy CLI and shell activation evidence disagree".into());
+        }
+    }
+    Ok(enabled)
+}
+
 pub fn catalog() -> crate::AppResult<Value> {
     let mut diagnostics: Vec<Value> = Vec::new();
     let plugins = match plugins_dir() {
@@ -247,12 +299,17 @@ fn plugins_dir() -> Result<PathBuf, String> {
 }
 
 fn enabled_ids() -> (BTreeMap<String, bool>, &'static str) {
+    enabled_ids_for(&xdg_home("XDG_CONFIG_HOME", "~/.config"))
+}
+
+fn enabled_ids_for(config_home: &std::path::Path) -> (BTreeMap<String, bool>, &'static str) {
     let program = match which("omarchy") {
         Some(program) => program,
         None => return (BTreeMap::new(), "unknown"),
     };
     let output = CommandSpec::new(program)
         .args(["plugin", "list", "--json"])
+        .env("XDG_CONFIG_HOME", config_home)
         .env("LC_ALL", "C")
         .timeout(CLI_TIMEOUT)
         .limits(CLI_STDOUT_LIMIT, CLI_STDERR_LIMIT)
@@ -268,7 +325,7 @@ fn enabled_ids() -> (BTreeMap<String, bool>, &'static str) {
     if rows.len() > MAX_ROWS {
         return (BTreeMap::new(), "unknown");
     }
-    match merge_activation(&rows, shell_activation().as_ref()) {
+    match merge_activation(&rows, shell_activation(config_home).as_ref()) {
         Some(activation) => (activation, "known"),
         None => (BTreeMap::new(), "unknown"),
     }
@@ -318,8 +375,8 @@ impl ShellActivation {
     }
 }
 
-fn shell_activation() -> Option<ShellActivation> {
-    let path = xdg_home("XDG_CONFIG_HOME", "~/.config").join("omarchy/shell.json");
+fn shell_activation(config_home: &std::path::Path) -> Option<ShellActivation> {
+    let path = config_home.join("omarchy/shell.json");
     let bytes = read_regular_file(&path, SHELL_CONFIG_LIMIT).ok()?;
     let config: Value = serde_json::from_slice(&bytes).ok()?;
     config.is_object().then(|| ShellActivation::parse(&config))
