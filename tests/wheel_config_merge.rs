@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 fn defaults() -> Vec<Value> {
     vec![
         json!({"id":"open","label":"Open","key":"o","placements":[]}),
-        json!({"id":"terminal","label":"Terminal","key":"t","icon":"old","icon_source":"file:///old.png","placements":[]}),
+        json!({"id":"terminal","desktop_id":"terminal.desktop","label":"Terminal","key":"t","icon":"old","icon_source":"file:///old.png","placements":[]}),
         json!({"id":"mux-open","label":"herdr","key":"h","placements":[{"id":"right","label":"Right"},{"id":"down","label":"Down"}]}),
     ]
 }
