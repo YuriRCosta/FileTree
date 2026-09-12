@@ -103,7 +103,7 @@ run-mode capability checks.
 
 `conditions` optionally contains `mime` and `path` arrays of patterns. Within
 an array, any pattern may match; across both arrays, every condition must
-match every selected path. `*` matches any sequence; other characters are
+match every selected path. `*` matches any sequence except a newline; other characters are
 literal. Examples: `"mime":["image/*"]`, `"path":["/home/me/project/*.rs"]`.
 Path matching is case-sensitive against the full path representation. The
 existing resolver probes at most 12 MIME values. An unprobed or unknown MIME
@@ -213,3 +213,69 @@ A drag released while the wheel is loading is remembered for up to 800 ms.
 Rows arriving within that interval activate at the remembered point once.
 After the interval, the wheel stays open for an explicit choice. Closing the
 wheel discards the pending activation.
+
+## Settings form integration reference
+
+The schema is implemented in commit `c7f3199`. The settings owner adds the
+form entry under the existing preferences path. Suggested label: **Drop
+wheel**. Suggested description: **Choose actions, their order and icons,
+and commands with up to two layers of sub-actions.** Store an object under
+`dropWheel`, not a JSON string. An absent member restores the standard wheel;
+an explicit empty configuration is `{"version":1,"actions":[],"customActions":[]}`.
+
+| Field | Type and default | Editing rule |
+| --- | --- | --- |
+| `version` | Integer, `1` | Wheel schema version; leave the containing settings version unchanged |
+| `actions` | Array, omitted means no overrides | Ordered references to available built-ins or defined custom actions |
+| `customActions` | Array, omitted means none | Custom root definitions; at most 12 definitions are considered |
+| `id` | String | Stable action/child identity; custom ids use ASCII letters, digits, `-`, `_`, `:`, at most 96 bytes; root and added built-in child ids start with `custom:` |
+| `desktop_id` | String | Select an existing Open-with application override; takes precedence over `id` for matching |
+| `hidden` | Boolean, `false` | Hide the entry without deleting its definition |
+| `label` | String | Required and nonblank for custom definitions; overrides inherit when omitted |
+| `key` | String, automatic when empty or omitted on custom definitions | One ASCII letter or digit; collisions receive an available key |
+| `glyph` | String | Text fallback; an explicit glyph without an icon replaces inherited imagery |
+| `icon` | String | Theme name or bundled mark name; explicit value replaces inherited imagery |
+| `description` | String, empty for custom definitions | Description displayed by the wheel |
+| `group` | String, `custom` for custom definitions | Descriptive metadata; does not control ordering |
+| `placements` | Array | Ordered child overrides or custom definitions; allow action → placement → sub-placement only |
+| `targetKinds` | Nonempty string array, omitted means all eligible kinds | Custom definitions only: `desktop`, `terminal`, `editor`, `window`, `blade` |
+| `conditions` | Object, omitted means unrestricted | Custom definitions only; optional `mime` and `path` arrays |
+| `conditions.mime`, `conditions.path` | Nonempty string arrays | Each has at most 12 patterns, each nonempty and at most 256 bytes |
+| `command` | String array | Custom executable leaf or container fallback; 1–128 arguments, each at most 4096 bytes, no NUL; first argument is a literal executable |
+| `runMode` | String, `detached` | Applies to `command`: `detached`, `terminal`, or `multiplexer` |
+| `placement` | String | Required for a multiplexer command; use the resolved target's placement ids above |
+| `builtin` | Object | Custom reference to an available executable built-in; mutually exclusive with `command` |
+| `builtin.action` | String | Required built-in action id |
+| `builtin.placement` | String, omitted for a leaf action | Placement id, or desktop id for an Open-with application |
+
+The six display strings (`label`, `key`, `glyph`, `icon`, `description`,
+`group`) are bounded to 512 bytes and reject control characters; the stricter
+key/icon rules still apply. Omitted override fields inherit existing values.
+Custom descendants declare their own conditions and commands; ancestor
+conditions also restrict whether their branch exists. If a command-bearing
+container has no remaining visible children, its own command becomes the
+executable leaf. Use command-free containers when that fallback is unwanted.
+Built-in overrides accept display, visibility and child edits; put execution
+and applicability fields in custom definitions.
+
+Preserve unknown members in the original settings object, including inside
+individual definitions, when saving an edit. Do not serialize the rendered
+wheel rows back into settings: they contain generated keys and dispatch
+metadata rather than the user's definitions. Reset only the `dropWheel`
+member. Keep the existing whole-document 64 KiB limit.
+
+The existing pure Rust entry point is
+`fileblade::drop_target::config::merge(defaults, document, target, facts)`.
+It accepts `&[serde_json::Value]` followed by three `&serde_json::Value`
+arguments and returns `(Vec<serde_json::Value>, Vec<String>)`: visible rows
+and diagnostics. `document` is the wheel member itself, not all settings.
+Supply the current built-in rows and target/file facts for a contextual
+preview. This is not a standalone save validator: unavailable actions and
+conditions depend on that context. The lane adds no preference-write API or
+settings-form implementation; those remain with the settings owner.
+
+Application icons continue through the existing `icon`/`icon_source` path.
+The central resolver consumer hookup follows media's published interface
+after task 8.3 under R42. Explicit overrides and inherited alias icons already
+work. Existing herdr/tmux marks remain; this baseline has no bundled hunk
+mark, so hunk retains its glyph fallback.
