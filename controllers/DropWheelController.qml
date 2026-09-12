@@ -44,6 +44,7 @@ Item {
   property bool wheelFromDrag: false
   property bool keyboardFocusReleased: false
   property bool loading: false
+  property var pendingRelease: null
   property var wheelScreen: null
   property real wheelX: 0
   property real wheelY: 0
@@ -163,6 +164,11 @@ Item {
     }
     if (wheelOpen && wheelFromDrag) {
       wheelFromDrag = false
+      if (loading) {
+        pendingRelease = { x: pointerX, y: pointerY, generation: contextGeneration, deadline: Date.now() + 800 }
+        releaseWait.restart()
+        return true
+      }
       if (withinHub(pointerX, pointerY)) resetHighlight()
       else if (!activateAt(pointerX, pointerY)) close()
       return true
@@ -282,6 +288,7 @@ Item {
   function applyContext(result) {
     loading = false
     if (!result || !result.ok) {
+      clearPendingRelease()
       error = result && result.error ? String(result.error) : "Unable to resolve the drop target"
       context = result || null
       ringItems = mergeActions(result && Array.isArray(result.actions) ? result.actions : [])
@@ -294,6 +301,22 @@ Item {
     }
     ringItems = mergeActions(Array.isArray(result.actions) ? result.actions : [])
     if (wheelFromDrag) hover(pointerX, pointerY)
+    if (pendingRelease) {
+      var release = pendingRelease
+      clearPendingRelease()
+      if (release.generation !== contextGeneration) return
+      if (Date.now() >= release.deadline) {
+        status = "Choose an action to continue"
+        return
+      }
+      if (withinHub(release.x, release.y)) resetHighlight()
+      else if (!activateAt(release.x, release.y)) close()
+    }
+  }
+
+  function clearPendingRelease() {
+    releaseWait.stop()
+    pendingRelease = null
   }
 
   function customActions() {
@@ -395,6 +418,7 @@ Item {
   }
 
   function activateAt(x, y) {
+    clearPendingRelease()
     var hit = pointAt(x, y)
     if (hit.ring === "outer") return activateChild(hit.index)
     if (hit.ring === "inner") return activate(hit.index)
@@ -416,6 +440,7 @@ Item {
   }
 
   function activate(index) {
+    clearPendingRelease()
     var item = ringItems[index]
     if (!item) return false
     setHighlighted(index)
@@ -429,6 +454,7 @@ Item {
   }
 
   function activateChild(index) {
+    clearPendingRelease()
     var parent = parentItem
     var item = outerItems[index]
     if (!parent || !item) return false
@@ -543,6 +569,7 @@ Item {
   }
 
   function close() {
+    clearPendingRelease()
     dragKeys.cancelRelease()
     runGeneration++
     runRequestId = ""
@@ -563,6 +590,15 @@ Item {
   DropWheelDragKeys {
     id: dragKeys
     controller: wheelController
+  }
+
+  Timer {
+    id: releaseWait
+    interval: 800
+    onTriggered: {
+      wheelController.pendingRelease = null
+      if (wheelController.wheelOpen) wheelController.status = "Choose an action to continue"
+    }
   }
 
   Timer {
