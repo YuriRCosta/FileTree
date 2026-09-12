@@ -108,11 +108,20 @@ pub(super) fn start_request(
         );
         if let Some(operation) = operation {
             frame["op"] = Value::String(operation.id.clone());
-            operation.publish(frame, true);
+            let deliver = |target: &Output, terminal: &Value| {
+                let mut requests = lock(&active);
+                let result = target.machine(terminal);
+                requests.remove(&active_key);
+                result
+            };
+            if !operation.publish(frame, true, Some(&deliver)) {
+                lock(&active).remove(&active_key);
+            }
         } else {
+            let mut requests = lock(&active);
             let _ = emit(&output, &frame);
+            requests.remove(&active_key);
         }
-        lock(&active).remove(&active_key);
     }));
     Ok(())
 }
@@ -138,7 +147,7 @@ pub(super) fn execute(
         });
         if let Some(operation) = operation {
             frame["op"] = Value::String(operation.id.clone());
-            operation.publish(frame, false);
+            operation.publish(frame, false, None);
             Ok(())
         } else {
             emit(output, &frame)
