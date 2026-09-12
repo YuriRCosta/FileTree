@@ -38,6 +38,8 @@ pub enum BackendCommand {
     FrecencyList(FrecencyListArgs),
     ArchiveList(PathArg),
     ArchiveExtract(ArchiveExtractArgs),
+    ArchiveCreate(ArchiveCreateArgs),
+    PermissionsSet(PermissionsSetArgs),
     Preview(PreviewArgs),
     Thumbnail(ThumbnailArgs),
     ThumbnailRender(ThumbnailRenderArgs),
@@ -146,6 +148,8 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::BinRemove(_)
             | BackendCommand::BinPurge(_)
             | BackendCommand::ArchiveExtract(_)
+            | BackendCommand::ArchiveCreate(_)
+            | BackendCommand::PermissionsSet(_)
             | BackendCommand::PluginInstall
             | BackendCommand::MountVolume(_)
             | BackendCommand::UnmountVolume(_)
@@ -259,6 +263,15 @@ fn dispatch_command(
             crate::frecency::visit(&options.path[..options.path.len().min(64)])
         }
         BackendCommand::ArchiveList(options) => crate::archive::list(&options.path, cancelled),
+        BackendCommand::ArchiveCreate(options) => crate::archive::create(
+            &options.source,
+            &options.destination,
+            &options.format,
+            cancelled,
+        ),
+        BackendCommand::PermissionsSet(options) => {
+            crate::operations::permissions::set(&options.path, &options.mode, cancelled)
+        }
         BackendCommand::ArchiveExtract(options) => crate::archive::extract(
             &options.path,
             options.destination.as_deref(),

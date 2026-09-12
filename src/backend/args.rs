@@ -114,6 +114,24 @@ pub struct SearchArgs {
 }
 
 #[derive(Clone, Debug, Args)]
+pub struct ArchiveCreateArgs {
+    #[arg(long, action = ArgAction::Append, required = true)]
+    pub source: Vec<String>,
+    #[arg(long)]
+    pub destination: String,
+    #[arg(long, default_value = "tar.zst", value_parser = ["tar", "tar.gz", "tar.zst", "zip"])]
+    pub format: String,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct PermissionsSetArgs {
+    #[arg(long, action = ArgAction::Append, required = true)]
+    pub path: Vec<String>,
+    #[arg(long)]
+    pub mode: String,
+}
+
+#[derive(Clone, Debug, Args)]
 pub struct ArchiveExtractArgs {
     #[arg(long)]
     pub path: String,

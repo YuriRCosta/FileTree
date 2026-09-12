@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 const MAX_ITEMS: usize = 4096;
 const MAX_PLANS: usize = 64;
 const MAX_RETAINED_ITEMS: usize = 16_384;
-const PLAN_LIFETIME: Duration = Duration::from_secs(300);
+const PLAN_LIFETIME: Duration = Duration::from_secs(600);
 static PLANS: Mutex<Option<HashMap<String, Plan>>> = Mutex::new(None);
 
 pub(super) struct PlannedItem {
