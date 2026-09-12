@@ -12,15 +12,18 @@ impl Fixture {
         }
     }
     fn run(&self, arguments: &[&str]) -> Value {
-        let result = Command::new(env!("CARGO_BIN_EXE_fileblade"))
-            .arg("_backend")
-            .args(arguments)
-            .env("HOME", self.root.path())
-            .env("XDG_CONFIG_HOME", self.root.path().join("config"))
-            .env("XDG_STATE_HOME", self.root.path().join("state"))
-            .env("XDG_DATA_HOME", self.root.path().join("data"))
-            .output()
-            .unwrap();
+        let result = Command::new(
+            std::env::var_os("FILEBLADE_BINARY")
+                .unwrap_or_else(|| env!("CARGO_BIN_EXE_fileblade").into()),
+        )
+        .arg("_backend")
+        .args(arguments)
+        .env("HOME", self.root.path())
+        .env("XDG_CONFIG_HOME", self.root.path().join("config"))
+        .env("XDG_STATE_HOME", self.root.path().join("state"))
+        .env("XDG_DATA_HOME", self.root.path().join("data"))
+        .output()
+        .unwrap();
         if result.stdout.is_empty() && !result.status.success() {
             return json!({"ok":false,"error":String::from_utf8_lossy(&result.stderr)});
         }

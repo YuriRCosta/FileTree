@@ -80,3 +80,30 @@ manager or worker implementation is needed. The inactive provider retains its
 bounded inventory rows for reopening; unused scans and subscriptions stop.
 This qualifies the shared/plugin view lifecycle, not native authority continuation
 or a complete idle-performance comparison.
+
+## Settings version changes
+
+`settings.py` runs only from the plugin staged in the allocated guest. Build
+and push the current binary first. Its `prepare` phase backs up Service,
+StateController, state and layout under `/tmp/rivet-settings-version`, selects
+the fresh binary, and attaches a temporary IPC probe to the real Service.
+Restart the shell and check modules plus an open-blade screenshot before each
+following qualification phase:
+
+```sh
+python3 -B tests/core_modules/settings.py prepare
+```
+
+After restarting, run `settings.py seed`. It saves a choice equal to the Git
+default while leaving property icons untouched, through the real state writer.
+Run `settings.py revise`, restart and inspect again, then `settings.py verify`.
+The guest-only revised defaults must change the untouched icons preference
+while retaining the explicit Git choice and unknown fields. The same check
+exercises linked-column, search and sort markers and reset-to-defaults.
+
+Stop the guest shell before `settings.py restore` so no queued write can
+replace the restored documents. Restart once more, inspect the original
+layout, and retain the logs and screenshots. The backup directory remains
+available for recovery; archive or remove it before a new run. This qualifies
+state/settings evolution in the plugin Service; desktop binding-role receipts
+are a separate runtime integration contract.

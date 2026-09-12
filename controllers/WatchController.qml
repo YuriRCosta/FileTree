@@ -195,7 +195,7 @@ Item {
   }
 
   function watchedDirectories() {
-    if (service.trashMode || service.recentMode || service.drivesMode) return []
+    if (service.trashMode || service.recentMode || service.drivesMode || PathText.isRemote(rootPath)) return []
     var limit = watchPathLimit()
     var result = [rootPath]
     for (var i = 0; i < treeModel.count && result.length < limit; i++) {

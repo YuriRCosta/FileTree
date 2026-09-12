@@ -4,6 +4,7 @@ pub mod archive;
 pub mod artifact_bin;
 pub mod audit;
 pub mod backend;
+pub mod chooser;
 pub mod clipboard;
 pub mod command;
 pub mod common;
