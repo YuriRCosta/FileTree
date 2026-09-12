@@ -5,10 +5,12 @@ use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use xattr::FileExt;
 
 fn write(path: &Path, bytes: impl AsRef<[u8]>) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, bytes).unwrap();
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
 }
 
 fn roots(path: &Path) -> Roots {
@@ -17,6 +19,31 @@ fn roots(path: &Path) -> Roots {
         state: path.join("state"),
         recovery: path.join("recovery"),
     }
+}
+
+fn manifest(module: &str, items: serde_json::Value) -> serde_json::Value {
+    json!({"schemaVersion":1,"module":module,"id":"definition","name":"Fixture","kind":"","scope":"","detail":"","path":"","realpath":"","deletedAt":"2026-09-12 12:00","items":items})
+}
+
+fn invalid_native_document(scenario: &str, roots: &Roots) -> Option<(bool, PathBuf, Vec<u8>)> {
+    let parts: Vec<_> = scenario.split('-').collect();
+    if parts.len() != 3 || !["native", "completed"].contains(&parts[0]) {
+        return None;
+    }
+    let (path, version) = match parts[1] {
+        "state" => (roots.state.join("state.json"), 13),
+        "settings" => (roots.config.join("settings.json"), 2),
+        "layout" => (roots.config.join("blades.json"), 2),
+        "keybindings" => (roots.config.join("keybindings.json"), 2),
+        _ => return None,
+    };
+    let bytes = match parts[2] {
+        "newer" => serde_json::to_vec(&json!({"version":version})).unwrap(),
+        "malformed" => b"{ malformed original".to_vec(),
+        "unsupported" => br#"{"version":0}"#.to_vec(),
+        _ => return None,
+    };
+    Some((parts[0] == "completed", path, bytes))
 }
 
 #[test]
@@ -31,6 +58,7 @@ fn migration_worker() {
     } else {
         roots(&base.join("native"))
     };
+    let invalid_native = invalid_native_document(&scenario, &native);
     let state = br#"{"version":12,"welcomeState":"dismissed","future":{"keep":[1,2]}}"#;
     write(&legacy.state.join("state.json"), state);
     write(
@@ -44,21 +72,135 @@ fn migration_worker() {
             .join("modules/data-goblin.fileblade-skills+skills/opaque.bin"),
         [0, 255, 13, 10],
     );
-    write(&legacy.recovery.join("hooks-recovery/record.json"), serde_json::to_vec(&json!({"formatVersion":1,"transactionId":"record","definitionId":"definition","payload":{"keep":true}})).unwrap());
+    let record_id = "0123456789abcdef0123456789abcdef";
+    let payload = json!({"format":2,"agent":"claude-code","event":"PreToolUse","source":"/fixture/settings.json","target":"/fixture/settings.json","entry":{"type":"command","command":"printf FIXTURE"},"fields":{},"index":0,"grouped":true,"removedGroup":true,"before":"before","after":"after"});
+    write(&legacy.recovery.join(format!("hooks-recovery/{record_id}.json")), serde_json::to_vec(&json!({"formatVersion":1,"createdAt":1,"context":{},"transactionId":record_id,"definitionId":"definition","payload":payload})).unwrap());
     let bin = base.join("data/fileblade/bin");
-    write(&bin.join("hooks/entry/manifest.json"), serde_json::to_vec(&json!({"schemaVersion":1,"module":"hooks","id":"definition","helperRecordId":"record","restoreHelper":{"provider":"data-goblin.fileblade-hooks","helper":"inventory","directory":"legacy"},"payload":{"keep":true},"items":[]})).unwrap());
-    write(&bin.join("skills/entry/manifest.json"), serde_json::to_vec(&json!({"schemaVersion":1,"module":"skills","items":[{"stored":"items/0","type":"link"}]})).unwrap());
+    let mut hooks = manifest("hooks", json!([]));
+    hooks["payload"] = payload;
+    hooks["helperRecordId"] = record_id.into();
+    hooks["restoreHelper"] =
+        json!({"provider":"data-goblin.fileblade-hooks","helper":"inventory","directory":"legacy"});
+    if scenario == "legacy-payload" {
+        hooks.as_object_mut().unwrap().remove("helperRecordId");
+    }
+    if scenario == "external" {
+        let mut external = manifest("goblins", json!([]));
+        external["restoreHelper"] = json!({"provider":"fixture.external","directory":"/fixture/external","helper":"inventory"});
+        external["helperRecordId"] = record_id.into();
+        external["payload"] = json!({"future":true});
+        write(
+            &bin.join("goblins/entry/manifest.json"),
+            serde_json::to_vec(&external).unwrap(),
+        );
+    }
+    write(
+        &bin.join("hooks/entry/manifest.json"),
+        serde_json::to_vec(&hooks).unwrap(),
+    );
+    let skills = manifest(
+        "skills",
+        json!([{"from":"/fixture/link","mode":511,"size":0,"target":"../unavailable-target","stored":"items/0","type":"symlink"}]),
+    );
+    write(
+        &bin.join("skills/entry/manifest.json"),
+        serde_json::to_vec(&skills).unwrap(),
+    );
     fs::create_dir_all(bin.join("skills/entry/items")).unwrap();
     symlink("../unavailable-target", bin.join("skills/entry/items/0")).unwrap();
+    let memory = manifest(
+        "memory",
+        json!([{"from":"/fixture/tree","mode":448,"size":0,"stored":"items/0","type":"dir"},{"from":"/fixture/tree/data","mode":384,"size":6,"stored":"items/0/data","type":"file"}]),
+    );
+    write(
+        &bin.join("memory/entry/manifest.json"),
+        serde_json::to_vec(&memory).unwrap(),
+    );
+    write(&bin.join("memory/entry/items/0/data"), b"opaque");
+    fs::File::open(bin.join("memory/entry/items/0"))
+        .unwrap()
+        .set_xattr("user.directory", b"folder attribute")
+        .unwrap();
+    fs::File::open(bin.join("memory/entry/items/0/data"))
+        .unwrap()
+        .set_xattr("user.file", &[0, 255, 13, 10])
+        .unwrap();
+    if scenario == "killed-removal" {
+        let mut bulk = memory.clone();
+        for index in 0..512 {
+            let name = format!("bulk-{index}");
+            write(&bin.join("memory/entry/items/0").join(&name), b"opaque");
+            bulk["items"].as_array_mut().unwrap().push(json!({"from":format!("/fixture/tree/{name}"),"mode":384,"size":6,"stored":format!("items/0/{name}"),"type":"file"}));
+        }
+        write(
+            &bin.join("memory/entry/manifest.json"),
+            serde_json::to_vec(&bulk).unwrap(),
+        );
+    }
+    if let Some(field) = scenario.strip_prefix("artifact-") {
+        let mut malformed = memory.clone();
+        match field {
+            "id" => {
+                hooks["helperRecordId"] = "bad".into();
+                write(
+                    &bin.join("hooks/entry/manifest.json"),
+                    serde_json::to_vec(&hooks).unwrap(),
+                );
+            }
+            "type" => malformed["items"][1]["type"] = "link".into(),
+            "size" => malformed["items"][1]["size"] = 100.into(),
+            "incomplete" => {
+                malformed.as_object_mut().unwrap().remove("name");
+            }
+            "target" => {
+                let mut wrong = skills.clone();
+                wrong["items"][0]["target"] = "different".into();
+                write(
+                    &bin.join("skills/entry/manifest.json"),
+                    serde_json::to_vec(&wrong).unwrap(),
+                );
+            }
+            "kind" => {
+                fs::remove_file(bin.join("memory/entry/items/0/data")).unwrap();
+                fs::create_dir(bin.join("memory/entry/items/0/data")).unwrap();
+            }
+            "attributes-conflict" => {
+                write(
+                    &native.state.join("artifact-bin/memory/entry/items/0/data"),
+                    b"opaque",
+                );
+                fs::File::open(native.state.join("artifact-bin/memory/entry/items/0/data"))
+                    .unwrap()
+                    .set_xattr("user.file", b"changed")
+                    .unwrap();
+            }
+            _ => panic!("unknown artifact scenario"),
+        }
+        write(
+            &bin.join("memory/entry/manifest.json"),
+            serde_json::to_vec(&malformed).unwrap(),
+        );
+    }
     match scenario.as_str() {
         "malformed" => write(&legacy.state.join("state.json"), "{broken"),
         "newer" => write(&legacy.config.join("settings.json"), br#"{"version":2}"#),
-        "missing" => fs::remove_file(legacy.recovery.join("hooks-recovery/record.json")).unwrap(),
-        "mismatched" => write(&legacy.recovery.join("hooks-recovery/record.json"), br#"{"formatVersion":1,"transactionId":"record","definitionId":"definition","payload":null}"#),
+        "missing" => fs::remove_file(legacy.recovery.join("hooks-recovery/0123456789abcdef0123456789abcdef.json")).unwrap(),
+        "mismatched" => write(&legacy.recovery.join("hooks-recovery/0123456789abcdef0123456789abcdef.json"), br#"{"formatVersion":1,"transactionId":"0123456789abcdef0123456789abcdef","definitionId":"definition","payload":null}"#),
         "alias-conflict" => write(&legacy.state.join("modules/skills/opaque.bin"), "different"),
         "conflict" => write(&native.state.join("state.json"), "user data"),
         "unsafe-link" => { fs::remove_file(legacy.state.join("state.json")).unwrap(); symlink("outside", legacy.state.join("state.json")).unwrap(); },
         _ => {}
+    }
+    if let Some((false, path, bytes)) = &invalid_native {
+        write(path, bytes);
+        let source = if path.starts_with(&native.state) {
+            legacy.state.join("state.json")
+        } else {
+            legacy.config.join(path.file_name().unwrap())
+        };
+        if source.exists() {
+            fs::remove_file(source).unwrap();
+        }
     }
     let authority =
         Authority::acquire_bound(&native.state, &native.config, &native.recovery).unwrap();
@@ -66,10 +208,15 @@ fn migration_worker() {
         fs::rename(&native.state, native.state.with_extension("old")).unwrap();
         fs::create_dir(&native.state).unwrap();
     }
-    let _legacy_lock = if scenario == "bin-locked" || scenario == "journal-locked" {
+    let _legacy_lock = if scenario == "bin-locked"
+        || scenario == "journal-locked"
+        || scenario == "helper-locked"
+    {
         use std::os::fd::AsRawFd;
         let path = if scenario == "bin-locked" {
             bin.join(".mutation.lock")
+        } else if scenario == "helper-locked" {
+            legacy.recovery.join("hooks-recovery/.lock")
         } else {
             legacy.state.join("journal.json.lock")
         };
@@ -93,24 +240,85 @@ fn migration_worker() {
         authority.write_mode(),
         fileblade::lease::WriteMode::ReadOnly { .. }
     ));
-    if [
-        "malformed",
-        "newer",
-        "missing",
-        "mismatched",
-        "alias-conflict",
-        "conflict",
-        "unsafe-link",
-        "identity",
-        "lock-replaced",
-    ]
-    .contains(&scenario.as_str())
+    if let Some((false, path, bytes)) = &invalid_native {
+        assert!(
+            matches!(result.status, Status::Refused { .. }),
+            "{result:?}"
+        );
+        assert_eq!(fs::read(path).unwrap(), *bytes);
+        assert!(!result.receipt_path.exists());
+        return;
+    }
+    if scenario.starts_with("late-") {
+        assert!(
+            matches!(result.status, Status::Refused { .. }),
+            "{result:?}"
+        );
+        assert!(result.receipt_path.exists());
+        assert!(!native.state.join("migration-020/complete.json").exists());
+        assert!(!bin.join(".migration-020-retired").exists());
+        match scenario.as_str() {
+            "late-add" => assert_eq!(
+                fs::read(bin.join("memory/entry/new-data")).unwrap(),
+                b"must survive"
+            ),
+            "late-change" => assert_eq!(
+                fs::read(bin.join("memory/entry/items/0/data")).unwrap(),
+                b"changed"
+            ),
+            "late-root" => {
+                assert_eq!(fs::read(bin.join("replacement")).unwrap(), b"must survive");
+                assert_eq!(
+                    fs::read(bin.with_extension("old").join("memory/entry/items/0/data")).unwrap(),
+                    b"opaque"
+                );
+            }
+            "late-attributes" => assert_eq!(
+                fs::File::open(bin.join("memory/entry/items/0/data"))
+                    .unwrap()
+                    .get_xattr("user.file")
+                    .unwrap(),
+                Some(b"changed".to_vec())
+            ),
+            _ => unreachable!(),
+        }
+        return;
+    }
+    if scenario.starts_with("artifact-")
+        || [
+            "malformed",
+            "newer",
+            "missing",
+            "mismatched",
+            "alias-conflict",
+            "conflict",
+            "unsafe-link",
+            "identity",
+            "lock-replaced",
+        ]
+        .contains(&scenario.as_str())
     {
         assert!(
             matches!(result.status, Status::Refused { .. }),
             "{result:?}"
         );
         assert!(!result.receipt_path.exists());
+        if scenario == "artifact-attributes-conflict" {
+            assert_eq!(
+                fs::File::open(bin.join("memory/entry/items/0/data"))
+                    .unwrap()
+                    .get_xattr("user.file")
+                    .unwrap(),
+                Some(vec![0, 255, 13, 10])
+            );
+            assert_eq!(
+                fs::File::open(native.state.join("artifact-bin/memory/entry/items/0/data"))
+                    .unwrap()
+                    .get_xattr("user.file")
+                    .unwrap(),
+                Some(b"changed".to_vec())
+            );
+        }
         return;
     }
     if [
@@ -118,6 +326,7 @@ fn migration_worker() {
         "unknown",
         "bin-locked",
         "journal-locked",
+        "helper-locked",
         "evidence-changed",
     ]
     .contains(&scenario.as_str())
@@ -140,11 +349,44 @@ fn migration_worker() {
         Path::new("../unavailable-target")
     );
     assert_eq!(
-        fs::read(native.recovery.join("hooks-recovery/record.json")).unwrap(),
-        fs::read(legacy.recovery.join("hooks-recovery/record.json")).unwrap()
+        fs::read(
+            native
+                .recovery
+                .join("hooks-recovery/0123456789abcdef0123456789abcdef.json")
+        )
+        .unwrap(),
+        fs::read(
+            legacy
+                .recovery
+                .join("hooks-recovery/0123456789abcdef0123456789abcdef.json")
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        fs::File::open(native.state.join("artifact-bin/memory/entry/items/0/data"))
+            .unwrap()
+            .get_xattr("user.file")
+            .unwrap(),
+        Some(vec![0, 255, 13, 10])
+    );
+    assert_eq!(
+        fs::File::open(native.state.join("artifact-bin/memory/entry/items/0"))
+            .unwrap()
+            .get_xattr("user.directory")
+            .unwrap(),
+        Some(b"folder attribute".to_vec())
     );
     assert!(!bin.join("hooks/entry").exists());
     assert!(!bin.join("skills/entry").exists());
+    if let Some((true, path, bytes)) = &invalid_native {
+        write(path, bytes);
+        assert!(matches!(
+            prepare(&legacy, &native, &authority).unwrap().status,
+            Status::Refused { .. }
+        ));
+        assert_eq!(fs::read(path).unwrap(), *bytes);
+        return;
+    }
     if scenario == "shared-roots" {
         assert_eq!(
             prepare(&legacy, &native, &authority).unwrap().status,
@@ -165,6 +407,25 @@ fn migration_worker() {
         return;
     }
     let receipt = fs::read(&result.receipt_path).unwrap();
+    if scenario == "retired-change" {
+        fs::remove_file(native.state.join("migration-020/complete.json")).unwrap();
+        let snapshot: serde_json::Value = serde_json::from_slice(&receipt).unwrap();
+        let index = snapshot["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .position(|entry| entry["source"] == "bin" && entry["from"] == "memory/entry/items/0")
+            .unwrap();
+        let extra = bin.join(format!(".migration-020-retired/{index}/new-data"));
+        write(&extra, b"must survive");
+        assert!(matches!(
+            prepare(&legacy, &native, &authority).unwrap().status,
+            Status::Refused { .. }
+        ));
+        assert_eq!(fs::read(&extra).unwrap(), b"must survive");
+        assert!(!native.state.join("migration-020/complete.json").exists());
+        return;
+    }
     let receipt_time = fs::metadata(&result.receipt_path)
         .unwrap()
         .modified()
@@ -215,8 +476,24 @@ fn migration_worker() {
 
 #[test]
 fn migration_preserves_refuses_and_resumes() {
-    for scenario in [
+    let mut scenarios: Vec<String> = [
         "first",
+        "killed-removal",
+        "retired-change",
+        "legacy-payload",
+        "external",
+        "late-add",
+        "late-change",
+        "late-root",
+        "late-attributes",
+        "helper-locked",
+        "artifact-id",
+        "artifact-type",
+        "artifact-size",
+        "artifact-incomplete",
+        "artifact-target",
+        "artifact-kind",
+        "artifact-attributes-conflict",
         "held",
         "lock-replaced",
         "evidence-changed",
@@ -237,7 +514,19 @@ fn migration_preserves_refuses_and_resumes() {
         "identity",
         "active",
         "unknown",
-    ] {
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    for phase in ["native", "completed"] {
+        for kind in ["state", "settings", "layout", "keybindings"] {
+            for fault in ["newer", "malformed", "unsupported"] {
+                scenarios.push(format!("{phase}-{kind}-{fault}"));
+            }
+        }
+    }
+    for scenario in scenarios {
+        let scenario = scenario.as_str();
         let temp = tempfile::tempdir().unwrap();
         let base = temp.path();
         write(&base.join("omarchy/shell/shell.qml"), "");
@@ -251,7 +540,10 @@ fn migration_preserves_refuses_and_resumes() {
                 "qs",
                 if scenario == "active" {
                     "#!/bin/sh\nprintf '%s\\n' '{}'\n"
-                } else if scenario == "held" || scenario == "lock-replaced" {
+                } else if scenario == "held"
+                    || scenario == "lock-replaced"
+                    || scenario.starts_with("late-")
+                {
                     "#!/bin/sh\ncount=0\nif [ -f \"$HOME/probes\" ]; then read count < \"$HOME/probes\"; fi\ncount=$((count+1))\nprintf '%s\\n' \"$count\" > \"$HOME/probes\"\nif [ \"$count\" = 2 ]; then : > \"$HOME/held\"; while [ ! -f \"$HOME/release\" ]; do /usr/bin/sleep 0.01; done; fi\nprintf '%s\\n' 'Target not found.'\n"
                 } else if scenario == "evidence-changed" {
                     "#!/bin/sh\nif [ -f \"$HOME/probed\" ]; then printf '%s\\n' '{}'; else : > \"$HOME/probed\"; printf '%s\\n' 'Target not found.'; fi\n"
@@ -263,6 +555,11 @@ fn migration_preserves_refuses_and_resumes() {
             ),
         ] {
             let path = base.join("bin").join(name);
+            let script = if scenario.starts_with("late-") {
+                script.replace("= 2 ]", "= 3 ]")
+            } else {
+                script.to_owned()
+            };
             write(&path, script);
             fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
         }
@@ -279,7 +576,37 @@ fn migration_preserves_refuses_and_resumes() {
         if scenario == "native-environment" {
             command.env("FILEBLADE_NATIVE_STATE_ROOT", base.join("native/state"));
         }
-        let output = if scenario == "held" || scenario == "lock-replaced" {
+        let output = if scenario == "killed-removal" {
+            command
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            let mut child = command.spawn().unwrap();
+            let retired = base.join("data/fileblade/bin/.migration-020-retired");
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+            while !fs::read_dir(&retired).is_ok_and(|mut entries| entries.next().is_some())
+                && std::time::Instant::now() < deadline
+            {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            assert!(retired.exists());
+            child.kill().unwrap();
+            assert!(!child.wait_with_output().unwrap().status.success());
+            assert!(
+                !base
+                    .join("native/state/migration-020/complete.json")
+                    .exists()
+            );
+            Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "interrupted_consumer_worker", "--nocapture"])
+                .envs(
+                    command
+                        .get_envs()
+                        .filter_map(|(key, value)| value.map(|value| (key, value))),
+                )
+                .output()
+                .unwrap()
+        } else if scenario == "held" || scenario == "lock-replaced" || scenario.starts_with("late-")
+        {
             use std::os::fd::AsRawFd;
             command
                 .stdout(std::process::Stdio::piped())
@@ -293,6 +620,7 @@ fn migration_preserves_refuses_and_resumes() {
             for path in [
                 base.join("legacy/state/journal.json.lock"),
                 base.join("data/fileblade/bin/.mutation.lock"),
+                base.join("legacy/recovery/hooks-recovery/.lock"),
             ] {
                 let file = fs::OpenOptions::new()
                     .read(true)
@@ -316,6 +644,28 @@ fn migration_preserves_refuses_and_resumes() {
                 fs::rename(&path, path.with_extension("original")).unwrap();
                 write(&path, "");
             }
+            match scenario {
+                "late-add" => write(
+                    &base.join("data/fileblade/bin/memory/entry/new-data"),
+                    "must survive",
+                ),
+                "late-change" => write(
+                    &base.join("data/fileblade/bin/memory/entry/items/0/data"),
+                    "changed",
+                ),
+                "late-attributes" => {
+                    fs::File::open(base.join("data/fileblade/bin/memory/entry/items/0/data"))
+                        .unwrap()
+                        .set_xattr("user.file", b"changed")
+                        .unwrap()
+                }
+                "late-root" => {
+                    let bin = base.join("data/fileblade/bin");
+                    fs::rename(&bin, bin.with_extension("old")).unwrap();
+                    write(&bin.join("replacement"), "must survive");
+                }
+                _ => {}
+            }
             write(&base.join("release"), "");
             child.wait_with_output().unwrap()
         } else {
@@ -328,6 +678,40 @@ fn migration_preserves_refuses_and_resumes() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
+}
+
+#[test]
+fn interrupted_consumer_worker() {
+    if std::env::var("MIGRATION_CASE").as_deref() != Ok("killed-removal") {
+        return;
+    }
+    let base = PathBuf::from(std::env::var_os("HOME").unwrap());
+    let legacy = roots(&base.join("legacy"));
+    let native = roots(&base.join("native"));
+    let authority =
+        Authority::acquire_bound(&native.state, &native.config, &native.recovery).unwrap();
+    let prepared = prepare(&legacy, &native, &authority).unwrap();
+    assert_eq!(prepared.status, Status::Ready, "{prepared:?}");
+    assert_eq!(
+        prepare(&legacy, &native, &authority).unwrap().status,
+        Status::Ready
+    );
+    assert_eq!(
+        fs::File::open(native.state.join("artifact-bin/memory/entry/items/0/data"))
+            .unwrap()
+            .get_xattr("user.file")
+            .unwrap(),
+        Some(vec![0, 255, 13, 10])
+    );
+    assert_eq!(
+        fs::File::open(native.state.join("artifact-bin/memory/entry/items/0"))
+            .unwrap()
+            .get_xattr("user.directory")
+            .unwrap(),
+        Some(b"folder attribute".to_vec())
+    );
+    assert!(!base.join("data/fileblade/bin/memory").exists());
+    println!("killed during artifact retirement: retry completed with original attributes");
 }
 
 #[test]
@@ -372,6 +756,68 @@ fn generated_fixture_worker() {
                 prepare(&legacy, &native, &authority).unwrap().status,
                 Status::Ready
             );
+            drop(authority);
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "native_consumer_worker", "--nocapture"])
+                .env("MIGRATION_NATIVE_CONSUMER", "1")
+                .env(
+                    "XDG_CONFIG_HOME",
+                    native.config.parent().unwrap().parent().unwrap(),
+                )
+                .env(
+                    "XDG_STATE_HOME",
+                    native.state.parent().unwrap().parent().unwrap(),
+                )
+                .env("FILEBLADE_NATIVE_STATE_ROOT", &native.state)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+            let bin = PathBuf::from(fixture["artifactBin"].as_str().unwrap());
+            fs::rename(&bin, bin.with_extension("retained")).unwrap();
+            fs::rename(native.state.join("artifact-bin"), &bin).unwrap();
+            fs::rename(&legacy.recovery, legacy.recovery.with_extension("retained")).unwrap();
+            fs::rename(&native.recovery, &legacy.recovery).unwrap();
+            for module in ["hooks", "mcp"] {
+                let rows = fileblade::artifact_bin::rows(module);
+                assert_eq!(rows["ok"], true, "{rows}");
+                assert_eq!(rows["items"].as_array().unwrap().len(), 1, "{rows}");
+                let entry = fixture["recoveryEntries"][module].as_str().unwrap();
+                let restored = fileblade::artifact_bin::restore(
+                    module,
+                    entry,
+                    &std::sync::atomic::AtomicBool::new(false),
+                );
+                assert_eq!(restored["ok"], true, "{module}: {restored}");
+            }
+            let file = fs::File::open(fixture["attributeFile"].as_str().unwrap()).unwrap();
+            assert_eq!(
+                file.get_xattr("user.fileblade-fixture").unwrap(),
+                Some(vec![0, 255, 13, 10])
+            );
+            let tree = PathBuf::from(fixture["attributeTree"].as_str().unwrap());
+            assert_eq!(
+                fs::File::open(&tree)
+                    .unwrap()
+                    .get_xattr("user.fileblade-fixture")
+                    .unwrap(),
+                Some(b"directory attribute".to_vec())
+            );
+            assert_eq!(
+                fs::File::open(tree.join("child"))
+                    .unwrap()
+                    .get_xattr("user.fileblade-fixture")
+                    .unwrap(),
+                Some(b"child attribute".to_vec())
+            );
+            println!(
+                "production recovery round trip passed using relocated imported objects; native route wiring is qualified separately"
+            );
         }
         "active" => assert!(
             matches!(result.status, Status::ReadOnly { .. }),
@@ -383,4 +829,69 @@ fn generated_fixture_worker() {
         ),
     }
     println!("fixture {scenario}: {:?}", result.status);
+}
+
+#[test]
+fn native_consumer_worker() {
+    if std::env::var("MIGRATION_NATIVE_CONSUMER").as_deref() != Ok("1") {
+        return;
+    }
+    let fixture: serde_json::Value = serde_json::from_slice(
+        &fs::read(std::env::var_os("MIGRATION_GENERATED_FIXTURE").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let roots = |role: &str| Roots {
+        config: PathBuf::from(fixture[role]["config"].as_str().unwrap()),
+        state: PathBuf::from(fixture[role]["state"].as_str().unwrap()),
+        recovery: PathBuf::from(fixture[role]["recovery"].as_str().unwrap()),
+    };
+    let legacy = roots("legacy");
+    let native = roots("native");
+    let authority = std::sync::Arc::new(
+        Authority::acquire_bound(&native.state, &native.config, &native.recovery).unwrap(),
+    );
+    assert_eq!(
+        prepare(&legacy, &native, &authority).unwrap().status,
+        Status::Ready
+    );
+    authority
+        .set_write_mode(fileblade::lease::WriteMode::Full)
+        .unwrap();
+    let _session = fileblade::lease::persistence::PersistenceSession::open(authority).unwrap();
+    for module in ["skills", "memory", "hooks", "mcp"] {
+        let rows = fileblade::artifact_bin::rows(module);
+        assert_eq!(rows["ok"], true, "{rows}");
+        assert_eq!(rows["items"].as_array().unwrap().len(), 1, "{rows}");
+    }
+    let restored = fileblade::artifact_bin::restore(
+        "memory",
+        fixture["recoveryEntries"]["memory"].as_str().unwrap(),
+        &std::sync::atomic::AtomicBool::new(false),
+    );
+    assert_eq!(restored["ok"], true, "{restored}");
+    assert_eq!(
+        fs::File::open(fixture["attributeFile"].as_str().unwrap())
+            .unwrap()
+            .get_xattr("user.fileblade-fixture")
+            .unwrap(),
+        Some(vec![0, 255, 13, 10])
+    );
+    let tree = PathBuf::from(fixture["attributeTree"].as_str().unwrap());
+    assert_eq!(
+        fs::File::open(&tree)
+            .unwrap()
+            .get_xattr("user.fileblade-fixture")
+            .unwrap(),
+        Some(b"directory attribute".to_vec())
+    );
+    assert_eq!(
+        fs::File::open(tree.join("child"))
+            .unwrap()
+            .get_xattr("user.fileblade-fixture")
+            .unwrap(),
+        Some(b"child attribute".to_vec())
+    );
+    println!(
+        "native reader: four valid bins; native put/import/restore: file and directory attributes preserved"
+    );
 }

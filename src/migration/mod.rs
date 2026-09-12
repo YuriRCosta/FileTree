@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+mod artifacts;
 mod prepare;
 mod storage;
 pub use prepare::prepare;

@@ -1,5 +1,9 @@
 use rustix::fs::{AtFlags, Mode, OFlags, openat};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::os::fd::AsRawFd;
+use xattr::FileExt;
+pub type Attributes = BTreeMap<String, Vec<u8>>;
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -136,42 +140,77 @@ pub fn read(root: &File, path: &Path) -> io::Result<Option<Content>> {
 }
 
 pub fn publish(root: &File, path: &Path, content: &Content) -> io::Result<()> {
+    publish_snapshot(root, path, content, &Attributes::new())
+}
+
+pub fn publish_snapshot(
+    root: &File,
+    path: &Path,
+    content: &Content,
+    attrs: &Attributes,
+) -> io::Result<()> {
     if let Some(existing) = read(root, path)? {
-        return if existing == *content {
+        return if existing == *content && attributes(root, path)? == *attrs {
             Ok(())
         } else {
             Err(io::Error::other("migration destination conflict"))
         };
-    }
-    if *content == Content::Directory {
-        directory(root, path, true)?.sync_all()?;
-        return Ok(());
     }
     let parent = directory(root, path.parent().unwrap_or(Path::new("")), true)?;
     let name = path
         .file_name()
         .ok_or_else(|| io::Error::other("missing migration filename"))?;
     let temporary = format!(".migration-{}", uuid::Uuid::new_v4());
-    match content {
-        Content::Directory => unreachable!(),
-        Content::File(bytes) => {
-            let mut file = File::from(openat(
-                &parent,
-                temporary.as_str(),
-                OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-                Mode::from_raw_mode(0o600),
-            )?);
-            file.write_all(bytes)?;
-            file.sync_all()?;
+    let created = (|| -> io::Result<()> {
+        match content {
+            Content::Directory => {
+                rustix::fs::mkdirat(&parent, temporary.as_str(), Mode::from_raw_mode(0o700))?;
+                let file = directory(&parent, Path::new(&temporary), false)?;
+                set_attributes(&file, attrs)?;
+                file.sync_all()?;
+            }
+            Content::File(bytes) => {
+                let mut file = File::from(openat(
+                    &parent,
+                    temporary.as_str(),
+                    OFlags::WRONLY
+                        | OFlags::CREATE
+                        | OFlags::EXCL
+                        | OFlags::NOFOLLOW
+                        | OFlags::CLOEXEC,
+                    Mode::from_raw_mode(0o600),
+                )?);
+                file.write_all(bytes)?;
+                set_attributes(&file, attrs)?;
+                file.sync_all()?;
+            }
+            Content::Link(bytes) => {
+                if !attrs.is_empty() {
+                    return Err(io::Error::other(
+                        "symbolic-link attributes cannot be preserved",
+                    ));
+                }
+                use std::os::unix::ffi::OsStringExt;
+                rustix::fs::symlinkat(
+                    OsString::from_vec(bytes.clone()),
+                    &parent,
+                    temporary.as_str(),
+                )?;
+            }
         }
-        Content::Link(bytes) => {
-            use std::os::unix::ffi::OsStringExt;
-            rustix::fs::symlinkat(
-                OsString::from_vec(bytes.clone()),
-                &parent,
-                temporary.as_str(),
-            )?;
-        }
+        Ok(())
+    })();
+    if let Err(error) = created {
+        let _ = rustix::fs::unlinkat(
+            &parent,
+            temporary.as_str(),
+            if *content == Content::Directory {
+                AtFlags::REMOVEDIR
+            } else {
+                AtFlags::empty()
+            },
+        );
+        return Err(error);
     }
     let result = rustix::fs::renameat_with(
         &parent,
@@ -181,33 +220,139 @@ pub fn publish(root: &File, path: &Path, content: &Content) -> io::Result<()> {
         rustix::fs::RenameFlags::NOREPLACE,
     );
     if let Err(error) = result {
-        let _ = rustix::fs::unlinkat(&parent, temporary.as_str(), AtFlags::empty());
+        let _ = rustix::fs::unlinkat(
+            &parent,
+            temporary.as_str(),
+            if *content == Content::Directory {
+                AtFlags::REMOVEDIR
+            } else {
+                AtFlags::empty()
+            },
+        );
         return Err(error.into());
     }
     parent.sync_all()
 }
 
-pub fn remove(root: &File, path: &Path, expected: &Content) -> io::Result<()> {
-    let Some(current) = read(root, path)? else {
+pub fn attributes(root: &File, path: &Path) -> io::Result<Attributes> {
+    let parent = directory(root, path.parent().unwrap_or(Path::new("")), false)?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::other("missing attribute filename"))?;
+    let stat = rustix::fs::statat(&parent, name, AtFlags::SYMLINK_NOFOLLOW)?;
+    if rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Symlink {
+        let path =
+            std::path::PathBuf::from(format!("/proc/self/fd/{}", parent.as_raw_fd())).join(name);
+        if xattr::list(&path)?.next().is_some() {
+            return Err(io::Error::other(
+                "symbolic-link attributes cannot be preserved",
+            ));
+        }
+        return Ok(Attributes::new());
+    }
+    let file = File::from(openat(
+        &parent,
+        name,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?);
+    let mut result = Attributes::new();
+    let mut total = 0usize;
+    for name in file.list_xattr()? {
+        let name = name
+            .into_string()
+            .map_err(|_| io::Error::other("non-UTF-8 attribute name cannot be preserved"))?;
+        if !name.starts_with("user.") {
+            return Err(io::Error::other(format!(
+                "attribute {name} cannot be preserved under private storage permissions"
+            )));
+        }
+        let value = file
+            .get_xattr(&name)?
+            .ok_or_else(|| io::Error::other("attribute disappeared during migration"))?;
+        total = total.saturating_add(name.len()).saturating_add(value.len());
+        if total > 256 * 1024 || result.len() >= 256 {
+            return Err(io::Error::other("migration attributes exceed bound"));
+        }
+        result.insert(name, value);
+    }
+    Ok(result)
+}
+
+fn set_attributes(file: &File, attrs: &Attributes) -> io::Result<()> {
+    for (name, value) in attrs {
+        if !name.starts_with("user.") || name.contains('\0') {
+            return Err(io::Error::other("unsupported migration attribute"));
+        }
+        file.set_xattr(name, value)?;
+    }
+    Ok(())
+}
+
+pub fn retire(
+    root: &File,
+    path: &Path,
+    index: usize,
+    expected: &Content,
+    attrs: &Attributes,
+) -> io::Result<()> {
+    let staged = std::path::PathBuf::from(format!(".migration-020-retired/{index}"));
+    let original = read(root, path)?;
+    if let Some(content) = read(root, &staged)? {
+        if original.is_some()
+            || content != *expected
+            || attributes(root, &staged)? != *attrs
+            || content == Content::Directory
+                && !names(&directory(root, &staged, false)?)?.is_empty()
+        {
+            return Err(io::Error::other(
+                "retired migration object conflicts; both locations preserved",
+            ));
+        }
         return Ok(());
-    };
-    if current != *expected {
+    }
+    let Some(original) = original else {
         return Err(io::Error::other(
-            "legacy artifact changed before migration removal",
+            "original and retired artifact both missing",
+        ));
+    };
+    if original != *expected || attributes(root, path)? != *attrs {
+        return Err(io::Error::other(
+            "legacy artifact changed before retirement",
         ));
     }
     let parent = directory(root, path.parent().unwrap_or(Path::new("")), false)?;
     let name = path
         .file_name()
-        .ok_or_else(|| io::Error::other("missing migration filename"))?;
-    rustix::fs::unlinkat(
+        .ok_or_else(|| io::Error::other("missing retirement filename"))?;
+    let destination = directory(root, Path::new(".migration-020-retired"), true)?;
+    let target = index.to_string();
+    rustix::fs::renameat_with(
         &parent,
         name,
-        if *expected == Content::Directory {
-            AtFlags::REMOVEDIR
-        } else {
-            AtFlags::empty()
-        },
+        &destination,
+        target.as_str(),
+        rustix::fs::RenameFlags::NOREPLACE,
     )?;
-    parent.sync_all()
+    parent.sync_all()?;
+    destination.sync_all()?;
+    let valid = read(&destination, Path::new(&target))?.as_ref() == Some(expected)
+        && attributes(&destination, Path::new(&target))? == *attrs
+        && (*expected != Content::Directory
+            || names(&directory(&destination, Path::new(&target), false)?)?.is_empty());
+    if !valid {
+        let _ = rustix::fs::renameat_with(
+            &destination,
+            target.as_str(),
+            &parent,
+            name,
+            rustix::fs::RenameFlags::NOREPLACE,
+        );
+        parent.sync_all()?;
+        destination.sync_all()?;
+        return Err(io::Error::other(
+            "artifact changed during retirement; original or retired object retained",
+        ));
+    }
+    Ok(())
 }

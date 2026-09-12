@@ -28,6 +28,6 @@ with tempfile.TemporaryDirectory(prefix='rivet-migration-') as temporary:
         home = destination / 'legacy-home'
         environment = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / '.config'),
                            XDG_DATA_HOME=str(home / '.local/share'), OMARCHY_PATH=str(base / 'omarchy'),
-                           PATH=str(tools), MIGRATION_GENERATED_FIXTURE=str(destination / 'fixture.json'))
+                           PATH=str(tools) + ':/usr/bin', XDG_STATE_HOME=str(home / '.local/state'), FILEBLADE_APP_ROOT=str(root), MIGRATION_GENERATED_FIXTURE=str(destination / 'fixture.json'))
         environment['MIGRATION_ACTIVATION'] = json.dumps([{'id': provider, 'enabled': scenario == 'active'} for provider in ['data-goblin.fileblade', *['data-goblin.fileblade-' + module for module in ('skills', 'memory', 'hooks', 'mcp')]]] + [{'id': 'data-goblin.goblins', 'enabled': True}])
         subprocess.run([str(binary), '--exact', 'generated_fixture_worker', '--nocapture'], env=environment, check=True)

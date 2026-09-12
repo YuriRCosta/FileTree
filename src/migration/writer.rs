@@ -212,12 +212,29 @@ fn ipc_status() -> Result<bool, String> {
 
 pub(super) struct Guard {
     roots: Vec<(PathBuf, File)>,
+    absent: Vec<PathBuf>,
     locks: Vec<(usize, &'static str, File)>,
 }
 
 impl Guard {
+    pub(super) fn directory(&self, path: &std::path::Path) -> Result<File, String> {
+        self.verify()?;
+        self.roots
+            .iter()
+            .find(|(candidate, _)| candidate == path)
+            .ok_or("legacy source was not pinned")?
+            .1
+            .try_clone()
+            .map_err(|error| error.to_string())
+    }
     pub(super) fn verify(&self) -> Result<(), String> {
         use rustix::fs::{AtFlags, statat};
+        for path in &self.absent {
+            if !matches!(super::storage::root(path), Err(error) if error.kind() == io::ErrorKind::NotFound)
+            {
+                return Err("previously absent legacy storage appeared".into());
+            }
+        }
         for (path, held) in &self.roots {
             let current = super::storage::root(path)
                 .map_err(|error| error.to_string())?
@@ -248,14 +265,22 @@ pub(super) fn hold(roots: &Roots, bin: &std::path::Path) -> Result<Guard, String
     let mut guard = Guard {
         roots: Vec::new(),
         locks: Vec::new(),
+        absent: Vec::new(),
     };
+    let hooks = roots.recovery.join("hooks-recovery");
+    let mcp = roots.recovery.join("mcp-recovery");
     for (path, name, exclusive) in [
         (roots.state.as_path(), "journal.json.lock", false),
         (bin, ".mutation.lock", true),
+        (hooks.as_path(), ".lock", true),
+        (mcp.as_path(), ".lock", true),
     ] {
         let root = match super::storage::root(path) {
             Ok(root) => root,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                guard.absent.push(path.to_path_buf());
+                continue;
+            }
             Err(error) => return Err(error.to_string()),
         };
         let file = File::from(

@@ -26,7 +26,8 @@ def generate(destination, scenario):
     project.mkdir(mode=0o700, parents=True)
     (project / '.git').mkdir(mode=0o700)
     native = destination / 'native'
-    for path in (config, state, recovery, native / 'config', native / 'state', native / 'recovery'):
+    native_roots = {'config': native / 'config/omarchy/fileblade', 'state': native / 'state/omarchy/fileblade', 'recovery': native / 'state/fileblade'}
+    for path in (config, state, recovery, *native_roots.values()):
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
     environment = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(config_home),
                        XDG_STATE_HOME=str(state_home), XDG_DATA_HOME=str(data_home),
@@ -97,6 +98,22 @@ def generate(destination, scenario):
     if not removed.get('ok'):
         raise RuntimeError(removed)
     recovery_entries['skills'] = removed['entry']
+    attribute_file = project / 'attribute-file'
+    attribute_tree = project / 'attribute-tree'
+    write(attribute_file, b'Attribute file bytes\n')
+    write(attribute_tree / 'child', b'Attribute child bytes\n')
+    os.setxattr(attribute_file, 'user.fileblade-fixture', bytes([0, 255, 13, 10]))
+    os.setxattr(attribute_tree, 'user.fileblade-fixture', b'directory attribute')
+    os.setxattr(attribute_tree / 'child', 'user.fileblade-fixture', b'child attribute')
+    item = {'id': 'migration-attributes', 'name': 'Metadata fixture', 'paths': [str(attribute_file), str(attribute_tree)]}
+    removed = json.loads(subprocess.run([environment['FILEBLADE_BINARY'], '_backend', 'bin-put',
+                         '--module', 'memory', '--item', json.dumps(item)], env=environment,
+                         capture_output=True, check=True, timeout=20).stdout)
+    if not removed.get('ok'):
+        raise RuntimeError(removed)
+    recovery_entries['memory'] = removed['entry']
+    if attribute_file.exists() or attribute_tree.exists():
+        raise RuntimeError('bin-put left an original attribute fixture in place')
     if scenario == 'malformed':
         write(state / 'state.json', b'{ malformed original\n')
     elif scenario == 'newer':
@@ -109,9 +126,9 @@ def generate(destination, scenario):
             inventory[str(path.relative_to(home))] = hashlib.sha256(path.read_bytes()).hexdigest()
     document = {'version': 1, 'scenario': scenario,
                 'legacy': {'config': str(config), 'state': str(state), 'recovery': str(recovery)},
-                'native': {role: str(native / role) for role in ('config', 'state', 'recovery')},
+                'native': {role: str(path) for role, path in native_roots.items()},
                 'artifactBin': str(data_home / 'fileblade/bin'), 'sources': sources,
-                'recoveryEntries': recovery_entries, 'originalSha256': inventory}
+                'recoveryEntries': recovery_entries, 'attributeFile': str(attribute_file), 'attributeTree': str(attribute_tree), 'originalSha256': inventory}
     write(destination / 'fixture.json', document)
     return document
 

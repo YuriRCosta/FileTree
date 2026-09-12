@@ -2,7 +2,7 @@
 
 `migration::prepare(&legacy, &native, &authority)` consumes runtime's root-bound
 `lease::Authority`. Its implementation requires the authority API published at
-`lane/runtime` commit c09ef5d; core does not select the backend write mode.
+`lane/runtime` commit da0b1a2; core does not select the backend write mode.
 Runtime must call it after `acquire_bound`, before recovery or document hydration,
 and map Ready to Full and both other outcomes to ReadOnly.
 
@@ -13,15 +13,15 @@ module storage directory aliases resolve to core names. Conflicting aliases or
 native destinations refuse import. Layout IDs remain readable through the core
 registry's existing aliases and singleton recovery policy.
 
-The private `migration-020/receipt.json` under the native state root is a versioned
-snapshot of original bytes, directory entries, stored link targets and root
-identities. Publication never overwrites a different destination. `copied.json`
-certifies that destination publication finished before legacy artifact removal;
+The private `migration-020/receipt.json` under the native state root is a version 2
+snapshot of original bytes, directory entries, stored link targets, supported user
+extended attributes and root identities. Older receipts are refused without reinterpretation. Publication never overwrites a different destination. `copied.json`
+certifies that destination publication finished before legacy artifact retirement;
 `complete.json` certifies the completed move. These checkpoint documents match
 the receipt exactly. Retry verifies unfinished sources and completed steps.
 A completed import does not overwrite subsequent native edits. Legacy state and
-configuration remain available; removed artifact-bin data also remains in the
-receipt. There is no automatic rollback CLI in this slice.
+configuration remain available; retired artifact-bin objects remain under the original bin root in
+`.migration-020-retired/<receipt entry index>`, as well as in the receipt. There is no automatic rollback CLI in this slice.
 
 The importer does not alter shell activation, desktop bindings, companion
 checkouts, generated desktop snippets, journal replay or unrelated shell plugins.
@@ -47,7 +47,7 @@ and any core overlay in the lane milestone; it is not a standalone core gate
 until the runtime dependency has been integrated.
 
 The 5.5 consumer acquires both the legacy journal's shared OFD/flock locks and
-the artifact bin's exclusive mutation lock after the initial stopped/absent
+the artifact bin's exclusive mutation lock and both helper recovery-store locks after the initial stopped/absent
 proof. It repeats the proof while holding them, retains them through publication
 and cleanup, and checks root/lock identity before every mutation boundary.
 Contention and changed activation evidence yield read-only startup. The probe
@@ -56,3 +56,26 @@ Native documents are also preflighted on repeated startup, so a completed receip
 does not authorize downgrading newer state. The authority stays read-only until
 runtime explicitly accepts the preparation outcome. Tests include held locks,
 lock replacement, changed evidence, native startup environment and shared roots.
+
+S11 validation adds 24 first/completed native-document refusal cases, late new or
+changed source objects, helper lock contention, and a killed process during real
+artifact retirement followed by retry. Retirement uses verified source-root
+descriptors and non-overwriting rename into retained storage; an unexpected object
+is kept and restored to its old name when possible. Inventory is checked before
+and after retirement. The importer never unlinks retired source objects.
+
+Supported user xattrs are captured, compared on retry/conflict, installed before
+publication and synced. Unsupported attribute namespaces are refused so private
+storage modes are not weakened. Artifact schema validation mirrors the bounded
+production Manifest/StoredItem rules and checks exact stored kind, size and link
+bytes. Core helper pairs are checked against their record schema; historical
+payload-based lookup and unrelated extension routes stay supported unchanged.
+
+The real fixture runs artifact put, migration, native bin reads for all four
+modules, and native file/directory restore with xattr equality. Hooks/MCP payload
+restore is checked with the production consumer after relocating the imported
+objects to its legacy data-root paths; that data-format check is explicitly not
+native helper continuation qualification. S2-C3 remains the native helper route
+dependency. The combined source used for this check is published runtime da0b1a2
+plus the recorded core overlays; the exact version-branch merge gate follows
+runtime integration.

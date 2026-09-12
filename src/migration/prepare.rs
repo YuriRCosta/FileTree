@@ -5,7 +5,6 @@ use super::{
 use crate::lease::Authority;
 use crate::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io;
@@ -25,12 +24,13 @@ struct Binding {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Entry {
-    source: String,
-    from: PathBuf,
-    role: String,
-    to: PathBuf,
-    content: Content,
+pub(super) struct Entry {
+    pub(super) source: String,
+    pub(super) from: PathBuf,
+    pub(super) role: String,
+    pub(super) to: PathBuf,
+    pub(super) content: Content,
+    pub(super) attributes: storage::Attributes,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -185,7 +185,7 @@ fn import(
     let saved = storage::read(state, Path::new(RECEIPT))?;
     let (receipt, fresh) = if let Some(Content::File(bytes)) = saved {
         let receipt: Receipt = serde_json::from_slice(&bytes)?;
-        if receipt.version != 1 || receipt.native != bindings || receipt.legacy != legacy {
+        if receipt.version != 2 || receipt.native != bindings || receipt.legacy != legacy {
             return Err(invalid("migration receipt schema or root binding mismatch"));
         }
         if let Some(completed) = storage::read(state, Path::new(COMPLETE))? {
@@ -240,7 +240,7 @@ fn import(
                     .collect(),
                 _ => storage::names(&root)?
                     .into_iter()
-                    .filter(|name| !name.as_encoded_bytes().starts_with(b"."))
+                    .filter(|name| name != ".mutation.lock")
                     .map(PathBuf::from)
                     .collect(),
             };
@@ -256,7 +256,7 @@ fn import(
         validate(&entries)?;
         (
             Receipt {
-                version: 1,
+                version: 2,
                 native: bindings,
                 legacy,
                 sources,
@@ -268,7 +268,8 @@ fn import(
     validate(&receipt.entries)?;
     for entry in &receipt.entries {
         if let Some(existing) = storage::read(&native[&entry.role], &entry.to)?
-            && existing != entry.content
+            && (existing != entry.content
+                || storage::attributes(&native[&entry.role], &entry.to)? != entry.attributes)
         {
             return Err(invalid(format!(
                 "migration destination conflict: {}",
@@ -292,7 +293,12 @@ fn import(
     }
     for entry in &receipt.entries {
         barrier(authority, guard)?;
-        storage::publish(&native[&entry.role], &entry.to, &entry.content)?;
+        storage::publish_snapshot(
+            &native[&entry.role],
+            &entry.to,
+            &entry.content,
+            &entry.attributes,
+        )?;
     }
     verify_sources(&receipt, copied)?;
     match legacy_writer(legacy_root) {
@@ -302,18 +308,21 @@ fn import(
     barrier(authority, guard)?;
     storage::publish(state, Path::new(COPIED), &Content::File(bytes.clone()))?;
     if receipt.entries.iter().any(|entry| entry.source == "bin") {
-        let bin = storage::root(&receipt.legacy["bin"])?;
-        for entry in receipt
+        let bin = guard.directory(&receipt.legacy["bin"]).map_err(invalid)?;
+        verify_sources(&receipt, true)?;
+        for (index, entry) in receipt
             .entries
             .iter()
+            .enumerate()
             .rev()
-            .filter(|entry| entry.source == "bin")
+            .filter(|(_, entry)| entry.source == "bin")
         {
             barrier(authority, guard)?;
-            storage::remove(&bin, &entry.from, &entry.content)?;
+            storage::retire(&bin, &entry.from, index, &entry.content, &entry.attributes)?;
         }
     }
     barrier(authority, guard)?;
+    verify_sources(&receipt, true)?;
     storage::publish(
         state,
         Path::new(COMPLETE),
@@ -351,18 +360,96 @@ fn verify_sources(receipt: &Receipt, copied: bool) -> AppResult<()> {
             }
         }
     }
-    for entry in &receipt.entries {
+    if let Some(bin) = roots.get("bin") {
+        verify_children(receipt, "bin", Path::new(""), bin, copied)?;
+    }
+    if copied && let Some(bin) = roots.get("bin") {
+        match storage::directory(bin, Path::new(".migration-020-retired"), false) {
+            Ok(directory) => {
+                for name in storage::names(&directory)? {
+                    let entry = name
+                        .to_str()
+                        .and_then(|name| name.parse::<usize>().ok())
+                        .and_then(|index| receipt.entries.get(index))
+                        .filter(|entry| entry.source == "bin")
+                        .ok_or_else(|| invalid("unrecorded retired artifact"))?;
+                    if storage::read(bin, &entry.from)?.is_some() {
+                        return Err(invalid("original and retired artifact both exist"));
+                    }
+                }
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    for (index, entry) in receipt.entries.iter().enumerate() {
         let root = roots
             .get(&entry.source)
             .ok_or_else(|| invalid("missing migration source root"))?;
         let current = storage::read(root, &entry.from)?;
         if copied && entry.source == "bin" && current.is_none() {
+            let retired = PathBuf::from(format!(".migration-020-retired/{index}"));
+            if storage::read(root, &retired)?.as_ref() != Some(&entry.content)
+                || storage::attributes(root, &retired)? != entry.attributes
+                || entry.content == Content::Directory
+                    && !storage::names(&storage::directory(root, &retired, false)?)?.is_empty()
+            {
+                return Err(invalid("retired artifact evidence is missing or changed"));
+            }
             continue;
         }
-        if current.as_ref() != Some(&entry.content) {
+        if current == Some(Content::Directory) {
+            verify_children(
+                receipt,
+                &entry.source,
+                &entry.from,
+                &storage::directory(root, &entry.from, false)?,
+                copied,
+            )?;
+        }
+        if current.as_ref() != Some(&entry.content)
+            || entry.source == "bin" && storage::attributes(root, &entry.from)? != entry.attributes
+        {
             return Err(invalid(format!(
                 "legacy source changed: {}",
                 entry.from.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn verify_children(
+    receipt: &Receipt,
+    role: &str,
+    path: &Path,
+    directory: &File,
+    copied: bool,
+) -> AppResult<()> {
+    let shared = receipt
+        .sources
+        .get(role)
+        .and_then(|binding| binding.as_ref())
+        .zip(receipt.native.get(role))
+        .is_some_and(|(a, b)| (a.device, a.inode) == (b.device, b.inode));
+    for name in storage::names(directory)? {
+        if role == "bin"
+            && path.as_os_str().is_empty()
+            && (name == ".mutation.lock" || copied && name == ".migration-020-retired")
+        {
+            continue;
+        }
+        if role == "recovery" && path.components().count() == 1 && name == ".lock" {
+            continue;
+        }
+        let child = path.join(name);
+        if !receipt.entries.iter().any(|entry| {
+            entry.source == role && entry.from == child
+                || shared && entry.role == role && entry.to == child
+        }) {
+            return Err(invalid(format!(
+                "legacy inventory gained an unrecorded entry: {}",
+                child.display()
             )));
         }
     }
@@ -379,10 +466,9 @@ fn collect(
     if depth > 16 || entries.len() >= 10_000 {
         return Err(invalid("migration inventory exceeds bound"));
     }
-    if path
-        .file_name()
-        .is_some_and(|name| name.as_encoded_bytes().ends_with(b".lock"))
-    {
+    if path.file_name().is_some_and(|name| {
+        name == ".lock" && source == "recovery" && path.components().count() == 2
+    }) {
         return Ok(());
     }
     match storage::directory(root, path, false) {
@@ -397,6 +483,11 @@ fn collect(
                     alias_path(path)
                 },
                 content: Content::Directory,
+                attributes: if source == "bin" {
+                    storage::attributes(root, path)?
+                } else {
+                    storage::Attributes::new()
+                },
             });
             for name in storage::names(&directory)? {
                 collect(root, source, &path.join(name), entries, depth + 1)?;
@@ -439,6 +530,11 @@ fn collect(
                 role: role.into(),
                 to,
                 content,
+                attributes: if source == "bin" {
+                    storage::attributes(root, path)?
+                } else {
+                    storage::Attributes::new()
+                },
             });
         }
         Err(error) => return Err(error.into()),
@@ -465,6 +561,22 @@ fn validate(entries: &[Entry]) -> AppResult<()> {
         return Err(invalid("migration receipt exceeds entry bound"));
     }
     let mut destinations = BTreeMap::new();
+    let attribute_bytes: usize = entries
+        .iter()
+        .flat_map(|entry| &entry.attributes)
+        .map(|(key, value)| key.len().saturating_add(value.len()))
+        .sum();
+    if attribute_bytes > 4 * 1024 * 1024
+        || entries.iter().any(|entry| {
+            entry.attributes.len() > 256
+                || entry
+                    .attributes
+                    .keys()
+                    .any(|name| !name.starts_with("user.") || name.contains('\0'))
+        })
+    {
+        return Err(invalid("migration attributes exceed supported bounds"));
+    }
     for entry in entries {
         if !["config", "state", "recovery"].contains(&entry.role.as_str())
             || !["config", "state", "recovery", "bin"].contains(&entry.source.as_str())
@@ -496,8 +608,10 @@ fn validate(entries: &[Entry]) -> AppResult<()> {
                 return Err(invalid("invalid migration receipt path"));
             }
         }
-        if let Some(previous) = destinations.insert((&entry.role, &entry.to), &entry.content)
-            && previous != &entry.content
+        if let Some(previous) = destinations.insert(
+            (&entry.role, &entry.to),
+            (&entry.content, &entry.attributes),
+        ) && previous != (&entry.content, &entry.attributes)
         {
             return Err(invalid(
                 "conflicting legacy module aliases; original states preserved",
@@ -514,75 +628,8 @@ fn validate(entries: &[Entry]) -> AppResult<()> {
             if let Some(kind) = kind {
                 preflight_document(kind, bytes)?;
             }
-            if entry.source == "bin"
-                && entry
-                    .from
-                    .file_name()
-                    .is_some_and(|name| name == "manifest.json")
-            {
-                let manifest: Value = serde_json::from_slice(bytes)?;
-                if manifest["schemaVersion"] != 1 || !manifest["items"].is_array() {
-                    return Err(invalid("unsupported artifact-bin manifest"));
-                }
-                if let Some(id) = manifest["helperRecordId"].as_str() {
-                    let module = manifest["module"].as_str().unwrap_or_default();
-                    let route = &manifest["restoreHelper"];
-                    if !crate::module_helpers::canonical_route(
-                        route["provider"].as_str().unwrap_or_default(),
-                        route["helper"].as_str().unwrap_or_default(),
-                    )
-                    .is_some_and(|route| route.module() == module)
-                    {
-                        return Err(invalid("missing or unsupported helper restore route"));
-                    }
-                    if !["hooks", "mcp"].contains(&module)
-                        || id.is_empty()
-                        || id.contains('/')
-                        || id.contains("..")
-                    {
-                        return Err(invalid("invalid helper recovery identity"));
-                    }
-                    let expected = PathBuf::from(format!("{module}-recovery/{id}.json"));
-                    let record = entries
-                        .iter()
-                        .find(|entry| entry.source == "recovery" && entry.from == expected)
-                        .ok_or_else(|| invalid("missing paired helper recovery evidence"))?;
-                    let Content::File(record) = &record.content else {
-                        return Err(invalid("invalid helper recovery evidence"));
-                    };
-                    let record: Value = serde_json::from_slice(record)?;
-                    if record["formatVersion"] != 1
-                        || record["transactionId"] != id
-                        || record["payload"] != manifest["payload"]
-                        || record["definitionId"] != manifest["id"]
-                    {
-                        return Err(invalid("unsupported helper recovery schema"));
-                    }
-                }
-                let directory = entry
-                    .from
-                    .parent()
-                    .ok_or_else(|| invalid("invalid bin entry"))?;
-                for item in manifest["items"].as_array().unwrap() {
-                    let stored = item["stored"]
-                        .as_str()
-                        .ok_or_else(|| invalid("missing stored artifact identity"))?;
-                    let path = Path::new(stored);
-                    if path
-                        .components()
-                        .any(|part| !matches!(part, std::path::Component::Normal(_)))
-                        || !path.starts_with("items")
-                    {
-                        return Err(invalid("unsafe stored artifact path"));
-                    }
-                    if !entries.iter().any(|entry| {
-                        entry.source == "bin" && entry.from.starts_with(directory.join(path))
-                    }) {
-                        return Err(invalid("missing stored artifact recovery evidence"));
-                    }
-                }
-            }
         }
     }
+    super::artifacts::validate(entries)?;
     Ok(())
 }
