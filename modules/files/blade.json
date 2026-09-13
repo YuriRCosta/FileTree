@@ -1,7 +1,7 @@
 {
   "id": "files",
   "name": "FileBlade",
-  "glyph": "",
+  "glyph": "󰉋",
   "description": "Filesystem tree with search syntax, favorites, Git status, quick navigation, and file operations",
   "entry": "Module.qml",
   "hostContract": 1,
