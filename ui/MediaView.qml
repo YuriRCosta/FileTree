@@ -163,12 +163,13 @@ FocusScope {
         var paths = DragPlan.disjointPaths(media.controller.selectedPaths)
         var entries = DragPlan.entriesForPaths(media.controller.selectedEntries, paths)
         media.ownsDrag = true
-        media.controller.dropWheel.beginDrag(paths, entries, media.pane.targetScreen(), !media.pane.context || media.pane.context.docked, at.x, at.y)
+        media.controller.dropWheel.beginDrag(paths, entries, media.pane.targetScreen(), !media.pane.context || media.pane.context.docked, at.x, at.y, null, tile)
         dragPosition = tile.mapFromItem(null, scene.x, scene.y)
         dragModifiers = modifiers
         tile.Drag.active = true
       }
       onDragMoved: function(scene, modifiers) {
+        if (!tile.Drag.active) { media.dragScrollStep = 0; return }
         var at = media.point(scene)
         media.controller.dropWheel.updateDrag(at.x, at.y, at.outside, modifiers)
         dragPosition = tile.mapFromItem(null, scene.x, scene.y)
@@ -215,7 +216,7 @@ FocusScope {
   Timer {
     interval: 16
     repeat: true
-    running: media.visible && media.dragScrollStep !== 0
+    running: media.visible && media.controller.dropWheel.dragActive && media.dragScrollStep !== 0
     onTriggered: grid.contentY = Math.max(grid.originY, Math.min(grid.originY + Math.max(0, grid.contentHeight - grid.height), grid.contentY + media.dragScrollStep))
   }
 

@@ -17,6 +17,10 @@ Item {
 
   function handlePress(event) {
     if (!controller.dragActive) return false
+    if (event.key === Qt.Key_Escape) {
+      controller.cancelDrag()
+      return true
+    }
     var repeated = actionKeys.isRepeat(event)
     if (event.key === controller.modifierKey) {
       releaseTimer.stop()
@@ -24,10 +28,6 @@ Item {
     }
     if (!controller.wheelOpen || !controller.wheelFromDrag) return false
     if (repeated) return true
-    if (event.key === Qt.Key_Escape) {
-      controller.back()
-      return true
-    }
     return controller.activateKey(event.text)
   }
 

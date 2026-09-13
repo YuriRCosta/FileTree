@@ -26,6 +26,7 @@ Item {
   readonly property string modifierLabel: modifierSpec.label
 
   property bool dragActive: false
+  property Item dragSource: null
   property bool dragDocked: true
   property bool dragOutside: false
   property bool dragConsumed: false
@@ -103,9 +104,10 @@ Item {
     return result
   }
 
-  function beginDrag(paths, entries, targetScreen, docked, x, y, spec) {
+  function beginDrag(paths, entries, targetScreen, docked, x, y, spec, source) {
     dragPaths = fileUrlsToPaths(paths)
     if (dragPaths.length === 0) return false
+    dragSource = source || null
     dragEntries = entrySnapshots(entries)
     dragSpec = spec && typeof spec === "object" ? spec : null
     dragScreen = targetScreen || null
@@ -163,6 +165,7 @@ Item {
       pointerY = Number(y)
     }
     if (outside !== undefined) dragOutside = !!outside
+    dragSource = null
     var paths = dragPaths
     var wasOutside = dragOutside
     dragActive = false
@@ -223,7 +226,13 @@ Item {
     if (!dragActive) return
     dragActive = false
     service.bladeHost.pressActive = false
+    dragKeys.cancelRelease()
+    if (dragSource) dragSource.Drag.cancel()
+    dragSource = null
     if (wheelOpen && wheelFromDrag) close()
+    dragPaths = []
+    dragEntries = []
+    if (!wheelOpen) context = null
   }
 
   function screenAt(x, y) {

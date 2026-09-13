@@ -16,6 +16,7 @@ space_pid=""
 mux_session="fileblade-e26-$$"
 cleanup_space_helper() {
   "$OVM" release ctrl >/dev/null 2>&1
+  "$OVM" release spc >/dev/null 2>&1
   "$OVM" mouse up >/dev/null 2>&1
   [[ ! $space_pid =~ ^[0-9]+$ ]] || guest "kill -- -$space_pid" >/dev/null 2>&1
   [[ -z $space_helper ]] || guest "rm -f -- $(printf '%q' "$space_helper")" >/dev/null 2>&1
@@ -179,8 +180,32 @@ ghost_name=$(ocr_crop E-26-02-multi-item-ghost 95x30+935+512 400% 7)
 ghost_count=$(ocr_crop E-26-02-multi-item-count 18x18+1036+518 800% 10 | tr -cd '0-9')
 expect_contains E-26-02 "the ghost names the last grabbed row" "$ghost_name" long.txt
 expect_true E-26-02 "the rendered ghost badge counts both items" "[[ $ghost_count == 2 ]]"
+"$OVM" key esc
+wait_for "[[ \$(wheel dragging) == false && \$(wheel open) == false ]]" 5
+expect_true E-26-08 "Escape cancels the held drag without dismissing the blade" "[[ \$(wheel dragging) == false && \$(wheel count) == 0 && \$(field open) == true ]]"
+shot E-26-08-escape-before-wheel-mouse-held
+"$OVM" mouse move "$ROW_X" "$(row_y "$(row_index dest)")"
 "$OVM" mouse up
-wait_for "[[ \$(wheel dragging) == false ]]" 5
+sleep 1
+expect_true E-26-08 "mouse release after Escape keeps the drag canceled" "[[ \$(wheel dragging) == false && \$(wheel open) == false && \$(clients) == 0 ]]"
+expect_out E-26-08 "release over a directory after Escape moves no carried file" "test -f $ROOT_DIR/alpha.txt && test -f $ROOT_DIR/long.txt && test ! -e $ROOT_DIR/dest/alpha.txt && test ! -e $ROOT_DIR/dest/long.txt && echo unchanged" unchanged
+focus_tree
+
+"$OVM" mouse click "$ROW_X" "$(row_y "$(row_index alpha.txt)")"
+"$OVM" mouse down
+"$OVM" mouse move 180 "$(row_y "$(row_index alpha.txt)")"
+"$OVM" mouse move 900 500
+"$OVM" hold spc
+wait_for "[[ \$(wheel open) == true && \$(wheel loading) == false ]]" 10
+expect_true E-26-08 "the wheel is open during the held drag before cancellation" "[[ \$(wheel open) == true && \$(wheel dragging) == true ]]"
+shot E-26-08-wheel-before-escape
+"$OVM" key esc
+"$OVM" release spc
+wait_for "[[ \$(wheel dragging) == false && \$(wheel open) == false ]]" 5
+shot E-26-08-escape-with-wheel-mouse-held
+"$OVM" mouse up
+sleep 1
+expect_true E-26-08 "Escape cancels the open wheel drag and release opens nothing" "[[ \$(wheel dragging) == false && \$(wheel open) == false && \$(field open) == true && \$(clients) == 0 ]]"
 focus_tree
 
 # Release on the hub: the wheel must open under the pointer and then stay.
