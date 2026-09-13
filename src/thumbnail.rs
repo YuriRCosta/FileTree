@@ -6,7 +6,7 @@ use crate::{AppError, AppResult};
 use base64::{Engine as _, prelude::BASE64_STANDARD};
 use image::{DynamicImage, ImageDecoder, ImageEncoder, ImageFormat, ImageReader, Limits};
 use serde_json::{Value, json};
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -57,7 +57,12 @@ pub fn thumbnail(
     if let Some(ready) = cached(&output, width, height) {
         return ready;
     }
-    match render_in_child(&path, &output, width, height, &version, cancelled) {
+    let input = match read_bounded_nofollow(&path, INPUT_BYTES) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => return failure(&text, &format!("{text} is missing")),
+        Err(error) => return failure(&text, &error.to_string()),
+    };
+    match render_in_child(&path, &output, width, height, &version, input, cancelled) {
         Ok(value) if source_version(&path).is_ok_and(|current| current == version) => value,
         Ok(_) => failure(&text, "Source changed while creating the thumbnail"),
         Err(error) => failure(&text, &error.to_string()),
@@ -65,7 +70,7 @@ pub fn thumbnail(
 }
 
 pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResult<Value> {
-    let rendered = render_encoded(raw_path, width, height)?;
+    let rendered = render_encoded(raw_path, width, height, None)?;
     secure::write_private_atomic(output, &rendered.bytes)
         .map_err(|error| AppError::Invalid(error.to_string()))?;
     Ok(rendered_value(output, rendered, false))
@@ -74,19 +79,27 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
 pub fn render_worker(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResult<Value> {
     Ok(rendered_value(
         output,
-        render_encoded(raw_path, width, height)?,
+        render_encoded(raw_path, width, height, Some(worker_input()?))?,
         true,
     ))
 }
 
-fn render_encoded(raw_path: &str, width: u32, height: u32) -> AppResult<EncodedThumbnail> {
+fn render_encoded(
+    raw_path: &str,
+    width: u32,
+    height: u32,
+    input: Option<Vec<u8>>,
+) -> AppResult<EncodedThumbnail> {
     let path = parse_path(raw_path)?;
     let text = path_text(&path);
     let (width, height) = bounded_size(width, height);
     confine_memory()?;
-    let bytes = read_bounded_nofollow(&path, INPUT_BYTES)
-        .map_err(|error| AppError::Invalid(error.to_string()))?
-        .ok_or_else(|| AppError::Invalid(format!("{text} is missing")))?;
+    let bytes = match input {
+        Some(bytes) => bytes,
+        None => read_bounded_nofollow(&path, INPUT_BYTES)
+            .map_err(|error| AppError::Invalid(error.to_string()))?
+            .ok_or_else(|| AppError::Invalid(format!("{text} is missing")))?,
+    };
     let format = image::guess_format(&bytes).ok().filter(|format| {
         matches!(
             format,
@@ -312,6 +325,7 @@ fn render_in_child(
     width: u32,
     height: u32,
     expected_version: &str,
+    input: Vec<u8>,
     cancelled: &AtomicBool,
 ) -> AppResult<Value> {
     let program = own_binary().map_err(|error| AppError::command(error.to_string()))?;
@@ -331,6 +345,7 @@ fn render_in_child(
         ])
         .timeout(RENDER_TIMEOUT)
         .limits(RENDER_OUTPUT_BYTES, 16 * 1024)
+        .stdin(input)
         .stop_on_output_limit()
         .run_cancellable(cancelled)?;
     if result.stdout_truncated {
@@ -383,6 +398,20 @@ fn render_in_child(
             None => "thumbnail helper was stopped".to_string(),
         });
     Err(AppError::command(detail))
+}
+
+fn worker_input() -> AppResult<Vec<u8>> {
+    let mut bytes = Vec::new();
+    std::io::stdin()
+        .take((INPUT_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|error| AppError::Invalid(error.to_string()))?;
+    if bytes.len() > INPUT_BYTES {
+        return Err(AppError::Invalid(
+            "thumbnail worker input exceeds the source limit".into(),
+        ));
+    }
+    Ok(bytes)
 }
 
 fn cached(output: &Path, max_width: u32, max_height: u32) -> Option<Value> {
