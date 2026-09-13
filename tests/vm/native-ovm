@@ -19,7 +19,7 @@ case ${1:-} in
     ;;
   ipc)
     case ${2:-} in
-      data-goblin.fileblade|data-goblin.fileblade.*|fileblade.native|_backend|drop-context|drop-run|preferences-read|preferences-set) ;;
+      data-goblin.fileblade|data-goblin.fileblade.*|fileblade.native|fileblade.chooser|_backend|drop-context|drop-run|preferences-read|preferences-set) ;;
       *) exec "$real" "$@" ;;
     esac
     ;;
