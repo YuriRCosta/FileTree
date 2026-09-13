@@ -21,18 +21,18 @@ Item {
     var index = 0
     for (var i = 0; i < tabRepeater.count; i++) {
       var item = tabRepeater.itemAt(i)
-      if (item && x > tabViewport.x + item.x - tabViewport.contentX + item.width / 2) index = i + 1
+      if (item && x > tabArea.x + tabViewport.x + item.x - tabViewport.contentX + item.width / 2) index = i + 1
     }
     return index
   }
 
   function dropLineX() {
-    if (tabRepeater.count === 0) return tabViewport.x
+    if (tabRepeater.count === 0) return tabArea.x + tabViewport.x
     var last = tabItem(tabRepeater.count - 1)
     if (dropIndex >= tabRepeater.count)
-      return tabViewport.x + last.x - tabViewport.contentX + last.width + Math.round(tabRow.spacing / 2)
+      return tabArea.x + tabViewport.x + last.x - tabViewport.contentX + last.width + Math.round(tabRow.spacing / 2)
     var item = tabItem(Math.max(0, dropIndex))
-    return item ? tabViewport.x + item.x - tabViewport.contentX : tabViewport.x
+    return item ? tabArea.x + tabViewport.x + item.x - tabViewport.contentX : tabArea.x + tabViewport.x
   }
 
   function scrollTabs(delta) {
