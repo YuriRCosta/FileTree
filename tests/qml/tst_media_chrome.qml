@@ -4,7 +4,10 @@ import "../../modules/files/ViewChrome.js" as Chrome
 
 TestCase {
   name: "MediaChrome"
-  ListModel { id: rows }
+  ListModel {
+    id: rows
+    property var folderCountCache: null
+  }
   Component {
     id: countClient
     QtObject {
