@@ -57,6 +57,7 @@ Item {
   }
 
   function glyphFor(volume) {
+    if (peerLocations[String(volume.source)]) return "󰒍"
     if (volume.filesystem === "SFTP") return "󰒋"
     if (volume.image) return "󰗮"
     if (volume.bus === "usb") return "󱊞"
@@ -132,7 +133,7 @@ Item {
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       allVolumesModel.append(rows[rowIndex])
       var row = rows[rowIndex]
-      if (row.tier === "tailnet" ? !!peerLocations[row.source].session_generation : visibleTier(row.tier)) drivesModel.append(row)
+      if (row.tier === "tailnet" || visibleTier(row.tier)) drivesModel.append(row)
     }
   }
 
