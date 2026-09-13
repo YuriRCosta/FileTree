@@ -13,9 +13,13 @@ kill_windows() { "$OVM" ssh 'pkill -x foot; pkill -x nvim' >/dev/null 2>&1; wait
 
 space_helper=""
 space_pid=""
+mux_session="fileblade-e26-$$"
 cleanup_space_helper() {
+  "$OVM" release ctrl >/dev/null 2>&1
+  "$OVM" mouse up >/dev/null 2>&1
   [[ ! $space_pid =~ ^[0-9]+$ ]] || guest "kill -- -$space_pid" >/dev/null 2>&1
   [[ -z $space_helper ]] || guest "rm -f -- $(printf '%q' "$space_helper")" >/dev/null 2>&1
+  guest "tmux kill-session -t $mux_session 2>/dev/null || true" >/dev/null 2>&1
 }
 trap cleanup_space_helper EXIT
 trap 'exit 130' INT TERM
@@ -37,6 +41,37 @@ fi
 # Wedge i of n is centred at -90 + i * 360 / n degrees, on the ring between the
 # hub and the rim (WheelGeometry.wedgeAngle; labelRadius is 58 at scale 1).
 wedge_point() { awk -v x="$1" -v y="$2" -v n="$3" -v i="$4" 'BEGIN { a = (-90 + i * 360 / n) * 3.14159265 / 180; printf "%d %d\n", x + 58 * cos(a), y + 58 * sin(a) }'; }
+
+choose_child() {
+  local id=$1 label=$2 expectation=$3 snapshot parent children child count wx wy px py
+  snapshot=$(status | jq -c .dropWheel)
+  parent=$(jq --arg id "$id" '[.actions[].id] | index($id)' <<<"$snapshot")
+  [[ $parent =~ ^[0-9]+$ ]] || { fail "$expectation" "find the parent action" "$snapshot"; return 1; }
+  children=$(jq -c ".actions[$parent].placements" <<<"$snapshot")
+  child=$(jq --arg label "$label" '[.[].label] | index($label)' <<<"$children")
+  [[ $child =~ ^[0-9]+$ ]] || { fail "$expectation" "find $label in the second ring" "$children"; return 1; }
+  count=$(jq '.actions | length' <<<"$snapshot")
+  wx=$(jq .x <<<"$snapshot"); wy=$(jq .y <<<"$snapshot")
+  read -r px py <<<"$(wedge_point "$wx" "$wy" "$count" "$parent")"
+  "$OVM" mouse move "$px" "$py"
+  wait_for "[[ \$(wheel highlighted) == $parent ]]" 5
+  read -r px py < <(awk -v x="$wx" -v y="$wy" -v n="$count" -v p="$parent" -v c="$(jq length <<<"$children")" -v i="$child" 'BEGIN {
+    pi = 3.14159265
+    r = 58 + 5 * (n > 4 ? n : 4)
+    if (r < 86) r = 86
+    step = 2 * pi / c
+    if (step > pi / 4) step = pi / 4
+    a = (-90 + p * 360 / n) * pi / 180 + (i - (c - 1) / 2) * step
+    printf "%d %d\n", x + (r + 30) * cos(a), y + (r + 30) * sin(a)
+  }')
+  "$OVM" mouse move "$px" "$py"
+  wait_for "[[ \$(wheel outerHighlighted) == $child ]]" 5
+  expect_true "$expectation" "the pointer selects $label in the second ring" "[[ \$(wheel outerHighlighted) == $child ]]"
+  shot "$expectation-second-ring"
+  "$OVM" mouse click "$px" "$py"
+  wait_for "[[ \$(wheel open) == false ]]" 10
+  expect_true "$expectation" "choosing $label closes the wheel" "[[ \$(wheel open) == false ]]"
+}
 
 drag_with_space() {
   local sx=$1 sy=$2 tx=$3 ty=$4 ease=$5 reach=$6 hold=$7 drag_shot=${8:-} pending_shot=${9:-} open_shot=${10:-} loaded_shot=${11:-} script
@@ -130,11 +165,28 @@ kill_windows
 focus_tree
 ctl hideDropWheel >/dev/null 2>&1
 
+"$OVM" mouse click "$ROW_X" "$(row_y "$(row_index alpha.txt)")"
+"$OVM" hold ctrl
+"$OVM" mouse click "$ROW_X" "$(row_y "$(row_index long.txt)")"
+"$OVM" release ctrl
+expect_true E-26-02 "two rows are selected before dragging the second" "[[ \$(field selectedCount) == 2 && \$(field selectedPath) == $ROOT_DIR/long.txt ]]"
+"$OVM" mouse down
+"$OVM" mouse move 180 "$(row_y "$(row_index long.txt)")"
+"$OVM" mouse move 900 500
+wait_for "[[ \$(wheel dragging) == true && \$(wheel count) == 2 ]]" 5
+expect_true E-26-02 "the real drag carries both selected rows" "[[ \$(wheel dragging) == true && \$(wheel count) == 2 && \$(wheel open) == false ]]"
+ghost_name=$(ocr_crop E-26-02-multi-item-ghost 95x30+935+512 400% 7)
+ghost_count=$(ocr_crop E-26-02-multi-item-count 18x18+1036+518 800% 10 | tr -cd '0-9')
+expect_contains E-26-02 "the ghost names the last grabbed row" "$ghost_name" long.txt
+expect_true E-26-02 "the rendered ghost badge counts both items" "[[ $ghost_count == 2 ]]"
+"$OVM" mouse up
+wait_for "[[ \$(wheel dragging) == false ]]" 5
+focus_tree
+
 # Release on the hub: the wheel must open under the pointer and then stay.
-drag_with_space "$ROW_X" "$(row_y "$(row_index alpha.txt)")" 900 500 ease_in_out 12 3000 E-26-01-drag-ghost E-26-02-multi-item-ghost-pending E-26-03-wheel-open E-26-04-desktop-actions
+drag_with_space "$ROW_X" "$(row_y "$(row_index alpha.txt)")" 900 500 ease_in_out 12 3000 E-26-01-drag-ghost "" E-26-03-wheel-open E-26-04-desktop-actions
 expect_true E-26-01 "leaving the blade with a row starts a drag" "[[ \$(mid dragging) == true ]]"
 expect_true E-26-01 "that carries one item" "[[ \$(mid count) == 1 ]]"
-pending E-26-02 "the ghost names the last grabbed row and counts the items" "the ghost caption is not in the status document; the carried count is covered by E-26-01"
 expect_true E-26-03 "holding the modifier opens the wheel during the drag" "[[ \$(mid open) == true && \$(mid fromDrag) == true ]]"
 expect_true E-26-03 "at the pointer" "[[ \$(mid x) -gt 860 && \$(mid x) -lt 940 && \$(mid y) -gt 460 && \$(mid y) -lt 540 ]]"
 labels=$(jq -r '[.actions[]?.label]|join(",")' <<<"${loaded:-null}" 2>/dev/null)
@@ -142,11 +194,9 @@ expect_true E-26-04 "over the bare desktop the target is the desktop" "[[ \$(see
 expect_contains E-26-04 "which offers the default open" "$labels" "Open in new window"
 expect_contains E-26-04 "and a new terminal" "$labels" "New terminal"
 expect_missing E-26-04 "but nothing that needs a window under the pointer" "$labels" "herdr"
-pending E-26-06 "placements open a second ring" "the second ring's entries are not in the status document"
 expect_true E-26-09 "releasing on the hub keeps the wheel open" "[[ \$(wheel open) == true && \$(wheel dragging) == false ]]"
 expect_true E-26-09 "as a wheel that no longer follows a drag" "[[ \$(wheel fromDrag) == false ]]"
 shot E-26-09-hub-released
-shot E-26-10-open-with-pending
 
 count=$(status | jq '.dropWheel.actions|length')
 wx=$(wheel x); wy=$(wheel y)
@@ -155,7 +205,6 @@ if [[ $count -gt 0 && $open_with_index != null ]]; then
   read -r px py <<<"$(wedge_point "$wx" "$wy" "$count" "$open_with_index")"
   "$OVM" mouse move "$px" "$py"; sleep 1.5
 fi
-shot E-26-06-placement-ring-pending
 terminal_index=$(wheel_index "New terminal")
 if [[ $count -gt 0 && $terminal_index != null ]]; then
   read -r px py <<<"$(wedge_point "$wx" "$wy" "$count" "$terminal_index")"
@@ -184,6 +233,37 @@ expect_true E-26-07 "and the wheel closes" "[[ \$(wheel open) == false ]]"
 shot E-26-07-file-opened
 kill_windows
 
-pending E-26-10 "the Open with wedge shows an open-folder glyph in every context" "wedge glyphs are not in the status document"
+ctl select "$ROOT_DIR/alpha.txt"
+ctl showDropWheel 900 500
+wait_for "[[ \$(wheel open) == true && \$(wheel loading) == false ]]" 10
+expect_contains E-26-10 "Open with lists an installed application for this text file" "$(status | jq -r '.dropWheel.actions[] | select(.id == "open-with") | .placements[].label')" Neovim
+if choose_child open-with Neovim E-26-10; then
+  wait_for "guest 'pgrep -a -x nvim' | grep -Fq '$ROOT_DIR/alpha.txt'" 15
+  expect_contains E-26-10 "the selected application opens the carried file" "$(guest 'pgrep -a -x nvim')" "$ROOT_DIR/alpha.txt"
+fi
+shot E-26-10-application-opened
+kill_windows
+
+guest "setsid foot -e tmux new-session -s $mux_session >/tmp/fileblade-e26-terminal.log 2>&1 </dev/null &"
+wait_for "[[ \$(clients) == 1 ]]" 10
+wait_for "[[ \$(guest 'tmux list-panes -t $mux_session' | wc -l) == 1 ]]" 10
+terminal=$("$OVM" hypr clients | jq -c '.[] | select(.class == "foot")')
+tx=$(jq '.at[0] + .size[0] / 2 | floor' <<<"$terminal")
+ty=$(jq '.at[1] + .size[1] / 2 | floor' <<<"$terminal")
+ctl select "$ROOT_DIR/alpha.txt"
+ctl showDropWheel "$tx" "$ty"
+wait_for "[[ \$(wheel open) == true && \$(wheel loading) == false ]]" 10
+expect_contains E-26-06 "the terminal action offers explicit split destinations" "$(status | jq -c '.dropWheel.actions[] | select(.id == "mux-open") | [.placements[].label]')" '"Vertical split","Horizontal split"'
+if choose_child mux-open "Vertical split" E-26-06; then
+  wait_for "[[ \$(guest 'tmux list-panes -t $mux_session' | wc -l) == 2 ]]" 15
+  expect_out E-26-06 "the chosen terminal gains exactly one pane" "tmux list-panes -t $mux_session | wc -l" 2
+  expect_contains E-26-06 "the new pane opens the carried file" "$(guest 'pgrep -a -x nvim')" "$ROOT_DIR/alpha.txt"
+  expect_out E-26-06 "the vertical split puts its panes side by side" "tmux list-panes -t $mux_session -F '#{pane_top}' | sort -u | wc -l" 1
+  expect_true E-26-06 "the destination stays in the original terminal window" "[[ \$(clients) == 1 ]]"
+fi
+shot E-26-06-destination-opened
+kill_windows
+pending E-26-06 "split icons show the intended pane geometry" "appearance requires Fable's inspection of E-26-06-second-ring"
+pending E-26-10 "the Open with wedge shows an open-folder glyph in every context" "appearance requires Fable's inspection of E-26-10-second-ring"
 
 summary

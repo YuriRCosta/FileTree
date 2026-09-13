@@ -18,7 +18,7 @@ skip() { [[ -n ${ONLY:-} && ${ONLY} != "$1" ]]; }
 guest() { "$OVM" ssh "$1" 2>/dev/null; }
 # A guest that dies mid-run turns every later check into noise. Stop the
 # section with a clear reason instead.
-guest_alive() { "$OVM" status 2>/dev/null | grep -q '^ssh: ok'; }
+guest_alive() { "$OVM" status 2>/dev/null | grep '^ssh: ok' >/dev/null; }
 require_guest() {
   guest_alive && return 0
   fail harness "guest is available" "the guest is gone; remaining checks not run"

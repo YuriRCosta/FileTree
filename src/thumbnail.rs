@@ -3,12 +3,13 @@ use crate::common::{own_binary, parse_path, path_text};
 use crate::paths::xdg_home;
 use crate::secure::{self, read_bounded_nofollow};
 use crate::{AppError, AppResult};
+use base64::{Engine as _, prelude::BASE64_STANDARD};
 use image::{DynamicImage, ImageDecoder, ImageEncoder, ImageFormat, ImageReader, Limits};
 use serde_json::{Value, json};
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 pub const INPUT_BYTES: usize = 16 * 1024 * 1024;
@@ -17,8 +18,13 @@ pub const MAX_SOURCE_PIXELS: u64 = 64_000_000;
 pub const MAX_OUTPUT_EDGE: u32 = 1024;
 pub const DECODE_MEMORY_BYTES: u64 = 512 * 1024 * 1024;
 const RENDER_TIMEOUT: Duration = Duration::from_secs(8);
-const RENDER_OUTPUT_BYTES: usize = 64 * 1024;
 const CACHE_BYTES: usize = 8 * 1024 * 1024;
+const RENDER_OUTPUT_BYTES: usize = CACHE_BYTES.div_ceil(3) * 4 + 64 * 1024;
+
+struct EncodedThumbnail {
+    bytes: Vec<u8>,
+    value: Value,
+}
 
 pub fn cache_dir() -> PathBuf {
     xdg_home("XDG_CACHE_HOME", "~/.cache").join("fileblade/thumbnails")
@@ -51,7 +57,12 @@ pub fn thumbnail(
     if let Some(ready) = cached(&output, width, height) {
         return ready;
     }
-    match render_in_child(&path, &output, width, height, cancelled) {
+    let input = match read_bounded_nofollow(&path, INPUT_BYTES) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => return failure(&text, &format!("{text} is missing")),
+        Err(error) => return failure(&text, &error.to_string()),
+    };
+    match render_in_child(&path, &output, width, height, &version, input, cancelled) {
         Ok(value) if source_version(&path).is_ok_and(|current| current == version) => value,
         Ok(_) => failure(&text, "Source changed while creating the thumbnail"),
         Err(error) => failure(&text, &error.to_string()),
@@ -59,13 +70,36 @@ pub fn thumbnail(
 }
 
 pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResult<Value> {
+    let rendered = render_encoded(raw_path, width, height, None)?;
+    secure::write_private_atomic(output, &rendered.bytes)
+        .map_err(|error| AppError::Invalid(error.to_string()))?;
+    Ok(rendered_value(output, rendered, false))
+}
+
+pub fn render_worker(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResult<Value> {
+    Ok(rendered_value(
+        output,
+        render_encoded(raw_path, width, height, Some(worker_input()?))?,
+        true,
+    ))
+}
+
+fn render_encoded(
+    raw_path: &str,
+    width: u32,
+    height: u32,
+    input: Option<Vec<u8>>,
+) -> AppResult<EncodedThumbnail> {
     let path = parse_path(raw_path)?;
     let text = path_text(&path);
     let (width, height) = bounded_size(width, height);
     confine_memory()?;
-    let bytes = read_bounded_nofollow(&path, INPUT_BYTES)
-        .map_err(|error| AppError::Invalid(error.to_string()))?
-        .ok_or_else(|| AppError::Invalid(format!("{text} is missing")))?;
+    let bytes = match input {
+        Some(bytes) => bytes,
+        None => read_bounded_nofollow(&path, INPUT_BYTES)
+            .map_err(|error| AppError::Invalid(error.to_string()))?
+            .ok_or_else(|| AppError::Invalid(format!("{text} is missing")))?,
+    };
     let format = image::guess_format(&bytes).ok().filter(|format| {
         matches!(
             format,
@@ -73,7 +107,7 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
         )
     });
     let Some(format) = format else {
-        return render_poster(&bytes, output, width, height).map_err(|error| {
+        return render_poster(&bytes, width, height).map_err(|error| {
             AppError::Invalid(format!(
                 "{text} is not a PNG, JPEG, or WebP image; poster: {error}"
             ))
@@ -148,16 +182,25 @@ pub fn render(raw_path: &str, output: &Path, width: u32, height: u32) -> AppResu
             "Thumbnail output exceeds the cache limit".into(),
         ));
     }
-    secure::write_private_atomic(output, encoded.get_ref())
-        .map_err(|error| AppError::Invalid(error.to_string()))?;
-    Ok(json!({
-        "ok": true,
-        "path": path_text(output),
-        "width": scaled.width(),
-        "height": scaled.height(),
-        "source_width": source_width,
-        "source_height": source_height
-    }))
+    Ok(EncodedThumbnail {
+        bytes: encoded.into_inner(),
+        value: json!({
+            "ok": true,
+            "width": scaled.width(),
+            "height": scaled.height(),
+            "source_width": source_width,
+            "source_height": source_height
+        }),
+    })
+}
+
+fn rendered_value(output: &Path, rendered: EncodedThumbnail, worker: bool) -> Value {
+    let EncodedThumbnail { bytes, mut value } = rendered;
+    value["path"] = Value::String(path_text(output));
+    if worker {
+        value["png_base64"] = Value::String(BASE64_STANDARD.encode(bytes));
+    }
+    value
 }
 
 fn poster_command(program: &str, bytes: &[u8]) -> CommandSpec {
@@ -185,7 +228,7 @@ fn poster_command(program: &str, bytes: &[u8]) -> CommandSpec {
     }
 }
 
-fn render_poster(bytes: &[u8], output: &Path, width: u32, height: u32) -> AppResult<Value> {
+fn render_poster(bytes: &[u8], width: u32, height: u32) -> AppResult<EncodedThumbnail> {
     let probe = poster_command("ffprobe", bytes)
         .args([
             "-i",
@@ -249,6 +292,11 @@ fn render_poster(bytes: &[u8], output: &Path, width: u32, height: u32) -> AppRes
             String::from_utf8_lossy(&frame.stderr).trim().into(),
         ));
     }
+    if frame.stdout_truncated || frame.stdout.len() > CACHE_BYTES {
+        return Err(AppError::Invalid(
+            "Poster output exceeds the cache limit".into(),
+        ));
+    }
     let (actual_width, actual_height) =
         ImageReader::with_format(Cursor::new(&frame.stdout), ImageFormat::Png)
             .into_dimensions()
@@ -258,12 +306,17 @@ fn render_poster(bytes: &[u8], output: &Path, width: u32, height: u32) -> AppRes
             "Poster exceeds requested dimensions".into(),
         ));
     }
-    secure::write_private_atomic(output, &frame.stdout)
-        .map_err(|error| AppError::Invalid(error.to_string()))?;
-    Ok(
-        json!({ "ok": true, "path": path_text(output), "width": actual_width, "height": actual_height,
-        "source_width": source_width, "source_height": source_height, "poster": true }),
-    )
+    Ok(EncodedThumbnail {
+        bytes: frame.stdout,
+        value: json!({
+            "ok": true,
+            "width": actual_width,
+            "height": actual_height,
+            "source_width": source_width,
+            "source_height": source_height,
+            "poster": true
+        }),
+    })
 }
 
 fn render_in_child(
@@ -271,6 +324,8 @@ fn render_in_child(
     output: &Path,
     width: u32,
     height: u32,
+    expected_version: &str,
+    input: Vec<u8>,
     cancelled: &AtomicBool,
 ) -> AppResult<Value> {
     let program = own_binary().map_err(|error| AppError::command(error.to_string()))?;
@@ -282,6 +337,7 @@ fn render_in_child(
             &path_text(path),
             "--target",
             &path_text(output),
+            "--worker",
             "--width",
             &width.to_string(),
             "--height",
@@ -289,14 +345,45 @@ fn render_in_child(
         ])
         .timeout(RENDER_TIMEOUT)
         .limits(RENDER_OUTPUT_BYTES, 16 * 1024)
+        .stdin(input)
+        .stop_on_output_limit()
         .run_cancellable(cancelled)?;
+    if result.stdout_truncated {
+        return Err(AppError::command(
+            "thumbnail worker output exceeded its limit",
+        ));
+    }
     let stdout = String::from_utf8_lossy(&result.stdout);
-    let value: Value = stdout
+    let mut value: Value = stdout
         .lines()
         .rev()
         .find_map(|line| serde_json::from_str(line).ok())
         .unwrap_or(Value::Null);
     if result.status.success() && value["ok"] == true {
+        let encoded = value["png_base64"]
+            .as_str()
+            .ok_or_else(|| AppError::command("thumbnail worker omitted its PNG"))?;
+        let bytes = BASE64_STANDARD.decode(encoded).map_err(|error| {
+            AppError::command(format!("thumbnail worker returned invalid PNG: {error}"))
+        })?;
+        if bytes.len() > CACHE_BYTES {
+            return Err(AppError::command(
+                "thumbnail worker PNG exceeded the cache limit",
+            ));
+        }
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(AppError::Cancelled);
+        }
+        if source_version(path).ok().as_deref() != Some(expected_version) {
+            return Err(AppError::Invalid(
+                "Source changed while creating the thumbnail".into(),
+            ));
+        }
+        secure::write_private_atomic(output, &bytes)
+            .map_err(|error| AppError::Invalid(error.to_string()))?;
+        if let Some(object) = value.as_object_mut() {
+            object.remove("png_base64");
+        }
         return Ok(value);
     }
     let stderr = String::from_utf8_lossy(&result.stderr);
@@ -311,6 +398,20 @@ fn render_in_child(
             None => "thumbnail helper was stopped".to_string(),
         });
     Err(AppError::command(detail))
+}
+
+fn worker_input() -> AppResult<Vec<u8>> {
+    let mut bytes = Vec::new();
+    std::io::stdin()
+        .take((INPUT_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|error| AppError::Invalid(error.to_string()))?;
+    if bytes.len() > INPUT_BYTES {
+        return Err(AppError::Invalid(
+            "thumbnail worker input exceeds the source limit".into(),
+        ));
+    }
+    Ok(bytes)
 }
 
 fn cached(output: &Path, max_width: u32, max_height: u32) -> Option<Value> {

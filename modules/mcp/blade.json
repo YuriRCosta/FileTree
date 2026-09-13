@@ -2,7 +2,7 @@
   "hostContract": 3,
   "id": "mcp",
   "name": "MCP",
-  "glyph": "",
+  "glyph": "󰒋",
   "description": "Configuration-only MCP server inventory",
   "entry": "blades/Module.qml",
   "provider": "Provider.qml",

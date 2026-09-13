@@ -34,6 +34,7 @@ FocusScope {
   property string mediaQuery: ""
   property bool mediaQueryReady: false
   property int mediaSizeStep: 2
+  property bool mediaShowEmptyPeriods: false
   property int ordinaryDensityStep: 2
   property var densityAnchor: null
   property bool treeOrderUpdating: false
@@ -61,6 +62,7 @@ FocusScope {
     context.state.set("mediaQuery", mediaQuery)
     context.state.set("mediaQueryReady", mediaQueryReady)
     context.state.set("mediaSizeStep", mediaSizeStep)
+    context.state.set("mediaShowEmptyPeriods", mediaShowEmptyPeriods)
     context.state.set("ordinaryDensityStep", ordinaryDensityStep)
     context.state.set("summaryInTree", summaryInTree)
   }
@@ -189,6 +191,7 @@ FocusScope {
   onMediaRecursiveChanged: persistMedia()
   onMediaQueryChanged: { persistMedia(); if (mediaProvider && !mediaProvider.busy) reconcileMediaSelection() }
   onMediaSizeStepChanged: persistMedia()
+  onMediaShowEmptyPeriodsChanged: persistMedia()
   onOrdinaryDensityStepChanged: persistMedia()
   onMediaMatchesChanged: if (mediaProvider && !mediaProvider.busy) reconcileMediaSelection()
 
@@ -196,6 +199,7 @@ FocusScope {
     if (!context || !context.state) return
     mediaQuery = String(context.state.get("mediaQuery", ""))
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
+    mediaShowEmptyPeriods = context.state.get("mediaShowEmptyPeriods", false) === true
     ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
     summaryInTree = context.state.get("summaryInTree", false) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true

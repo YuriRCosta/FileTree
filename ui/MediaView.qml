@@ -204,6 +204,7 @@ FocusScope {
     contentY: grid.contentY - grid.originY
     contentHeight: grid.contentHeight
     viewportHeight: grid.height
+    showEmptyPeriods: media.pane.mediaShowEmptyPeriods === true
     onSeekRequested: function(position) {
       grid.cancelFlick()
       grid.contentY = grid.originY + position

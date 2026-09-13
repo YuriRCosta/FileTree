@@ -1025,10 +1025,15 @@ is maintained separately.
   Files search grammar (`character:bink`, `-tag:danger`); the status shows
   “N of M”; Escape clears the query first and closes the blade only on the
   next press.
-- **E-37-05** The right-hand timeline lists the years present, one dot per
-  month, and a thumb for the viewport. Hovering shows a month pill without
-  scrolling; pressing or dragging scrolls the grid. The thumb reaches the
-  bottom of the track at the end of the gallery.
+- **E-37-05** The right-hand timeline omits periods with no media by default:
+  a photo from 2020 and one from 2026 do not leave six years of empty bars.
+  I can turn on “Show empty timeline periods” under Media without changing
+  which photos are shown. The viewport outline, scrubbing and detail controls
+  follow the visible periods, and the header names their real dates so the
+  gaps remain clear. A few single-photo periods sit together as selectable
+  rows, without bars or stretched gaps. Periods containing several photos
+  have bars sized by their counts. The viewport outline appears only when
+  the photo grid is taller than the visible pane.
 - **E-37-06** A bar widget that names the module opens the whole module in a
   dropdown under its icon, with the same header, search, chips, grid and
   timeline; Escape or an outside click closes it, and the blade copy of the
@@ -1063,6 +1068,155 @@ Fixture: `tests/vm/fixtures/media_icons.py` with its QML fixture.
 - **E-39-04** After an icon file fails to load, a later valid candidate for the same application is shown. Changing the application, its override or its identity clears the remembered failures and lets the new icon load. At most four failed sources are remembered per application.
 - **E-39-05** An application icon larger than the space it is drawn in is decoded no larger than 128 device pixels in each dimension, and its aspect ratio is preserved.
 - **E-39-06** A place that shows an icon without naming an application keeps its existing icon name, trusted source and fallback glyph behaviour, and looks up no application catalogue.
+
+## 40. Native launch, accepted work and safe shutdown
+
+This file was written by an agent.
+
+`tests/vm/expectations/40-native-authority.sh`
+
+This script emits E-40-01 through E-40-04. E-40-05 through E-40-11 are
+additional lifecycle expectations; their presence here does not imply that
+the section-40 script exercises them. Installed lifecycle and reboot checks
+also live in `tests/vm/expectations/95-delivery-installed.sh` and
+`tests/vm/native-reboot`.
+
+1. **E-40-01** If I close FileBlade's view after a move has started, the move
+   finishes. Each moved file reaches its destination, and reopening FileBlade
+   lets me see the completed result instead of treating the work as cancelled.
+2. **E-40-02** Closing and reopening FileBlade's view reconnects to my running
+   work. It does not start a second owner of that work or lose its progress.
+3. **E-40-03** After closing and reopening the view, I can retrieve a completed
+   operation's result, including its source and destination paths. Reading the
+   result leaves it available; explicitly collecting it removes that retained
+   copy. Closing the view alone does not collect it.
+4. **E-40-04** If FileBlade's state folder is moved aside and another folder
+   takes its place during a copy, FileBlade reports that it lost ownership.
+   It preserves the source and leaves the replacement folder untouched,
+   including when I close the view. I can retrieve the failure result.
+5. **E-40-05** I can start the native app from its production launcher without
+   a development checkout, build tree or spike-home setting. Starting it again
+   while it is running opens the existing app with my saved blades and state.
+6. **E-40-06** My existing command-line scripts can use `drop-context`,
+   `drop-run`, `preferences-read` and `preferences-set` through the native
+   launcher unchanged. Multiple paths, negative screen coordinates, empty
+   arguments and JSON targets and placement routes keep their meaning.
+   `--dry-run` reports the planned action without running it, and changing a
+   preference preserves my other settings.
+7. **E-40-07** If I request shutdown with a deadline too short for an accepted
+   copy, FileBlade reports that it is busy and identifies the unfinished work.
+   The copy continues without losing files; after it finishes I can request
+   shutdown again successfully.
+8. **E-40-08** If I edit ordinary Notes and request a safe shutdown, FileBlade
+   saves the changes before exiting. Relaunching restores my edited text and
+   blade arrangement.
+9. **E-40-09** After a successful safe shutdown, FileBlade's file-chooser
+   service also exits. It does not leave an old native process running after
+   the app has released its state.
+10. **E-40-10** If I request a safe shutdown again after FileBlade has stopped,
+    it reports that it is already stopped and succeeds without opening a view.
+11. **E-40-11** If FileBlade cannot confirm that its view is ready to exit,
+    or I have temporary Notes that have no saved home, an update, removal or
+    shutdown request is refused. FileBlade does not report success or force
+    the view closed while my unsaved work remains at risk.
+
+## 41. Native modules and extension popouts
+
+This file was written by an agent.
+
+`tests/vm/expectations/41-native-importers.sh`
+
+1. **E-41-01** In the native app I can open Files, Properties, Notes, Welcome,
+   Skills, Memory, Hooks and MCP as blade tabs. Each draws its content without
+   an import error or an unavailable-module notice.
+2. **E-41-02** With the Goblins companion available, clicking its bar widget
+   opens the image module in a popout. Its content loads without an error
+   notice, and Escape closes the popout.
+
+## 42. Native section and tab placement
+
+This file was written by an agent.
+
+`tests/vm/expectations/42-native-layout.sh`
+
+The native app follows the same section and tab expectations as section 20.
+This script emits the existing E-20-01 through E-20-12 identifiers; it adds
+no duplicate E-42 identifiers. Appearance checks retain their screenshot
+review requirement.
+
+## 43. Native keyboard focus and desktop space
+
+This file was written by an agent.
+
+`tests/vm/expectations/43-native-parity.sh`
+
+1. **E-43-01** In both plugin and native FileBlade, focusing either blade lets
+   me type into that blade without typing into the application behind it.
+   Clicking an ordinary application returns keyboard input to that window.
+2. **E-43-02** In both shapes, opening a blade reserves its width at the
+   corresponding desktop edge. With both blades open, each reserves its own
+   side; closing them returns that space to ordinary windows.
+3. **E-43-03** If I explicitly hide the desktop bar while both blades are open,
+   the bar gives back its space and both blades extend to the top edge.
+   The native blades behave like the plugin blades.
+
+## 44. Native blades follow the desktop bar
+
+This file was written by an agent.
+
+`tests/vm/expectations/44-native-bar-state.sh`
+
+1. **E-44-01** With the desktop bar at the top, bottom, left or right, both
+   native blades fit beside it. Explicitly hiding the bar extends the blades
+   into the freed space; showing it restores the fit. After twenty rapid
+   hide-and-show cycles, the final blade position and size still match the
+   visible bar state, without a stale gap or overlap.
+
+## 45. Separate chooser windows
+
+This file was written by an agent.
+
+`tests/vm/expectations/45-native-chooser.sh`
+
+1. **E-45-01** When a file chooser opens while I am using a blade, the blade
+   releases its keyboard focus so I can use the chooser.
+2. **E-45-02** If two file choosers open in different folders, each shows the
+   contents of its own folder. One request does not replace the other.
+3. **E-45-03** I can keep two chooser windows open in the same FileBlade app
+   without starting a separate FileBlade backend for each window.
+4. **E-45-04** I can click a different file in each chooser. Each window keeps
+   its own selection.
+5. **E-45-05** Navigating and selecting files in a chooser leaves my ordinary
+   blade's folder, saved state and arrangement unchanged.
+6. **E-45-06** Pressing Escape closes the active chooser. The other chooser
+   stays open with its selected file intact.
+
+## 46. Choosing files for another application
+
+This file was written by an agent.
+
+`tests/vm/expectations/46-native-chooser-resident.sh`
+
+1. **E-46-01** When an application asks for a text file, I can select a matching
+   file but cannot select a file excluded by its filter. Confirming returns
+   the selected file to that application while another application's Save
+   chooser stays open.
+2. **E-46-02** If I choose an existing filename in Save, FileBlade asks me to
+   confirm replacement. Confirming returns that destination to the requesting
+   application; the chooser itself does not overwrite the file.
+3. **E-46-03** When an application asks for a folder, I can select one and
+   return that folder to it.
+4. **E-46-04** Pressing Escape cancels the active chooser and tells the
+   requesting application that I cancelled, without returning a selection.
+5. **E-46-05** If the requesting application exits before I finish choosing,
+   its chooser closes instead of leaving an orphaned window.
+6. **E-46-06** Finishing chooser requests leaves my ordinary blade's folder,
+   saved state and arrangement unchanged.
+7. **E-46-07** When multiple selection is allowed, I can select two files with
+   Ctrl-click and return both files to the requesting application.
+8. **E-46-08** In Save I can choose a filename that does not exist yet. The
+   requesting application receives that destination; choosing it alone does
+   not create the file.
 
 ## 90. Checking the native app before installation
 
