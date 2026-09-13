@@ -309,12 +309,19 @@ fn dispatch_command(
             options.height,
             cancelled,
         ),
-        BackendCommand::ThumbnailRender(options) => crate::thumbnail::render(
-            &options.path,
-            &crate::common::parse_path(&options.target)?,
-            options.width,
-            options.height,
-        )?,
+        BackendCommand::ThumbnailRender(options) => {
+            let render = if options.worker {
+                crate::thumbnail::render_worker
+            } else {
+                crate::thumbnail::render
+            };
+            render(
+                &options.path,
+                &crate::common::parse_path(&options.target)?,
+                options.width,
+                options.height,
+            )?
+        }
         BackendCommand::FrecencyList(options) => crate::frecency::list(
             limited(options.limit, crate::frecency::FRECENCY_CAP),
             &options.query,

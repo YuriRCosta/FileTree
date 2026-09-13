@@ -167,6 +167,8 @@ pub struct ThumbnailRenderArgs {
     pub path: String,
     #[arg(long)]
     pub target: String,
+    #[arg(long, hide = true)]
+    pub worker: bool,
     #[arg(long, default_value_t = crate::thumbnail::MAX_OUTPUT_EDGE)]
     pub width: u32,
     #[arg(long, default_value_t = crate::thumbnail::MAX_OUTPUT_EDGE)]
