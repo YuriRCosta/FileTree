@@ -115,20 +115,12 @@ FocusScope {
       }
 
       Text {
-        id: mark
         anchors.centerIn: parent
         textFormat: Text.PlainText
         text: "\ue900"
         color: Color.accent
         font.family: "omarchy"
         font.pixelSize: Style.space(16)
-      }
-
-      Rectangle {
-        anchors.centerIn: parent
-        width: mark.font.pixelSize * 0.59
-        height: width
-        color: Color.accent
       }
     }
   }
