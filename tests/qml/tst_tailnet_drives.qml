@@ -48,14 +48,17 @@ TestCase {
     service.backendReady = true
   }
 
-  function test_discovery_is_lazy_and_explicit_connect_uses_saved_fields_without_udisks() {
+  function test_discovered_peer_stays_listed_and_explicit_connect_uses_saved_fields_without_udisks() {
     compare(requests.length, 0)
     service.drivesMode = true
     compare(requests.length, 1)
     compare(requests[0].command, "locations")
     requests[0].callback(inventory("disconnected", ""))
     compare(controller.volumeCount, 1)
-    compare(controller.count, 0)
+    compare(controller.count, 1)
+    compare(controller.model.get(0).source, "tailnet:peer")
+    compare(controller.model.get(0).mounted, false)
+    compare(controller.model.get(0).sizeLabel, "Not connected")
     compare(controller.actionAvailableFor("tailnet:peer"), true)
     compare(controller.actionAvailableFor("/dev/test"), false)
     controller.openVolume("tailnet:peer", null)
@@ -82,7 +85,12 @@ TestCase {
     controller.openVolume("tailnet:peer", null)
     compare(locations.count, 1)
     requests[3].callback({ ok: true, disconnected: true })
-    compare(controller.count, 0)
+    compare(requests[4].command, "locations")
+    requests[4].callback(inventory("disconnected", ""))
+    compare(controller.count, 1)
+    compare(controller.model.get(0).source, "tailnet:peer")
+    compare(controller.model.get(0).mounted, false)
+    compare(controller.model.get(0).sizeLabel, "Not connected")
   }
 
   function test_old_inventory_cannot_replace_action_result_and_cleanup_stays_disconnectable() {
