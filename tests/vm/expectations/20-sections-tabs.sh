@@ -74,7 +74,8 @@ if [[ $screen_width != 1920 || $screen_height != 1080 || $scale != 1 || $origin_
 fi
 
 drag() {
-  local name=$1 sx=$2 sy=$3 tx=$4 ty=$5 during=${6:-} script
+  local name=$1 sx=$2 sy=$3 tx=$4 ty=$5 during=${6:-} script duration=1800
+  [[ -z $during ]] || duration=6000
   script=$(cat <<TOML
 [demo]
 name = "sections-20-$name"
@@ -100,7 +101,7 @@ ms = 200
 kind = "drag"
 to = "target"
 hold_ms = 300
-ms = 1800
+ms = $duration
 [[step]]
 kind = "hold"
 ms = 300
@@ -114,7 +115,7 @@ TOML
       fail harness "retain the drag producer" "invalid process group: $drag_pgid"
       summary
     fi
-    sleep 2.2
+    sleep 6
     shot "$during"
     if ! wait_for "guest '! kill -0 -- -$drag_pgid 2>/dev/null'" 30 || [[ $(guest 'cat /tmp/fb-sections-20.status' 2>/dev/null) != 0 ]]; then
       fail harness "physical drag $name" "democtl failed; see /tmp/fb-sections-20.log"
