@@ -12,11 +12,11 @@ TestCase {
     property bool wheelFromDrag: true
     property int modifierKey: Qt.Key_Space
     property int opens: 0
-    property int backs: 0
+    property int cancellations: 0
     property int actions: 0
     property int closes: 0
     function modifierPressed() { opens++; return true }
-    function back() { backs++ }
+    function cancelDrag() { cancellations++; dragActive = false; wheelOpen = false; wheelFromDrag = false }
     function activateKey(text) { actions++; return text === "h" }
     function close() { closes++ }
   }
@@ -29,7 +29,7 @@ TestCase {
     fake.dragActive = true
     fake.wheelOpen = true
     fake.wheelFromDrag = true
-    fake.opens = fake.backs = fake.actions = fake.closes = 0
+    fake.opens = fake.cancellations = fake.actions = fake.closes = 0
   }
 
   function key(code, text, repeat) {
@@ -41,23 +41,32 @@ TestCase {
     verify(keys.handlePress(key(Qt.Key_H, "h", true)))
     compare(fake.actions, 1)
     verify(keys.handlePress(key(Qt.Key_Escape, "", false)))
-    verify(keys.handlePress(key(Qt.Key_Escape, "", true)))
-    compare(fake.backs, 1)
+    verify(!fake.dragActive)
+    verify(!fake.wheelOpen)
+    verify(!fake.wheelFromDrag)
+    verify(!keys.handlePress(key(Qt.Key_Escape, "", true)))
+    compare(fake.cancellations, 1)
   }
 
-  function test_held_modifier_does_not_reopen_a_cancelled_wheel() {
+  function test_held_or_repressed_modifier_cannot_reopen_a_canceled_drag() {
     fake.wheelOpen = false
     verify(keys.handlePress(key(Qt.Key_Space, " ", true)))
     compare(fake.opens, 0)
     verify(keys.handlePress(key(Qt.Key_Space, " ", false)))
     compare(fake.opens, 1)
     fake.wheelOpen = true
-    keys.handlePress(key(Qt.Key_Escape, "", false))
-    fake.wheelOpen = false
-    verify(keys.handlePress(key(Qt.Key_Space, " ", false)))
+    verify(keys.handlePress(key(Qt.Key_Escape, "", false)))
+    verify(!fake.dragActive)
+    verify(!fake.wheelOpen)
+    compare(fake.cancellations, 1)
+    verify(!keys.handlePress(key(Qt.Key_Space, " ", true)))
+    verify(!keys.handlePress(key(Qt.Key_Space, " ", false)))
     compare(fake.opens, 1)
-    keys.handleRelease(key(Qt.Key_Space, " ", false))
+    verify(!keys.handleRelease(key(Qt.Key_Space, " ", false)))
     wait(30)
+    verify(!keys.handlePress(key(Qt.Key_Space, " ", false)))
+    compare(fake.opens, 1)
+    fake.dragActive = true
     verify(keys.handlePress(key(Qt.Key_Space, " ", false)))
     compare(fake.opens, 2)
   }
