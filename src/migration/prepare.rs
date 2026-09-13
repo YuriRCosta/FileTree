@@ -126,7 +126,9 @@ fn write_checkpoint(root: &File, path: &Path, bytes: &[u8]) -> AppResult<()> {
         Some(Content::File(existing)) if existing == bytes => {}
         Some(Content::File(_)) => {
             replace_checkpoint(root, path, bytes)?;
-            eprintln!("migration storage devices re-recorded: {}", path.display());
+            fileblade_output::Output::new(fileblade_output::Format::Text, false).error(
+                &format!("migration storage devices re-recorded: {}", path.display()),
+            )?;
         }
         Some(_) => return Err(invalid("migration checkpoint must be a regular file")),
     }
