@@ -118,6 +118,22 @@ checks require production runtime lifecycle support; they do not simulate it.
 `FILEBLADE_NATIVE_TOOL` can select a candidate installer outside the payload
 when checking maintenance of an older, unchanged installed runtime.
 
+## Migration receipt identity
+
+The version-2 migration receipt lives at
+`$XDG_STATE_HOME/omarchy/fileblade/migration-020/receipt.json`, with the usual
+`~/.local/state` fallback. Its `Binding` records retain `path`, `device` and
+`inode`. `Binding` equality deliberately compares only **path and inode**;
+`binding == other` ignores `device`, because device numbers can change
+across boots. A different path or inode still refuses migration.
+
+When the same roots have new device numbers, migration re-records the current
+devices and reports the refresh. The receipt, copied checkpoint and completion
+checkpoint keep schema 2 and converge to matching bytes. An interrupted
+refresh may differ only in binding devices; other receipt changes still
+refuse. Completed migration does not replay saved source data over current
+Notes or settings. Live authority checks on held descriptors remain strict.
+
 ## Arch package from the same payload
 
 ```
