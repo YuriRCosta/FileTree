@@ -1030,7 +1030,10 @@ is maintained separately.
   I can turn on “Show empty timeline periods” under Media without changing
   which photos are shown. The viewport outline, scrubbing and detail controls
   follow the visible periods, and the header names their real dates so the
-  gaps remain clear.
+  gaps remain clear. A few single-photo periods sit together as selectable
+  rows, without bars or stretched gaps. Periods containing several photos
+  have bars sized by their counts. The viewport outline appears only when
+  the photo grid is taller than the visible pane.
 - **E-37-06** A bar widget that names the module opens the whole module in a
   dropdown under its icon, with the same header, search, chips, grid and
   timeline; Escape or an outside click closes it, and the blade copy of the

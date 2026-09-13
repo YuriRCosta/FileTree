@@ -121,6 +121,38 @@ else
   fail E-37-05 'fresh Files media state' 'saved state did not contain mediaMode=true, mediaQuery="", and mediaShowEmptyPeriods=false'
 fi
 
+"$OVM" mouse click 310 238
+sleep 1
+capture two-photo-second-row-selected
+"$OVM" key up
+sleep 1
+capture two-photo-keyboard-first-row
+
+for total in 8 36; do
+  guest "for i in \$(seq 1 $((total - 2))); do
+    cp -- $quoted_fixture/2020-01.png $quoted_fixture/extra-\$i.png
+    if ((i <= $((total / 3 - 1)))); then
+      touch -r $quoted_fixture/2020-01.png $quoted_fixture/extra-\$i.png
+    else
+      touch -r $quoted_fixture/2026-12.png $quoted_fixture/extra-\$i.png
+    fi
+  done"
+  ctl setRoot /home/omarchy/fbexp
+  ctl setRoot "$fixture_path"
+  sleep 3
+  capture "$total-photos-count-bars"
+  if [[ $total == 36 ]]; then
+    "$OVM" mouse click 310 950
+    "$OVM" key end
+    sleep 1
+    capture overflowing-grid-last-period
+  fi
+done
+guest "rm -- $quoted_fixture/extra-*.png"
+ctl setRoot /home/omarchy/fbexp
+ctl setRoot "$fixture_path"
+sleep 2
+
 ctl toggleBladeSettings left
 sleep 1
 settings_visible=$(screen_text 2>/dev/null | tr '[:lower:]' '[:upper:]' || true)
@@ -194,7 +226,7 @@ layout_matches() {
 
 restore
 trap - EXIT
-pending E-37-05 'exact visible bins, dates and viewport geometry' 'inspect the default-omit and empty-periods-shown guest screenshots'
+pending E-37-05 'exact visible bins, dates and viewport geometry' 'inspect the two-photo rows, selected rows, 8-photo bars without outline, 36-photo bars with outline, and empty-periods-shown screenshots'
 if wait_for layout_matches 10; then
   pass harness 'saved blades.json slots restore including Notes state'
 else

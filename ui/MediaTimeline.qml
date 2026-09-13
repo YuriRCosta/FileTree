@@ -26,7 +26,10 @@ FocusScope {
   readonly property var detail: parents.length ? Bins.child(records, parents[parents.length - 1], capacity, calendarRule, showEmptyPeriods) : Bins.overview(records, capacity, calendarRule, showEmptyPeriods)
   readonly property var bounds: Bins.geometry(detail.bins, Math.max(1, columns), pitch, tileHeight)
   readonly property var viewport: Bins.viewport(bounds, contentY, viewportHeight)
-  readonly property real rowHeight: axisHeight / Math.max(1, detail.bins.length)
+  readonly property bool sparseRows: detail.bins.length > 0 && detail.bins.length * Style.space(26) <= axisHeight && detail.bins.every(function(bin) { return bin.count === 1 })
+  readonly property real rowHeight: sparseRows ? Style.space(26) : axisHeight / Math.max(1, detail.bins.length)
+  readonly property real occupiedHeight: records.length ? (Math.ceil(records.length / Math.max(1, columns)) - 1) * pitch + tileHeight : 0
+  readonly property bool showOutline: occupiedHeight > viewportHeight && viewport.start !== null
   readonly property int activePeriod: {
     for (var i = 0; i < detail.bins.length; i++) if (detail.bins[i].key === navigatedKey) return i
     return viewport.first
@@ -187,19 +190,26 @@ FocusScope {
       Accessible.name: timeline.label(modelData, false) + ": " + modelData.count + " media"
       Accessible.onPressAction: timeline.seek(index, 0)
 
+      Rectangle {
+        anchors.fill: parent
+        visible: timeline.sparseRows && timeline.activePeriod === mark.index
+        color: timeline.darkBlue
+        radius: Style.space(3)
+      }
       Text {
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(43)
+        width: timeline.sparseRows ? parent.width : Style.space(43)
         textFormat: Text.PlainText
-        text: timeline.label(mark.modelData, true)
-        color: Color.muted
+        text: timeline.label(mark.modelData, !timeline.sparseRows)
+        color: timeline.sparseRows && timeline.activePeriod === mark.index ? timeline.lightBlue : Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         elide: Text.ElideRight
       }
       Rectangle {
         id: countMark
+        visible: !timeline.sparseRows
         anchors.right: countText.left
         anchors.rightMargin: Style.space(4)
         anchors.verticalCenter: parent.verticalCenter
@@ -219,6 +229,7 @@ FocusScope {
       }
       Text {
         id: countText
+        visible: !timeline.sparseRows
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(22)
@@ -240,21 +251,22 @@ FocusScope {
     y: timeline.outlineTop
     width: timeline.width
     height: timeline.outlineHeight
-    visible: timeline.viewport.start !== null
+    visible: timeline.showOutline
     color: "transparent"
     border.width: 1
     border.color: timeline.lightBlue
   }
 
   MouseArea {
-    anchors.fill: parent
-    anchors.topMargin: timeline.axisTop
-    anchors.bottomMargin: Style.space(6)
+    x: 0
+    y: timeline.axisTop
+    width: parent.width
+    height: timeline.sparseRows ? timeline.detail.bins.length * timeline.rowHeight : timeline.axisHeight
     cursorShape: Qt.PointingHandCursor
     onPressed: function(mouse) {
       timeline.forceActiveFocus()
       var y = mouse.y + timeline.axisTop
-      var onOutline = timeline.viewport.start !== null && y >= timeline.outlineTop && y <= timeline.outlineTop + timeline.outlineHeight
+      var onOutline = timeline.showOutline && y >= timeline.outlineTop && y <= timeline.outlineTop + timeline.outlineHeight
       timeline.dragOffset = onOutline ? y - timeline.outlineTop : 0
       if (!onOutline) timeline.seekAt(y)
     }
