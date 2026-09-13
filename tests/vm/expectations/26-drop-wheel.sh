@@ -159,6 +159,10 @@ TOML
 mid() { jq -r ".$1" <<<"${mid_drag:-null}" 2>/dev/null; }
 seen() { jq -r ".$1" <<<"${loaded:-null}" 2>/dev/null; }
 
+if [[ $FILEBLADE_SHAPE == native ]]; then
+  ctl setBladeSlots left "base64:$(printf '%s' '[{"id":"e26-files","modules":[{"module":"files","state":{"mediaMode":false}}]},{"id":"e26-properties","modules":[{"module":"properties"}],"fraction":0.34}]' | base64 -w0)"
+  sleep 2
+fi
 fixture >/dev/null
 open_left
 goto_root "$ROOT_DIR"
@@ -171,11 +175,13 @@ ctl hideDropWheel >/dev/null 2>&1
 "$OVM" mouse click "$ROW_X" "$(row_y "$(row_index long.txt)")"
 "$OVM" release ctrl
 expect_true E-26-02 "two rows are selected before dragging the second" "[[ \$(field selectedCount) == 2 && \$(field selectedPath) == $ROOT_DIR/long.txt ]]"
+[[ $(field selectedCount) == 2 && $(field selectedPath) == "$ROOT_DIR/long.txt" ]] || summary
 "$OVM" mouse down
 "$OVM" mouse move 180 "$(row_y "$(row_index long.txt)")"
 "$OVM" mouse move 900 500
 wait_for "[[ \$(wheel dragging) == true && \$(wheel count) == 2 ]]" 5
 expect_true E-26-02 "the real drag carries both selected rows" "[[ \$(wheel dragging) == true && \$(wheel count) == 2 && \$(wheel open) == false ]]"
+[[ $(wheel dragging) == true && $(wheel count) == 2 ]] || summary
 ghost_name=$(ocr_crop E-26-02-multi-item-ghost 95x30+935+512 400% 7)
 ghost_count=$(ocr_crop E-26-02-multi-item-count 18x18+1036+518 800% 10 | tr -cd '0-9')
 expect_contains E-26-02 "the ghost names the last grabbed row" "$ghost_name" long.txt
@@ -198,6 +204,7 @@ focus_tree
 "$OVM" hold spc
 wait_for "[[ \$(wheel open) == true && \$(wheel loading) == false ]]" 10
 expect_true E-26-08 "the wheel is open during the held drag before cancellation" "[[ \$(wheel open) == true && \$(wheel dragging) == true ]]"
+[[ $(wheel open) == true && $(wheel dragging) == true ]] || summary
 shot E-26-08-wheel-before-escape
 "$OVM" key esc
 "$OVM" release spc
