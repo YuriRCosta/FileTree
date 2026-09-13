@@ -4,10 +4,11 @@ use super::{
 };
 use crate::lease::Authority;
 use crate::{AppError, AppResult};
+use rustix::fs::{AtFlags, Mode, OFlags, openat, renameat, unlinkat};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io;
+use std::io::{self, Write};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
@@ -15,14 +16,30 @@ const RECEIPT: &str = "migration-020/receipt.json";
 const COPIED: &str = "migration-020/copied.json";
 const COMPLETE: &str = "migration-020/complete.json";
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
 struct Binding {
     path: PathBuf,
     device: u64,
     inode: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+impl PartialEq for Binding {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path && self.inode == other.inode
+    }
+}
+
+impl Binding {
+    fn current(path: PathBuf, metadata: &std::fs::Metadata) -> Self {
+        Self {
+            path,
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Entry {
     pub(super) source: String,
@@ -33,7 +50,7 @@ pub(super) struct Entry {
     pub(super) attributes: storage::Attributes,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Receipt {
     version: u32,
@@ -56,6 +73,105 @@ fn paths(roots: &Roots) -> BTreeMap<String, PathBuf> {
 
 fn invalid(message: impl Into<String>) -> AppError {
     AppError::invalid(message)
+}
+
+fn checkpoint(root: &File, path: &Path, label: &str) -> AppResult<Option<Receipt>> {
+    match storage::read(root, path)? {
+        None => Ok(None),
+        Some(Content::File(bytes)) => {
+            let receipt: Receipt = serde_json::from_slice(&bytes)
+                .map_err(|_| invalid(format!("migration {label} checkpoint mismatch")))?;
+            if receipt.version != 2 {
+                return Err(invalid(format!("migration {label} checkpoint mismatch")));
+            }
+            Ok(Some(receipt))
+        }
+        Some(_) => Err(invalid(format!(
+            "migration {label} checkpoint must be a regular file"
+        ))),
+    }
+}
+
+fn replace_checkpoint(root: &File, path: &Path, bytes: &[u8]) -> AppResult<()> {
+    let parent = storage::directory(root, path.parent().unwrap_or(Path::new("")), true)?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| invalid("missing migration checkpoint filename"))?;
+    let temporary = format!(".migration-refresh-{}", uuid::Uuid::new_v4().simple());
+    let mut file = File::from(
+        openat(
+            &parent,
+            temporary.as_str(),
+            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::from_raw_mode(0o600),
+        )
+        .map_err(io::Error::from)?,
+    );
+    let result = (|| -> io::Result<()> {
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        renameat(&parent, temporary.as_str(), &parent, name)?;
+        parent.sync_all()
+    })();
+    if result.is_err() {
+        let _ = unlinkat(&parent, temporary.as_str(), AtFlags::empty());
+    }
+    result?;
+    Ok(())
+}
+
+fn write_checkpoint(root: &File, path: &Path, bytes: &[u8]) -> AppResult<()> {
+    match storage::read(root, path)? {
+        None => storage::publish(root, path, &Content::File(bytes.to_vec()))?,
+        Some(Content::File(existing)) if existing == bytes => {}
+        Some(Content::File(_)) => {
+            replace_checkpoint(root, path, bytes)?;
+            eprintln!("migration storage devices re-recorded: {}", path.display());
+        }
+        Some(_) => return Err(invalid("migration checkpoint must be a regular file")),
+    }
+    Ok(())
+}
+
+fn normalize_receipt(
+    receipt: &mut Receipt,
+    native: &BTreeMap<String, Binding>,
+    legacy: &BTreeMap<String, PathBuf>,
+) -> AppResult<()> {
+    if receipt.native != *native || receipt.legacy != *legacy {
+        return Err(invalid("migration receipt schema or root binding mismatch"));
+    }
+    if receipt.sources.keys().ne(legacy.keys()) {
+        return Err(invalid("migration receipt source binding mismatch"));
+    }
+    for (role, binding) in &mut receipt.native {
+        binding.device = native[role].device;
+    }
+    for (role, binding) in &mut receipt.sources {
+        if let Some((_, current)) = source_root(&legacy[role], binding.as_ref())? {
+            *binding = Some(current);
+        }
+    }
+    Ok(())
+}
+
+fn source_root(path: &Path, expected: Option<&Binding>) -> AppResult<Option<(File, Binding)>> {
+    match (expected, storage::root(path)) {
+        (None, Err(error)) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        (Some(binding), Ok(root)) => {
+            let metadata = root.metadata()?;
+            let current = Binding::current(path.to_path_buf(), &metadata);
+            if *binding != current {
+                return Err(invalid("migration source root identity changed"));
+            }
+            Ok(Some((root, current)))
+        }
+        (None, Ok(_)) => Err(invalid("migration source root appeared")),
+        (Some(_), Err(error)) if error.kind() == io::ErrorKind::NotFound => {
+            Err(invalid("migration source root disappeared"))
+        }
+        (_, Err(error)) => Err(error.into()),
+    }
 }
 
 pub fn prepare(
@@ -136,11 +252,7 @@ fn native_roots(
         }
         bindings.insert(
             role.clone(),
-            Binding {
-                path: identity.path.clone(),
-                device: metadata.dev(),
-                inode: metadata.ino(),
-            },
+            Binding::current(identity.path.clone(), &metadata),
         );
         files.insert(role, file);
     }
@@ -184,17 +296,11 @@ fn import(
     legacy.insert("bin".into(), artifact_bin()?);
     let saved = storage::read(state, Path::new(RECEIPT))?;
     let (receipt, fresh) = if let Some(Content::File(bytes)) = saved {
-        let receipt: Receipt = serde_json::from_slice(&bytes)?;
-        if receipt.version != 2 || receipt.native != bindings || receipt.legacy != legacy {
+        let mut receipt: Receipt = serde_json::from_slice(&bytes)?;
+        if receipt.version != 2 {
             return Err(invalid("migration receipt schema or root binding mismatch"));
         }
-        if let Some(completed) = storage::read(state, Path::new(COMPLETE))? {
-            if completed != Content::File(completion(&bytes)) {
-                return Err(invalid("migration completion receipt mismatch"));
-            }
-            validate(&receipt.entries)?;
-            return Ok(());
-        }
+        normalize_receipt(&mut receipt, &bindings, &legacy)?;
         (receipt, false)
     } else if saved.is_some() {
         return Err(invalid("migration receipt must be a regular file"));
@@ -213,11 +319,7 @@ fn import(
             let metadata = root.metadata()?;
             sources.insert(
                 source.clone(),
-                Some(Binding {
-                    path: root_path.clone(),
-                    device: metadata.dev(),
-                    inode: metadata.ino(),
-                }),
+                Some(Binding::current(root_path.clone(), &metadata)),
             );
             let selected: Vec<PathBuf> = match source.as_str() {
                 "config" => [
@@ -265,6 +367,31 @@ fn import(
             true,
         )
     };
+    let copied_checkpoint = checkpoint(state, Path::new(COPIED), "copied")?;
+    let complete_checkpoint = checkpoint(state, Path::new(COMPLETE), "completion")?;
+    if fresh && (copied_checkpoint.is_some() || complete_checkpoint.is_some()) {
+        return Err(invalid("migration checkpoint exists without receipt"));
+    }
+    if let Some(complete) = &complete_checkpoint {
+        if copied_checkpoint
+            .as_ref()
+            .is_none_or(|copied| *copied != receipt)
+            || *complete != receipt
+        {
+            return Err(invalid("migration completion receipt mismatch"));
+        }
+        validate(&receipt.entries)?;
+        let bytes = serde_json::to_vec(&receipt)?;
+        if bytes.len() > storage::MAX_BYTES {
+            return Err(invalid("migration receipt exceeds byte bound"));
+        }
+        for path in [RECEIPT, COPIED, COMPLETE] {
+            barrier(authority, guard)?;
+            write_checkpoint(state, Path::new(path), &bytes)?;
+        }
+        barrier(authority, guard)?;
+        return Ok(());
+    }
     validate(&receipt.entries)?;
     for entry in &receipt.entries {
         if let Some(existing) = storage::read(&native[&entry.role], &entry.to)?
@@ -278,9 +405,9 @@ fn import(
         }
     }
     let bytes = serde_json::to_vec(&receipt)?;
-    let copied = match storage::read(state, Path::new(COPIED))? {
+    let copied = match &copied_checkpoint {
         None => false,
-        Some(content) if content == Content::File(bytes.clone()) => true,
+        Some(checkpoint) if *checkpoint == receipt => true,
         Some(_) => return Err(invalid("migration copied checkpoint mismatch")),
     };
     verify_sources(&receipt, copied)?;
@@ -288,9 +415,7 @@ fn import(
         return Err(invalid("migration receipt exceeds byte bound"));
     }
     barrier(authority, guard)?;
-    if fresh {
-        storage::publish(state, Path::new(RECEIPT), &Content::File(bytes.clone()))?;
-    }
+    write_checkpoint(state, Path::new(RECEIPT), &bytes)?;
     for entry in &receipt.entries {
         barrier(authority, guard)?;
         storage::publish_snapshot(
@@ -306,7 +431,7 @@ fn import(
         _ => return Err(invalid("legacy writer evidence changed during migration")),
     }
     barrier(authority, guard)?;
-    storage::publish(state, Path::new(COPIED), &Content::File(bytes.clone()))?;
+    write_checkpoint(state, Path::new(COPIED), &bytes)?;
     if receipt.entries.iter().any(|entry| entry.source == "bin") {
         let bin = guard.directory(&receipt.legacy["bin"]).map_err(invalid)?;
         verify_sources(&receipt, true)?;
@@ -323,16 +448,9 @@ fn import(
     }
     barrier(authority, guard)?;
     verify_sources(&receipt, true)?;
-    storage::publish(
-        state,
-        Path::new(COMPLETE),
-        &Content::File(completion(&bytes)),
-    )?;
+    write_checkpoint(state, Path::new(COMPLETE), &bytes)?;
+    barrier(authority, guard)?;
     Ok(())
-}
-
-fn completion(bytes: &[u8]) -> Vec<u8> {
-    bytes.to_vec()
 }
 
 fn verify_sources(receipt: &Receipt, copied: bool) -> AppResult<()> {
@@ -342,22 +460,8 @@ fn verify_sources(receipt: &Receipt, copied: bool) -> AppResult<()> {
             .sources
             .get(role)
             .ok_or_else(|| invalid("missing migration source binding"))?;
-        match (expected, storage::root(path)) {
-            (None, Err(error)) if error.kind() == io::ErrorKind::NotFound => {}
-            (Some(binding), Ok(root)) => {
-                let metadata = root.metadata()?;
-                if binding.path != *path
-                    || (binding.device, binding.inode) != (metadata.dev(), metadata.ino())
-                {
-                    return Err(invalid("migration source root identity changed"));
-                }
-                roots.insert(role.clone(), root);
-            }
-            _ => {
-                return Err(invalid(
-                    "migration source root appeared, disappeared or became unsafe",
-                ));
-            }
+        if let Some((root, _)) = source_root(path, expected.as_ref())? {
+            roots.insert(role.clone(), root);
         }
     }
     if let Some(bin) = roots.get("bin") {
@@ -431,7 +535,7 @@ fn verify_children(
         .get(role)
         .and_then(|binding| binding.as_ref())
         .zip(receipt.native.get(role))
-        .is_some_and(|(a, b)| (a.device, a.inode) == (b.device, b.inode));
+        .is_some_and(|(a, b)| a == b);
     for name in storage::names(directory)? {
         if role == "bin"
             && path.as_os_str().is_empty()
