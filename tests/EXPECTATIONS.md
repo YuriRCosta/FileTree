@@ -1025,10 +1025,12 @@ is maintained separately.
   Files search grammar (`character:bink`, `-tag:danger`); the status shows
   “N of M”; Escape clears the query first and closes the blade only on the
   next press.
-- **E-37-05** The right-hand timeline lists the years present, one dot per
-  month, and a thumb for the viewport. Hovering shows a month pill without
-  scrolling; pressing or dragging scrolls the grid. The thumb reaches the
-  bottom of the track at the end of the gallery.
+- **E-37-05** The right-hand timeline omits periods with no media by default:
+  a photo from 2020 and one from 2026 do not leave six years of empty bars.
+  I can turn on “Show empty timeline periods” under Media without changing
+  which photos are shown. The viewport outline, scrubbing and detail controls
+  follow the visible periods, and the header names their real dates so the
+  gaps remain clear.
 - **E-37-06** A bar widget that names the module opens the whole module in a
   dropdown under its icon, with the same header, search, chips, grid and
   timeline; Escape or an outside click closes it, and the blade copy of the

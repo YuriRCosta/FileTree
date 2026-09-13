@@ -85,6 +85,18 @@ Column {
     onChosen: function(key) { root.controller.setModeBadge(key) }
   }
 
+  PluginUi.SettingsGroup { title: "Media" }
+
+  PluginUi.ToggleRow {
+    objectName: "showEmptyTimelinePeriodsToggle"
+    width: parent.width
+    glyph: "󰋩"
+    label: "Show empty timeline periods"
+    visible: !!root.pane
+    checked: root.pane ? root.pane.mediaShowEmptyPeriods : false
+    onToggled: if (root.pane) root.pane.mediaShowEmptyPeriods = !root.pane.mediaShowEmptyPeriods
+  }
+
   PluginUi.SettingsGroup { title: "Git" }
 
   PluginUi.ToggleRow {

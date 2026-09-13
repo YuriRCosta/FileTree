@@ -14,6 +14,7 @@ FocusScope {
   property real contentY: 0
   property real contentHeight: 0
   property real viewportHeight: 0
+  property bool showEmptyPeriods: false
   property real headerWidth: width
   property var parents: []
   property string navigatedKey: ""
@@ -22,7 +23,7 @@ FocusScope {
   readonly property real axisTop: headerHeight + Style.space(6)
   readonly property real axisHeight: Math.max(0, height - axisTop - Style.space(6))
   readonly property int capacity: Math.max(2, Math.floor(axisHeight / Style.space(18)))
-  readonly property var detail: parents.length ? Bins.child(records, parents[parents.length - 1], capacity, calendarRule) : Bins.overview(records, capacity, calendarRule)
+  readonly property var detail: parents.length ? Bins.child(records, parents[parents.length - 1], capacity, calendarRule, showEmptyPeriods) : Bins.overview(records, capacity, calendarRule, showEmptyPeriods)
   readonly property var bounds: Bins.geometry(detail.bins, Math.max(1, columns), pitch, tileHeight)
   readonly property var viewport: Bins.viewport(bounds, contentY, viewportHeight)
   readonly property real rowHeight: axisHeight / Math.max(1, detail.bins.length)
@@ -31,7 +32,7 @@ FocusScope {
     return viewport.first
   }
   readonly property var period: activePeriod >= 0 ? detail.bins[activePeriod] : null
-  readonly property var nextDetail: period ? Bins.child(records, period, capacity, calendarRule) : null
+  readonly property var nextDetail: period ? Bins.child(records, period, capacity, calendarRule, showEmptyPeriods) : null
   readonly property bool canDrill: !!nextDetail && period.count > 0 && nextDetail.bins.length <= capacity
   readonly property bool canGoUp: parents.length > 0
   readonly property string periodLabel: period ? label(period, false) : (parents.length ? label(parents[parents.length - 1], false) : "All dates")
@@ -95,6 +96,7 @@ FocusScope {
 
   onRecordsChanged: if (parents.length || navigatedKey !== "") reset()
   onCalendarRuleChanged: if (parents.length || navigatedKey !== "") reset()
+  onShowEmptyPeriodsChanged: reset()
   onCapacityChanged: Qt.callLater(function() { if (timeline.parents.length && timeline.detail.bins.length > timeline.capacity) timeline.reset() })
 
   Keys.onPressed: function(event) {
