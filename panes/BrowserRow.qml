@@ -517,10 +517,11 @@ Rectangle {
     var paths = DragPlan.disjointPaths(controller.selectedPaths)
     var entries = DragPlan.entriesForPaths(controller.selectedEntries, paths)
     entries.sort(function(left, right) { return (String(left.path || "") === row.path ? -1 : 0) - (String(right.path || "") === row.path ? -1 : 0) })
-    controller.dropWheel.beginDrag(paths, entries, pane.targetScreen(), docked, point.x, point.y)
+    controller.dropWheel.beginDrag(paths, entries, pane.targetScreen(), docked, point.x, point.y, null, row)
   }
 
   function updateDropDrag() {
+    if (!row.Drag.active) { dragScrollStep = 0; return }
     var point = dragPoint()
     controller.dropWheel.updateDrag(point.x, point.y, point.outside, dragHandler.centroid.modifiers)
     updateDragScroll()
@@ -578,7 +579,7 @@ Rectangle {
   Timer {
     interval: 16
     repeat: true
-    running: dragHandler.active && row.dragScrollStep !== 0
+    running: dragHandler.active && row.controller.dropWheel.dragActive && row.dragScrollStep !== 0
     onTriggered: row.scrollDraggedList()
   }
 }

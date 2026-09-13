@@ -41,6 +41,7 @@ set_slots() {
 
 restore() {
   set +e
+  "$OVM" mouse up >/dev/null 2>&1
   if [[ -n ${original_left_slots:-} ]]; then
     set_slots left "$original_left_slots"
     set_slots right "$original_right_slots"
@@ -120,6 +121,26 @@ if wait_state false; then
 else
   fail E-37-05 'fresh Files media state' 'saved state did not contain mediaMode=true, mediaQuery="", and mediaShowEmptyPeriods=false'
 fi
+
+"$OVM" mouse click 60 250
+"$OVM" mouse down
+"$OVM" mouse move 180 250
+"$OVM" mouse move 900 500
+if wait_for "[[ \$(field dropWheel.dragging) == true ]]" 5; then
+  pass E-26-08 'a real media tile drag starts before cancellation'
+else
+  fail E-26-08 'media drag prerequisite' 'pointer did not start a drag'
+  summary
+fi
+capture media-drag-before-escape
+"$OVM" key esc
+sleep 1
+capture media-drag-canceled-mouse-held
+expect_true E-26-08 'Escape cancels a media tile drag and leaves the blade open' "[[ \$(field dropWheel.dragging) == false && \$(field dropWheel.open) == false && \$(field open) == true ]]"
+"$OVM" mouse move 60 250
+"$OVM" mouse up
+sleep 1
+expect_true E-26-08 'media mouse release does not restart the canceled drag' "[[ \$(field dropWheel.dragging) == false && \$(field dropWheel.count) == 0 ]]"
 
 "$OVM" mouse click 310 238
 sleep 1

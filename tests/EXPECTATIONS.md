@@ -753,7 +753,9 @@ including intentionally empty notes, retain their saved contents.
      the release point for at most 800 ms and runs the action there once the rows
      arrive; past that the wheel stays open for an explicit choice.
 232. **E-26-08** If I cancel the wheel or release without a valid choice, no file
-     is opened, moved, or changed.
+     is opened, moved, or changed. Escape during a held drag cancels it whether
+     the wheel is open or closed: the ghost disappears, the blade stays open,
+     and releasing the mouse afterward cannot drop files or paste paths.
 233. **E-26-09** If I release the drag on the hub of the wheel, the wheel stays
      open, so I can still pick with the pointer or a key instead of losing it.
 234. **E-26-10** In the drop wheel, the Open with wedge shows an open-folder

@@ -16,6 +16,7 @@ space_pid=""
 mux_session="fileblade-e26-$$"
 cleanup_space_helper() {
   "$OVM" release ctrl >/dev/null 2>&1
+  "$OVM" release spc >/dev/null 2>&1
   "$OVM" mouse up >/dev/null 2>&1
   [[ ! $space_pid =~ ^[0-9]+$ ]] || guest "kill -- -$space_pid" >/dev/null 2>&1
   [[ -z $space_helper ]] || guest "rm -f -- $(printf '%q' "$space_helper")" >/dev/null 2>&1
@@ -158,6 +159,10 @@ TOML
 mid() { jq -r ".$1" <<<"${mid_drag:-null}" 2>/dev/null; }
 seen() { jq -r ".$1" <<<"${loaded:-null}" 2>/dev/null; }
 
+if [[ $FILEBLADE_SHAPE == native ]]; then
+  ctl setBladeSlots left "base64:$(printf '%s' '[{"id":"e26-files","modules":[{"module":"files","state":{"mediaMode":false}}]},{"id":"e26-properties","modules":[{"module":"properties"}],"fraction":0.34}]' | base64 -w0)"
+  sleep 2
+fi
 fixture >/dev/null
 open_left
 goto_root "$ROOT_DIR"
@@ -170,17 +175,44 @@ ctl hideDropWheel >/dev/null 2>&1
 "$OVM" mouse click "$ROW_X" "$(row_y "$(row_index long.txt)")"
 "$OVM" release ctrl
 expect_true E-26-02 "two rows are selected before dragging the second" "[[ \$(field selectedCount) == 2 && \$(field selectedPath) == $ROOT_DIR/long.txt ]]"
+[[ $(field selectedCount) == 2 && $(field selectedPath) == "$ROOT_DIR/long.txt" ]] || summary
 "$OVM" mouse down
 "$OVM" mouse move 180 "$(row_y "$(row_index long.txt)")"
 "$OVM" mouse move 900 500
 wait_for "[[ \$(wheel dragging) == true && \$(wheel count) == 2 ]]" 5
 expect_true E-26-02 "the real drag carries both selected rows" "[[ \$(wheel dragging) == true && \$(wheel count) == 2 && \$(wheel open) == false ]]"
+[[ $(wheel dragging) == true && $(wheel count) == 2 ]] || summary
 ghost_name=$(ocr_crop E-26-02-multi-item-ghost 95x30+935+512 400% 7)
 ghost_count=$(ocr_crop E-26-02-multi-item-count 18x18+1036+518 800% 10 | tr -cd '0-9')
 expect_contains E-26-02 "the ghost names the last grabbed row" "$ghost_name" long.txt
 expect_true E-26-02 "the rendered ghost badge counts both items" "[[ $ghost_count == 2 ]]"
+"$OVM" key esc
+wait_for "[[ \$(wheel dragging) == false && \$(wheel open) == false ]]" 5
+expect_true E-26-08 "Escape cancels the held drag without dismissing the blade" "[[ \$(wheel dragging) == false && \$(wheel count) == 0 && \$(field open) == true ]]"
+shot E-26-08-escape-before-wheel-mouse-held
+"$OVM" mouse move "$ROW_X" "$(row_y "$(row_index dest)")"
 "$OVM" mouse up
-wait_for "[[ \$(wheel dragging) == false ]]" 5
+sleep 1
+expect_true E-26-08 "mouse release after Escape keeps the drag canceled" "[[ \$(wheel dragging) == false && \$(wheel open) == false && \$(clients) == 0 ]]"
+expect_out E-26-08 "release over a directory after Escape moves no carried file" "test -f $ROOT_DIR/alpha.txt && test -f $ROOT_DIR/long.txt && test ! -e $ROOT_DIR/dest/alpha.txt && test ! -e $ROOT_DIR/dest/long.txt && echo unchanged" unchanged
+focus_tree
+
+"$OVM" mouse click "$ROW_X" "$(row_y "$(row_index alpha.txt)")"
+"$OVM" mouse down
+"$OVM" mouse move 180 "$(row_y "$(row_index alpha.txt)")"
+"$OVM" mouse move 900 500
+"$OVM" hold spc
+wait_for "[[ \$(wheel open) == true && \$(wheel loading) == false ]]" 10
+expect_true E-26-08 "the wheel is open during the held drag before cancellation" "[[ \$(wheel open) == true && \$(wheel dragging) == true ]]"
+[[ $(wheel open) == true && $(wheel dragging) == true ]] || summary
+shot E-26-08-wheel-before-escape
+"$OVM" key esc
+"$OVM" release spc
+wait_for "[[ \$(wheel dragging) == false && \$(wheel open) == false ]]" 5
+shot E-26-08-escape-with-wheel-mouse-held
+"$OVM" mouse up
+sleep 1
+expect_true E-26-08 "Escape cancels the open wheel drag and release opens nothing" "[[ \$(wheel dragging) == false && \$(wheel open) == false && \$(field open) == true && \$(clients) == 0 ]]"
 focus_tree
 
 # Release on the hub: the wheel must open under the pointer and then stay.
