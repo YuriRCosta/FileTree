@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+import base64
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+import time
+
+repo = Path(__file__).resolve().parents[2]
+ovm = os.environ.get('OVM', str(repo / 'tests/vm/native-ovm'))
+os.environ.update(SKIP_PUSH='1', FILEBLADE_SHAPE='native')
+if len(sys.argv) != 3 or sys.argv[1] not in ('before', 'after'):
+    sys.exit('usage: native-reboot {before|after} GUEST_PAYLOAD; install before running, reboot between phases')
+phase, payload = sys.argv[1:]
+slot = 'r71-native-reboot'
+
+def call(*args):
+    return subprocess.check_output([ovm, *args], text=True).strip()
+
+def remote(code, *args):
+    return call('ssh', shlex.join(['python3', '-c', code, *args]))
+
+def read(path):
+    return json.loads(call('ssh', shlex.join(['cat', path])))
+
+def control(method, *args):
+    return call('ipc', 'data-goblin.fileblade.control', method, *args)
+
+def wait(check, label):
+    deadline = time.monotonic() + 30
+    while not check():
+        if time.monotonic() >= deadline:
+            raise RuntimeError(label)
+        time.sleep(0.25)
+
+def encoded(value):
+    return 'base64:' + base64.b64encode(json.dumps(value).encode()).decode()
+
+home = call('ssh', 'printf %s "$HOME"')
+state = call('ssh', 'printf %s "${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/fileblade"')
+snapshot = state + '/native-reboot-r71.json'
+boot = call('ssh', 'cat /proc/sys/kernel/random/boot_id')
+marker = 'R71 ordinary Note written after reboot ' + boot
+call('restart')
+status = json.loads(call('ipc', 'data-goblin.fileblade', 'status'))
+layout = status['bladeLayoutPath']
+receipt = read(home + '/.local/share/fileblade/installation/active/receipt.json')
+manifest = read(payload + '/payload.json')
+identity = json.loads(call('ipc', 'fileblade.native', 'status'))
+assert read(identity['sourceDir'] + '/payload.json') == manifest
+root_check = '''import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+raw = [(root / 'migration-020' / name).read_bytes() for name in ('receipt.json','copied.json','complete.json')]
+assert raw[0] == raw[1] == raw[2]
+receipt = json.loads(raw[0]); assert receipt['version'] == 2
+for group in ('native','sources'):
+    for binding in receipt[group].values():
+        if binding is None: continue
+        metadata = pathlib.Path(binding['path']).stat()
+        assert (binding['device'],binding['inode']) == (metadata.st_dev,metadata.st_ino), binding
+print(json.dumps(receipt['native']))
+'''
+roots = json.loads(remote(root_check, state))
+if phase == 'before':
+    blades = read(layout)['blades']
+    found = [(edge, item['id'], index) for edge, blade in blades.items() if isinstance(blade, dict) and 'slots' in blade for item in blade['slots'] for index, module in enumerate(item['modules']) if module['module'] == 'notes']
+    if not found:
+        original = blades['right']['slots']
+        control('setBladeSlots', 'right', encoded([{'id': slot, 'modules': [{'module': 'notes'}]}] + original))
+        wait(lambda: read(layout)['blades']['right']['slots'][0]['id'] == slot, 'scenario slot did not save')
+        found = [('right', slot, 0)]
+    edge, target, tab = found[0]
+    preserved = [module for blade in blades.values() if isinstance(blade, dict) and 'slots' in blade for item in blade['slots'] for module in item['modules'] if module['module'] != 'notes']
+    record = {'boot': boot, 'roots': roots, 'receipt': receipt, 'preserved': preserved, 'root': status['rootPath'], 'edge': edge, 'slot': target, 'tab': tab}
+    remote('import pathlib,sys; p=pathlib.Path(sys.argv[1]); p.write_text(sys.argv[2]); p.chmod(0o600)', snapshot, json.dumps(record))
+    drained = json.loads(call('ssh', shlex.join([home + '/.local/bin/fileblade', 'native', 'drain', '--timeout-ms', '30000', '--json'])))
+    assert drained['status'] == 'drained' and not drained['dirty_note_ids']
+    print(json.dumps({'phase': phase, 'boot': boot, 'roots': roots, 'source': manifest['source'], 'drain': drained}))
+    sys.exit(0)
+
+before = read(snapshot)
+assert boot != before['boot'], 'a real guest reboot is required'
+assert receipt == before['receipt'], 'installed payload changed during reboot'
+for role, root in roots.items():
+    old = before['roots'][role]
+    assert (root['path'], root['inode']) == (old['path'], old['inode'])
+edge = before['edge']
+index = next(index for index, item in enumerate(read(layout)['blades'][edge]['slots']) if item['id'] == before['slot'])
+control('setBladeTab', edge, str(index), str(before['tab']))
+control('focusBlade', edge)
+time.sleep(1)
+call('key', 'ctrl-end')
+call('key', 'ret')
+call('type', marker)
+
+def notes():
+    return next(item for item in read(layout)['blades'][edge]['slots'] if item['id'] == before['slot'])['modules'][before['tab']]['state']['text']['items']
+
+def saved():
+    try:
+        return any(item['text'].endswith('\n' + marker) for item in notes())
+    except KeyError:
+        return False
+
+wait(saved, 'ordinary Note did not persist after reboot')
+preserved = [module for blade in read(layout)['blades'].values() if isinstance(blade, dict) and 'slots' in blade for item in blade['slots'] for module in item['modules'] if module['module'] != 'notes']
+assert preserved == before['preserved'], 'unrelated module states changed'
+fixture = remote('import tempfile; print(tempfile.mkdtemp(prefix="r71-move-",dir="/home/omarchy"))')
+remote('import pathlib,sys; p=pathlib.Path(sys.argv[1]); (p/"source").mkdir(); (p/"destination").mkdir(); (p/"source/file.txt").write_text("R71 real file move")', fixture)
+control('setRoot', fixture + '/source')
+wait(lambda: json.loads(call('ipc', 'data-goblin.fileblade', 'status'))['rootPath'] == fixture + '/source', 'move source did not load')
+control('selectEntries', encoded([{'path': fixture + '/source/file.txt', 'name': 'file.txt', 'isDir': False}]))
+request = control('moveSelectionTo', fixture + '/destination', 'false')
+assert request and request != 'no-selection'
+wait(lambda: remote('import pathlib,sys; p=pathlib.Path(sys.argv[1]); print((not (p/"source/file.txt").exists()) and (p/"destination/file.txt").is_file())', fixture) == 'True', 'real file move did not finish')
+assert remote('import pathlib,sys; print((pathlib.Path(sys.argv[1])/"destination/file.txt").read_text())', fixture) == 'R71 real file move'
+control('setRoot', before['root'])
+call('restart')
+wait(saved, 'ordinary Note did not survive drain and relaunch')
+time.sleep(2)
+shot = call('shot', 'sootscale-r71-after-reboot')
+print(json.dumps({'phase': phase, 'boot': boot, 'roots': roots, 'note': notes(), 'move_request': request, 'fixture': fixture, 'screenshot': shot, 'source': manifest['source']}))
