@@ -182,7 +182,9 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 50. **E-07-02** If I press `.`, `Shift+H`, or `Ctrl+H`, hidden files toggle
     between shown and hidden.
 51. **E-07-03** When I view a hidden file, its row is muted but I can still see
-    its real Git status.
+    its real Git status. With hidden entries turned off, a hidden entry that Git
+    reports as changed is still listed, so every change the repository summary
+    counts can be found in the tree; unchanged hidden entries stay out of it.
 52. **E-07-04** When I view a Git-ignored file, it keeps its normal file icon
     and shows a do-not-enter sign in the Git status column.
 53. **E-07-05** A Git repository folder has a repository icon, and I can see

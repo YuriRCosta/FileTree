@@ -127,3 +127,64 @@ fn windows_page_a_large_directory_in_backend_order() {
     assert_eq!(missing["ok"], false);
     assert_eq!(missing["missing"], true);
 }
+
+fn git(root: &std::path::Path, arguments: &[&str]) -> bool {
+    std::process::Command::new("git")
+        .current_dir(root)
+        .args([
+            "-c",
+            "user.email=fixture@fileblade",
+            "-c",
+            "user.name=fixture",
+        ])
+        .args(arguments)
+        .status()
+        .expect("git")
+        .success()
+}
+
+#[test]
+fn changed_hidden_entries_stay_listed_while_hidden_entries_are_off() {
+    let fixture = tempdir().expect("fixture");
+    let root = fixture.path();
+    fs::create_dir(root.join(".workflows")).expect("hidden directory");
+    fs::write(root.join(".workflows/job.yml"), b"one").expect("tracked file");
+    fs::write(root.join(".quiet-note"), b"quiet").expect("deleted file");
+    fs::write(root.join(".steady-note"), b"steady").expect("clean file");
+    fs::write(root.join("visible.txt"), b"visible").expect("visible file");
+    assert!(git(root, &["init", "-q", "."]));
+    assert!(git(root, &["add", "-A"]));
+    assert!(git(root, &["commit", "-qm", "seed"]));
+    fs::write(root.join(".workflows/job.yml"), b"two").expect("modified file");
+    fs::write(root.join(".fresh-note"), b"new").expect("untracked file");
+    fs::remove_file(root.join(".quiet-note")).expect("removed file");
+
+    let path = root.to_string_lossy().to_string();
+    let listed = fileblade::filesystem::children(&path, false);
+    assert_eq!(listed["ok"], true, "{listed}");
+    assert_eq!(
+        names(&listed),
+        [".workflows", ".fresh-note", ".quiet-note", "visible.txt"],
+        "{listed}"
+    );
+    let rows = listed["entries"].as_array().expect("entries");
+    assert_eq!(rows[0]["git_status"], "M", "{listed}");
+    assert_eq!(rows[0]["git_modified_count"], 1, "{listed}");
+    assert_eq!(rows[1]["git_status"], "?", "{listed}");
+    assert_eq!(rows[2]["git_status"], "D", "{listed}");
+    assert_eq!(rows[2]["is_deleted"], true, "{listed}");
+
+    let shown = fileblade::filesystem::children(&path, true);
+    assert_eq!(
+        names(&shown),
+        [
+            ".git",
+            ".workflows",
+            ".fresh-note",
+            ".quiet-note",
+            ".steady-note",
+            "visible.txt"
+        ],
+        "{shown}"
+    );
+}

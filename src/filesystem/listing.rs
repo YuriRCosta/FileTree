@@ -113,14 +113,26 @@ pub fn children_batch_paged(
     json!({"ok": true, "results": results})
 }
 
+pub(super) fn scanned_row(path: &Path, include_created: bool, git_enabled: bool) -> Option<Value> {
+    let metadata = fs::symlink_metadata(path).ok()?;
+    let is_link = metadata.file_type().is_symlink();
+    let is_dir = path.is_dir();
+    let mut row = basic_entry_with_git(path, &metadata, is_dir, is_link, git_enabled);
+    if include_created {
+        row["created"] = json!(creation_timestamp(path));
+    }
+    Some(row)
+}
+
 pub(super) fn visible_rows(
     path: &Path,
     show_hidden: bool,
     include_created: bool,
     git_enabled: bool,
     cancelled: &AtomicBool,
-) -> io::Result<(Vec<Value>, bool)> {
+) -> io::Result<(Vec<Value>, bool, Vec<PathBuf>)> {
     let mut rows = Vec::new();
+    let mut skipped = Vec::new();
     let mut scanned = 0_usize;
     for entry in fs::read_dir(path)? {
         if cancelled.load(Ordering::Relaxed) {
@@ -128,28 +140,24 @@ pub(super) fn visible_rows(
         }
         scanned += 1;
         if scanned > DIRECTORY_SCAN_LIMIT || rows.len() >= DIRECTORY_ENTRY_LIMIT {
-            return Ok((rows, true));
+            return Ok((rows, true, skipped));
         }
         let Ok(entry) = entry else {
             continue;
         };
         let name = entry.file_name();
         if !show_hidden && name.as_encoded_bytes().starts_with(b".") {
+            if git_enabled && skipped.len() < DIRECTORY_ENTRY_LIMIT {
+                skipped.push(entry.path());
+            }
             continue;
         }
-        let path = entry.path();
-        let Ok(metadata) = fs::symlink_metadata(&path) else {
+        let Some(row) = scanned_row(&entry.path(), include_created, git_enabled) else {
             continue;
         };
-        let is_link = metadata.file_type().is_symlink();
-        let is_dir = path.is_dir();
-        let mut row = basic_entry_with_git(&path, &metadata, is_dir, is_link, git_enabled);
-        if include_created {
-            row["created"] = json!(creation_timestamp(&path));
-        }
         rows.push(row);
     }
-    Ok((rows, false))
+    Ok((rows, false, skipped))
 }
 
 pub(super) fn children_with_cache(
@@ -170,7 +178,7 @@ pub(super) fn children_with_cache(
         return error_payload(&path, &error);
     }
     let result = visible_rows(&path, show_hidden, include_created, git_enabled, cancelled);
-    let (mut rows, mut truncated) = match result {
+    let (mut rows, mut truncated, hidden) = match result {
         Ok(rows) => rows,
         Err(error) => return error_payload(&path, &error),
     };
@@ -192,6 +200,18 @@ pub(super) fn children_with_cache(
             let error = io::Error::new(io::ErrorKind::Interrupted, "operation cancelled");
             return error_payload(&path, &error);
         };
+        for hidden_path in hidden {
+            if indexed_git_status_for_path(&index, &hidden_path, true).is_none() {
+                continue;
+            }
+            if rows.len() >= DIRECTORY_ENTRY_LIMIT {
+                truncated = true;
+                break;
+            }
+            if let Some(row) = scanned_row(&hidden_path, include_created, git_enabled) {
+                rows.push(row);
+            }
+        }
         let mut probes = rows
             .iter()
             .filter_map(|row| parse_path(row["path"].as_str()?).ok())
@@ -225,13 +245,7 @@ pub(super) fn children_with_cache(
                 continue;
             }
             let status_path = path_text(&status.path);
-            if existing.contains(&status_path)
-                || (!show_hidden
-                    && status
-                        .path
-                        .file_name()
-                        .is_some_and(|name| name.as_encoded_bytes().starts_with(b".")))
-            {
+            if existing.contains(&status_path) {
                 continue;
             }
             if rows.len() >= DIRECTORY_ENTRY_LIMIT {

@@ -27,6 +27,14 @@ expect_true E-07-04 "a gitignored entry is marked ignored" "[[ \$(row_field igno
 expect_true E-07-03 "a modified tracked file keeps its Git status" "[[ -n \$(row_field tracked.txt gitStatus) && \$(row_field tracked.txt gitStatus) != null ]]"
 expect_true E-07-03 "a hidden tracked file still carries Git data" "[[ \$(row_field .gitignore gitRepoRoot) == '$ROOT_DIR/repo' ]]"
 
+guest "printf 'hidden change\n' > '$ROOT_DIR/repo/.hidden-change.txt'"
+ctl setShowHidden false; ctl refreshGit; sleep 3
+wait_for "[[ \$(row_field .hidden-change.txt gitStatus) == '?' ]]" 25
+expect_true E-07-03 "a changed hidden entry stays listed while hidden entries are off" "[[ \$(row_field .hidden-change.txt gitStatus) == '?' ]]"
+expect_missing E-07-03 "an unchanged hidden entry stays out of the list" "$(tree_names)" ".gitignore"
+guest "rm -f '$ROOT_DIR/repo/.hidden-change.txt'"
+ctl setShowHidden true; ctl refreshGit; sleep 3
+
 goto_root "$ROOT_DIR"
 ctl refreshGit
 wait_for "[[ \$(row_field repo gitBranch) != null && -n \$(row_field repo gitBranch) ]]" 25
