@@ -301,7 +301,6 @@ FocusScope {
 
     implicitWidth: labelText.implicitWidth + Style.space(18)
     implicitHeight: Style.space(28)
-    radius: Math.min(Style.cornerRadius, Style.space(4))
     color: primary
       ? (pointer.containsMouse ? Color.accent : Util.alpha(Color.accent, 0.82))
       : (pointer.containsMouse ? Style.hoverFillFor(Color.bar.text, Color.accent) : Util.alpha(Color.bar.text, 0.07))

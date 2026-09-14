@@ -48,7 +48,6 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      radius: Math.min(Style.cornerRadius, Style.space(4))
       color: buttonPointer.containsMouse && button.enabled ? Util.alpha(Color.bar.text, 0.12) : Util.alpha(Color.bar.text, 0.06)
     }
 

@@ -442,7 +442,6 @@ PanelWindow {
           anchors.verticalCenter: parent.verticalCenter
           width: updateChipLabel.implicitWidth + Style.space(14)
           height: Style.space(20)
-          radius: height / 2
           readonly property color tone: updates && updates.available ? Color.accent : Color.muted
           color: updateChipPointer.containsMouse ? Util.alpha(tone, 0.28) : Util.alpha(tone, 0.16)
           border.width: 1

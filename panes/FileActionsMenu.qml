@@ -586,14 +586,12 @@ Popup {
             MenuButton {
               menu: root
               text: "Cancel"
-              radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))
               width: (parent.width - parent.spacing) / 2
               onClicked: root.returnToTree()
             }
 
             MenuButton {
               menu: root
-              radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))
               text: root.permissionsMode ? "Apply" : root.cancelOperationMode ? "Stop operation"
                 : (root.customColorMode ? "Apply color"
                   : (controller.actionMenuMode === "rename" ? "Rename" : "Create"))

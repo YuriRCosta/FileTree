@@ -125,7 +125,6 @@ QQC.Popup {
     signal clicked()
     width: actionLabel.implicitWidth + Style.space(18)
     height: Style.space(26)
-    radius: Math.min(Style.cornerRadius, Style.space(4))
     color: primary
       ? (actionPointer.containsMouse ? Color.accent : Util.alpha(Color.accent, 0.82))
       : Util.alpha(Color.popups.text, actionPointer.containsMouse ? 0.12 : 0.06)

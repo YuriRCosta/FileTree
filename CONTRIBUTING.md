@@ -85,6 +85,12 @@ tests/run
 
 This file was written by an agent.
 
+Corners stay square. `tools/design-check` fails on any non-zero corner radius in
+QML that is not recorded in `tools/design-exceptions.json` with the reason it is
+round by design, and `tests/design_rules.rs` runs the same check inside
+`tests/run`. Remove the binding rather than widening the registry unless the
+surface really is a dot, knob or handle.
+
 `tests/run` is the whole gate and runs locally only. The manual
 [backend delivery build](docs/agent-written/build-provenance.md) runs on GitHub
 solely to reproduce and attest the bundled backend; it does not run tests there.

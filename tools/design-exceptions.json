@@ -1,0 +1,319 @@
+{
+  "no-rounded-corners": [
+    {
+      "path": "app/Ui/BorderSurface.qml",
+      "binding": "radius: root.radius",
+      "reason": "border geometry mirrors the radius of the surface it rings"
+    },
+    {
+      "path": "app/Ui/KeyboardPanel.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "app/Ui/PanelToolTip.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "app/Ui/TextField.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeDragOverlay.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeSettings.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeSettings.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeSettings.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeShortcuts.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeSlot.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeStack.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "blades/BladeStack.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeStack.qml",
+      "binding": "radius: 1.5",
+      "reason": "hairline separator, not a corner"
+    },
+    {
+      "path": "blades/BladeSurface.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "blades/BladeSurface.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeTabBar.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "blades/BladeTabBar.qml",
+      "binding": "radius: 1",
+      "reason": "hairline separator, not a corner"
+    },
+    {
+      "path": "modules/files/QuickNavOverlay.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "modules/files/QuickNavOverlay.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "modules/hooks/blades/Module.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "modules/mcp/blades/Module.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/FileActionsMenu.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "panes/FileActionsMenu.qml",
+      "binding": "radius: root.archiveMode || root.permissionsMode ? 0 : Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/FileActionsMenu.qml",
+      "binding": "radius: root.archiveMode || root.permissionsMode ? 0 : Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/MenuButton.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "panes/PickerBar.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/TrashView.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/TrashView.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/TrashView.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/TrashView.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/TrashView.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "panes/TreePane.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "src/extension_template/files/HostGuard.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/DropWheel.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/DropWheel.qml",
+      "binding": "radius: height / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/DropWheel.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/DropdownRow.qml",
+      "binding": "radius: Style.space(4)",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/FilePreview.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(5))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/FilterPopup.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/FilterPopup.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/FilterPopup.qml",
+      "binding": "radius: height / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/HintTip.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/ImageTile.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(5))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/MediaTimeline.qml",
+      "binding": "radius: Style.space(3)",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/MenuSearchField.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/MouseGlyph.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/MouseGlyph.qml",
+      "binding": "topLeftRadius: glyph.button === \"left\" ? width : 0",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/MouseGlyph.qml",
+      "binding": "topRightRadius: glyph.button === \"right\" ? width : 0",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/MouseGlyph.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/NumberRow.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/OptionPopup.qml",
+      "binding": "radius: Style.cornerRadius",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/PaneHeader.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/PaneNavigation.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/PaneRow.qml",
+      "binding": "radius: 1",
+      "reason": "hairline separator, not a corner"
+    },
+    {
+      "path": "ui/PaneSearchField.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/PaneSearchField.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/SelectRow.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/TextRow.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/TimelineScrubber.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/TimelineScrubber.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/TimelineScrubber.qml",
+      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
+      "reason": "not a button; the straight-corner rule covers buttons for now"
+    },
+    {
+      "path": "ui/ToggleRow.qml",
+      "binding": "radius: height / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    },
+    {
+      "path": "ui/ToggleRow.qml",
+      "binding": "radius: width / 2",
+      "reason": "round by design: a dot, knob or handle, not a corner"
+    }
+  ]
+}

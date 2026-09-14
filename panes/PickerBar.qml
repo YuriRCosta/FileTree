@@ -42,7 +42,6 @@ FocusScope {
       font.weight: control.primary ? Font.DemiBold : Font.Normal
     }
     background: Rectangle {
-      radius: Math.min(Style.cornerRadius, Style.space(4))
       color: control.primary
         ? (control.hovered
           ? (control.danger ? Color.urgent : Color.accent)

@@ -18,7 +18,6 @@ Rectangle {
 
   width: parent ? parent.width : implicitWidth
   implicitHeight: Style.space(29)
-  radius: Math.min(Style.cornerRadius, Style.space(4))
   color: control.primary
     ? (pointer.containsMouse ? Color.accent : Util.alpha(Color.accent, 0.84))
     : (control.menuHighlighted ? Color.menu.selectedBackground : "transparent")
