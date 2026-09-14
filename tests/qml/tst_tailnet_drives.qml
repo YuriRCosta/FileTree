@@ -10,6 +10,7 @@ TestCase {
 
   Item {
     id: service
+    property string localUser: "local"
     property bool backendReady: false
     property bool drivesMode: false
     function backendRequest(command, arguments, generation, callback) {
@@ -61,13 +62,14 @@ TestCase {
     compare(controller.model.get(0).sizeLabel, "Not connected")
     compare(controller.actionAvailableFor("tailnet:peer"), true)
     compare(controller.actionAvailableFor("/dev/test"), false)
-    controller.openVolume("tailnet:peer", null)
+    controller.runAction("tailnet:peer")
     compare(connections.count, 1)
     compare(Array.from(connections.signalArguments[0]), ["tailnet:peer", "Peer", "peer.test", "user", "/files"])
     compare(requests.length, 1)
-    controller.connectPeer("tailnet:peer", "peer.test", "user", "/files", true)
+    controller.openVolume("tailnet:peer", null)
+    compare(connections.count, 1)
     compare(requests[1].command, "location-connect")
-    compare(requests[1].arguments, ["--location", "tailnet:peer", "--expected-host", "peer.test", "--user", "user", "--path", "/files", "--save"])
+    compare(requests[1].arguments, ["--location", "tailnet:peer", "--expected-host", "peer.test", "--user", "user", "--path", "/files"])
     controller.connectPeer("tailnet:peer", "peer.test", "user", "/files", true)
     compare(requests.length, 2)
     requests[1].callback({ ok: true, location: descriptor("connected", "new") })
@@ -91,6 +93,16 @@ TestCase {
     compare(controller.model.get(0).source, "tailnet:peer")
     compare(controller.model.get(0).mounted, false)
     compare(controller.model.get(0).sizeLabel, "Not connected")
+  }
+
+  function test_a_peer_without_a_saved_location_asks_once_with_the_local_user() {
+    service.drivesMode = true
+    requests[0].callback({ ok: true, locations: [descriptor("disconnected", "")],
+      tailnet: { candidates: [{ id: "tailnet:peer", label: "Peer", host: "peer.test" }] }, saved: [] })
+    controller.openVolume("tailnet:peer", null)
+    compare(connections.count, 1)
+    compare(Array.from(connections.signalArguments[0]), ["tailnet:peer", "Peer", "peer.test", "local", "/"])
+    compare(requests.length, 1)
   }
 
   function test_old_inventory_cannot_replace_action_result_and_cleanup_stays_disconnectable() {

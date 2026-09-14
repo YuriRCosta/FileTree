@@ -25,6 +25,7 @@ Item {
   property double serviceGeneration: Date.now()
 
   readonly property string home: Quickshell.env("HOME") || "/"
+  readonly property string localUser: Quickshell.env("USER") || Quickshell.env("LOGNAME") || ""
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")
   readonly property string stateDir: stateHome + "/omarchy/fileblade"
   readonly property string statePath: chooserSession ? "" : stateDir + "/state.json"

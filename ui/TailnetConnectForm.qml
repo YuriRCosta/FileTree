@@ -97,7 +97,7 @@ FocusScope {
       font.pixelSize: Style.font.bodySmall
     }
     Label { text: "SSH user"; color: Color.muted; font.family: Style.font.family }
-    Field { id: userField; objectName: "tailnetUser"; maximumLength: 128; onAccepted: pathField.forceActiveFocus() }
+    Field { id: userField; objectName: "tailnetUser"; maximumLength: 128; onAccepted: pathField.text.charAt(0) === "/" ? form.submit() : pathField.forceActiveFocus() }
     Label { text: "Remote folder"; color: Color.muted; font.family: Style.font.family }
     Field { id: pathField; objectName: "tailnetPath"; maximumLength: 4096; onAccepted: form.submit() }
     CheckBox {

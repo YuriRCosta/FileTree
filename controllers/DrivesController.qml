@@ -173,12 +173,17 @@ Item {
     })
   }
 
-  function requestPeerConnection(id) {
+  function requestPeerConnection(id, reuseSaved) {
     if (busySource) return
     var peer = peerCandidates[id]
     if (!peer) return
     var saved = savedLocations.filter(function(value) { return value.host === peer.host })[0]
-    connectionRequested(id, String(peer.label), String(peer.host), saved ? String(saved.user) : "", saved ? String(saved.path) : "/")
+    if (reuseSaved && saved && String(saved.user) && String(saved.path).charAt(0) === "/") {
+      connectPeer(id, String(peer.host), String(saved.user), String(saved.path), false)
+      return
+    }
+    connectionRequested(id, String(peer.label), String(peer.host),
+      saved ? String(saved.user) : service.localUser, saved ? String(saved.path) : "/")
   }
 
   function connectPeer(id, host, user, path, save) {
@@ -308,7 +313,7 @@ Item {
     var peer = peerLocations[String(source)]
     if (peer) {
       if (peer.session_generation) peerAction("location-disconnect", String(source), ["--location", String(source), "--generation", String(peer.session_generation)])
-      else requestPeerConnection(String(source))
+      else requestPeerConnection(String(source), false)
       return
     }
     act(actionFor(allVolumesModel.get(index)).command, source)
@@ -321,7 +326,8 @@ Item {
     var peer = peerLocations[String(source)]
     if (peer) {
       if (peer.connection === "connected" && (peer.capabilities || []).indexOf("list") >= 0) locationRequested(peer, targetScreen)
-      else runAction(source)
+      else if (peer.session_generation) runAction(source)
+      else requestPeerConnection(String(source), true)
       return
     }
     var row = allVolumesModel.get(index)
