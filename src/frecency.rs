@@ -147,27 +147,25 @@ pub fn list(limit: usize, query: &str) -> Value {
     let mut ranked = entries
         .into_iter()
         .filter_map(|entry| {
+            let text = display_path(&parse_path(&entry.path).ok()?);
             let (score, indices) = match &pattern {
-                Some(pattern) => index::score_text(
-                    pattern,
-                    &display_path(&parse_path(&entry.path).ok()?),
-                    &mut matcher,
-                )?,
+                Some(pattern) => index::score_text(pattern, &text, &mut matcher)?,
                 None => (0, Vec::new()),
             };
-            Some((entry, score, indices))
+            let tier = index::literal_tier_path(&text, query.trim());
+            Some((entry, tier, score, indices))
         })
         .collect::<Vec<_>>();
     ranked.sort_by(|left, right| {
-        right
-            .1
-            .cmp(&left.1)
+        left.1
+            .cmp(&right.1)
+            .then_with(|| right.2.cmp(&left.2))
             .then_with(|| right.0.rank(now).total_cmp(&left.0.rank(now)))
     });
     let rows = ranked
         .into_iter()
+        .filter_map(|(entry, _, _, indices)| row(&entry, now, &indices))
         .take(limit.clamp(1, FRECENCY_CAP))
-        .filter_map(|(entry, _, indices)| row(&entry, now, &indices))
         .collect::<Vec<_>>();
     json!({"ok": true, "query": query.trim(), "entries": rows})
 }

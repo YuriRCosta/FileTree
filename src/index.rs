@@ -393,6 +393,28 @@ pub fn score_path_name(
     Some((score, indices))
 }
 
+pub fn literal_tier(name: &str, needle: &str) -> u8 {
+    let needle = needle.trim();
+    if needle.is_empty() {
+        return 0;
+    }
+    let name = name.to_lowercase();
+    let needle = needle.to_lowercase();
+    if name == needle {
+        0
+    } else if name.starts_with(&needle) {
+        1
+    } else if name.contains(&needle) {
+        2
+    } else {
+        3
+    }
+}
+
+pub fn literal_tier_path(path: &str, needle: &str) -> u8 {
+    literal_tier(path.rsplit('/').next().unwrap_or(path), needle)
+}
+
 pub fn parse_pattern(text: &str, case: CaseMatching) -> Pattern {
     Pattern::parse(text, case, Normalization::Smart)
 }

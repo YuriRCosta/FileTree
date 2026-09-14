@@ -90,7 +90,7 @@ pub fn quicknav_cancellable(
     let candidates = frequencies.into_iter();
     let mut ranked = if needle.is_empty() {
         candidates
-            .map(|(path, frequency)| (path, frequency, 0, Vec::new()))
+            .map(|(path, frequency)| (path, frequency, 0u8, 0u32, Vec::new()))
             .collect::<Vec<_>>()
     } else {
         let pattern = crate::index::parse_pattern(needle, crate::index::case_matching(false));
@@ -98,21 +98,22 @@ pub fn quicknav_cancellable(
         candidates
             .filter_map(|(path, frequency)| {
                 let text = display_path(&parse_path(&path).ok()?);
+                let tier = crate::index::literal_tier_path(&text, needle);
                 crate::index::score_path_name(&pattern, &text, &mut matcher)
-                    .map(|(score, indices)| (path, frequency, score, indices))
+                    .map(|(score, indices)| (path, frequency, tier, score, indices))
             })
             .collect()
     };
     ranked.sort_by(|left, right| {
-        right
-            .2
-            .cmp(&left.2)
+        left.2
+            .cmp(&right.2)
+            .then_with(|| right.3.cmp(&left.3))
             .then_with(|| right.1.total_cmp(&left.1))
             .then_with(|| left.0.cmp(&right.0))
     });
     let entries = ranked
         .into_iter()
-        .filter_map(|(path, frequency, _, indices)| quicknav_row(&path, frequency, &indices))
+        .filter_map(|(path, frequency, _, _, indices)| quicknav_row(&path, frequency, &indices))
         .take(limit.clamp(1, 200))
         .collect::<Vec<_>>();
     json!({
