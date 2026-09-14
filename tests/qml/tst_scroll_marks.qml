@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import "../../lib/GitSummary.js" as GitSummary
 import "../../lib/ScrollMarks.js" as ScrollMarks
 
 TestCase {
@@ -30,6 +31,25 @@ TestCase {
   function test_ignored_unknown_and_clean_rows_leave_no_mark() {
     fill(["", { status: "M", ignored: true }, "!", "X", "D"])
     compare(statuses(ScrollMarks.collect(model, 100)), ["D"])
+  }
+
+  function test_the_opened_repository_row_leaves_no_mark_behind_its_summary() {
+    var fields = ["branch", "untracked"]
+    var rows = [
+      { path: "/repo", depth: 0, isGitRepo: true, gitStatus: "?", gitIgnored: false },
+      { path: "/repo/.agents", depth: 1, isGitRepo: false, gitStatus: "?", gitIgnored: false },
+      { path: "/repo/.opencode", depth: 1, isGitRepo: false, gitStatus: "?", gitIgnored: false }
+    ]
+    function status(row) {
+      if (!row || row.gitIgnored) return ""
+      if (GitSummary.summaryRow(row.isGitRepo, row.depth, row.path, "/repo", fields)) return ""
+      return String(row.gitStatus || "")
+    }
+    compare(ScrollMarks.collect(rows, 100, status).length, 2)
+    compare(ScrollMarks.collect(rows, 100).length, 3)
+    compare(GitSummary.summaryRow(true, 0, "/repo", "/repo", []), false)
+    compare(GitSummary.summaryRow(true, 0, "/repo/child", "/repo", fields), false)
+    compare(GitSummary.summaryRow(false, 0, "/repo", "/repo", fields), false)
   }
 
   function test_one_slot_keeps_the_most_severe_status() {

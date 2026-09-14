@@ -181,10 +181,12 @@ Ids never get reused. When behaviour changes, edit the entry in place.
     icon that identifies it as hidden.
 50. **E-07-02** If I press `.`, `Shift+H`, or `Ctrl+H`, hidden files toggle
     between shown and hidden.
-51. **E-07-03** When I view a hidden file, its row is muted but I can still see
-    its real Git status. With hidden entries turned off, a hidden entry that Git
-    reports as changed is still listed, so every change the repository summary
-    counts can be found in the tree; unchanged hidden entries stay out of it.
+51. **E-07-03** When I view a hidden file, its row is dimmed but I can still see
+    its real Git status, and a changed hidden entry keeps its status colour at
+    reduced strength rather than turning grey. With hidden entries turned off, a
+    hidden entry that Git reports as changed is still listed, so every change the
+    repository summary counts can be found in the tree; unchanged hidden entries
+    stay out of it.
 52. **E-07-04** When I view a Git-ignored file, it keeps its normal file icon
     and shows a do-not-enter sign in the Git status column.
 53. **E-07-05** A Git repository folder has a repository icon, and I can see
@@ -880,7 +882,9 @@ shell. Once FileBlade is enabled, the pop-up disappears.
      clicking near its top takes me back to the first rows.
 258. **E-31-04** Files with a Git status leave a mark on the ruler at their
      position, coloured like their status, so I can see where changes are
-     without scrolling.
+     without scrolling. The marks match the statuses the tree actually shows: the
+     opened repository's own row displays its summary instead of a status, so it
+     leaves no mark and the ruler never counts a change twice.
 259. **E-31-05** Marks for rows outside the part of the tree I can see are
      drawn at half strength; marks for rows in view are drawn in full. Turning
      off "Git marks on the scroll ruler" in settings removes every mark and the

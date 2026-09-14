@@ -134,11 +134,12 @@ Rectangle {
   readonly property color mutedEntryColor: colorsRow ? Util.alpha(entryColor, 0.68) : Color.muted
   readonly property bool showsGitIgnored: controller.gitEnabled && gitIgnored
   readonly property bool colorsGit: controller.gitEnabled && !gitDeleted && !gitIgnored && gitStatus !== ""
-  readonly property bool showsRepoSummary: controller.gitEnabled && isGitRepo && treeMode
-    && !favoriteMode && !customInteraction && depth === 0 && path === controller.rootPath
-    && controller.gitSummaryFields.length > 0
+  readonly property bool showsRepoSummary: controller.gitEnabled && treeMode
+    && !favoriteMode && !customInteraction
+    && GitSummary.summaryRow(isGitRepo, depth, path, controller.rootPath, controller.gitSummaryFields)
   readonly property var repositorySummary: showsRepoSummary ? GitSummary.describe(gitSummary, controller.gitSummaryFields) : ({ text: "", tooltip: "" })
   readonly property color gitEntryColor: controller.gitStatusColor(gitStatus)
+  readonly property color gitRowColor: hiddenEntry ? Util.alpha(gitEntryColor, 0.68) : gitEntryColor
 
   function repositorySummaryMarkup(parts, separator) {
     return (parts || repositorySummary.tokens || []).map(function(part) {
@@ -241,11 +242,13 @@ Rectangle {
       ? Color.urgent
       : (row.gitDeleted
       ? Color.urgent
-      : (row.showsGitIgnored || row.hiddenEntry
+      : (row.showsGitIgnored
         ? row.mutedEntryColor
         : (row.colorsGit
-          ? row.gitEntryColor
-          : (row.entryColor || (row.isDir ? Color.accent : Color.muted)))))
+          ? row.gitRowColor
+          : (row.hiddenEntry
+            ? row.mutedEntryColor
+            : (row.entryColor || (row.isDir ? Color.accent : Color.muted))))))
     font.family: Style.font.family
     font.pixelSize: Math.max(1, Math.round((Style.font.body) * row.densityScale))
   }
@@ -268,11 +271,13 @@ Rectangle {
         ? Color.urgent
         : (row.gitDeleted
         ? Color.urgent
-        : (row.moreRow || row.showsGitIgnored || row.hiddenEntry
+        : (row.moreRow || row.showsGitIgnored
           ? row.mutedEntryColor
           : (row.colorsGit
-            ? row.gitEntryColor
-            : (row.colorsName ? row.entryColor : (row.selected && row.isDir ? Color.accent : Color.bar.text)))))
+            ? row.gitRowColor
+            : (row.hiddenEntry
+              ? row.mutedEntryColor
+              : (row.colorsName ? row.entryColor : (row.selected && row.isDir ? Color.accent : Color.bar.text))))))
       elide: Text.ElideRight
       font.family: Style.font.family
       font.pixelSize: Math.max(1, Math.round((Style.font.body) * row.densityScale))

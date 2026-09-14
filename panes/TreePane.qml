@@ -1302,7 +1302,11 @@ FocusScope {
       root.gitMarks = []
       return
     }
-    var collected = ScrollMarks.collect(controller.treeModel, scrollRuler.slots)
+    var collected = ScrollMarks.collect(controller.treeModel, scrollRuler.slots, function(row) {
+      if (!row || row.gitIgnored) return ""
+      if (GitSummary.summaryRow(row.isGitRepo, row.depth, row.path, controller.rootPath, controller.gitSummaryFields)) return ""
+      return String(row.gitStatus || "")
+    })
     var marks = []
     for (var i = 0; i < collected.length; i++)
       marks.push({ fraction: collected[i].fraction, color: controller.gitStatusColor(collected[i].status) })

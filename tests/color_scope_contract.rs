@@ -27,18 +27,16 @@ fn git_status_outranks_the_manual_entry_color_on_the_name_and_the_icon() {
         row.contains("readonly property color gitEntryColor: controller.gitStatusColor(gitStatus)")
     );
     for expression in [
-        "? row.gitEntryColor\n          : (row.entryColor ||",
-        "? row.gitEntryColor\n            : (row.colorsName ? row.entryColor",
+        "? row.gitRowColor\n          : (row.hiddenEntry",
+        "? row.gitRowColor\n            : (row.hiddenEntry",
     ] {
         assert!(
             row.contains(expression),
             "git status must be tested before the manual entry color: {expression}"
         );
     }
-    assert!(row.contains(
-        "row.moreRow || row.showsGitIgnored || row.hiddenEntry\n          ? row.mutedEntryColor"
-    ));
-    assert!(row.contains("row.showsGitIgnored || row.hiddenEntry\n        ? row.mutedEntryColor"));
+    assert!(row.contains("row.moreRow || row.showsGitIgnored\n          ? row.mutedEntryColor"));
+    assert!(row.contains("row.showsGitIgnored\n        ? row.mutedEntryColor"));
 }
 
 #[test]
@@ -57,12 +55,16 @@ fn gitignored_entries_keep_their_file_icon_and_mark_the_git_column() {
 }
 
 #[test]
-fn hidden_entries_are_muted_without_replacing_their_git_status() {
+fn hidden_entries_are_dimmed_while_keeping_their_git_color() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let row = fs::read_to_string(root.join("panes/BrowserRow.qml")).unwrap();
 
-    assert!(row.contains("row.showsGitIgnored || row.hiddenEntry"));
-    assert!(row.contains("row.moreRow || row.showsGitIgnored || row.hiddenEntry"));
+    assert!(row.contains(
+        "readonly property color gitRowColor: hiddenEntry ? Util.alpha(gitEntryColor, 0.68) : gitEntryColor"
+    ));
+    assert!(!row.contains("row.showsGitIgnored || row.hiddenEntry"));
+    assert!(row.contains("? row.gitRowColor"));
+    assert!(!row.contains("row.moreRow || row.showsGitIgnored || row.hiddenEntry"));
     assert!(row.contains("row.showsGitIgnored ? \"\" : row.gitStatus"));
     assert!(!row.contains("row.hiddenEntry ? \"\""));
 }
