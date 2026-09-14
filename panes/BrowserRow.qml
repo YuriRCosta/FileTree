@@ -199,7 +199,7 @@ Rectangle {
   Text {
     textFormat: Text.PlainText
     id: favoriteGlyph
-    x: Style.space(3) + row.depth * Style.space(13)
+    x: Style.space(3)
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(14)
     horizontalAlignment: Text.AlignHCenter
@@ -214,7 +214,7 @@ Rectangle {
   Text {
     textFormat: Text.PlainText
     id: disclosure
-    x: favoriteGlyph.x + favoriteGlyph.width
+    x: favoriteGlyph.x + favoriteGlyph.width + row.depth * Style.space(13)
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(14)
     horizontalAlignment: Text.AlignHCenter

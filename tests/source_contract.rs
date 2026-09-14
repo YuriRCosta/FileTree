@@ -1165,8 +1165,8 @@ fn hidden_entries_are_visible_by_default_and_reuse_the_leading_marker_slot() {
     assert!(row.contains("HoverHandler { id: hoverTracker }"));
     assert!(row.contains("text: row.hiddenEntry ? \"󰈉\""));
     assert!(row.contains("!row.gitDeleted && row.favoriteAvailable && mouse.x >= favoriteGlyph.x"));
-    assert!(row.contains("x: Style.space(3) + row.depth * Style.space(13)"));
-    assert!(row.contains("x: favoriteGlyph.x + favoriteGlyph.width"));
+    assert!(row.contains("id: favoriteGlyph\n    x: Style.space(3)\n"));
+    assert!(row.contains("x: favoriteGlyph.x + favoriteGlyph.width + row.depth * Style.space(13)"));
     assert!(row.contains("x: disclosure.x + disclosure.width + Style.space(1)"));
 }
 
