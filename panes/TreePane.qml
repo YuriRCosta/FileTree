@@ -64,7 +64,7 @@ FocusScope {
     context.state.set("mediaSizeStep", mediaSizeStep)
     context.state.set("mediaShowEmptyPeriods", mediaShowEmptyPeriods)
     context.state.set("ordinaryDensityStep", ordinaryDensityStep)
-    context.state.set("summaryInTree", summaryInTree)
+    context.state.set("rootRowInTree", summaryInTree)
   }
 
   function ensureContextRoot() {
@@ -201,7 +201,7 @@ FocusScope {
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
     mediaShowEmptyPeriods = context.state.get("mediaShowEmptyPeriods", false) === true
     ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
-    summaryInTree = context.state.get("summaryInTree", true) === true
+    summaryInTree = context.state.get("rootRowInTree", true) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
     mediaQueryReady = context.state.get("mediaQueryReady", mediaMode) === true
