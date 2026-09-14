@@ -38,7 +38,7 @@ FocusScope {
   property int ordinaryDensityStep: 2
   property var densityAnchor: null
   property bool treeOrderUpdating: false
-  property bool summaryInTree: false
+  property bool summaryInTree: true
   readonly property bool contextAbove: !summaryInTree && !controller.trashMode && !controller.drivesMode && !controller.recentMode
   readonly property bool contextRootExpanded: !contextAbove || controller.treeModel.count === 0 || controller.treeModel.get(0).expanded
   onContextRootExpandedChanged: Qt.callLater(root.ensureContextRoot)
@@ -201,7 +201,7 @@ FocusScope {
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
     mediaShowEmptyPeriods = context.state.get("mediaShowEmptyPeriods", false) === true
     ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
-    summaryInTree = context.state.get("summaryInTree", false) === true
+    summaryInTree = context.state.get("summaryInTree", true) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
     mediaQueryReady = context.state.get("mediaQueryReady", mediaMode) === true
@@ -702,9 +702,6 @@ FocusScope {
     sorts: controller.treeSort
     filter: controller.treeFilter
     navigationActions: [
-      { key: "media", glyph: "󰋩", title: root.mediaMode ? "Show files" : "Show media", active: root.mediaMode,
-        enabled: !controller.trashMode && !controller.drivesMode && !controller.recentMode,
-        actions: [{ button: "left", text: "Switch content mode" }] },
       { key: "back", glyph: "", title: "Back", enabled: controller.canGoBack,
         actions: [{ button: "left", text: "Back" }, { shortcut: "Alt+←" }], context: [{ glyph: "󰉋", text: controller.backDestination }] },
       { key: "forward", glyph: "", title: "Forward", enabled: controller.canGoForward,
@@ -715,6 +712,9 @@ FocusScope {
         actions: [{ button: "left", text: "Home" }, { shortcut: "Alt+Home" }], context: [{ glyph: "󰉋", text: controller.home }] },
       { key: "recent", glyph: "󰋚", title: "Recent", active: controller.recentMode,
         actions: [{ button: "left", text: "Open" }], context: root.recentNavigationContext() },
+      { key: "media", glyph: "󰋩", title: root.mediaMode ? "Show files" : "Show media", active: root.mediaMode,
+        enabled: !controller.trashMode && !controller.drivesMode && !controller.recentMode,
+        actions: [{ button: "left", text: "Switch content mode" }] },
       { key: "drives", glyph: "󰋊", title: "Drives", active: controller.drivesMode,
         actions: [{ button: "left", text: "Open" }], context: root.drivesNavigationContext() },
       { key: "desktop-trash", glyph: controller.trashCount > 0 ? "󰩹" : "󰩺", title: "Trash", active: controller.trashMode,
@@ -1068,15 +1068,23 @@ FocusScope {
     height: visible ? Style.space(28) : 0
     visible: !controller.trashMode && !controller.drivesMode
     color: Color.bar.background
-    Column {
+    TextMetrics {
+      id: footerSeparator
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+      text: "    "
+    }
+
+    Row {
+      id: footerRow
       anchors.left: parent.left
       anchors.leftMargin: Style.space(8)
       anchors.right: mediaSize.left
       anchors.rightMargin: Style.space(4)
       anchors.verticalCenter: parent.verticalCenter
+      spacing: footerSeparator.width
       Text {
         id: footerCount
-        width: parent.width
         textFormat: Text.PlainText
         text: root.mediaActive && mediaView
           ? (mediaView.count === mediaProvider.rows.length ? mediaView.count : mediaView.count + "/" + mediaProvider.rows.length) + " media"
@@ -1089,7 +1097,7 @@ FocusScope {
       }
       Text {
         id: footerDetail
-        width: parent.width
+        width: Math.max(0, parent.width - footerCount.width - parent.spacing)
         textFormat: Text.PlainText
         text: {
           var parts = []
@@ -1106,7 +1114,7 @@ FocusScope {
             if (root.folderCount.loaded < root.folderCount.total) parts.push(root.folderCount.loaded + " loaded")
             parts.push("folder")
           }
-          return parts.join(" · ")
+          return parts.join(footerSeparator.text)
         }
         color: mediaProvider && mediaProvider.error ? Color.urgent : Color.muted
         elide: Text.ElideRight
