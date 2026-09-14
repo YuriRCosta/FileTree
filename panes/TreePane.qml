@@ -1268,7 +1268,7 @@ FocusScope {
 
   PluginUi.MarkedScrollBar {
     id: scrollRuler
-    visible: !root.mediaActive
+    visible: !root.mediaActive && scrollRuler.scrollable
     anchors.right: treeList.right
     anchors.rightMargin: Style.space(2)
     anchors.top: treeList.top

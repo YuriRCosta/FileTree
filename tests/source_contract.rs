@@ -431,6 +431,11 @@ fn scroll_indicators_are_thin_shared_and_the_trees_carry_a_marked_ruler() {
 
     let ruler = text(&root.join("ui/MarkedScrollBar.qml"));
     assert!(ruler.contains("visible: scrollable"));
+    assert!(
+        text(&root.join("panes/TreePane.qml"))
+            .contains("visible: !root.mediaActive && scrollRuler.scrollable"),
+        "a ruler that cannot scroll must not keep drawing its marks"
+    );
     assert!(ruler.contains("width: Style.space(4)"));
     assert!(ruler.contains("color: Color.accent"));
     assert!(ruler.contains("color: modelData.color"));
@@ -447,7 +452,14 @@ fn scroll_indicators_are_thin_shared_and_the_trees_carry_a_marked_ruler() {
     let pane = text(&root.join("panes/TreePane.qml"));
     assert!(pane.contains("PluginUi.MarkedScrollBar {"));
     assert!(pane.contains("marks: root.activeList === treeList ? root.gitMarks : []"));
-    assert!(pane.contains("ScrollMarks.collect(controller.treeModel, scrollRuler.slots)"));
+    assert!(
+        pane.contains(
+            "ScrollMarks.collect(controller.treeModel, scrollRuler.slots, function(row) {"
+        )
+    );
+    assert!(pane.contains(
+        "if (GitSummary.summaryRow(row.isGitRepo, row.depth, row.path, controller.rootPath, controller.gitSummaryFields)) return \"\""
+    ));
     assert!(pane.contains("controller.gitStatusColor(collected[i].status)"));
     assert!(pane.contains("if (!controller.gitEnabled || !controller.scrollMarks) {"));
 
