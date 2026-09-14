@@ -1220,6 +1220,27 @@ This file was written by an agent.
    requesting application receives that destination; choosing it alone does
    not create the file.
 
+## 47. Uploading through the native file chooser
+
+This file was written by an agent.
+
+`tests/vm/expectations/47-native-portal.sh`
+
+This scenario temporarily selects FileBlade for the guest's file-chooser
+portal and uses an actual Chromium upload page. It checks the installed app
+when `FILEBLADE_SHAPE=native`; desktop-role switches and cold D-Bus
+activation require their separate integration checks.
+
+1. **E-47-01** When I open a browser's upload chooser and press Escape,
+   FileBlade closes that chooser and the browser receives cancellation.
+   No file is uploaded.
+2. **E-47-02** When I select a file in FileBlade's chooser and confirm it,
+   the browser receives that file's name and size. Uploading sends the
+   selected file's exact contents.
+3. **E-47-03** Selecting FileBlade for file choosing leaves my other portal
+   routes unchanged. After the scenario, my prior chooser routing, blade
+   arrangement and ordinary Notes are restored.
+
 ## 90. Checking the native app before installation
 
 This file was written by an agent.

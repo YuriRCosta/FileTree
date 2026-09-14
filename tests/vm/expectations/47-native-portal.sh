@@ -17,12 +17,17 @@ import time
 import uuid
 
 repo = Path(__import__('sys').argv[1])
-ovm = os.environ.get('OVM') or str(Path.home() / '.claude/skills/test-omarchy-plugin/scripts/ovm')
+shape = os.environ.get('FILEBLADE_SHAPE', 'plugin')
+if shape not in ('plugin', 'native'):
+    raise SystemExit('FILEBLADE_SHAPE must be plugin or native')
+if shape == 'native' and os.environ.get('SKIP_PUSH') != '1':
+    raise SystemExit('native portal qualification requires SKIP_PUSH=1')
+ovm = os.environ.get('OVM') or (str(repo / 'tests/vm/native-ovm') if shape == 'native' else str(Path.home() / '.claude/skills/test-omarchy-plugin/scripts/ovm'))
 out = Path(os.environ['FILEBLADE_PORTAL_EVIDENCE'])
 out.mkdir(parents=True, exist_ok=True)
 native_root = os.environ.get('FILEBLADE_NATIVE_ROOT', '/home/omarchy/fileblade-runtime-spike')
 state_root = os.environ.get('FILEBLADE_SPIKE_HOME', '/home/omarchy/fileblade-runtime-state')
-app = native_root + '/app'
+app = native_root + '/app' if shape == 'plugin' else None
 binary = os.environ.get('FILEBLADE_NATIVE_BINARY', native_root + '/target/release/fileblade')
 run_id = 'fileblade-portal-' + uuid.uuid4().hex
 guest_fixture = '/tmp/' + run_id
@@ -32,8 +37,12 @@ upload_body = ('FileBlade portal upload ' + run_id + '\n').encode()
 backend_pid = None
 browser_pid = None
 server_pid = None
-app_was_running = False
 config_before = ''
+layout_path = None
+original_layout = None
+original_root = None
+original_focus = None
+native_view_changed = False
 
 def call(*args, timeout=30):
     return subprocess.check_output([ovm, *map(str, args)], text=True, timeout=timeout).strip()
@@ -57,8 +66,51 @@ def read_guest_file(path):
     return base64.b64decode(value[5:]).decode()
 
 def ipc(method, *args):
+    if shape == 'native':
+        return json.loads(call('ipc', 'fileblade.chooser', method, *args))
     command = ['qs', 'ipc', '-n', '-p', app, 'call', '--', 'fileblade.chooser', method, *map(str, args)]
     return json.loads(guest(shlex.join(command)))
+
+def fileblade_ipc(method, *args):
+    if shape == 'native':
+        return json.loads(call('ipc', 'data-goblin.fileblade', method, *args))
+    command = ['qs', 'ipc', '-n', '-p', app, 'call', '--', 'data-goblin.fileblade', method, *map(str, args)]
+    return json.loads(guest(shlex.join(command)))
+
+def control(method, *args):
+    if shape == 'native':
+        return call('ipc', 'data-goblin.fileblade.control', method, *args)
+    command = ['qs', 'ipc', '-n', '-p', app, 'call', '--', 'data-goblin.fileblade.control', method, *map(str, args)]
+    return guest(shlex.join(command))
+
+def native_identity():
+    try:
+        return json.loads(call('ipc', 'fileblade.native', 'status'))
+    except (subprocess.SubprocessError, json.JSONDecodeError):
+        return {}
+
+def fileblade_status():
+    try:
+        return fileblade_ipc('status')
+    except (subprocess.SubprocessError, json.JSONDecodeError):
+        return {}
+
+def native_probe():
+    identity = native_identity()
+    source = identity.get('sourceDir')
+    if not source:
+        return {}
+    command = ['qs', 'ipc', '-n', '-p', source + '/app', 'call', '--', 'fileblade.qualification', 'status']
+    try:
+        return json.loads(guest(shlex.join(command)))
+    except (subprocess.SubprocessError, json.JSONDecodeError):
+        return {}
+
+def launcher_command():
+    launcher = os.environ.get('FILEBLADE_NATIVE_LAUNCHER')
+    if not launcher:
+        launcher = guest('if test -x "$HOME/.local/bin/fileblade"; then printf %s "$HOME/.local/bin/fileblade"; else printf /usr/bin/fileblade; fi')
+    return shell_path(launcher)
 
 def wait(predicate, label, seconds=30):
     deadline = time.monotonic() + seconds
@@ -93,6 +145,8 @@ def click_chooser(session, path):
         raise AssertionError('chooser row has no visible geometry: ' + json.dumps(row))
     call('mouse', 'click', str(round(window['at'][0] + row['x'] + min(90, row['width'] / 2))), str(round(window['at'][1] + row['y'] + row['height'] / 2)))
     wait(lambda: next((item for item in ipc('status').get('sessions', []) if item.get('handle') == session['handle'] and item.get('selected')), None), 'chooser selection')
+    shot = call('shot', 'native-portal-chooser-selection')
+    (out / 'chooser-selection-shot.txt').write_text(shot + '\n')
     button = ipc('buttonGeometry', session['handle'], 'Open')
     if button.get('width', 0) <= 0 or button.get('height', 0) <= 0:
         raise AssertionError('chooser Open button has no visible geometry: ' + json.dumps(button))
@@ -134,6 +188,57 @@ server.serve_forever()
     write_guest(server_path, source)
     body_hex = upload_body.hex()
     return int(guest('setsid python3 ' + shell_path(server_path) + ' ' + shell_path(guest_fixture) + ' ' + shell_path(body_hex) + ' ' + str(portal_port) + ' >' + shell_path(guest_fixture + '/server.log') + ' 2>&1 & echo $!'))
+
+def snapshot_layout():
+    global layout_path, original_layout, original_root, original_focus
+    status = fileblade_ipc('status')
+    layout_path = status.get('bladeLayoutPath')
+    if not isinstance(layout_path, str) or not layout_path.startswith('/') or not layout_path.endswith('/blades.json'):
+        raise AssertionError('native layout path is unavailable: ' + str(layout_path))
+    text = read_guest_file(layout_path)
+    if text is None:
+        raise AssertionError('native layout document is unavailable: ' + layout_path)
+    try:
+        original_layout = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise AssertionError('native layout document is invalid: ' + str(error))
+    if not isinstance(original_layout, dict) or not isinstance(original_layout.get('blades'), dict) or any(edge not in original_layout['blades'] for edge in ['left', 'right']):
+        raise AssertionError('native layout document has no left and right blades')
+    original_root = status.get('rootPath')
+    original_focus = status.get('focusedBlade')
+    (out / 'layout-before.json').write_text(text)
+    if shape == 'native':
+        (out / 'native-identity.json').write_text(json.dumps(native_identity(), indent=2) + '\n')
+
+def temporary_close_blades():
+    for edge in ['left', 'right']:
+        control('closeBlade', edge)
+
+def layout_matches():
+    try:
+        current = json.loads(read_guest_file(layout_path) or '')
+    except (subprocess.CalledProcessError, json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(current, dict) and all(current.get('blades', {}).get(edge) == original_layout['blades'][edge] for edge in ['left', 'right'])
+
+def restore_layout():
+    if not original_layout:
+        return
+    for edge in ['left', 'right']:
+        blade = original_layout['blades'][edge]
+        encoded = base64.b64encode(json.dumps(blade.get('slots', [])).encode()).decode()
+        control('setBladeSlots', edge, 'base64:' + encoded)
+        control('setBladeWidth', edge, str(blade.get('width', 0)))
+        control('undockBlade' if blade.get('mode') == 'window' else 'dockBlade', edge)
+        control('openBlade' if blade.get('open') else 'closeBlade', edge)
+    if original_root:
+        control('setRoot', original_root)
+    if original_focus:
+        control('focusBlade', original_focus)
+    else:
+        control('releaseBladeFocus')
+    wait(layout_matches, 'original layout restoration', 20)
+    (out / 'layout-after.json').write_text(read_guest_file(layout_path))
 
 def stage_portal():
     global config_before, descriptor, config
@@ -191,17 +296,37 @@ def stage_portal():
 def restart_portal_frontend():
     guest('systemctl --user restart xdg-desktop-portal.service')
 
+def drain_native_view():
+    result = json.loads(guest(launcher_command() + ' native drain --timeout-ms 30000 --json', timeout=40))
+    if not (result.get('schema') == 1 and result.get('action') == 'drain'
+            and result.get('status') in ['drained', 'already_stopped']
+            and result.get('error') == ''
+            and isinstance(result.get('operation_ids'), list)
+            and all(isinstance(value, str) for value in result['operation_ids'])
+            and isinstance(result.get('dirty_note_ids'), list)
+            and all(isinstance(value, str) for value in result['dirty_note_ids'])):
+        raise AssertionError('installed native view did not drain: ' + json.dumps(result, sort_keys=True))
+
 def restore_portal(descriptor, config):
     backup_descriptor = shell_path(guest_fixture + '/backup/descriptor')
     backup_config = shell_path(guest_fixture + '/backup/config')
-    descriptor_path = shell_path(descriptor)
-    config_path = shell_path(config)
-    guest(f'if test -f {backup_descriptor}; then cp -a {backup_descriptor} {descriptor_path}; else rm -f {descriptor_path}; fi')
-    guest(f'if test -f {backup_config}; then cp -a {backup_config} {config_path}; else rm -f {config_path}; fi')
-    restart_portal_frontend()
+    if descriptor:
+        descriptor_path = shell_path(descriptor)
+        guest(f'if test -f {backup_descriptor}; then cp -a {backup_descriptor} {descriptor_path}; elif test -f {backup_descriptor}.absent; then rm -f {descriptor_path}; fi')
+    if config:
+        config_path = shell_path(config)
+        guest(f'if test -f {backup_config}; then cp -a {backup_config} {config_path}; elif test -f {backup_config}.absent; then rm -f {config_path}; fi')
+    for path, backup in [(descriptor, backup_descriptor), (config, backup_config)]:
+        if path:
+            guest(f'if test -f {backup}; then cmp -s {backup} {shell_path(path)}; elif test -f {backup}.absent; then test ! -e {shell_path(path)}; fi')
+    if descriptor or config:
+        restart_portal_frontend()
 
 def start_backend():
-    command = 'env FILEBLADE_SPIKE_HOME=' + shell_path(state_root) + ' XDG_CONFIG_HOME=' + shell_path(state_root + '/config') + ' XDG_STATE_HOME=' + shell_path(state_root + '/state') + ' FILEBLADE_NATIVE_STATE_ROOT=' + shell_path(state_root + '/state/omarchy/fileblade') + ' ' + shell_path(binary) + ' native portal'
+    if shape == 'native':
+        command = 'env FILEBLADE_QUALIFICATION=1 FILEBLADE_CHOOSER=1 ' + launcher_command() + ' native portal'
+    else:
+        command = 'env FILEBLADE_SPIKE_HOME=' + shell_path(state_root) + ' XDG_CONFIG_HOME=' + shell_path(state_root + '/config') + ' XDG_STATE_HOME=' + shell_path(state_root + '/state') + ' FILEBLADE_NATIVE_STATE_ROOT=' + shell_path(state_root + '/state/omarchy/fileblade') + ' ' + shell_path(binary) + ' native portal'
     return int(guest('setsid ' + command + ' >' + shell_path(guest_fixture + '/portal.log') + ' 2>&1 < /dev/null & echo $!'))
 
 def start_browser():
@@ -215,11 +340,27 @@ def stop_pid(pid):
         guest('kill -TERM ' + str(pid) + ' >/dev/null 2>&1 || true')
 
 def cleanup(descriptor, config):
-    stop_pid(browser_pid)
-    stop_pid(server_pid)
-    stop_pid(backend_pid)
-    restore_portal(descriptor, config)
-    guest('rm -f ' + shell_path(upload_path))
+    global native_view_changed
+    errors = []
+    def attempt(label, action):
+        try:
+            action()
+        except Exception as error:
+            errors.append(label + ': ' + str(error))
+    attempt('stop Chromium', lambda: stop_pid(browser_pid))
+    attempt('stop browser server', lambda: stop_pid(server_pid))
+    attempt('stop portal backend', lambda: stop_pid(backend_pid))
+    attempt('restore original layout', restore_layout)
+    if descriptor or config:
+        attempt('restore portal configuration', lambda: restore_portal(descriptor, config))
+    if native_view_changed:
+        attempt('drain qualification view', drain_native_view)
+        native_view_changed = False
+        attempt('restart ordinary native view', lambda: call('restart', timeout=40))
+    attempt('remove upload fixture', lambda: guest('rm -f ' + shell_path(upload_path)))
+    if errors:
+        (out / 'cleanup-error.txt').write_text('\n'.join(errors) + '\n')
+        raise RuntimeError('; '.join(errors))
     guest('rm -rf ' + shell_path(guest_fixture))
 
 def route_lines(value):
@@ -228,17 +369,23 @@ def route_lines(value):
 descriptor = config = None
 try:
     guest('mkdir -p ' + shell_path(guest_fixture))
+    snapshot_layout()
+    if shape == 'native':
+        drain_native_view()
+        native_view_changed = True
     guest('printf %s ' + shell_path(upload_body.decode()) + ' > ' + shell_path(upload_path))
     descriptor, config, config_after, effective_config = stage_portal()
-    if ipc('status').get('sessions'):
-        raise AssertionError('close existing fixture chooser sessions before running E47')
     backend_pid = start_backend()
+    if shape == 'native':
+        wait(lambda: fileblade_status().get('bladeModules'), 'installed native view', 30)
+        wait(lambda: native_probe().get('slots') is not None, 'installed qualification chooser probe', 30)
+    if ipc('status').get('sessions'):
+        raise AssertionError('close existing fixture chooser sessions before running E-47')
     wait(lambda: guest('gdbus call --session --dest org.freedesktop.impl.portal.desktop.fileblade --object-path /org/freedesktop/portal/desktop --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1 && echo yes || true') == 'yes', 'FileBlade portal bus registration', 20)
     restart_portal_frontend()
     server_pid = browser_server()
     guest('for attempt in $(seq 1 50); do curl -fsS http://127.0.0.1:' + str(portal_port) + '/ >/dev/null && exit 0; sleep .1; done; exit 1', timeout=20)
-    for edge in ['left', 'right', 'top', 'bottom']:
-        guest(shlex.join(['qs', 'ipc', '-n', '-p', app, 'call', '--', 'data-goblin.fileblade.control', 'closeBlade', edge]))
+    temporary_close_blades()
     browser_pid = start_browser()
     browser = browser_window()
     wait(lambda: guest('test -f ' + shell_path(guest_fixture + '/ready') + ' && echo yes || true') == 'yes', 'browser page ready', 20)
@@ -268,17 +415,15 @@ try:
     selected = json.loads(guest('cat ' + shell_path(guest_fixture + '/selected.json')))
     if selected.get('name') != [Path(upload_path).name] or selected.get('size') != [str(len(upload_body))]:
         raise AssertionError('browser selected metadata mismatch: ' + json.dumps(selected, sort_keys=True))
+    browser_shot = call('shot', 'native-portal-browser-upload')
+    (out / 'browser-upload-shot.txt').write_text(browser_shot + '\n')
     non_filechooser_before = route_lines(config_before)
     non_filechooser_after = route_lines(config_after)
     if non_filechooser_before != non_filechooser_after:
         raise AssertionError('portal config changed a route other than FileChooser')
-    evidence = {'descriptor': descriptor, 'config': config, 'effective_config': effective_config, 'bus_name': 'org.freedesktop.impl.portal.desktop.fileblade', 'interface': 'org.freedesktop.impl.portal.FileChooser', 'cancelled': True, 'selected': selected, 'upload': result, 'other_routes_preserved': True}
+    evidence = {'descriptor': descriptor, 'config': config, 'effective_config': effective_config, 'bus_name': 'org.freedesktop.impl.portal.desktop.fileblade', 'interface': 'org.freedesktop.impl.portal.FileChooser', 'cancelled': True, 'selected': selected, 'upload': result, 'other_routes_preserved': True, 'shape': shape, 'qualification_flags': ['FILEBLADE_QUALIFICATION=1', 'FILEBLADE_CHOOSER=1'] if shape == 'native' else []}
     (out / 'E47-portal.json').write_text(json.dumps(evidence, indent=2) + '\n')
-    shot = call('shot', 'native-portal-upload')
-    (out / 'upload-shot.txt').write_text(shot + '\n')
-    print('PASS E47-01: Chromium opened the registered FileBlade portal and cancellation closed its chooser')
-    print('PASS E47-02: Chromium uploaded the selected bytes through the FileBlade portal')
-    print('PASS E47-03: FileChooser routing changed alone and other portal routes stayed byte-identical')
+    (out / 'upload-shot.txt').write_text(browser_shot + '\n')
 except Exception:
     try:
         (out / 'failure-shot.txt').write_text(call('shot', 'native-portal-failure') + '\n')
@@ -287,10 +432,14 @@ except Exception:
         pass
     raise
 finally:
-    for name in ['portal.log', 'server.log', 'browser.log', 'events']:
-        value = read_guest_file(guest_fixture + '/' + name)
-        if value is not None:
-            (out / name).write_text(value)
-    if descriptor and config:
+    try:
+        for name in ['portal.log', 'server.log', 'browser.log', 'events']:
+            value = read_guest_file(guest_fixture + '/' + name)
+            if value is not None:
+                (out / name).write_text(value)
+    finally:
         cleanup(descriptor, config)
+print('PASS E-47-01: Chromium opened the registered FileBlade portal and cancellation closed its chooser')
+print('PASS E-47-02: Chromium uploaded the selected bytes through the FileBlade portal')
+print('PASS E-47-03: Other portal routes, original chooser configuration and blade state were preserved')
 PY
