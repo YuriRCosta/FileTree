@@ -14,7 +14,7 @@ Item {
   property string pluginDir: ""
   property var config: ({})
   property var services: ({})
-  readonly property bool welcomePending: !!(services && services.files) && String(services.files.welcomeState || "") === ""
+  readonly property bool welcomePending: !!(services && services.files) && services.files.welcomePending === true
   property var updates: null
   property var legacyDefaults: ({})
 

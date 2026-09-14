@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import qs.Commons
+import qs.Ui
 import "../../ui" as PluginUi
 import "WelcomePlan.js" as WelcomePlan
 
@@ -10,6 +11,13 @@ FocusScope {
   readonly property string title: "Welcome"
   readonly property var files: context ? context.service("files") : null
   readonly property var host: files ? files.bladeHost : null
+  readonly property var welcome: files ? files.welcome : null
+  readonly property bool updated: !!welcome && welcome.updated
+  readonly property string appVersion: files ? String(files.appVersion || "") : ""
+  readonly property var manifest: files ? files.manifest : null
+  readonly property string issuesUrl: WelcomePlan.issuesUrl(manifest)
+  readonly property string releaseUrl: WelcomePlan.releaseUrl(manifest, appVersion)
+  readonly property string changelogUrl: WelcomePlan.changelogUrl(manifest)
   readonly property var shortcuts: [
     { title: "Welcome", items: [{ shortcut: "Enter", text: "Open Files" }, { shortcut: "Esc", text: "Close Welcome" }] }
   ]
@@ -29,14 +37,20 @@ FocusScope {
     if (!info(id)) { error = "This blade is unavailable."; return false }
     var found = host.findModule(id)
     if (!found) {
-      var welcome = host.findModule("welcome")
-      if (!host.addSlot(welcome ? welcome.edge : "right", id, -1)) { error = "The blade could not be added."; return false }
+      var welcomeSlot = host.findModule("welcome")
+      if (!host.addSlot(welcomeSlot ? welcomeSlot.edge : "right", id, -1)) { error = "The blade could not be added."; return false }
       found = host.findModule(id)
     }
     if (!found) return false
     host.setSlotTab(found.edge, found.index, found.tab)
     host.setOpen(found.edge, true)
     host.focusModule(id, host.preferredScreen(found.edge), "")
+    error = ""
+    return true
+  }
+  function openLink(url) {
+    if (String(url || "") === "") { error = "This link is unavailable."; return false }
+    Qt.openUrlExternally(url)
     error = ""
     return true
   }
@@ -53,8 +67,9 @@ FocusScope {
     property string detail: ""
     property string glyph: ""
     property string iconUrl: ""
+    property bool inline: false
     width: parent ? parent.width : 0
-    padding: Style.space(8)
+    padding: action.inline ? Style.space(4) : Style.space(8)
     implicitHeight: body.implicitHeight + padding * 2
     hoverEnabled: true
     Keys.onReturnPressed: clicked()
@@ -82,18 +97,37 @@ FocusScope {
         id: body
         width: parent.width - (action.glyph !== "" || action.iconUrl !== "" ? Style.space(24) : 0)
         spacing: Style.space(3)
-        Text {
+        Item {
           width: parent.width
-          textFormat: Text.PlainText
-          text: action.text
-          color: action.enabled ? Color.bar.text : Color.muted
-          wrapMode: Text.WordWrap
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          height: Math.max(nameText.implicitHeight, detailInline.implicitHeight)
+          Text {
+            id: nameText
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width: detailInline.visible ? Math.max(0, parent.width - detailInline.implicitWidth - Style.space(8)) : parent.width
+            textFormat: Text.PlainText
+            text: action.text
+            elide: action.inline ? Text.ElideRight : Text.ElideNone
+            color: action.enabled ? Color.bar.text : Color.muted
+            wrapMode: action.inline ? Text.NoWrap : Text.WordWrap
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
+          Text {
+            id: detailInline
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            visible: action.inline && action.detail !== ""
+            textFormat: Text.PlainText
+            text: action.detail
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.bodySmall
+          }
         }
         Text {
           width: parent.width
-          visible: text !== ""
+          visible: !action.inline && action.detail !== ""
           textFormat: Text.PlainText
           text: action.detail
           color: Color.muted
@@ -137,17 +171,40 @@ FocusScope {
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }
-      Repeater {
-        model: WelcomePlan.CORE
-        delegate: Action {
-          required property var modelData
-          readonly property var entry: module.info(modelData.id)
-          text: modelData.name
-          detail: modelData.description
-          glyph: entry ? entry.glyph : ""
-          iconUrl: entry ? entry.iconUrl : ""
-          enabled: !!entry
-          onClicked: module.openModule(modelData.id)
+      PluginUi.SettingsGroup { visible: module.updated; title: "What's new" }
+      Text {
+        width: parent.width
+        visible: module.updated
+        textFormat: Text.PlainText
+        text: "FileBlade was updated to " + module.appVersion + "."
+        color: Color.muted
+        wrapMode: Text.WordWrap
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
+      Column {
+        width: parent.width
+        visible: module.updated
+        spacing: Style.space(2)
+        Action { inline: true; text: "Release notes"; detail: "On GitHub"; onClicked: module.openLink(module.releaseUrl) }
+        Action { inline: true; text: "Full changelog"; detail: "On GitHub"; onClicked: module.openLink(module.changelogUrl) }
+      }
+      Column {
+        width: parent.width
+        spacing: Style.space(2)
+        Repeater {
+          model: WelcomePlan.CORE
+          delegate: Action {
+            required property var modelData
+            readonly property var entry: module.info(modelData.id)
+            inline: true
+            text: modelData.name
+            detail: modelData.description
+            glyph: entry ? entry.glyph : ""
+            iconUrl: entry ? entry.iconUrl : ""
+            enabled: !!entry
+            onClicked: module.openModule(modelData.id)
+          }
         }
       }
       PluginUi.SettingsGroup { title: "Help · available offline" }
@@ -161,8 +218,13 @@ FocusScope {
           onClicked: module.helpIndex = index
         }
       }
-      Action { text: "Keyboard reference"; onClicked: Qt.openUrlExternally(Qt.resolvedUrl("../../docs/agent-written/keybindings.md")) }
-      Action { text: "Extension authoring guide"; onClicked: Qt.openUrlExternally(Qt.resolvedUrl("../../EXTENSIONS.md")) }
+      Column {
+        width: parent.width
+        spacing: Style.space(2)
+        Action { inline: true; text: "Keyboard reference"; detail: "Local file"; onClicked: module.openLink(Qt.resolvedUrl("../../docs/agent-written/keybindings.md")) }
+        Action { inline: true; text: "Extension authoring guide"; detail: "Local file"; onClicked: module.openLink(Qt.resolvedUrl("../../EXTENSIONS.md")) }
+        Action { inline: true; text: "Report a problem"; detail: "GitHub issues"; onClicked: module.openLink(module.issuesUrl) }
+      }
       PluginUi.SettingsGroup { title: "Extensions" }
       Text {
         width: parent.width
@@ -174,13 +236,18 @@ FocusScope {
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }
-      Repeater {
-        model: module.catalog.entries
-        delegate: Action {
-          required property var modelData
-          text: modelData.name
-          detail: modelData.id + " · " + modelData.lifecycle + "\n" + (modelData.compatible ? "Compatible" : "Requires a newer extension interface") + "\n" + modelData.source
-          onClicked: Qt.openUrlExternally(modelData.source)
+      Column {
+        width: parent.width
+        spacing: Style.space(2)
+        Repeater {
+          model: module.catalog.entries
+          delegate: Action {
+            required property var modelData
+            inline: true
+            text: modelData.name
+            detail: modelData.compatible ? modelData.lifecycle : "Needs newer host"
+            onClicked: module.openLink(modelData.source)
+          }
         }
       }
       Text {
@@ -193,7 +260,23 @@ FocusScope {
         font.family: Style.font.family
         font.pixelSize: Style.font.bodySmall
       }
-      Action { text: WelcomePlan.DISMISS; detail: "Reopen Welcome with + in a blade."; onClicked: module.dismiss() }
+      Item { width: parent.width; height: Style.space(4) }
+      Button {
+        bordered: true
+        focusable: true
+        fontFamily: Style.font.family
+        text: WelcomePlan.DISMISS
+        onClicked: module.dismiss()
+      }
+      Text {
+        width: parent.width
+        textFormat: Text.PlainText
+        text: "Reopen Welcome with + in a blade."
+        color: Color.muted
+        wrapMode: Text.WordWrap
+        font.family: Style.font.family
+        font.pixelSize: Style.font.bodySmall
+      }
     }
   }
 }

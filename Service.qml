@@ -5,12 +5,14 @@ import "blades"
 import "controllers"
 import "lib/PathText.js" as PathText
 import "lib/GitSummary.js" as GitSummary
+import "lib/Definitions.js" as Definitions
 
 Item {
   id: service
 
   property var shell: null
   property var manifest: null
+  readonly property string appVersion: manifest && manifest.version ? String(manifest.version) : ""
   property var pluginRegistry: null
   property var chooserSession: null
   readonly property var backendClient: chooserSession ? chooserSession.backend : ownedBackend
@@ -102,6 +104,7 @@ Item {
   readonly property alias keybindings: keybindings
   WelcomeController { id: welcomeController; service: service }
   readonly property alias welcome: welcomeController
+  readonly property bool welcomePending: welcomeController.pending
 
   function backendRequest(name, arguments, generation, callback, progress, deadlineMs, options) {
     return backendClient.request(name, arguments, generation, callback, progress, deadlineMs, options)
@@ -146,7 +149,8 @@ Item {
   readonly property string focusedBlade: bladeHost.focusedEdge
   property alias showHidden: stateController.showHidden
   property alias welcomeState: stateController.welcomeState
-  function setWelcomeState(value) { return stateController.setWelcomeState(value) }
+  property alias welcomeVersion: stateController.welcomeVersion
+  function setWelcomeState(value, version) { return stateController.setWelcomeState(value, version) }
   property alias searchCaseSensitive: stateController.searchCaseSensitive
   property alias searchRegex: stateController.searchRegex
   property alias searchTreeLayout: stateController.searchTreeLayout
@@ -617,6 +621,7 @@ Item {
 
   function pluginConfig() { return configController.pluginConfig() }
   function boolValue(value, fallback) { return configController.boolValue(value, fallback) }
+  function boundedVersion(value) { return Definitions.boundedText(value, "", 64) }
   function numberValue(value, fallback, minimum, maximum) { return configController.numberValue(value, fallback, minimum, maximum) }
   function normalizePlacement(value) { return configController.normalizePlacement(value) }
   function normalizeModeBadge(value) { return configController.normalizeModeBadge(value) }

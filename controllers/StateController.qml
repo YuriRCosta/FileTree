@@ -32,6 +32,7 @@ Item {
   property int stateWriteGeneration: 0
   property alias showHidden: persisted.showHidden
   property alias welcomeState: persisted.welcomeState
+  property alias welcomeVersion: persisted.welcomeVersion
   property alias searchCaseSensitive: persisted.searchCaseSensitive
   property alias searchRegex: persisted.searchRegex
   property alias searchTreeLayout: persisted.searchTreeLayout
@@ -72,6 +73,7 @@ Item {
     property var retainedFields: ({})
     property bool showHidden: true
     property string welcomeState: ""
+    property string welcomeVersion: ""
     property bool searchCaseSensitive: false
     property bool searchRegex: false
     property bool searchTreeLayout: false
@@ -630,6 +632,7 @@ Item {
     persisted.retainedFields = state
     showHidden = service.boolValue(state.showHidden, base.showHidden)
     welcomeState = typeof state.welcomeState === "string" && ["dismissed", "installed"].indexOf(state.welcomeState) >= 0 ? state.welcomeState : ""
+    welcomeVersion = typeof state.welcomeVersion === "string" ? service.boundedVersion(state.welcomeVersion) : ""
     searchCaseSensitive = service.boolValue(state.searchCaseSensitive, false)
     searchRegex = service.boolValue(state.searchRegex, false)
     searchTreeLayout = service.boolValue(state.searchTreeLayout, false)
@@ -690,6 +693,7 @@ Item {
       version: 12,
       showHidden: showHidden,
       welcomeState: welcomeState,
+      welcomeVersion: welcomeVersion,
       searchCaseSensitive: searchCaseSensitive,
       searchRegex: searchRegex,
       searchTreeLayout: searchTreeLayout,
@@ -739,10 +743,13 @@ Item {
     if (ready && stateWritable) saveTimer.restart()
   }
 
-  function setWelcomeState(value) {
+  function setWelcomeState(value, version) {
     var next = String(value || "")
-    if (["", "dismissed", "installed"].indexOf(next) < 0 || next === welcomeState) return welcomeState
+    if (["", "dismissed", "installed"].indexOf(next) < 0) return welcomeState
+    var nextVersion = version === undefined ? welcomeVersion : service.boundedVersion(version)
+    if (next === welcomeState && nextVersion === welcomeVersion) return welcomeState
     welcomeState = next
+    welcomeVersion = next === "" ? "" : nextVersion
     save()
     return welcomeState
   }

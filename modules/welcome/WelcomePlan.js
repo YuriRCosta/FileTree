@@ -6,12 +6,12 @@ var BODY = "Browse files, keep notes, and inspect your agent files. These blades
 var DISMISS = "Close Welcome"
 var STATES = ["", "dismissed", "installed"]
 var CORE = [
-  { id: "files", name: "Files", description: "Browse, search and manage your files." },
-  { id: "notes", name: "Notes", description: "A persistent plain-text notebook." },
-  { id: "skills", name: "Skills", description: "Inspect available agent skills." },
-  { id: "memory", name: "Memory", description: "Find agent instruction and memory files." },
-  { id: "hooks", name: "Hooks", description: "Inspect configured event hooks." },
-  { id: "mcp", name: "MCP", description: "Inspect configured MCP servers." }
+  { id: "files", name: "Files", description: "Browse and manage files" },
+  { id: "notes", name: "Notes", description: "Plain-text notebook" },
+  { id: "skills", name: "Skills", description: "Inspect agent skills" },
+  { id: "memory", name: "Memory", description: "Agent instruction files" },
+  { id: "hooks", name: "Hooks", description: "Configured event hooks" },
+  { id: "mcp", name: "MCP", description: "Configured MCP servers" }
 ]
 var HELP = [
   { name: "Find your way", text: "Open Files to browse a folder. Use the arrow keys or j/k to move, Enter to activate an entry, and Alt+Up to go to the parent folder. Press / to search or Ctrl+P to choose a location." },
@@ -21,7 +21,37 @@ var HELP = [
 ]
 var LOCAL_CATALOG = { version: 1, entries: [] }
 
-function pending(state) { return String(state || "") === "" }
+function firstRun(state) { return String(state || "") === "" }
+function updated(state, seenVersion, currentVersion) {
+  if (firstRun(state)) return false
+  var seen = String(seenVersion || ""), current = String(currentVersion || "")
+  return seen !== "" && current !== "" && seen !== current
+}
+function needsVersionAdoption(state, seenVersion, currentVersion) {
+  return !firstRun(state) && String(seenVersion || "") === "" && String(currentVersion || "") !== ""
+}
+function pending(state, seenVersion, currentVersion) {
+  return firstRun(state) || updated(state, seenVersion, currentVersion)
+}
+function repositoryUrl(manifest) {
+  var url = manifest && typeof manifest.repository === "string" ? manifest.repository.trim() : ""
+  var match = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/.exec(url)
+  if (!match) return ""
+  if (match[1] === "." || match[1] === ".." || match[2] === "." || match[2] === "..") return ""
+  return url
+}
+function issuesUrl(manifest) {
+  var base = repositoryUrl(manifest)
+  return base === "" ? "" : base + "/issues/new"
+}
+function releaseUrl(manifest, version) {
+  var base = repositoryUrl(manifest), tag = String(version || "").trim()
+  return base === "" || tag === "" ? "" : base + "/releases/tag/v" + tag
+}
+function changelogUrl(manifest) {
+  var base = repositoryUrl(manifest)
+  return base === "" ? "" : base + "/blob/main/CHANGELOG.md"
+}
 function normalizeState(state) { return STATES.indexOf(String(state || "")) >= 0 ? String(state || "") : "" }
 function welcomeSlot() { return { id: "welcome", modules: [{ module: "welcome" }, { module: "notes" }], active: 0 } }
 
