@@ -23,6 +23,8 @@ PanelWindow {
   readonly property bool bladeOpen: panelEnabled && !windowMode && !!blade.open
   property int liveWidth: -1
   property int pointerResizeStartWidth: 0
+  property int pointerResizeBoundary: -1
+  property var pointerResizeStartFractions: null
   readonly property bool pointerResizing: surfaceActive && bladeOpen && host.pointerResizeEdge === edge
   readonly property int surfaceWidth: host.maximumWidth(screen ? screen.width : 0)
   readonly property int storedWidth: Number(blade.width) || 380
@@ -147,16 +149,30 @@ PanelWindow {
     if (pointerResizing) {
       pointerResizeStartWidth = bladeWidth
       liveWidth = bladeWidth
+      pointerResizeBoundary = stack.boundaryAt(stack.mapFromItem(null, host.pointerResizeStartX, host.pointerResizeStartY).y)
+      pointerResizeStartFractions = pointerResizeBoundary >= 0 ? stack.fractions.slice() : null
     } else {
       commitLiveWidth()
+      commitPointerSlots()
     }
   }
 
-  function applyPointerResize(sceneX) {
+  function applyPointerResize(sceneX, sceneY) {
     if (!pointerResizing) return
     var delta = Number(sceneX) - host.pointerResizeStartX
     var target = pointerResizeStartWidth + (isRight ? -delta : delta)
     liveWidth = Math.round(Math.max(host.minimumWidth, Math.min(surfaceWidth, target)))
+    if (sceneY === undefined || !pointerResizeStartFractions) return
+    var next = stack.resizedFractions(pointerResizeBoundary, pointerResizeStartFractions,
+      Number(sceneY) - host.pointerResizeStartY)
+    if (next) stack.dragFractions = next
+  }
+
+  function commitPointerSlots() {
+    if (pointerResizeStartFractions && stack.dragFractions) host.setSlotFractions(edge, stack.dragFractions)
+    stack.dragFractions = null
+    pointerResizeStartFractions = null
+    pointerResizeBoundary = -1
   }
 
   function commitLiveWidth() {
@@ -288,12 +304,12 @@ PanelWindow {
     parent: surface.contentItem
     enabled: surface.surfaceActive
     onHoveredChanged: {
-      if (hovered) surface.host.notePointer(surface.edge, point.scenePosition.x)
+      if (hovered) surface.host.notePointer(surface.edge, point.scenePosition.x, point.scenePosition.y)
       else surface.host.clearPointer(surface.edge)
     }
     onPointChanged: {
-      surface.host.notePointer(surface.edge, point.scenePosition.x)
-      surface.applyPointerResize(point.scenePosition.x)
+      surface.host.notePointer(surface.edge, point.scenePosition.x, point.scenePosition.y)
+      surface.applyPointerResize(point.scenePosition.x, point.scenePosition.y)
     }
   }
 

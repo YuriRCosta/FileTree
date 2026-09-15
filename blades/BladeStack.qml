@@ -33,6 +33,37 @@ Item {
     return false
   }
 
+  function boundaryAt(localY) {
+    var count = fractions.length
+    if (count < 2) return -1
+    for (var index = 0; index < count - 1; index++)
+      if (localY < slotTop(index) + slotHeight(index) + handleSize) return index
+    return count - 2
+  }
+
+  function resizedFractions(index, startFractions, deltaY) {
+    if (!startFractions || index < 0 || index + 1 >= startFractions.length || usable <= 0) return null
+    var expandedWeight = 0
+    for (var i = 0; i < startFractions.length; i++)
+      if (!host.slotCollapsed(edge, i)) expandedWeight += startFractions[i]
+    var delta = deltaY / usable * expandedWeight
+    var minimum = Math.min(expandedWeight * 0.45, host.minimumSlotHeight / usable * expandedWeight)
+    var next = startFractions.slice()
+    var upper = next[index] + delta
+    var lower = next[index + 1] - delta
+    if (upper < minimum) {
+      lower -= minimum - upper
+      upper = minimum
+    }
+    if (lower < minimum) {
+      upper -= minimum - lower
+      lower = minimum
+    }
+    next[index] = upper
+    next[index + 1] = lower
+    return next
+  }
+
   function wholeSlotDragged(index) {
     return host.dragActive && host.dragEdge === edge && host.dragIndex === index
       && (host.dragTab < 0 || host.slotTabs(edge, index).length === 1)
@@ -188,25 +219,8 @@ Item {
         onPositionChanged: function(mouse) {
           if (!(mouse.buttons & Qt.LeftButton) || !handle.startFractions || stack.usable <= 0) return
           var point = handlePointer.mapToItem(stack, mouse.x, mouse.y)
-          var expandedWeight = 0
-          for (var i = 0; i < handle.startFractions.length; i++)
-            if (!stack.host.slotCollapsed(stack.edge, i)) expandedWeight += handle.startFractions[i]
-          var delta = (point.y - handle.pressedY) / stack.usable * expandedWeight
-          var minimum = Math.min(expandedWeight * 0.45, stack.host.minimumSlotHeight / stack.usable * expandedWeight)
-          var next = handle.startFractions.slice()
-          var upper = next[handle.index] + delta
-          var lower = next[handle.index + 1] - delta
-          if (upper < minimum) {
-            lower -= minimum - upper
-            upper = minimum
-          }
-          if (lower < minimum) {
-            upper -= minimum - lower
-            lower = minimum
-          }
-          next[handle.index] = upper
-          next[handle.index + 1] = lower
-          stack.dragFractions = next
+          var next = stack.resizedFractions(handle.index, handle.startFractions, point.y - handle.pressedY)
+          if (next) stack.dragFractions = next
         }
 
         function finish() {

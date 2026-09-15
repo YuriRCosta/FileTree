@@ -26,13 +26,16 @@ Item {
   readonly property int minimumWidth: 280
   property string pointerEdge: ""
   property real pointerSceneX: 0
+  property real pointerSceneY: 0
   property string pointerResizeEdge: ""
   property real pointerResizeStartX: 0
+  property real pointerResizeStartY: 0
   readonly property bool pointerResizeActive: pointerResizeEdge !== ""
 
-  function notePointer(edge, sceneX) {
+  function notePointer(edge, sceneX, sceneY) {
     pointerEdge = String(edge || "")
     pointerSceneX = Number(sceneX) || 0
+    if (sceneY !== undefined) pointerSceneY = Number(sceneY) || 0
   }
 
   function clearPointer(edge) {
@@ -48,6 +51,7 @@ Item {
       return false
     }
     pointerResizeStartX = pointerSceneX
+    pointerResizeStartY = pointerSceneY
     pointerResizeEdge = edge
     return true
   }
