@@ -64,6 +64,8 @@ Rectangle {
   readonly property bool moreRow: kind === "More"
   readonly property string moreParent: moreRow ? path.slice(0, -5) : ""
   readonly property bool hiddenEntry: !moreRow && name !== "." && name !== ".." && name.charAt(0) === "."
+  readonly property bool homeEntry: isDir && !moreRow && path === controller.home
+  readonly property string displayName: homeEntry ? FileIcons.homeName() : name
   readonly property bool favoriteAvailable: favoriteMode || depth > 0
   readonly property var draggedPaths: controller.dropWheel.dragPaths
   readonly property bool dropAllowed: !customInteraction && row.isDir && DragPlan.canDrop(draggedPaths, row.path)
@@ -238,7 +240,7 @@ Rectangle {
       ? ""
       : (row.moreRow
         ? "󰇘"
-        : FileIcons.entryIcon(row.name, row.isDir, row.isSymlink, row.expanded && row.treeMode, row.isGitRepo))
+        : FileIcons.entryIcon(row.name, row.isDir, row.isSymlink, row.expanded && row.treeMode, row.isGitRepo, row.homeEntry))
     color: row.urgent
       ? Color.urgent
       : (row.gitDeleted
@@ -265,9 +267,9 @@ Rectangle {
     Text {
       width: parent.width
       textFormat: row.nameSpans !== "" ? Text.StyledText : Text.PlainText
-      text: row.nameSpans !== ""
+      text: row.nameSpans !== "" && !row.homeEntry
         ? Highlight.markup(row.name, Highlight.parseSpans(row.nameSpans), Color.accent)
-        : row.name
+        : row.displayName
       color: row.urgent
         ? Color.urgent
         : (row.gitDeleted

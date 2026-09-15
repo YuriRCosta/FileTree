@@ -45,7 +45,7 @@ fn gitignored_entries_keep_their_file_icon_and_mark_the_git_column() {
     let row = fs::read_to_string(root.join("panes/BrowserRow.qml")).unwrap();
 
     assert!(row.contains(
-        ": FileIcons.entryIcon(row.name, row.isDir, row.isSymlink, row.expanded && row.treeMode, row.isGitRepo)"
+        ": FileIcons.entryIcon(row.name, row.isDir, row.isSymlink, row.expanded && row.treeMode, row.isGitRepo, row.homeEntry))"
     ));
     assert!(!row.contains("row.gitIgnored\n          ? \"\""));
     assert!(

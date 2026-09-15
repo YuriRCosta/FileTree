@@ -339,7 +339,10 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
     assert!(pane_row.contains("property bool linkOnRight: true"));
     assert!(pane_row.contains("row.linkOnRight ? linkGlyph : rowGlyph"));
     let file_icons = text(&root.join("lib/FileIcons.js"));
-    assert!(file_icons.contains("function entryIcon(name, isDir, isSymlink, expanded, isGitRepo)"));
+    assert!(
+        file_icons
+            .contains("function entryIcon(name, isDir, isSymlink, expanded, isGitRepo, isHome)")
+    );
     assert!(file_icons.contains("if (isSymlink) return fileIcon(name, true)"));
     assert!(artifact_tree.contains("target.slice(0, -9)"));
 }

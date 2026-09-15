@@ -972,9 +972,10 @@ FocusScope {
     visible: root.contextAbove
     enabled: false
     height: visible ? Style.space(30) : 0
-    glyph: FileIcons.entryIcon(entry ? entry.name : "", true, entry ? entry.isSymlink : false, false, entry ? entry.isGitRepo : false)
+    glyph: FileIcons.entryIcon(entry ? entry.name : "", true, entry ? entry.isSymlink : false, false,
+      entry ? entry.isGitRepo : false, entry ? entry.path === controller.home : false)
     glyphColor: entry && entry.error ? Color.urgent : Color.accent
-    label: entry ? entry.name : controller.rootName(controller.rootPath)
+    label: entry && entry.path !== controller.home ? entry.name : controller.rootName(controller.rootPath)
     detail: summary.identity || ""
     badge: entry && entry.error ? "Unavailable" : (summary.text || "")
     columnWidths: badge ? [Math.min(width * 0.38, Style.space(150))] : []

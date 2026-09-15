@@ -101,6 +101,7 @@ Item {
   }
 
   function rootName(path) {
+    if (String(path) === service.home) return "home"
     if (String(path) === service.trashResource) return "Trash"
     if (String(path) === service.recentResource) return "Recent"
     if (String(path) === service.drivesResource) return "Drives"
