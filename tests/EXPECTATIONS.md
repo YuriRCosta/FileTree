@@ -177,8 +177,9 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 
 `tests/vm/expectations/07-hidden-and-git.sh`
 
-49. **E-07-01** When I show hidden files, each hidden file has a crossed-out-eye
-    icon that identifies it as hidden.
+49. **E-07-01** When I show hidden files, each hidden file carries a
+    crossed-out-eye mark on the corner of its own icon, so the marker slot at the
+    left edge of the row stays free for the favourite star.
 50. **E-07-02** If I press `.`, `Shift+H`, or `Ctrl+H`, hidden files toggle
     between shown and hidden.
 51. **E-07-03** When I view a hidden file, its row is dimmed but I can still see

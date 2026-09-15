@@ -207,9 +207,9 @@ Rectangle {
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(14)
     horizontalAlignment: Text.AlignHCenter
-    visible: !row.gitDeleted && !row.moreRow
-      && (row.hiddenEntry || (!row.customInteraction && row.favoriteAvailable && (row.favorite || row.hovered)))
-    text: row.hiddenEntry ? "󰈉" : (row.favorite ? "" : "☆")
+    visible: !row.gitDeleted && !row.moreRow && !row.customInteraction
+      && row.favoriteAvailable && (row.favorite || row.hovered)
+    text: row.favorite ? "" : "☆"
     color: row.favorite ? Color.accent : Color.muted
     font.family: Style.font.family
     font.pixelSize: Math.max(1, Math.round((Style.font.bodySmall) * row.densityScale))
@@ -254,6 +254,19 @@ Rectangle {
             : (row.entryColor || (row.isDir ? Color.accent : Color.muted))))))
     font.family: Style.font.family
     font.pixelSize: Math.max(1, Math.round((Style.font.body) * row.densityScale))
+  }
+
+  Text {
+    id: hiddenBadge
+    objectName: "hiddenBadge"
+    textFormat: Text.PlainText
+    visible: row.hiddenEntry && !row.moreRow && !row.gitDeleted
+    x: icon.x + icon.width - Style.space(6)
+    y: icon.y + icon.height - Style.space(9)
+    text: "󰈉"
+    color: row.mutedEntryColor
+    font.family: Style.font.family
+    font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
   }
 
   Column {

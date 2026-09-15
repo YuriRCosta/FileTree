@@ -1165,7 +1165,7 @@ fn pinned_git_picker_keeps_status_details_separate_from_column_options() {
 }
 
 #[test]
-fn hidden_entries_are_visible_by_default_and_reuse_the_leading_marker_slot() {
+fn hidden_entries_are_visible_by_default_and_marked_on_their_own_icon() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let state = text(&root.join("controllers/StateController.qml"));
     assert!(state.contains("property bool showHidden: true"));
@@ -1174,11 +1174,14 @@ fn hidden_entries_are_visible_by_default_and_reuse_the_leading_marker_slot() {
     let row = text(&root.join("panes/BrowserRow.qml"));
     assert!(row.contains("readonly property bool hiddenEntry:"));
     assert!(row.contains("readonly property bool favoriteAvailable: favoriteMode || depth > 0"));
-    assert!(row.contains(
-        "row.hiddenEntry || (!row.customInteraction && row.favoriteAvailable && (row.favorite || row.hovered))"
-    ));
+    assert!(row.contains("&& row.favoriteAvailable && (row.favorite || row.hovered)"));
+    assert!(row.contains("id: hiddenBadge"));
+    assert!(row.contains("visible: row.hiddenEntry && !row.moreRow && !row.gitDeleted"));
+    assert!(
+        !row.contains("row.hiddenEntry ? \""),
+        "the gutter belongs to the star alone"
+    );
     assert!(row.contains("HoverHandler { id: hoverTracker }"));
-    assert!(row.contains("text: row.hiddenEntry ? \"󰈉\""));
     assert!(row.contains("!row.gitDeleted && row.favoriteAvailable && mouse.x >= favoriteGlyph.x"));
     assert!(row.contains("id: favoriteGlyph\n    x: Style.space(3)\n"));
     assert!(row.contains("x: favoriteGlyph.x + favoriteGlyph.width + row.depth * Style.space(13)"));
