@@ -603,7 +603,7 @@ fn dispatch_command(
         }
     };
     if invalidates_files {
-        crate::index::invalidate_all();
+        crate::index::invalidate_from(&value);
         crate::listing::invalidate_all();
         crate::frecency::remap_from(&value);
     }

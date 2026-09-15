@@ -2,7 +2,7 @@
 mod isolated;
 
 #[test]
-fn navigation_writes_preserve_file_caches_but_file_mutations_invalidate_them() {
+fn navigation_writes_keep_the_caches_and_a_mutation_patches_the_index_in_place() {
     if !isolated::child(None) {
         return;
     }
@@ -46,8 +46,41 @@ fn navigation_writes_preserve_file_caches_but_file_mutations_invalidate_them() {
     let refreshed = super::acquire(root.path(), false, false, &cancelled).unwrap();
     assert!(!Arc::ptr_eq(&listing, &refreshed));
     assert_eq!(super::lock(&refreshed).entries.len(), 1);
-    assert!(!Arc::ptr_eq(
-        &index,
-        &crate::index::acquire(root.path(), false, false)
-    ));
+
+    let patched = crate::index::acquire(root.path(), false, false);
+    assert!(
+        Arc::ptr_eq(&index, &patched),
+        "a mutation rebuilt the index instead of patching it"
+    );
+    assert!(
+        index_finds(&patched, "new.txt"),
+        "the created file never reached the index"
+    );
+
+    std::fs::remove_file(root.path().join("new.txt")).unwrap();
+    crate::index::invalidate_within(&root.path().join("new.txt"));
+    let after = crate::index::acquire(root.path(), false, false);
+    assert!(Arc::ptr_eq(&index, &after), "a removal rebuilt the index");
+    assert!(
+        !index_finds(&after, "new.txt"),
+        "a removed file is still offered by the index"
+    );
+}
+
+fn index_finds(
+    index: &std::sync::Arc<std::sync::Mutex<crate::index::PathIndex>>,
+    name: &str,
+) -> bool {
+    let mut guard = index.lock().unwrap();
+    guard.set_pattern(name, crate::index::case_matching(false));
+    for _ in 0..200 {
+        if !guard.tick(10).running {
+            break;
+        }
+    }
+    let mut accept = |_: &str, _: &crate::index::IndexFlags| true;
+    guard
+        .hits(50, &mut accept)
+        .iter()
+        .any(|hit| hit.entry.relative == name)
 }

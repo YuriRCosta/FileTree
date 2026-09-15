@@ -3,7 +3,7 @@ use ignore::{WalkBuilder, WalkState};
 use nucleo::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo::{Config, Injector, Matcher, Nucleo, Utf32Str, Utf32String};
 use std::borrow::Cow;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -17,6 +17,7 @@ const INDEX_IDLE: Duration = Duration::from_secs(180);
 const INDEX_STALE: Duration = Duration::from_secs(60);
 const INDEX_PATH_BYTES: usize = 16 * 1024;
 const INDEX_THREADS: usize = 4;
+const INDEX_PATCH_CAP: usize = 64;
 
 #[derive(Clone, Debug)]
 pub struct IndexEntry {
@@ -92,12 +93,17 @@ pub struct PathIndex {
     nucleo: Nucleo<IndexFlags>,
     progress: Arc<WalkProgress>,
     ranked: bool,
+    root: PathBuf,
+    show_hidden: bool,
+    known: Option<HashSet<u64>>,
+    patched: bool,
 }
 
 struct Slot {
     index: Arc<Mutex<PathIndex>>,
     progress: Arc<WalkProgress>,
     dirty: bool,
+    pending: HashSet<PathBuf>,
     built: Instant,
     last_used: Instant,
 }
@@ -163,7 +169,17 @@ pub fn acquire(root: &Path, show_hidden: bool, fresh: bool) -> Arc<Mutex<PathInd
         .entry(key)
         .or_insert_with(|| Slot::build(root, show_hidden, now));
     slot.last_used = now;
-    Arc::clone(&slot.index)
+    let index = Arc::clone(&slot.index);
+    let pending = if slot.progress.running.load(Ordering::Relaxed) {
+        HashSet::new()
+    } else {
+        std::mem::take(&mut slot.pending)
+    };
+    drop(slots);
+    if !pending.is_empty() {
+        lock(&index).patch(&pending);
+    }
+    index
 }
 
 pub fn sweep_idle() -> bool {
@@ -192,9 +208,55 @@ pub fn invalidate_all() {
 
 pub fn invalidate_within(path: &Path) {
     for (key, slot) in lock(registry()).iter_mut() {
-        if path.starts_with(&key.root) || key.root.starts_with(path) {
+        if key.root.starts_with(path) {
             slot.dirty = true;
+            continue;
         }
+        if !path.starts_with(&key.root) {
+            continue;
+        }
+        if slot.progress.running.load(Ordering::Relaxed) || slot.pending.len() >= INDEX_PATCH_CAP {
+            slot.dirty = true;
+            slot.pending.clear();
+            continue;
+        }
+        if let Some(parent) = path.parent().filter(|parent| parent.starts_with(&key.root)) {
+            slot.pending.insert(parent.to_path_buf());
+        }
+        if path.is_dir() {
+            slot.pending.insert(path.to_path_buf());
+        }
+    }
+}
+
+pub fn invalidate_from(result: &serde_json::Value) {
+    let mut paths = Vec::new();
+    let mut push = |value: &serde_json::Value| {
+        if let Some(text) = value.as_str()
+            && let Ok(path) = crate::common::parse_path(text)
+        {
+            paths.push(path);
+        }
+    };
+    for key in ["path", "source", "destination", "target"] {
+        push(&result[key]);
+    }
+    for key in ["paths", "entries", "mappings", "restored", "removed"] {
+        if let Some(values) = result[key].as_array() {
+            for value in values.iter().take(INDEX_PATCH_CAP) {
+                push(value);
+                for nested in ["path", "source", "destination", "target"] {
+                    push(&value[nested]);
+                }
+            }
+        }
+    }
+    if paths.is_empty() {
+        invalidate_all();
+        return;
+    }
+    for path in paths {
+        invalidate_within(&path);
     }
 }
 
@@ -226,9 +288,14 @@ impl Slot {
                 nucleo,
                 progress: Arc::clone(&progress),
                 ranked: false,
+                root: root.to_path_buf(),
+                show_hidden,
+                known: None,
+                patched: false,
             })),
             progress,
             dirty: false,
+            pending: HashSet::new(),
             built: now,
             last_used: now,
         }
@@ -272,6 +339,72 @@ impl PathIndex {
         self.nucleo.tick(timeout_ms)
     }
 
+    fn digest(text: &str) -> u64 {
+        use std::hash::{BuildHasher, RandomState};
+        static SEED: OnceLock<RandomState> = OnceLock::new();
+        SEED.get_or_init(RandomState::new).hash_one(text)
+    }
+
+    fn known_digests(&mut self) -> &mut HashSet<u64> {
+        if self.known.is_none() {
+            let snapshot = self.nucleo.snapshot();
+            let count = snapshot.item_count();
+            let mut digests = HashSet::with_capacity(count as usize);
+            for position in 0..count {
+                let Some(item) = snapshot.get_item(position) else {
+                    continue;
+                };
+                digests.insert(Self::digest(&haystack_text(&item.matcher_columns[0])));
+            }
+            self.known = Some(digests);
+        }
+        self.known.as_mut().expect("digests")
+    }
+
+    fn patch(&mut self, directories: &HashSet<PathBuf>) {
+        let root = self.root.clone();
+        let show_hidden = self.show_hidden;
+        let injector = self.nucleo.injector();
+        let known = self.known_digests();
+        for directory in directories.iter().take(INDEX_PATCH_CAP) {
+            let mut builder = WalkBuilder::new(directory);
+            builder
+                .hidden(!show_hidden)
+                .follow_links(false)
+                .max_depth(Some(1))
+                .threads(1)
+                .add_custom_ignore_filename(".fdignore");
+            for entry in builder.build().flatten() {
+                let Ok(native) = entry.path().strip_prefix(&root) else {
+                    continue;
+                };
+                let relative = display_path(native);
+                if relative.is_empty() || relative.len() > INDEX_PATH_BYTES {
+                    continue;
+                }
+                if !known.insert(Self::digest(&relative)) {
+                    continue;
+                }
+                let native =
+                    (native.to_str() != Some(&relative)).then(|| Arc::<Path>::from(native));
+                let file_type = entry.file_type();
+                injector.push(
+                    IndexFlags {
+                        native,
+                        is_dir: file_type.is_some_and(|kind| kind.is_dir()),
+                        is_symlink: file_type.is_some_and(|kind| kind.is_symlink()),
+                    },
+                    move |_, columns| columns[0] = Utf32String::from(relative),
+                );
+            }
+        }
+        self.patched = true;
+    }
+
+    fn present(&self, entry: &IndexEntry) -> bool {
+        !self.patched || std::fs::symlink_metadata(entry.path(&self.root)).is_ok()
+    }
+
     pub fn ranked(&self) -> bool {
         self.ranked
     }
@@ -287,11 +420,21 @@ impl PathIndex {
         let items = snapshot
             .matched_items(..)
             .filter(|item| accept(&haystack_text(&item.matcher_columns[0]), item.data));
+        let headroom = if self.patched {
+            limit.saturating_add(64)
+        } else {
+            limit
+        };
         if !self.ranked {
-            return alphabetical(
+            let mut rows = alphabetical(
                 items.map(|item| entry_of(&item.matcher_columns[0], item.data)),
-                limit,
+                headroom,
             );
+            if self.patched {
+                rows.retain(|hit| self.present(&hit.entry));
+                rows.truncate(limit);
+            }
+            return rows;
         }
         let mut hits = items
             .filter_map(|item| {
@@ -309,8 +452,11 @@ impl PathIndex {
                     indices,
                 })
             })
-            .take(limit)
+            .take(headroom)
             .collect::<Vec<_>>();
+        if self.patched {
+            hits.retain(|hit| self.present(&hit.entry));
+        }
         hits.sort_by(|left, right| {
             right
                 .score
@@ -318,6 +464,7 @@ impl PathIndex {
                 .then_with(|| left.entry.relative.len().cmp(&right.entry.relative.len()))
                 .then_with(|| left.entry.relative.cmp(&right.entry.relative))
         });
+        hits.truncate(limit);
         hits
     }
 }
