@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import qs.Commons
+import qs.Ui
 import "../../ui" as PluginUi
 import "../../lib/Highlight.js" as Highlight
 import "../../lib/FileIcons.js" as FileIcons
@@ -258,7 +259,7 @@ FocusScope {
                 font.bold: chip.active
               }
 
-              PluginUi.PanelToolTip {
+              PanelToolTip {
                 visible: chipPointer.containsMouse
                 text: chip.index === 0
                   ? (chip.active ? "Matching case" : "Ignoring case")
