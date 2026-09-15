@@ -244,7 +244,7 @@ FocusScope {
   }
   readonly property var footerLayout: {
     var parts = root.footerParts()
-    var budget = Math.max(0, footerRow.width - (controller.modeBadge === "footer" ? footerFont.advanceWidth("\ue6ae NORMAL  ") : 0))
+    var budget = Math.max(0, footerRow.width - (footerMode.visible ? footerMode.width + footerRow.spacing : 0))
     return FooterFields.window(parts, root.footerOffset, function(text) {
       return footerFont.advanceWidth(text)
     }, budget, footerFont.advanceWidth(footerSeparator.text))
@@ -1180,7 +1180,7 @@ FocusScope {
       Text {
         id: footerMode
         objectName: "footerMode"
-        visible: controller.modeBadge === "footer"
+        visible: controller.modeBadge === "footer" && root.activeFocus
         textFormat: Text.PlainText
         text: "\ue6ae " + root.editorMode
         color: controller.editorModeColor
