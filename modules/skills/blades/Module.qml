@@ -9,7 +9,7 @@ FocusScope {
 
   readonly property string title: "Skills"
   readonly property string status: statusText()
-  readonly property var metricOptions: context ? context.metrics.options(["off", "agents", "updated", "created", { key: "tokens", label: "Tokens (descriptions)" }, { key: "fileTokens", label: "Tokens (SKILL.md)", shortLabel: "TOKENS (SKILL.MD)", kind: "number" }, "characters", "words", "bytes", "summary"]) : []
+  readonly property var metricOptions: context ? context.metrics.options(["off", "agents", { key: "uses", label: "Uses", kind: "number" }, { key: "usesAgent", label: "Uses (agent)", shortLabel: "USES (AGENT)", kind: "number" }, { key: "usesUser", label: "Uses (user)", shortLabel: "USES (USER)", kind: "number" }, "updated", "created", { key: "tokens", label: "Tokens (descriptions)" }, { key: "fileTokens", label: "Tokens (SKILL.md)", shortLabel: "TOKENS (SKILL.MD)", kind: "number" }, "characters", "words", "bytes", "summary"]) : []
   readonly property var view: viewLoader.item
   readonly property var files: context ? context.service("files") : null
   readonly property var shortcuts: files && files.keybindings ? [files.keybindings.treeShortcuts] : []

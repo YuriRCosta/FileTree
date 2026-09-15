@@ -7,6 +7,7 @@ import sys
 from typing import Any
 
 from fileblade_paths import NativePath, parse_path, wire
+import agent_usage
 from fileblade_inventory import SCOPES, WatchPlan
 
 from . import apply as applying, discovery, registry
@@ -61,7 +62,25 @@ def environment(args: argparse.Namespace) -> discovery.Environment:
 
 def listing(args: argparse.Namespace) -> dict[str, Any]:
     with WatchPlan() as plan:
-        return plan.finish(discovery.collect(environment(args)))
+        payload = plan.finish(discovery.collect(environment(args)))
+    items = payload.get("items")
+    if not isinstance(items, list) or getattr(args, "no_usage", False):
+        return payload
+    names = {str(item.get("name") or "") for item in items if isinstance(item, dict)}
+    usage = agent_usage.collect(known=names)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        counts = usage["skills"].get(str(item.get("name") or ""), agent_usage.Tally().document())
+        item.update(counts)
+        metrics = item.get("metrics")
+        if not isinstance(metrics, dict):
+            metrics = {}
+            item["metrics"] = metrics
+        metrics.update(counts)
+    payload["usageTranscripts"] = usage["transcripts"]
+    payload["usageUnreadable"] = usage["unreadable"]
+    return payload
 
 def roots(args: argparse.Namespace) -> dict[str, Any]:
     env = environment(args)

@@ -61,6 +61,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_paths.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_process.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_inventory.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_mutations.py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_usage.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_extension_image.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/core_modules/run.py
 PYTHONDONTWRITEBYTECODE=1 python3 -B tests/companion_readonly.py

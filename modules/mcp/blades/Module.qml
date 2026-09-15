@@ -8,7 +8,7 @@ FocusScope {
   property var context: null
 
   readonly property string title: "MCP"
-  readonly property var metricOptions: context ? context.metrics.options(["off", "agents", "status", { key: "transport", shortLabel: "TYPE" }, "updated", "created", "tokens", "characters", "words", "bytes", "summary"]) : []
+  readonly property var metricOptions: context ? context.metrics.options(["off", "agents", "status", { key: "transport", shortLabel: "TYPE" }, { key: "uses", label: "Uses", kind: "number" }, { key: "usesAgent", label: "Uses (agent)", shortLabel: "USES (AGENT)", kind: "number" }, { key: "usesUser", label: "Uses (user)", shortLabel: "USES (USER)", kind: "number" }, "updated", "created", "tokens", "characters", "words", "bytes", "summary"]) : []
   readonly property var files: context ? context.service("files") : null
   readonly property var shortcuts: files && files.keybindings ? [files.keybindings.treeShortcuts] : []
   readonly property var installedAgents: files && Array.isArray(files.installedAgents) ? files.installedAgents : []
