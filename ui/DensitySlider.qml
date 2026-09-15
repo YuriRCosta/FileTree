@@ -108,12 +108,11 @@ FocusScope {
 
         Rectangle {
           required property int index
-          readonly property bool current: index === control.clamped
           x: Math.round(index * (parent.width - width) / Math.max(1, control.steps - 1))
-          y: Math.round((parent.height - height) / 2)
+          anchors.verticalCenter: parent.verticalCenter
           width: Math.max(1, Style.space(1))
-          height: current ? Style.space(10) : Style.space(6)
-          color: current ? Color.accent : Util.alpha(Color.bar.text, 0.35)
+          height: Style.space(6)
+          color: Color.muted
         }
       }
     }
