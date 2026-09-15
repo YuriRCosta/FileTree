@@ -46,10 +46,7 @@ Item {
     if (pointerResizeEdge !== "") return false
     var edge = pointerEdge
     var blade = edge === "" ? null : bladeFor(edge)
-    if (edge === "" || isWindowMode(edge) || !blade || !blade.open) {
-      dispatchWindow(["--action", "drag-resize"])
-      return false
-    }
+    if (edge === "" || isWindowMode(edge) || !blade || !blade.open) return false
     pointerResizeStartX = pointerSceneX
     pointerResizeStartY = pointerSceneY
     pointerResizeEdge = edge

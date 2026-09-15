@@ -591,8 +591,9 @@ Automation for this section is pending.
      width it keeps.
 179d. **E-21-12** If I hold `Super` and drag with the right mouse button anywhere
      that is not a docked blade, the gesture resizes the window underneath
-     exactly as it did before, so nothing about ordinary window resizing
-     changes.
+     exactly as it did before: Hyprland keeps its own binding and FileBlade
+     listens beside it without consuming the press, so ordinary window resizing
+     is untouched whether FileBlade is running or not.
 179a. **E-21-10a** A blade width I set on a large monitor never exceeds what a
      smaller monitor can show: on that monitor the blade renders and reserves
      at most its own screen's limit, and my stored width is left alone.
