@@ -9,6 +9,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 const MAX_PEERS: usize = 4096;
+const MAX_SSH_CONFIG_LOOKUPS: usize = 64;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Candidate {
@@ -103,7 +104,11 @@ pub fn candidates(status: &Value) -> AppResult<Vec<Candidate>> {
             &label,
             Connection::Disconnected,
         )?;
-        let (ssh_host, ssh_user) = configured_ssh(&host);
+        let (ssh_host, ssh_user) = if result.len() < MAX_SSH_CONFIG_LOOKUPS {
+            configured_ssh(&host)
+        } else {
+            (String::new(), String::new())
+        };
         result.push(Candidate {
             location,
             host,
