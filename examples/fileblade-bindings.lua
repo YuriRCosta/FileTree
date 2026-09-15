@@ -39,4 +39,9 @@ for _, bind in ipairs(resize_binds) do
   o.bind(bind[1], bind[2] .. " (blade aware)", fileblade("windowResize " .. bind[3] .. " " .. bind[4], string.format("hl.dsp.window.resize({ x = %d, y = %d, relative = true })", bind[3], bind[4])))
 end
 
+hl.unbind("SUPER + mouse:273")
+hl.bind("SUPER + mouse:273", hl.dsp.global("fileblade:resize-blade"), { description = "Resize window or blade" })
+hl.bind("SUPER + mouse:273", hl.dsp.global("fileblade:resize-blade-end"), { release = true })
+hl.bind("mouse:273", hl.dsp.global("fileblade:resize-blade-end"), { release = true, non_consuming = true })
+
 o.bind("SUPER + Z", "File tree quick navigation", fileblade("quickNav"))

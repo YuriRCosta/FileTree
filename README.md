@@ -53,6 +53,10 @@ no Rust toolchain or separate binary download is needed. Requires Omarchy
 
 4. Press `Super+B` or `Super+Shift+B` to open a sidebar.
 
+5. Hold `Super` and drag with the right mouse button over a docked blade to
+   resize it, the same gesture that resizes a window. Over anything else the
+   gesture still resizes the window underneath.
+
 To remove FileBlade, remove its extensions first, then run:
 
 ```bash

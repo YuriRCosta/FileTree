@@ -387,6 +387,8 @@ adding a verb means deciding its status here.
 setMonitorMode: blade settings Monitors choice (active | all | locked <monitor>); VM section 34
 windowClose:    host bind (Super+W) through bindings.lua
 windowResize:   host bind (Super+Minus, Super+Equals)
+pointerResizeBegin: compositor global shortcut fileblade:resize-blade, bound to Super and the right mouse button
+pointerResizeEnd: compositor global shortcut fileblade:resize-blade-end, the release half of the same gesture
 windowSwap:     host bind (Super+Shift+arrows)
 windowToggle:   host bind (Super+T)
 focusLeft:      host bind (Super+Left)

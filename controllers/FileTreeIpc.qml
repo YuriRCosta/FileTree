@@ -136,6 +136,8 @@ QtObject {
       drivesMode: service.drivesMode,
       drivesCount: service.drivesController.volumeCount,
       modeBadge: service.modeBadge,
+      pointerResizeEdge: bladeHost.pointerResizeEdge,
+      pointerEdge: bladeHost.pointerEdge,
       editorMode: service.editorMode,
       trashCount: service.trashCount,
       trashSelectedId: service.trashSelectedId,
@@ -838,6 +840,14 @@ QtObject {
 
   function windowToggle(): string {
     return bladeHost.windowToggle()
+  }
+
+  function pointerResizeBegin(): string {
+    return bladeHost.beginPointerResize() ? "blade-" + bladeHost.pointerResizeEdge : "dispatched"
+  }
+
+  function pointerResizeEnd(): string {
+    return bladeHost.endPointerResize() ? "committed" : "idle"
   }
 
   function windowResize(deltaX: string, deltaY: string): string {

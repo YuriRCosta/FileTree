@@ -22,6 +22,8 @@ PanelWindow {
   readonly property bool surfaceActive: panelEnabled && !windowMode
   readonly property bool bladeOpen: panelEnabled && !windowMode && !!blade.open
   property int liveWidth: -1
+  property int pointerResizeStartWidth: 0
+  readonly property bool pointerResizing: surfaceActive && bladeOpen && host.pointerResizeEdge === edge
   readonly property int surfaceWidth: host.maximumWidth(screen ? screen.width : 0)
   readonly property int storedWidth: Number(blade.width) || 380
   readonly property int bladeWidth: Math.max(host.minimumWidth, Math.min(liveWidth > 0 ? liveWidth : storedWidth, surfaceWidth))
@@ -141,6 +143,22 @@ PanelWindow {
     })
   }
 
+  onPointerResizingChanged: {
+    if (pointerResizing) {
+      pointerResizeStartWidth = bladeWidth
+      liveWidth = bladeWidth
+    } else {
+      commitLiveWidth()
+    }
+  }
+
+  function applyPointerResize(sceneX) {
+    if (!pointerResizing) return
+    var delta = Number(sceneX) - host.pointerResizeStartX
+    var target = pointerResizeStartWidth + (isRight ? -delta : delta)
+    liveWidth = Math.round(Math.max(host.minimumWidth, Math.min(surfaceWidth, target)))
+  }
+
   function commitLiveWidth() {
     if (liveWidth <= 0) return
     var width = liveWidth
@@ -256,6 +274,27 @@ PanelWindow {
     enabled: surface.actionMenuHere
     onHoveredChanged: if (!hovered && surface.actionMenuOpen)
       surface.host.actionMenuPointerExited()
+  }
+
+  TapHandler {
+    parent: surface.contentItem
+    enabled: surface.pointerResizing
+    acceptedButtons: Qt.AllButtons
+    gesturePolicy: TapHandler.ReleaseWithinBounds
+    onSingleTapped: surface.host.endPointerResize()
+  }
+
+  HoverHandler {
+    parent: surface.contentItem
+    enabled: surface.surfaceActive
+    onHoveredChanged: {
+      if (hovered) surface.host.notePointer(surface.edge, point.scenePosition.x)
+      else surface.host.clearPointer(surface.edge)
+    }
+    onPointChanged: {
+      surface.host.notePointer(surface.edge, point.scenePosition.x)
+      surface.applyPointerResize(point.scenePosition.x)
+    }
   }
 
   anchors {

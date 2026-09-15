@@ -36,6 +36,15 @@ ctl() {
   for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
   guest "$cmd" >/dev/null
 }
+ctl_out() {
+  if [[ $FILEBLADE_SHAPE == native ]]; then
+    "${CONTROL_COMMAND[@]}" "$@"
+    return
+  fi
+  local cmd="${CONTROL_COMMAND[*]}" a
+  for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
+  guest "$cmd"
+}
 ctl_path() { ctl "$1" "$2"; }
 backend() {
   if [[ $FILEBLADE_SHAPE == native ]]; then

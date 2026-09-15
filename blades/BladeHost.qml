@@ -24,6 +24,40 @@ Item {
   readonly property string layoutPath: service && service.chooserSession ? "" : configDir + "/blades.json"
   readonly property var edges: ["left", "right"]
   readonly property int minimumWidth: 280
+  property string pointerEdge: ""
+  property real pointerSceneX: 0
+  property string pointerResizeEdge: ""
+  property real pointerResizeStartX: 0
+  readonly property bool pointerResizeActive: pointerResizeEdge !== ""
+
+  function notePointer(edge, sceneX) {
+    pointerEdge = String(edge || "")
+    pointerSceneX = Number(sceneX) || 0
+  }
+
+  function clearPointer(edge) {
+    if (pointerEdge === String(edge || "")) pointerEdge = ""
+  }
+
+  function beginPointerResize() {
+    if (pointerResizeEdge !== "") return false
+    var edge = pointerEdge
+    var blade = edge === "" ? null : bladeFor(edge)
+    if (edge === "" || isWindowMode(edge) || !blade || !blade.open) {
+      dispatchWindow(["--action", "drag-resize"])
+      return false
+    }
+    pointerResizeStartX = pointerSceneX
+    pointerResizeEdge = edge
+    return true
+  }
+
+  function endPointerResize() {
+    if (pointerResizeEdge === "") return false
+    pointerResizeEdge = ""
+    return true
+  }
+
   readonly property int minimumSlotHeight: Style.space(116)
   readonly property int collapsedSlotHeight: Style.space(32)
   readonly property int tabBarHeight: Style.space(32)

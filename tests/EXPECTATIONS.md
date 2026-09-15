@@ -585,6 +585,14 @@ Automation for this section is pending.
      locked there stays hidden until I close and reopen it or the monitor
      returns; a menu, drop wheel, drag or keyboard focus that lived on it is
      cancelled rather than moved; my lock setting is kept.
+179c. **E-21-11** If I hold `Super` and drag with the right mouse button over a
+     docked blade, the blade resizes under the pointer the way `Super` and the
+     right button resize any other window, and the width I release at is the
+     width it keeps.
+179d. **E-21-12** If I hold `Super` and drag with the right mouse button anywhere
+     that is not a docked blade, the gesture resizes the window underneath
+     exactly as it did before, so nothing about ordinary window resizing
+     changes.
 179a. **E-21-10a** A blade width I set on a large monitor never exceeds what a
      smaller monitor can show: on that monitor the blade renders and reserves
      at most its own screen's limit, and my stored width is left alone.

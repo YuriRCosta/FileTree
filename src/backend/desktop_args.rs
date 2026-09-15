@@ -115,6 +115,7 @@ pub enum WindowAction {
     Close,
     Float,
     Resize,
+    DragResize,
     Swap,
     Focus,
 }
@@ -125,6 +126,7 @@ impl WindowAction {
             Self::Close => "close",
             Self::Float => "float",
             Self::Resize => "resize",
+            Self::DragResize => "drag-resize",
             Self::Swap => "swap",
             Self::Focus => "focus",
         }

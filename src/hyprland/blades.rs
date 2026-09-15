@@ -126,6 +126,7 @@ pub fn window_dispatch(action: &str, x: i64, y: i64, direction: &str) -> Value {
         "close" => "hl.dsp.window.close()".to_string(),
         "float" => "hl.dsp.window.float({ action = \"toggle\" })".to_string(),
         "resize" => format!("hl.dsp.window.resize({{ x = {x}, y = {y}, relative = true }})"),
+        "drag-resize" => "hl.dsp.window.resize()".to_string(),
         "swap" => format!(
             "hl.dsp.window.swap({{ direction = \"{}\" }})",
             direction_letter(direction)

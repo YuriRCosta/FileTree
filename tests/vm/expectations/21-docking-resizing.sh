@@ -92,6 +92,34 @@ expect E-21-09 "animations can be turned off" bladeAnimations false
 ctl setBladeAnimations true; sleep 2
 expect E-21-09 "and back on" bladeAnimations true
 
+ensure_left_open
+kill_windows
+start_width=$(field sidebarWidth)
+"$OVM" mouse move 200 400 >/dev/null 2>&1; sleep 1
+"$OVM" mouse move 203 402 >/dev/null 2>&1; sleep 1
+expect E-21-11 "the blade under the pointer is the one that resizes" pointerEdge left
+ctl pointerResizeBegin >/dev/null
+expect E-21-11 "and the drag opens on that blade" pointerResizeEdge left
+"$OVM" mouse move 640 402 >/dev/null 2>&1
+wait_for "[[ \$(field pointerResizeEdge) == left ]]" 8
+ctl pointerResizeEnd >/dev/null
+wait_for "[[ -z \$(field pointerResizeEdge) ]]" 10
+resized=$(field sidebarWidth)
+expect_true E-21-11 "the released width is the dragged width" "[[ '$resized' -gt '$start_width' ]]"
+ctl setBladeWidth left "$start_width" >/dev/null
+wait_for "[[ \$(field sidebarWidth) == '$start_width' ]]" 10
+
+"$OVM" mouse move 1400 600 >/dev/null 2>&1; sleep 1
+expect_true E-21-12 "off a blade the pointer owns no edge" "[[ -z \$(field pointerEdge) ]]"
+off_blade_width=$(field sidebarWidth)
+ctl pointerResizeBegin >/dev/null
+sleep 1
+expect_true E-21-12 "so no blade takes the drag" "[[ -z \$(field pointerResizeEdge) ]]"
+"$OVM" mouse move 1500 640 >/dev/null 2>&1; sleep 1
+expect_true E-21-12 "and no blade width moves with the pointer" "[[ \$(field sidebarWidth) == '$off_blade_width' ]]"
+ctl pointerResizeEnd >/dev/null
+
+pending E-21-12 "the window underneath resizes instead" "the fallback only runs with the right button physically held, and the harness cannot hold a button without killing QEMU"
 pending E-21-04 "dragging the inner edge resizes without smearing" "needs a frame by frame capture of the drag, not a end state check"
 pending E-21-08 "Super+Shift with an arrow moves the focused section" "section order is not reported in the status document"
 pending E-21-10 "blades appear only on configured screens" "the guest has one virtual monitor"

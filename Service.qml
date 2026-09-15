@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import "blades"
 import "controllers"
 import "lib/PathText.js" as PathText
@@ -206,6 +207,21 @@ Item {
     onLayoutApplied: {
       if (bladeHost.pendingOpenEdges && bladeHost.pendingOpenEdges.left) navigationController.focusAfterOpen()
     }
+  }
+
+  GlobalShortcut {
+    appid: "fileblade"
+    name: "resize-blade"
+    description: "Start resizing the blade under the pointer"
+    onPressed: bladeHost.beginPointerResize()
+    onReleased: bladeHost.endPointerResize()
+  }
+
+  GlobalShortcut {
+    appid: "fileblade"
+    name: "resize-blade-end"
+    description: "Finish resizing the blade under the pointer"
+    onPressed: bladeHost.endPointerResize()
   }
 
   signal locationValidationFinished(var targetScreen, bool success, string path, string error, string monitor)
