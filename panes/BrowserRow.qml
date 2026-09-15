@@ -73,6 +73,7 @@ Rectangle {
 
   signal customClicked(var mouse)
   signal customDoubleClicked(var mouse)
+  signal branchActivated(real sceneX, real sceneY)
 
   function loadMore() {
     if (moreRow) controller.loadMoreChildren(moreParent)
@@ -412,10 +413,23 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       textFormat: Text.PlainText
       text: row.repositorySummary.identity || ""
-      color: Color.accent
+      color: branchPointer.containsMouse ? Color.bar.text : Color.accent
       font.family: Style.font.family
       font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
       elide: Text.ElideMiddle
+
+      MouseArea {
+        id: branchPointer
+        anchors.fill: parent
+        enabled: summaryIdentity.text !== ""
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton
+        onClicked: {
+          var point = summaryIdentity.mapToItem(null, 0, summaryIdentity.height)
+          row.branchActivated(point.x, point.y)
+        }
+      }
     }
 
     Text {

@@ -800,3 +800,100 @@ fn status_priority(status: &str) -> u8 {
         _ => 0,
     }
 }
+
+const MAX_BRANCHES: usize = 2000;
+
+fn branch_name_is_safe(branch: &str) -> bool {
+    !branch.is_empty()
+        && branch.len() <= 255
+        && !branch.starts_with('-')
+        && !branch.starts_with('.')
+        && !branch.contains("..")
+        && !branch.ends_with(".lock")
+        && branch
+            .chars()
+            .all(|ch| !ch.is_control() && !ch.is_whitespace() && !"~^:?*[\\\u{7f}".contains(ch))
+}
+
+pub fn git_branches(raw_path: &str, cancelled: &AtomicBool) -> Value {
+    let Some(mut repository) = git_repository_cancellable(raw_path, cancelled) else {
+        return json!({"ok": false, "error": "no repository here"});
+    };
+    add_repository_identity(&mut repository);
+    let output = run_git(
+        [
+            OsString::from("-C"),
+            repository.root.clone().into_os_string(),
+            OsString::from("for-each-ref"),
+            OsString::from("--format=%(refname:short)"),
+            OsString::from("--sort=-committerdate"),
+            OsString::from("refs/heads"),
+        ],
+        Duration::from_secs(3),
+        1024 * 1024,
+        cancelled,
+    );
+    let Ok(output) = output else {
+        return json!({"ok": false, "error": "branch list is unavailable"});
+    };
+    if !output.status.success() {
+        return json!({"ok": false, "error": "branch list is unavailable"});
+    }
+    let branches = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|name| branch_name_is_safe(name))
+        .take(MAX_BRANCHES)
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    json!({
+        "ok": true,
+        "root": path_text(&repository.root),
+        "current": repository.branch,
+        "worktree": repository.worktree,
+        "dirty": repository.dirty,
+        "branches": branches
+    })
+}
+
+pub fn git_switch(raw_path: &str, branch: &str, cancelled: &AtomicBool) -> Value {
+    if !branch_name_is_safe(branch) {
+        return json!({"ok": false, "error": "that branch name cannot be used"});
+    }
+    let Some(mut repository) = git_repository_cancellable(raw_path, cancelled) else {
+        return json!({"ok": false, "error": "no repository here"});
+    };
+    add_repository_identity(&mut repository);
+    if repository.branch == branch {
+        return json!({"ok": true, "branch": branch, "root": path_text(&repository.root)});
+    }
+    let output = run_git(
+        [
+            OsString::from("-C"),
+            repository.root.clone().into_os_string(),
+            OsString::from("switch"),
+            OsString::from("--no-guess"),
+            OsString::from("--"),
+            OsString::from(branch),
+        ],
+        Duration::from_secs(20),
+        256 * 1024,
+        cancelled,
+    );
+    let Ok(output) = output else {
+        return json!({"ok": false, "error": "git switch could not run"});
+    };
+    if !output.status.success() {
+        let message = String::from_utf8_lossy(&output.stderr);
+        let first = message
+            .lines()
+            .find(|line| !line.trim().is_empty())
+            .unwrap_or("git switch failed")
+            .trim()
+            .chars()
+            .take(240)
+            .collect::<String>();
+        return json!({"ok": false, "error": first});
+    }
+    json!({"ok": true, "branch": branch, "root": path_text(&repository.root)})
+}

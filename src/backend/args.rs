@@ -7,6 +7,14 @@ pub struct PathArg {
 }
 
 #[derive(Clone, Debug, Args)]
+pub struct GitSwitchArgs {
+    #[arg(long)]
+    pub path: String,
+    #[arg(long)]
+    pub branch: String,
+}
+
+#[derive(Clone, Debug, Args)]
 pub struct SourceArgs {
     #[arg(long, required = true)]
     pub source: String,

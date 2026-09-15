@@ -9,12 +9,14 @@ import "../lib/ScrollMarks.js" as ScrollMarks
 import "../modules/files/MediaModel.js" as MediaModel
 import "../modules/files/ViewChrome.js" as ViewChrome
 import "../lib/FileIcons.js" as FileIcons
+import "../lib/FooterFields.js" as FooterFields
 import "../lib/GitSummary.js" as GitSummary
 
 FocusScope {
   id: root
 
   required property var controller
+  property string branchError: ""
   required property var hostWindow
   property alias actionKeys: actionKeyGuard
   PluginUi.ActionKeyGuard { id: actionKeyGuard; active: root.activeFocus; shared: root.hostWindow ? root.hostWindow.actionKeys : null }
@@ -229,8 +231,69 @@ FocusScope {
       : Style.space(18))
   readonly property real columnAdderReserve: browserHeader.addSlotWidth
 
+  property int footerOffset: 0
+  readonly property var footerLayout: {
+    var parts = root.footerParts()
+    var budget = Math.max(0, footerRow.width)
+    return FooterFields.window(parts, root.footerOffset, function(text) {
+      footerMetrics.text = text
+      return footerMetrics.width
+    }, budget, footerSeparator.width)
+  }
+
+  function footerFieldText(key) {
+    if (key === "count") {
+      return root.mediaActive && mediaView
+        ? (mediaView.count === mediaProvider.rows.length ? mediaView.count : mediaView.count + "/" + mediaProvider.rows.length) + " media"
+        : (controller.searching ? controller.searchResultCount + " matches"
+          : (controller.recentMode ? recentList.count + " recent"
+            : (root.folderCount.known ? root.folderCount.total + (Object.keys(controller.treeFilter).length ? " matching" : " items") : "Count unavailable")))
+    }
+    if (key === "selected") return controller.selectedCount ? controller.selectedCount + " selected" : ""
+    if (key === "scope") {
+      if (root.mediaActive) return root.mediaRecursive ? "recursive" : "folder"
+      if (controller.searching) return "search"
+      if (controller.recentMode) return "history"
+      return "folder"
+    }
+    if (key === "activity") {
+      if (root.mediaActive && mediaProvider) {
+        if (mediaProvider.busy) return "loading"
+        if (mediaProvider.limited) return "partial"
+        return ""
+      }
+      if (controller.searching) return controller.searchBusy ? "searching" : ""
+      return controller.treeLoading ? "loading" : ""
+    }
+    if (key === "loaded") {
+      return !root.mediaActive && !controller.searching && !controller.recentMode
+        && root.folderCount.loaded < root.folderCount.total ? root.folderCount.loaded + " loaded" : ""
+    }
+    return ""
+  }
+
+  function footerParts() {
+    var keys = FooterFields.normalizeFields(controller.footerFields)
+    var parts = []
+    for (var i = 0; i < keys.length; i++) {
+      var text = String(root.footerFieldText(keys[i]) || "")
+      if (text !== "") parts.push(text)
+    }
+    var failure = root.branchError || (root.mediaActive && mediaProvider && mediaProvider.error ? String(mediaProvider.error) : "")
+    if (failure) parts.push(failure)
+    return parts
+  }
+
   function targetScreen() {
     return hostWindow ? hostWindow.screen : null
+  }
+
+  function openBranchPicker(sceneX, sceneY) {
+    if (!controller.gitEnabled || branchPicker.busy) return
+    var point = root.mapFromItem(null, Number(sceneX) || 0, Number(sceneY) || 0)
+    branchPicker.x = Math.max(Style.space(4), Math.min(point.x, root.width - branchPicker.menuWidth - Style.space(4)))
+    branchPicker.y = Math.max(Style.space(4), point.y + Style.space(2))
+    branchPicker.load()
   }
 
   function originX() {
@@ -1069,6 +1132,12 @@ FocusScope {
     visible: !controller.trashMode && !controller.drivesMode
     color: Color.bar.background
     TextMetrics {
+      id: footerMetrics
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+
+    TextMetrics {
       id: footerSeparator
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
@@ -1086,10 +1155,7 @@ FocusScope {
       Text {
         id: footerCount
         textFormat: Text.PlainText
-        text: root.mediaActive && mediaView
-          ? (mediaView.count === mediaProvider.rows.length ? mediaView.count : mediaView.count + "/" + mediaProvider.rows.length) + " media"
-          : (controller.searching ? controller.searchResultCount + " matches"
-            : (controller.recentMode ? recentList.count + " recent" : (root.folderCount.known ? root.folderCount.total + (Object.keys(controller.treeFilter).length ? " matching" : " items") : "Count unavailable")))
+        text: root.footerLayout.shown.length > 0 ? root.footerLayout.shown[0] : ""
         color: Color.muted
         elide: Text.ElideRight
         font.family: Style.font.family
@@ -1097,29 +1163,32 @@ FocusScope {
       }
       Text {
         id: footerDetail
-        width: Math.max(0, parent.width - footerCount.width - parent.spacing)
+        width: Math.max(0, parent.width - footerCount.width - parent.spacing - (footerPager.visible ? footerPager.width + parent.spacing : 0))
         textFormat: Text.PlainText
-        text: {
-          var parts = []
-          if (controller.selectedCount) parts.push(controller.selectedCount + " selected")
-          if (root.mediaActive && mediaProvider) {
-            if (mediaProvider.error) parts.push(mediaProvider.error)
-            if (mediaProvider.busy) parts.push("loading")
-            if (mediaProvider.limited) parts.push("partial")
-            parts.push(root.mediaRecursive ? "recursive" : "folder")
-          } else if (controller.searching) parts.push(controller.searchBusy ? "searching" : "search")
-          else if (controller.recentMode) parts.push("history")
-          else {
-            if (controller.treeLoading) parts.push("loading")
-            if (root.folderCount.loaded < root.folderCount.total) parts.push(root.folderCount.loaded + " loaded")
-            parts.push("folder")
-          }
-          return parts.join(footerSeparator.text)
-        }
-        color: mediaProvider && mediaProvider.error ? Color.urgent : Color.muted
+        text: root.footerLayout.shown.slice(1).join(footerSeparator.text)
+        color: root.branchError || (mediaProvider && mediaProvider.error) ? Color.urgent : Color.muted
         elide: Text.ElideRight
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
+      }
+      Text {
+        id: footerPager
+        objectName: "footerPager"
+        textFormat: Text.PlainText
+        visible: root.footerLayout.more
+        text: "›"
+        color: pagerPointer.containsMouse ? Color.accent : Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        font.weight: Font.Bold
+        MouseArea {
+          id: pagerPointer
+          anchors.fill: parent
+          anchors.margins: -Style.space(4)
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.footerOffset = FooterFields.advance(root.footerParts(), root.footerLayout.start, root.footerLayout.shown.length)
+        }
       }
     }
     PluginUi.DensitySlider {
@@ -1167,6 +1236,7 @@ FocusScope {
       pane: root
       treeMode: true
       ownerView: treeList
+      onBranchActivated: function(sceneX, sceneY) { root.openBranchPicker(sceneX, sceneY) }
     }
 
     Keys.priority: Keys.BeforeItem
@@ -1272,6 +1342,47 @@ FocusScope {
     visible: !!root.activeList && !root.mediaActive
     surfaceColor: Color.bar.background
     z: 24
+  }
+
+  PluginUi.OptionPopup {
+    id: branchPicker
+    property bool busy: false
+    property string repositoryPath: ""
+    menuWidth: Style.space(260)
+    heading: "Switch branch"
+    prompt: "Find branch…"
+
+    function load() {
+      busy = true
+      repositoryPath = controller.rootPath
+      controller.backendRequest("git-branches", ["--path", repositoryPath], 0, function(response) {
+        branchPicker.busy = false
+        if (!response || response.ok !== true) {
+          root.branchError = response && response.error ? String(response.error) : "branch list is unavailable"
+          return
+        }
+        var names = response.branches || []
+        var entries = []
+        for (var i = 0; i < names.length; i++)
+          entries.push({ key: String(names[i]), label: String(names[i]), checked: String(names[i]) === String(response.current) })
+        branchPicker.rows = entries
+        if (entries.length > 0) branchPicker.open()
+      })
+    }
+
+    onPicked: function(key) {
+      branchPicker.busy = true
+      controller.backendRequest("git-switch", ["--path", branchPicker.repositoryPath, "--branch", String(key)], 0, function(response) {
+        branchPicker.busy = false
+        if (!response || response.ok !== true) {
+          root.branchError = response && response.error ? String(response.error) : "branch switch failed"
+          return
+        }
+        root.branchError = ""
+        controller.requestVisibleGitMetadataRefresh("branch-switch")
+        controller.refreshTree()
+      })
+    }
   }
 
   PluginUi.MarkedScrollBar {
