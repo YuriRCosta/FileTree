@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Hyprland
+import "../lib/LayoutInventory.js" as LayoutInventory
 import "../lib/MonitorMode.js" as MonitorMode
 import Quickshell
 
@@ -173,6 +174,12 @@ Item {
       mode: normalizeMode(raw.mode),
       slots: slots
     }
+  }
+
+  function moduleInventory(raw) { return LayoutInventory.modules(raw) }
+
+  function missingModules(raw, normalized) {
+    return LayoutInventory.missing(raw, normalized, aliasedModule)
   }
 
   function normalizeLayout(raw) {

@@ -100,6 +100,7 @@ Item {
   property string pendingPlacementEdge: ""
   property bool layoutReadQueued: false
   property bool layoutWritable: false
+  property bool layoutIncomplete: false
   property bool layoutRereadPending: false
   property alias lastFocusDirection: focusController.lastFocusDirection
   property alias focusDirectionCount: focusController.focusDirectionCount
@@ -813,6 +814,14 @@ Item {
 
   function applyLayout(next, desiredMonitorMode, persist, desiredAnimations) {
     var normalized = normalizeLayout(next)
+    var lost = bladeLayout.missingModules(next, normalized)
+    if (lost.length > 0) {
+      persist = false
+      layoutIncomplete = true
+      console.warn("data-goblin.fileblade: keeping the saved blade layout; these modules did not resolve: " + lost.join(", "))
+    } else {
+      layoutIncomplete = false
+    }
     var configured = typeof desiredAnimations === "boolean"
       ? desiredAnimations
       : (typeof config.animateBlades === "boolean" ? config.animateBlades : null)
@@ -863,6 +872,13 @@ Item {
   }
   function applyLiveLayout(parsed) {
     var incoming = normalizeLayout(parsed)
+    var lostLive = bladeLayout.missingModules(parsed, incoming)
+    if (lostLive.length > 0) {
+      layoutIncomplete = true
+      console.warn("data-goblin.fileblade: keeping the saved blade layout; these modules did not resolve: " + lostLive.join(", "))
+      return
+    }
+    layoutIncomplete = false
     var desiredMonitorMode = normalizeMonitorMode(parsed.monitorMode || monitorMode)
     var desiredMonitorLock = typeof parsed.monitorLock === "string" ? parsed.monitorLock : monitorLock
     var desiredAnimations = typeof parsed.animations === "boolean" ? parsed.animations : animateBlades
@@ -881,7 +897,7 @@ Item {
     if (layoutReady && layoutWritable) saveTimer.restart()
   }
   function save() {
-    if (!layoutWritable) return
+    if (!layoutWritable || layoutIncomplete) return
     var text = bladeLayout.serialized(layoutDocument(), 2)
     if (!text || bladeLayout.utf8Length(text + "\n") > bladeLayout.maximumLayoutBytes) {
       console.warn("data-goblin.fileblade: refusing to overwrite blade layout above " + bladeLayout.maximumLayoutBytes + " bytes")
