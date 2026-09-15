@@ -391,6 +391,7 @@ fn dispatch_command(
             &options.exclude,
             &options.root,
             options.show_hidden,
+            options.case_sensitive,
             limited(options.limit, 200),
             cancelled,
         ),

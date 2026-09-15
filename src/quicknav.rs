@@ -43,6 +43,7 @@ pub fn quicknav_from_root(
         exclude,
         root,
         show_hidden,
+        false,
         limit,
         &AtomicBool::new(false),
     )
@@ -53,6 +54,7 @@ pub fn quicknav_cancellable(
     exclude: &str,
     root: &str,
     show_hidden: bool,
+    case_sensitive: bool,
     limit: usize,
     cancelled: &AtomicBool,
 ) -> Value {
@@ -64,7 +66,7 @@ pub fn quicknav_cancellable(
         return quicknav_error(needle, "Quick navigation query exceeds 4096 bytes");
     }
     let zoxide = zoxide_listing(cancelled);
-    let discovered = directory_listing(root, show_hidden, needle, cancelled);
+    let discovered = directory_listing(root, show_hidden, case_sensitive, needle, cancelled);
     if let (Err(zoxide_error), Err(discovery_error)) = (&zoxide, &discovered) {
         return quicknav_error(needle, &format!("{discovery_error}; {zoxide_error}"));
     }
@@ -93,7 +95,8 @@ pub fn quicknav_cancellable(
             .map(|(path, frequency)| (path, frequency, 0u8, 0u32, Vec::new()))
             .collect::<Vec<_>>()
     } else {
-        let pattern = crate::index::parse_pattern(needle, crate::index::case_matching(false));
+        let pattern =
+            crate::index::parse_pattern(needle, crate::index::case_matching(case_sensitive));
         let mut matcher = nucleo::Matcher::new(crate::index::matcher_config());
         candidates
             .filter_map(|(path, frequency)| {
@@ -127,6 +130,7 @@ pub fn quicknav_cancellable(
 fn directory_listing(
     raw_root: &str,
     show_hidden: bool,
+    case_sensitive: bool,
     query: &str,
     cancelled: &AtomicBool,
 ) -> Result<Vec<String>, String> {
@@ -138,7 +142,7 @@ fn directory_listing(
     let mut index = shared
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    index.set_pattern(query, crate::index::case_matching(false));
+    index.set_pattern(query, crate::index::case_matching(case_sensitive));
     let started = Instant::now();
     loop {
         let status = index.tick(20);

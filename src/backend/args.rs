@@ -271,6 +271,8 @@ pub struct QuicknavArgs {
     pub limit: i64,
     #[arg(long)]
     pub show_hidden: bool,
+    #[arg(long)]
+    pub case_sensitive: bool,
 }
 
 #[derive(Clone, Debug, Args)]

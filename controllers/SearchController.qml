@@ -33,6 +33,8 @@ Item {
   readonly property bool queryNeedsBackend: /(^|\s)(content|grep|c|scope):/i.test(query)
   readonly property bool deep: listActive || queryNeedsBackend || (deepOverride !== "" ? deepOverride === "deep" : service.searchDeep)
   property bool quickNavActive: false
+  property bool quickNavCaseSensitive: false
+  property bool quickNavShowHidden: false
   property string quickNavChannel: "folders"
   property string quickNavHome: "folders"
   property string quickNavMonitor: ""
@@ -110,6 +112,7 @@ Item {
   function startQuickNav(targetScreen, channel) {
     quickNavTargetScreen = targetScreen || null
     quickNavMonitor = bladeHost.focusedMonitorName
+    quickNavShowHidden = service.showHidden
     quickNavHome = String(channel || "folders")
     quickNavChannel = quickNavHome
     quickNavActive = true
@@ -318,17 +321,26 @@ Item {
 
   function yieldFocus() { focusTimer.stop(); quickNavTargetScreen = null }
 
+  function setQuickNavOption(key, value) {
+    if (String(key) === "case") quickNavCaseSensitive = !!value
+    else if (String(key) === "hidden") quickNavShowHidden = !!value
+    else return
+    if (quickNavActive) runSearch()
+  }
+
   function searchRequest(mode, value) {
     if (mode === "zoxide" && quickNavChannel === "files") {
       var fileArguments = ["--root", service.rootPath, "--query", value, "--limit", "50", "--fresh"]
-      if (service.showHidden) fileArguments.push("--show-hidden")
+      if (quickNavShowHidden) fileArguments.push("--show-hidden")
+      if (quickNavCaseSensitive) fileArguments.push("--case-sensitive")
       return { command: "search", arguments: fileArguments }
     }
     if (mode === "zoxide" && quickNavChannel === "recent")
       return { command: "frecency-list", arguments: ["--query", value, "--limit", "50"] }
     if (mode === "zoxide") {
       var folderArguments = ["--root", service.home, "--query", value, "--exclude", service.rootPath, "--limit", "50"]
-      if (service.showHidden) folderArguments.push("--show-hidden")
+      if (quickNavShowHidden) folderArguments.push("--show-hidden")
+      if (quickNavCaseSensitive) folderArguments.push("--case-sensitive")
       return { command: "quicknav", arguments: folderArguments }
     }
     var arguments = ["--root", service.rootPath, "--query", value, "--limit", "200"]

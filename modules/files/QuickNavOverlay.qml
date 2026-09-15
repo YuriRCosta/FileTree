@@ -196,7 +196,7 @@ FocusScope {
         id: input
         anchors.fill: parent
         leftPadding: Style.space(30)
-        rightPadding: Style.space(10)
+        rightPadding: Style.space(58)
         selectByMouse: true
         text: overlay.controller.searchQuery
         placeholderText: String(overlay.channelInfo.placeholder || "Search…")
@@ -223,6 +223,60 @@ FocusScope {
           color: input.activeFocus ? Color.accent : overlay.secondaryTextColor
           font.family: Style.font.family
           font.pixelSize: Style.font.bodySmall
+        }
+
+        Row {
+          id: quickNavOptions
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(8)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(2)
+
+          Repeater {
+            model: 2
+
+            delegate: Rectangle {
+              id: chip
+              required property int index
+              readonly property string key: index === 0 ? "case" : "hidden"
+              readonly property bool active: index === 0
+                ? overlay.controller.quickNavCaseSensitive
+                : overlay.controller.quickNavShowHidden
+              width: Style.space(22)
+              height: Style.space(20)
+              color: active ? Util.alpha(Color.accent, 0.22) : (chipPointer.containsMouse ? Util.alpha(Color.bar.text, 0.10) : "transparent")
+              border.width: active ? 1 : 0
+              border.color: Util.alpha(Color.accent, 0.6)
+
+              Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                text: chip.index === 0 ? "Aa" : "󰈉"
+                color: chip.active ? Color.accent : (chipPointer.containsMouse ? Color.bar.text : overlay.secondaryTextColor)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                font.bold: chip.active
+              }
+
+              PluginUi.PanelToolTip {
+                visible: chipPointer.containsMouse
+                text: chip.index === 0
+                  ? (chip.active ? "Matching case" : "Ignoring case")
+                  : (chip.active ? "Including hidden directories" : "Skipping hidden directories")
+              }
+
+              MouseArea {
+                id: chipPointer
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  overlay.controller.setQuickNavOption(chip.key, !chip.active)
+                  input.forceActiveFocus()
+                }
+              }
+            }
+          }
         }
 
         onTextEdited: overlay.edited(text)
@@ -352,7 +406,7 @@ FocusScope {
             textFormat: Text.StyledText
             text: Highlight.markup(row.relative, Highlight.parseSpans(row.relativeSpans), Color.accent)
             color: overlay.secondaryTextColor
-            elide: Text.ElideMiddle
+            elide: Text.ElideLeft
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }

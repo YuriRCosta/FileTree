@@ -808,6 +808,9 @@ Item {
   function setPropertiesPlacement(value) { navigationController.setPropertiesPlacement(value) }
   function setPriorityProperty(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityProperty(value) }
   function setPriorityColumns(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityColumns(value) }
+  readonly property bool quickNavCaseSensitive: searchController.quickNavCaseSensitive
+  readonly property bool quickNavShowHidden: searchController.quickNavShowHidden
+  function setQuickNavOption(key, value) { return searchController.setQuickNavOption(key, value) }
   function setFooterFields(value) {
     stateController.markSettingChoice(["footerFields"])
     stateController.footerFields = FooterFields.normalizeFields(value)
