@@ -58,7 +58,7 @@ Item {
     if (badge === "top" || badge === "on" || badge === "true") badge = "header"
     if (badge === "bottom") badge = "footer"
     if (badge === "off" || badge === "false" || badge === "none") badge = "hidden"
-    return ["header", "footer", "hidden"].indexOf(badge) >= 0 ? badge : "header"
+    return ["header", "footer", "hidden"].indexOf(badge) >= 0 ? badge : "footer"
   }
 
   function normalizeMonitorMode(value) {

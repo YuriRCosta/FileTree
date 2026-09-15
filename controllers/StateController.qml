@@ -97,7 +97,7 @@ Item {
     property bool scrollMarks: true
     property bool autoHideSearch: false
     property bool showSystemVolumes: false
-    property string modeBadge: "header"
+    property string modeBadge: "footer"
     property string folderColorScope: "icon"
     property var treeSort: []
     property var treeFilter: ({})
