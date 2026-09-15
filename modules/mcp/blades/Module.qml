@@ -165,7 +165,7 @@ FocusScope {
 
   Binding { target: viewLoader.item; property: "context"; value: root.context; when: !!viewLoader.item }
   Binding { target: viewLoader.item; property: "options"; value: root.metricOptions; when: !!viewLoader.item }
-  Binding { target: viewLoader.item; property: "defaultMetric"; value: "agents"; when: !!viewLoader.item }
+  Binding { target: viewLoader.item; property: "defaultMetric"; value: "uses"; when: !!viewLoader.item }
 
   Loader {
     id: headerLoader

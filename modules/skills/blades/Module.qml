@@ -261,7 +261,7 @@ FocusScope {
     height: 0
     source: module.context ? module.context.ui.url("PaneView") : ""
     onLoaded: {
-      item.defaultMetric = "agents"
+      item.defaultMetric = "uses"
       item.options = module.metricOptions
       item.context = module.context
     }
