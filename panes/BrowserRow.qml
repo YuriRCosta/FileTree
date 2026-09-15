@@ -396,6 +396,7 @@ Rectangle {
   Item {
     id: repoSummary
     objectName: "repositorySummary"
+    z: 1
     visible: row.showsRepoSummary
     readonly property real columnEnd: controller.priorityColumns.length > 0
       ? priorityMetadata.x + pane.priorityColumnWidth(row.width, String(controller.priorityColumns[0])) : gitBadge.x

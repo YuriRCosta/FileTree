@@ -300,6 +300,16 @@ PanelWindow {
     onSingleTapped: surface.host.endPointerResize()
   }
 
+  MouseArea {
+    parent: surface.contentItem
+    anchors.fill: parent
+    enabled: surface.pointerResizing
+    visible: enabled
+    acceptedButtons: Qt.NoButton
+    cursorShape: Qt.SizeFDiagCursor
+    z: 9999
+  }
+
   HoverHandler {
     parent: surface.contentItem
     enabled: surface.surfaceActive
