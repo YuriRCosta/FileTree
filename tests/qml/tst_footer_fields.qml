@@ -22,9 +22,12 @@ TestCase {
     var tight = FooterFields.window(parts, 0, widthOf, 10, 1)
     compare(tight.shown, ["13 items"])
     compare(tight.more, true)
+    compare(tight.back, false)
     var second = FooterFields.window(parts, FooterFields.advance(parts, tight.start, tight.shown.length), widthOf, 10, 1)
     compare(second.shown, ["1 selected"])
     compare(second.more, true)
+    compare(second.back, true)
+    compare(FooterFields.retreat(parts, second.start, second.shown.length), 0)
   }
 
   function test_paging_wraps_back_to_the_first_part() {

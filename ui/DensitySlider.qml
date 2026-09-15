@@ -12,9 +12,12 @@ FocusScope {
   property var labels: ["XS", "S", "M", "L", "XL"]
   readonly property int steps: 5
   readonly property int clamped: Math.max(0, Math.min(steps - 1, step))
-  readonly property string valueLabel: String(labels[clamped] || clamped + 1)
+  property string readout: ""
+  property bool editableValue: false
+  readonly property string valueLabel: readout !== "" ? readout : String(labels[clamped] || clamped + 1)
   readonly property bool pressed: range.pressed
   signal stepRequested(int step)
+  signal valueEntered(string text)
   signal keyPressed(var event)
 
   activeFocusOnTab: true
@@ -100,14 +103,6 @@ FocusScope {
       height: Style.space(28)
 
       Rectangle {
-        anchors.fill: parent
-        anchors.margins: Style.space(2)
-        color: "transparent"
-        border.width: control.activeFocus ? 1 : 0
-        border.color: Color.accent
-      }
-
-      Rectangle {
         anchors.centerIn: parent
         width: Style.space(16)
         height: width
@@ -150,15 +145,54 @@ FocusScope {
   Text {
     id: valueText
     anchors.right: parent.right
-    width: Style.space(24)
+    width: Style.space(34)
     height: parent.height
+    visible: !valueField.visible
     textFormat: Text.PlainText
     text: control.valueLabel
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter
-    color: Color.muted
+    color: valuePointer.containsMouse && control.editableValue ? Color.bar.text : Color.muted
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
     Accessible.ignored: true
+
+    MouseArea {
+      id: valuePointer
+      anchors.fill: parent
+      enabled: control.editableValue
+      hoverEnabled: true
+      cursorShape: Qt.IBeamCursor
+      onDoubleClicked: {
+        valueField.text = control.valueLabel.replace("%", "")
+        valueField.visible = true
+        valueField.selectAll()
+        valueField.forceActiveFocus()
+      }
+    }
+  }
+
+  TextInput {
+    id: valueField
+    anchors.right: parent.right
+    width: Style.space(34)
+    height: parent.height
+    visible: false
+    text: ""
+    horizontalAlignment: Text.AlignHCenter
+    verticalAlignment: Text.AlignVCenter
+    color: Color.bar.text
+    selectionColor: Util.alpha(Color.accent, 0.38)
+    selectByMouse: true
+    maximumLength: 6
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    onAccepted: {
+      control.valueEntered(text)
+      visible = false
+      control.takeFocus()
+    }
+    onActiveFocusChanged: if (!activeFocus) visible = false
+    Keys.onEscapePressed: function(event) { visible = false; control.takeFocus(); event.accepted = true }
   }
 }

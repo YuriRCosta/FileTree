@@ -45,7 +45,11 @@ FocusScope {
   readonly property bool contextRootExpanded: !contextAbove || controller.treeModel.count === 0 || controller.treeModel.get(0).expanded
   onContextRootExpandedChanged: Qt.callLater(root.ensureContextRoot)
   onSummaryInTreeChanged: { persistMedia(); Qt.callLater(root.ensureContextRoot) }
-  readonly property real ordinaryDensity: [0.85, 0.925, 1, 1.075, 1.15][Math.max(0, Math.min(4, ordinaryDensityStep))]
+  readonly property var densityPresets: [0.85, 0.925, 1, 1.075, 1.15]
+  property real ordinaryDensityValue: 0
+  readonly property real ordinaryDensity: ordinaryDensityValue > 0
+    ? ordinaryDensityValue
+    : densityPresets[Math.max(0, Math.min(4, ordinaryDensityStep))]
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
   readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode && !PathText.isRemote(controller.rootPath)
@@ -66,6 +70,7 @@ FocusScope {
     context.state.set("mediaSizeStep", mediaSizeStep)
     context.state.set("mediaShowEmptyPeriods", mediaShowEmptyPeriods)
     context.state.set("ordinaryDensityStep", ordinaryDensityStep)
+    context.state.set("ordinaryDensityValue", ordinaryDensityValue)
     context.state.set("rootRowInTree", summaryInTree)
   }
 
@@ -127,6 +132,7 @@ FocusScope {
       }
     }
     ordinaryDensityStep = Math.max(0, Math.min(4, step))
+    ordinaryDensityValue = 0
     Qt.callLater(root.restoreDensityAnchor)
   }
 
@@ -203,6 +209,7 @@ FocusScope {
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
     mediaShowEmptyPeriods = context.state.get("mediaShowEmptyPeriods", false) === true
     ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
+    ordinaryDensityValue = root.clampDensity(Number(context.state.get("ordinaryDensityValue", 0)))
     summaryInTree = context.state.get("rootRowInTree", true) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
@@ -282,6 +289,24 @@ FocusScope {
     var failure = root.branchError || (root.mediaActive && mediaProvider && mediaProvider.error ? String(mediaProvider.error) : "")
     if (failure) parts.push(failure)
     return parts
+  }
+
+  function clampDensity(value) {
+    var number = Number(value)
+    if (!isFinite(number) || number <= 0) return 0
+    if (number > 10) number = number / 100
+    return Math.max(0.6, Math.min(1.8, number))
+  }
+
+  function applyDensityText(text) {
+    var typed = root.clampDensity(String(text).replace("%", "").trim())
+    if (typed <= 0) return
+    root.ordinaryDensityValue = typed
+    var nearest = 0
+    for (var i = 1; i < root.densityPresets.length; i++)
+      if (Math.abs(root.densityPresets[i] - typed) < Math.abs(root.densityPresets[nearest] - typed)) nearest = i
+    root.ordinaryDensityStep = nearest
+    root.persistMedia()
   }
 
   function targetScreen() {
@@ -1153,6 +1178,25 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       spacing: footerSeparator.width
       Text {
+        id: footerRewind
+        objectName: "footerRewind"
+        textFormat: Text.PlainText
+        visible: root.footerLayout.back
+        text: "‹"
+        color: rewindPointer.containsMouse ? Color.accent : Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        font.weight: Font.Bold
+        MouseArea {
+          id: rewindPointer
+          anchors.fill: parent
+          anchors.margins: -Style.space(4)
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.footerOffset = FooterFields.retreat(root.footerParts(), root.footerLayout.start, root.footerLayout.shown.length)
+        }
+      }
+      Text {
         id: footerCount
         textFormat: Text.PlainText
         text: root.footerLayout.shown.length > 0 ? root.footerLayout.shown[0] : ""
@@ -1163,7 +1207,9 @@ FocusScope {
       }
       Text {
         id: footerDetail
-        width: Math.max(0, parent.width - footerCount.width - parent.spacing - (footerPager.visible ? footerPager.width + parent.spacing : 0))
+        width: Math.max(0, parent.width - footerCount.width - parent.spacing
+          - (footerPager.visible ? footerPager.width + parent.spacing : 0)
+          - (footerRewind.visible ? footerRewind.width + parent.spacing : 0))
         textFormat: Text.PlainText
         text: root.footerLayout.shown.slice(1).join(footerSeparator.text)
         color: root.branchError || (mediaProvider && mediaProvider.error) ? Color.urgent : Color.muted
@@ -1198,6 +1244,9 @@ FocusScope {
       step: root.mediaActive ? root.mediaSizeStep : root.ordinaryDensityStep
       label: root.mediaActive ? "Preview size" : "Row density"
       labels: root.mediaActive ? ["XS", "S", "M", "L", "XL"] : ["85%", "93%", "100%", "108%", "115%"]
+      editableValue: !root.mediaActive
+      readout: root.mediaActive ? "" : Math.round(root.ordinaryDensity * 100) + "%"
+      onValueEntered: function(text) { root.applyDensityText(text) }
       onStepRequested: function(step) {
         if (root.mediaActive) { if (mediaView) mediaView.rememberAnchor(); root.mediaSizeStep = step }
         else root.changeDensity(step)

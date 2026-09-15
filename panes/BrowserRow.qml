@@ -49,7 +49,7 @@ Rectangle {
   required property string error
 
   property real density: 1
-  readonly property real densityScale: Math.max(0.85, Math.min(1.15, density))
+  readonly property real densityScale: Math.max(0.6, Math.min(1.8, density))
 
   property bool treeMode: true
   property bool showPath: !treeMode
