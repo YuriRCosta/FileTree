@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import "blades"
+import "lib/FooterFields.js" as FooterFields
 import "controllers"
 import "lib/PathText.js" as PathText
 import "lib/GitSummary.js" as GitSummary
@@ -170,6 +171,8 @@ Item {
   property alias gitEnabled: stateController.gitEnabled
   property alias projectContext: stateController.projectContext
   property alias gitStatusDetails: stateController.gitStatusDetails
+  property alias footerFields: stateController.footerFields
+  readonly property var footerFieldChoices: FooterFields.choices
   property alias gitSummaryFields: stateController.gitSummaryFields
   readonly property var gitSummaryChoices: GitSummary.choices
   property alias propertyIcons: stateController.propertyIcons
@@ -805,6 +808,11 @@ Item {
   function setPropertiesPlacement(value) { navigationController.setPropertiesPlacement(value) }
   function setPriorityProperty(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityProperty(value) }
   function setPriorityColumns(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityColumns(value) }
+  function setFooterFields(value) {
+    stateController.markSettingChoice(["footerFields"])
+    stateController.footerFields = FooterFields.normalizeFields(value)
+    return stateController.footerFields
+  }
   function setGitStatusDetails(value) { stateController.markSettingChoice(["gitStatusDetails"]); return navigationController.setGitStatusDetails(value) }
   function setGitSummaryFields(value) {
     stateController.markSettingChoice(["gitSummaryFields"])

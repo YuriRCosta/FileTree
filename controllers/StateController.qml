@@ -1,6 +1,7 @@
 import QtQuick
 import "../lib/PathText.js" as PathText
 import "../lib/TreeOrder.js" as TreeOrder
+import "../lib/FooterFields.js" as FooterFields
 import "../lib/StateDocument.js" as StateDocument
 import "../lib/GitSummary.js" as GitSummary
 import "../lib/FolderPalette.js" as FolderPalette
@@ -47,6 +48,7 @@ Item {
   property alias gitEnabled: persisted.gitEnabled
   property alias projectContext: persisted.projectContext
   property alias gitStatusDetails: persisted.gitStatusDetails
+  property alias footerFields: persisted.footerFields
   property alias gitSummaryFields: persisted.gitSummaryFields
   property alias propertyIcons: persisted.propertyIcons
   property alias confirmTrash: persisted.confirmTrash
@@ -88,6 +90,7 @@ Item {
     property bool gitEnabled: true
     property bool projectContext: false
     property var gitStatusDetails: []
+    property var footerFields: ["count", "selected", "activity", "scope"]
     property var gitSummaryFields: GitSummary.normalizeFields()
     property bool propertyIcons: true
     property bool confirmTrash: true
@@ -649,6 +652,7 @@ Item {
     gitEnabled = service.boolValue(state.gitEnabled, base.gitEnabled)
     gitSummaryFields = GitSummary.normalizeFields(state.gitSummaryFields === undefined ? base.gitSummaryFields : state.gitSummaryFields)
     projectContext = service.boolValue(state.projectContext, base.projectContext)
+    footerFields = FooterFields.normalizeFields(state.footerFields === undefined ? base.footerFields : state.footerFields)
     gitStatusDetails = state.gitStatusDetails === undefined
       ? service.gitStatusDetailsFromColumns(state.priorityColumns)
       : service.normalizeGitStatusDetails(state.gitStatusDetails)
@@ -709,6 +713,7 @@ Item {
       gitSummaryFields: gitSummaryFields,
       projectContext: projectContext,
       gitStatusDetails: gitStatusDetails,
+      footerFields: footerFields,
       propertyIcons: propertyIcons,
       confirmTrash: confirmTrash,
       scrollMarks: scrollMarks,

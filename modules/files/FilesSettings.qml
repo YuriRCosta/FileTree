@@ -133,6 +133,25 @@ Column {
     }
   }
 
+  PluginUi.SettingsGroup { title: "Footer" }
+
+  Repeater {
+    model: root.controller.footerFieldChoices
+
+    PluginUi.ToggleRow {
+      required property var modelData
+      width: parent.width
+      glyph: modelData.glyph
+      label: "Footer: " + modelData.label.toLowerCase()
+      checked: root.controller.footerFields.indexOf(modelData.key) >= 0
+      onToggled: {
+        var next = root.controller.footerFields.filter(function(key) { return key !== modelData.key })
+        if (!checked) next.push(modelData.key)
+        root.controller.setFooterFields(next)
+      }
+    }
+  }
+
   PluginUi.SettingsGroup { title: "Trash and drives" }
 
   PluginUi.ToggleRow {
