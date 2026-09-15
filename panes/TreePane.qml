@@ -237,13 +237,17 @@ FocusScope {
   readonly property real columnAdderReserve: browserHeader.addSlotWidth
 
   property int footerOffset: 0
+  FontMetrics {
+    id: footerFont
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+  }
   readonly property var footerLayout: {
     var parts = root.footerParts()
     var budget = Math.max(0, footerRow.width)
     return FooterFields.window(parts, root.footerOffset, function(text) {
-      footerMetrics.text = text
-      return footerMetrics.width
-    }, budget, footerSeparator.width)
+      return footerFont.advanceWidth(text)
+    }, budget, footerFont.advanceWidth(footerSeparator.text))
   }
 
   function footerFieldText(key) {
@@ -1158,12 +1162,6 @@ FocusScope {
     height: visible ? Style.space(28) : 0
     visible: !controller.trashMode && !controller.drivesMode
     color: Color.bar.background
-    TextMetrics {
-      id: footerMetrics
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-    }
-
     TextMetrics {
       id: footerSeparator
       font.family: Style.font.family
