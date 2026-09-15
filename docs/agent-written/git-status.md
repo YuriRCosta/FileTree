@@ -21,7 +21,7 @@ Choices persist across restarts. Disabling every field restores the normal colum
 The same selection is available from the CLI:
 
 ```sh
-fileblade git-summary branch worktree ahead behind modified added untracked deleted renamed copied type_changed conflicted clean
+fileblade git-summary branch worktree ahead behind modified added untracked deleted renamed copied type_changed conflicted
 fileblade git-summary branch modified untracked
 fileblade git-summary
 ```

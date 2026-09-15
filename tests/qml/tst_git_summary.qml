@@ -17,18 +17,17 @@ TestCase {
     compare(result.tooltipTokens.filter(function(part) { return part.marker === "?" })[0].text, "3 untracked")
     data.ahead = null; data.behind = null
     verify(GitSummary.describe(JSON.stringify(data)).text.indexOf("↑") < 0)
-    compare(GitSummary.describe(JSON.stringify({ ok: true, ahead: 0, behind: 0, upstream: "origin/main" })).text, "↑0 ↓0 Clean")
-    compare(GitSummary.describe(JSON.stringify({ ok: true, ahead: null, behind: null, upstream: "" })).text, "Clean")
+    compare(GitSummary.describe(JSON.stringify({ ok: true, ahead: 0, behind: 0, upstream: "origin/main" })).text, "↑0 ↓0")
+    compare(GitSummary.describe(JSON.stringify({ ok: true, ahead: null, behind: null, upstream: "" })).text, "")
     compare(GitSummary.describe('{"ok":false}').text, "Unavailable")
     compare(GitSummary.describe("").text, "…")
   }
 
-  function test_display_choices_preserve_identity_and_do_not_report_hidden_changes_as_clean() {
+  function test_display_choices_preserve_identity_and_drop_unknown_fields() {
     var raw = JSON.stringify({ ok: true, branch: "feature/<test>", worktree: "review", ahead: 1, behind: 0, upstream: "origin/main", modified: 2, untracked: 3 })
     var result = GitSummary.describe(raw, ["branch", "worktree", "untracked"])
     compare(result.identity, " feature/<test> 󰙅 review")
     compare(result.text, "?3")
-    compare(GitSummary.describe(raw, ["clean"]).text, "")
     compare(GitSummary.describe(raw, []).identity, "")
     compare(GitSummary.describe(raw, []).text, "")
     compare(GitSummary.normalizeFields(["branch", "branch", "invalid", "added"]).join(","), "branch,added")

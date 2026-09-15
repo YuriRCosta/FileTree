@@ -412,7 +412,7 @@ Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       textFormat: Text.PlainText
       text: row.repositorySummary.identity || ""
-      color: Color.muted
+      color: Color.accent
       font.family: Style.font.family
       font.pixelSize: Math.max(1, Math.round((Style.font.caption) * row.densityScale))
       elide: Text.ElideMiddle

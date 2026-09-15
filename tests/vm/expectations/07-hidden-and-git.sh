@@ -44,7 +44,7 @@ expect_true E-07-05 "and its branch is available" "[[ '$branch' == master || '$b
 
 if ! skip E-07-05; then
   saved_summary_fields=$(status | jq -r '.gitSummaryFields | join(",")')
-  ctl setGitSummaryFields branch,worktree,ahead,behind,modified,added,untracked,deleted,renamed,copied,type_changed,conflicted,clean
+  ctl setGitSummaryFields branch,worktree,ahead,behind,modified,added,untracked,deleted,renamed,copied,type_changed,conflicted
   ctl setPriorityColumns size; sleep 2
   expect_missing E-07-05 "a merely listed repository keeps its chosen column" "$(tree_text)" "M1"
   goto_root "$ROOT_DIR/repo"
