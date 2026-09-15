@@ -16,6 +16,8 @@ pub struct Candidate {
     pub location: Descriptor,
     pub host: String,
     pub online: bool,
+    pub ssh_host: String,
+    pub ssh_user: String,
 }
 
 pub fn discover(cancelled: &AtomicBool) -> AppResult<Vec<Candidate>> {
@@ -101,10 +103,13 @@ pub fn candidates(status: &Value) -> AppResult<Vec<Candidate>> {
             &label,
             Connection::Disconnected,
         )?;
+        let (ssh_host, ssh_user) = configured_ssh(&host);
         result.push(Candidate {
             location,
             host,
             online: peer["Online"].as_bool().unwrap_or(false),
+            ssh_host,
+            ssh_user,
         });
     }
     result.sort_by(|left, right| {
@@ -115,6 +120,43 @@ pub fn candidates(status: &Value) -> AppResult<Vec<Candidate>> {
             .then(left.location.id.cmp(&right.location.id))
     });
     Ok(result)
+}
+
+pub(super) fn configured_ssh(host: &str) -> (String, String) {
+    let alias = host.split('.').next().unwrap_or_default();
+    if alias.is_empty() || !valid_host(alias) {
+        return (String::new(), String::new());
+    }
+    let Some(program) = which("ssh") else {
+        return (String::new(), String::new());
+    };
+    let Ok(output) = CommandSpec::new(program)
+        .args(["-G", "--", alias])
+        .env("LC_ALL", "C")
+        .timeout(Duration::from_secs(2))
+        .limits(256 * 1024, 4096)
+        .stop_on_output_limit()
+        .run_cancellable(&AtomicBool::new(false))
+    else {
+        return (String::new(), String::new());
+    };
+    if !output.status.success() {
+        return (String::new(), String::new());
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let field = |name: &str| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(name)?.split_whitespace().next())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let resolved = field("hostname ");
+    let user = field("user ");
+    let matches_peer = resolved.eq_ignore_ascii_case(host) || resolved.eq_ignore_ascii_case(alias);
+    if !matches_peer || user.is_empty() || user.len() > 128 {
+        return (String::new(), String::new());
+    }
+    (alias.to_string(), user)
 }
 
 pub(super) fn valid_host(host: &str) -> bool {

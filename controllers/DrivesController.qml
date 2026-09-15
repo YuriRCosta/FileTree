@@ -177,13 +177,20 @@ Item {
     if (busySource) return
     var peer = peerCandidates[id]
     if (!peer) return
-    var saved = savedLocations.filter(function(value) { return value.host === peer.host })[0]
+    var saved = savedLocations.filter(function(value) {
+      return value.host === peer.host || (peer.ssh_host && value.host === peer.ssh_host)
+    })[0]
     if (reuseSaved && saved && String(saved.user) && String(saved.path).charAt(0) === "/") {
-      connectPeer(id, String(peer.host), String(saved.user), String(saved.path), false)
+      connectPeer(id, String(saved.host), String(saved.user), String(saved.path), false)
       return
     }
-    connectionRequested(id, String(peer.label), String(peer.host),
-      saved ? String(saved.user) : service.localUser, saved ? String(saved.path) : "/")
+    if (reuseSaved && !saved && peer.ssh_host && peer.ssh_user) {
+      connectPeer(id, String(peer.ssh_host), String(peer.ssh_user), "/", false)
+      return
+    }
+    connectionRequested(id, String(peer.label), String(peer.ssh_host || peer.host),
+      saved ? String(saved.user) : (peer.ssh_user ? String(peer.ssh_user) : service.localUser),
+      saved ? String(saved.path) : "/")
   }
 
   function connectPeer(id, host, user, path, save) {

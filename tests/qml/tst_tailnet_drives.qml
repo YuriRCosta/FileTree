@@ -105,6 +105,31 @@ TestCase {
     compare(requests.length, 1)
   }
 
+  function test_a_peer_the_ssh_config_already_knows_connects_without_asking() {
+    service.drivesMode = true
+    requests[0].callback({ ok: true, locations: [descriptor("disconnected", "")],
+      tailnet: { candidates: [{ id: "tailnet:peer", label: "Peer", host: "peer.test",
+        ssh_host: "peer", ssh_user: "operator" }] }, saved: [] })
+    controller.openVolume("tailnet:peer", null)
+    compare(connections.count, 0)
+    compare(requests[1].command, "location-connect")
+    compare(requests[1].arguments,
+      ["--location", "tailnet:peer", "--expected-host", "peer", "--user", "operator", "--path", "/"])
+    controller.runAction("tailnet:peer")
+    compare(connections.count, 0)
+  }
+
+  function test_the_explicit_action_offers_the_ssh_config_user_for_editing() {
+    service.drivesMode = true
+    requests[0].callback({ ok: true, locations: [descriptor("disconnected", "")],
+      tailnet: { candidates: [{ id: "tailnet:peer", label: "Peer", host: "peer.test",
+        ssh_host: "peer", ssh_user: "operator" }] }, saved: [] })
+    controller.runAction("tailnet:peer")
+    compare(connections.count, 1)
+    compare(Array.from(connections.signalArguments[0]), ["tailnet:peer", "Peer", "peer", "operator", "/"])
+    compare(requests.length, 1)
+  }
+
   function test_old_inventory_cannot_replace_action_result_and_cleanup_stays_disconnectable() {
     controller.applyLocations(inventory("disconnected", ""))
     controller.refreshLocations()

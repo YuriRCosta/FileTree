@@ -125,7 +125,9 @@ pub fn connect(
     saved: &Saved,
     cancelled: &AtomicBool,
 ) -> AppResult<Descriptor> {
-    if candidate.host != saved.host {
+    if candidate.host != saved.host
+        && (candidate.ssh_host.is_empty() || candidate.ssh_host != saved.host)
+    {
         return Err(AppError::invalid(
             "selected peer changed; refresh Locations",
         ));
