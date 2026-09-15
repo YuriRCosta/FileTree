@@ -77,7 +77,8 @@ Item {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return ({})
     var result = ({})
     for (var date of ["updated", "created"]) result[date] = String(raw[date] || "").slice(0, 32)
-    for (var count of ["bytes", "characters", "words", "tokens", "fileTokens"]) {
+    for (var count of ["bytes", "characters", "words", "tokens", "fileTokens",
+                       "uses", "usesAgent", "usesUser", "usesScheduled", "failed"]) {
       var value = raw[count], number = Number(value)
       result[count] = value === null || value === undefined || !isFinite(number) ? null : Math.max(0, number)
     }
