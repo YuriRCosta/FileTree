@@ -10,7 +10,7 @@ FocusScope {
   property string shortcutSmaller: "-"
   property string shortcutLarger: "+"
   property var labels: ["XS", "S", "M", "L", "XL"]
-  readonly property int steps: 5
+  readonly property int steps: Math.max(2, labels.length)
   readonly property int clamped: Math.max(0, Math.min(steps - 1, step))
   property string readout: ""
   property bool editableValue: false
@@ -45,7 +45,7 @@ FocusScope {
 
   Text {
     id: smaller
-    width: Style.space(24)
+    width: Style.space(16)
     height: parent.height
     textFormat: Text.PlainText
     text: "−"
@@ -68,7 +68,9 @@ FocusScope {
     id: range
     objectName: "densityRange"
     anchors.left: smaller.right
+    anchors.leftMargin: -Style.space(3)
     anchors.right: larger.left
+    anchors.rightMargin: -Style.space(3)
     height: parent.height
     from: 0
     to: control.steps - 1
@@ -85,15 +87,35 @@ FocusScope {
     Accessible.onIncreaseAction: control.request(control.clamped + 1)
     Accessible.onDecreaseAction: control.request(control.clamped - 1)
     Accessible.name: control.label
-    Accessible.description: control.valueLabel + ". Five positions. Arrow keys, Home and End change size. Smaller: " + control.shortcutSmaller + "; larger: " + control.shortcutLarger
+    Accessible.description: control.valueLabel + ". " + control.steps + " positions. Arrow keys, Home and End change size. Smaller: " + control.shortcutSmaller + "; larger: " + control.shortcutLarger
     onMoved: control.request(value)
 
-    background: Rectangle {
+    background: Item {
       x: range.handle.width / 2
-      y: (range.height - height) / 2
+      y: 0
       width: Math.max(0, range.width - range.handle.width)
-      height: Math.max(1, Style.space(2))
-      color: Color.muted
+      height: range.height
+
+      Rectangle {
+        anchors.verticalCenter: parent.verticalCenter
+        width: parent.width
+        height: Math.max(1, Style.space(2))
+        color: Color.muted
+      }
+
+      Repeater {
+        model: control.steps
+
+        Rectangle {
+          required property int index
+          readonly property bool current: index === control.clamped
+          x: Math.round(index * (parent.width - width) / Math.max(1, control.steps - 1))
+          y: Math.round((parent.height - height) / 2)
+          width: Math.max(1, Style.space(1))
+          height: current ? Style.space(10) : Style.space(6)
+          color: current ? Color.accent : Util.alpha(Color.bar.text, 0.35)
+        }
+      }
     }
 
     handle: Item {
@@ -123,7 +145,7 @@ FocusScope {
   Text {
     id: larger
     anchors.right: valueText.left
-    width: Style.space(24)
+    width: Style.space(16)
     height: parent.height
     textFormat: Text.PlainText
     text: "+"

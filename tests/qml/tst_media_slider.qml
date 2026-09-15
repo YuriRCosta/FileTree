@@ -80,6 +80,31 @@ TestCase {
     verify(first.activeFocus)
   }
 
+  function test_label_count_sets_the_stops_and_every_stop_gets_a_tick() {
+    var slider = createTemporaryObject(factory, wrapper,
+      { labels: ["75%", "80%", "85%", "90%", "95%", "100%", "105%", "110%", "115%", "120%", "125%"] })
+    waitForRendering(slider)
+    compare(slider.steps, 11)
+    slider.step = 5
+    compare(slider.valueLabel, "100%")
+    slider.step = 99
+    compare(slider.clamped, 10)
+    compare(slider.valueLabel, "125%")
+    var range = findChild(slider, "densityRange")
+    verify(range !== null)
+    compare(range.to, 10)
+    var ticks = 0
+    function count(item) {
+      for (var i = 0; i < item.children.length; i++) {
+        var child = item.children[i]
+        if (child.width <= 2 && child.height > 2 && child.height <= 24) ticks++
+        count(child)
+      }
+    }
+    count(range.background)
+    compare(ticks, 11)
+  }
+
   function test_drag_all_stops_and_buttons_at_narrow_width() {
     var slider = createTemporaryObject(factory, wrapper, { width: 132 })
     var range = findChild(slider, "densityRange")

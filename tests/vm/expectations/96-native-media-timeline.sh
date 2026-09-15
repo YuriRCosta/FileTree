@@ -31,7 +31,7 @@ original_right_notes=$(jq -c '[.blades.right.slots[]?.modules[]? | select(.modul
 original_root=$(field rootPath)
 fixture_path=''
 slot_id=r96-files
-test_slots='[{"id":"r96-files","fraction":-1,"active":0,"collapsed":false,"modules":[{"module":"files","state":{"mediaMode":true,"mediaRecursive":false,"mediaQuery":"","mediaQueryReady":true,"mediaSizeStep":2,"ordinaryDensityStep":2,"rootRowInTree":false}}]}]'
+test_slots='[{"id":"r96-files","fraction":-1,"active":0,"collapsed":false,"modules":[{"module":"files","state":{"mediaMode":true,"mediaRecursive":false,"mediaQuery":"","mediaQueryReady":true,"mediaSizeStep":2,"ordinaryDensityPercent":100,"rootRowInTree":false}}]}]'
 
 set_slots() {
   local edge=$1 slots=$2 encoded

@@ -37,7 +37,6 @@ FocusScope {
   property bool mediaQueryReady: false
   property int mediaSizeStep: 2
   property bool mediaShowEmptyPeriods: false
-  property int ordinaryDensityStep: 2
   property var densityAnchor: null
   property bool treeOrderUpdating: false
   property bool summaryInTree: true
@@ -45,11 +44,11 @@ FocusScope {
   readonly property bool contextRootExpanded: !contextAbove || controller.treeModel.count === 0 || controller.treeModel.get(0).expanded
   onContextRootExpandedChanged: Qt.callLater(root.ensureContextRoot)
   onSummaryInTreeChanged: { persistMedia(); Qt.callLater(root.ensureContextRoot) }
-  readonly property var densityPresets: [0.85, 0.925, 1, 1.075, 1.15]
-  property real ordinaryDensityValue: 0
-  readonly property real ordinaryDensity: ordinaryDensityValue > 0
-    ? ordinaryDensityValue
-    : densityPresets[Math.max(0, Math.min(4, ordinaryDensityStep))]
+  readonly property var densityPresets: [0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25]
+  readonly property var densityLabels: ["75%", "80%", "85%", "90%", "95%", "100%", "105%", "110%", "115%", "120%", "125%"]
+  property real ordinaryDensityValue: 1
+  readonly property real ordinaryDensity: ordinaryDensityValue > 0 ? ordinaryDensityValue : 1
+  readonly property int ordinaryDensityStep: root.nearestDensityStep(ordinaryDensity)
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
   readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode && !PathText.isRemote(controller.rootPath)
@@ -69,8 +68,7 @@ FocusScope {
     context.state.set("mediaQueryReady", mediaQueryReady)
     context.state.set("mediaSizeStep", mediaSizeStep)
     context.state.set("mediaShowEmptyPeriods", mediaShowEmptyPeriods)
-    context.state.set("ordinaryDensityStep", ordinaryDensityStep)
-    context.state.set("ordinaryDensityValue", ordinaryDensityValue)
+    context.state.set("ordinaryDensityPercent", Math.round(ordinaryDensityValue * 100))
     context.state.set("rootRowInTree", summaryInTree)
   }
 
@@ -131,8 +129,9 @@ FocusScope {
         fraction: item && item.height > 0 ? Math.max(0, Math.min(1, (view.contentY - item.y) / item.height)) : 0
       }
     }
-    ordinaryDensityStep = Math.max(0, Math.min(4, step))
-    ordinaryDensityValue = 0
+    var index = Math.max(0, Math.min(root.densityPresets.length - 1, Math.round(Number(step))))
+    ordinaryDensityValue = root.densityPresets[index]
+    root.persistMedia()
     Qt.callLater(root.restoreDensityAnchor)
   }
 
@@ -208,8 +207,7 @@ FocusScope {
     mediaQuery = String(context.state.get("mediaQuery", ""))
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
     mediaShowEmptyPeriods = context.state.get("mediaShowEmptyPeriods", false) === true
-    ordinaryDensityStep = Math.max(0, Math.min(4, Number(context.state.get("ordinaryDensityStep", 2))))
-    ordinaryDensityValue = root.clampDensity(Number(context.state.get("ordinaryDensityValue", 0)))
+    ordinaryDensityValue = root.clampDensity(Number(context.state.get("ordinaryDensityPercent", 100))) || 1
     summaryInTree = context.state.get("rootRowInTree", true) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
@@ -291,6 +289,13 @@ FocusScope {
     return parts
   }
 
+  function nearestDensityStep(value) {
+    var nearest = 0
+    for (var i = 1; i < root.densityPresets.length; i++)
+      if (Math.abs(root.densityPresets[i] - value) < Math.abs(root.densityPresets[nearest] - value)) nearest = i
+    return nearest
+  }
+
   function clampDensity(value) {
     var number = Number(value)
     if (!isFinite(number) || number <= 0) return 0
@@ -302,10 +307,6 @@ FocusScope {
     var typed = root.clampDensity(String(text).replace("%", "").trim())
     if (typed <= 0) return
     root.ordinaryDensityValue = typed
-    var nearest = 0
-    for (var i = 1; i < root.densityPresets.length; i++)
-      if (Math.abs(root.densityPresets[i] - typed) < Math.abs(root.densityPresets[nearest] - typed)) nearest = i
-    root.ordinaryDensityStep = nearest
     root.persistMedia()
   }
 
@@ -1243,7 +1244,7 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       step: root.mediaActive ? root.mediaSizeStep : root.ordinaryDensityStep
       label: root.mediaActive ? "Preview size" : "Row density"
-      labels: root.mediaActive ? ["XS", "S", "M", "L", "XL"] : ["85%", "93%", "100%", "108%", "115%"]
+      labels: root.mediaActive ? ["XS", "S", "M", "L", "XL"] : root.densityLabels
       editableValue: !root.mediaActive
       readout: root.mediaActive ? "" : Math.round(root.ordinaryDensity * 100) + "%"
       onValueEntered: function(text) { root.applyDensityText(text) }
