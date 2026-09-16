@@ -104,6 +104,7 @@ class Definition:
     raw_config: dict[str, Any] | None = field(default=None, repr=False, compare=False)
     absolute_path: Path | None = field(default=None, repr=False, compare=False)
     applied_agents: list[str] = field(default_factory=list)
+    plugin_name: str = ""
 
     def __post_init__(self) -> None:
         self.source_id = digest("source-v1", self.agent, self.source_kind, self.source_path)
@@ -142,6 +143,8 @@ class Definition:
             "path": source_path,
             "redacted": source_redacted,
         }
+        if self.plugin_name:
+            source["plugin"] = safe_label(self.plugin_name, self.source_id)
         if self.absolute_path is not None:
             try:
                 logical = self.absolute_path.absolute()

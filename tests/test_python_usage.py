@@ -362,6 +362,26 @@ class UsageHistory(unittest.TestCase):
         self.transcript("original.jsonl", called(self.day, "pending", "Skill", skill="alpha"), mode="a")
         self.assertEqual(self.row(self.skills()["items"], "alpha")["failed"], 2)
 
+    def test_plugin_usage_uses_registry_identity_outside_the_cache_layout(self):
+        install = self.claude / "plugins" / "local-toolkit"
+        install.mkdir(parents=True)
+        (install / ".mcp.json").write_text(json.dumps({"mcpServers": {"docs": {"command": "server"}}}))
+        (install.parent / "installed_plugins.json").write_text(json.dumps({
+            "version": 2, "plugins": {"toolkit@market": [{"scope": "user", "installPath": str(install)}]}}))
+        self.transcript("session.jsonl", called(self.day, "plugin", "mcp__plugin_toolkit_docs__search"))
+        self.assertEqual(self.row(self.mcp()["definitions"], "docs", agent="claude")["uses"], 1)
+
+    def test_ambiguity_is_consistent_across_inventory_lanes(self):
+        config = json.dumps({"mcpServers": {"docs": {"command": "server"}}})
+        (self.home / ".claude.json").write_text(config)
+        (self.project / ".mcp.json").write_text(config)
+        self.transcript("session.jsonl", called(self.day, "ambiguous", "mcp__docs__search"))
+        for scope in ("all", "user", "project"):
+            document = self.helper("mcp", "list", "--json", "--project", str(self.project), "--scope", scope)
+            for row in document["definitions"]:
+                if row["agent"] == "claude" and row["name"] == "docs":
+                    self.assertEqual((row["uses"], row.get("usageAmbiguous")), (0, True), scope)
+
     def test_a_killed_large_ingest_resumes_committed_progress_without_duplicates(self):
         self.helper("mcp", "usage", "--json")
         path = self.transcripts / "large.jsonl"

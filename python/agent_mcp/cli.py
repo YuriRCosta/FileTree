@@ -6,10 +6,10 @@ import sys
 from datetime import date
 
 import agent_usage
-from fileblade_inventory import SCOPES, WatchPlan
+from fileblade_inventory import SCOPES, WatchPlan, lane_rows
 
 from .apply import Applier
-from .inventory import Inventory, bounded_json
+from .inventory import PROJECT_SCOPES, Inventory, bounded_json
 from .model import SCHEMA_VERSION
 
 MAX_RESTORE_PAYLOAD_BYTES = 1024 * 1024
@@ -74,10 +74,12 @@ def main(arguments: list[str] | None = None) -> int:
         try:
             if options.watch:
                 with WatchPlan() as plan:
-                    document = plan.finish(Inventory(options.project, scope=options.scope).scan())
+                    document = plan.finish(Inventory(options.project).scan())
             else:
-                document = Inventory(options.project, scope=options.scope).scan()
+                document = Inventory(options.project).scan()
             document.update(agent_usage.attach_mcp(document["definitions"]))
+            document["definitions"] = lane_rows(document["definitions"], options.scope, PROJECT_SCOPES)
+            document["usageAmbiguous"] = sum(row.get("usageAmbiguous", False) for row in document["definitions"])
             output = bounded_json(document)
         except (OSError, ValueError, TimeoutError):
             sys.stdout.write('{"ok":false,"error":"Inventory failed, not probed","definitions":[],"healthBasis":"configuration-only","schemaVersion":1,"truncated":true,"warnings":[{"code":"inventory-failed","sourceId":"inventory"}]}\n')

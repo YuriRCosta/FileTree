@@ -532,6 +532,7 @@ class Inventory:
                         plugin_states[key] = value
         if registry:
             for plugin_id, plugin_path in self.installed_plugin_paths(registry, plugin_root):
+                first = len(self.definitions)
                 enabled = plugin_states.get(plugin_id)
                 manifest_path = plugin_path / ".claude-plugin" / "plugin.json"
                 manifest = self.read_document(agent, "claude-plugin-manifest", manifest_path, parse_json)
@@ -545,6 +546,8 @@ class Inventory:
                         self.add_servers(agent=agent, mapping=mcp.get("mcpServers"), scope="plugin",
                                          source_kind="claude-plugin", path=mcp_path, support="documented",
                                          priority=20, enabled_override=enabled)
+                for definition in self.definitions[first:]:
+                    definition.plugin_name = str((manifest or {}).get("name") or plugin_id.split("@", 1)[0])
 
         managed_path = self.etc_root / "claude-code" / "managed-mcp.json"
         managed = self.read_document(agent, "claude-managed", managed_path, parse_json, secure_managed=True)

@@ -14,7 +14,6 @@ MAX_OBSERVED = 64
 WINDOW_DAYS = 160 * 7
 UNAVAILABLE = "usage store unavailable"
 MCP_EVENTS = "(kind IN ('tool', 'resource', 'resource-list') OR (agent = 'claude' AND kind = 'command' AND name GLOB 'mcp__?*__?*'))"
-PLUGIN_CACHE = re.compile(r"/plugins/cache/[^/]+/([^/]+)/")
 
 
 def sanitize(name: str) -> str:
@@ -36,8 +35,8 @@ def mcp_server(item: dict[str, Any]) -> tuple[str, str] | None:
         return None
     if item.get("scope") != "plugin":
         return "claude", sanitize(name)
-    plugin = PLUGIN_CACHE.search(str((item.get("source") or {}).get("path") or ""))
-    return ("claude", f"plugin_{sanitize(plugin.group(1))}_{sanitize(name)}") if plugin else None
+    plugin = str((item.get("source") or {}).get("plugin") or "")
+    return ("claude", f"plugin_{sanitize(plugin)}_{sanitize(name)}") if plugin else None
 
 
 def counts(agent: int, user: int, scheduled: int, failed: int) -> dict[str, int]:
