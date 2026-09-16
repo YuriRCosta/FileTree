@@ -4,6 +4,7 @@ import sqlite3
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -324,6 +325,146 @@ class UsageHistory(unittest.TestCase):
         self.assertEqual((history["coverageStart"], history["days"]), (None, []))
         with closing(sqlite3.connect(self.store)) as connection:
             self.assertEqual(connection.execute("SELECT count(*) FROM event UNION ALL SELECT count(*) FROM project").fetchall(), [(0,), (0,)])
+
+    def test_forgotten_history_stays_forgotten_after_replacement_and_truncation(self):
+        self.skill(self.claude / "skills", "alpha")
+        old = called(self.day - 5 * DAY, "old", "Skill", skill="alpha")
+        recent = called(self.day, "recent", "Skill", skill="alpha")
+        path = self.transcript("session.jsonl", old, recent)
+        self.skills()
+        self.helper("mcp", "usage-forget", "--json", "--before", self.date(self.day))
+        os.replace(self.transcript("replacement", old, recent), path)
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["uses"], 1)
+        self.helper("mcp", "usage-forget", "--json")
+        path.write_text(lines(old))
+        self.assertEqual(self.skill_usage()["days"], [])
+        self.transcript("unread.jsonl", recent)
+        self.assertEqual(self.skill_usage()["days"], [])
+        future = datetime.now(timezone.utc) + timedelta(seconds=1)
+        self.transcript("session.jsonl", called(future, "new", "Skill", skill="alpha"), mode="a")
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["uses"], 1)
+
+    def test_failure_records_accept_standard_json_spacing(self):
+        self.skill(self.claude / "skills", "alpha")
+        path = self.transcript("session.jsonl", called(self.day, "failed", "Skill", skill="alpha"))
+        with path.open("a") as handle:
+            handle.write(json.dumps(failed(self.day, "failed")) + "\n")
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["failed"], 1)
+
+    def test_failures_survive_newest_first_ingest_across_transcripts(self):
+        self.skill(self.claude / "skills", "alpha")
+        older = self.transcript("original.jsonl", called(self.day, "resumed", "Skill", skill="alpha"))
+        os.utime(older, (0, 0))
+        self.transcript("resumed.jsonl", failed(self.day, "resumed"))
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["failed"], 1)
+        self.transcript("resumed.jsonl", failed(self.day, "pending"), mode="a")
+        self.skills()
+        self.transcript("original.jsonl", called(self.day, "pending", "Skill", skill="alpha"), mode="a")
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["failed"], 2)
+
+    def test_a_killed_large_ingest_resumes_committed_progress_without_duplicates(self):
+        self.helper("mcp", "usage", "--json")
+        path = self.transcripts / "large.jsonl"
+        total = 20000
+        with path.open("w") as handle:
+            for index in range(total):
+                handle.write(lines(called(self.day, f"large-{index}", "mcp__docs__search", padding="x" * 1024)))
+        command, env = self.command("mcp", "usage", "--json")
+        process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            deadline = time.monotonic() + 7
+            offset = 0
+            with closing(sqlite3.connect(self.store)) as connection:
+                while process.poll() is None and time.monotonic() < deadline:
+                    row = connection.execute("SELECT offset FROM source WHERE path = ?", (str(path),)).fetchone()
+                    offset = row[0] if row else 0
+                    if 0 < offset < path.stat().st_size:
+                        break
+                    time.sleep(0.005)
+            self.assertTrue(0 < offset < path.stat().st_size, "large files must commit progress before completion")
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.communicate(timeout=10)
+        for _ in range(10):
+            result = self.helper("mcp", "usage", "--json")
+            if not result["ingestPending"]:
+                break
+        self.assertFalse(result["ingestPending"])
+        self.assertEqual(result["days"], [[self.date(self.day), total, total, 0, 0, 0]])
+
+    def test_oversized_records_do_not_hide_the_next_event(self):
+        path = self.transcript("large-record.jsonl", called(self.day, "first", "mcp__docs__search"))
+        with path.open("ab") as handle:
+            handle.write(b"x" * (12 * 1024 * 1024) + b"\n")
+            handle.write(lines(called(self.day, "last", "mcp__docs__search")).encode())
+        result = self.helper("mcp", "usage", "--json")
+        self.assertEqual(result["days"], [[self.date(self.day), 2, 2, 0, 0, 0]])
+
+    def test_forget_commits_while_another_connection_keeps_a_read_snapshot(self):
+        self.transcript("session.jsonl", called(self.day, "private", "mcp__docs__private_name"))
+        self.helper("mcp", "usage", "--json")
+        with closing(sqlite3.connect(self.store)) as connection:
+            connection.execute("BEGIN")
+            connection.execute("SELECT * FROM event").fetchall()
+            self.assertEqual(self.helper("mcp", "usage-forget", "--json"),
+                             {"ok": True, "schemaVersion": 1, "removed": 1})
+        self.assertEqual(self.helper("mcp", "usage", "--json")["days"], [])
+        self.assertNotIn(b"private_name", self.store.read_bytes())
+
+    def test_schema_upgrade_preserves_history_from_deleted_transcripts(self):
+        path = self.transcript("session.jsonl", called(self.day, "preserved", "mcp__docs__search"))
+        expected = self.helper("mcp", "usage", "--json")["days"]
+        path.unlink()
+        with closing(sqlite3.connect(self.store)) as connection:
+            connection.executescript("DROP TABLE IF EXISTS retention; DROP TABLE IF EXISTS failure; "
+                                     "DROP TABLE IF EXISTS forgotten; PRAGMA user_version = 1;")
+        self.assertEqual(self.helper("mcp", "usage", "--json")["days"], expected)
+
+    def test_unknown_schema_is_refused_without_erasing_history(self):
+        self.transcript("session.jsonl", called(self.day, "preserved", "mcp__docs__search"))
+        self.helper("mcp", "usage", "--json")
+        with closing(sqlite3.connect(self.store)) as connection:
+            connection.execute("PRAGMA user_version = 99")
+        command, env = self.command("mcp", "usage", "--json")
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse(json.loads(result.stdout)["ok"])
+        with closing(sqlite3.connect(self.store)) as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM event").fetchone()[0], 1)
+
+    def test_full_forget_keeps_old_codex_project_paths_out_of_replayed_chunks(self):
+        sessions = self.home / ".codex" / "sessions"
+        sessions.mkdir(parents=True)
+        path = sessions / "session.jsonl"
+        path.write_text(lines(session_meta(self.day)) + "x" * (12 * 1024 * 1024) + "\n")
+        self.helper("mcp", "usage", "--json")
+        self.helper("mcp", "usage-forget", "--json")
+        replacement = sessions / "replacement"
+        replacement.write_bytes(path.read_bytes())
+        os.replace(replacement, path)
+        self.assertEqual(self.helper("mcp", "usage", "--json")["days"], [])
+        with closing(sqlite3.connect(self.store)) as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM project").fetchone()[0], 0)
+
+    def test_malformed_deep_record_does_not_block_later_uses(self):
+        path = self.transcript("session.jsonl", called(self.day, "first", "mcp__docs__search"))
+        with path.open("a") as handle:
+            handle.write('{"mcp__nested":' + '[' * 2000 + '0' + ']' * 2000 + '}\n')
+            handle.write(lines(called(self.day, "last", "mcp__docs__search")))
+        self.assertEqual(self.helper("mcp", "usage", "--json")["days"], [[self.date(self.day), 2, 2, 0, 0, 0]])
+
+    def test_forgetting_a_future_dated_event_does_not_block_new_uses(self):
+        self.skill(self.claude / "skills", "alpha")
+        future = datetime.now(timezone.utc) + 365 * DAY
+        path = self.transcript("session.jsonl", called(future, "bad-clock", "Skill", skill="alpha"))
+        self.skills()
+        self.helper("mcp", "usage-forget", "--json")
+        os.replace(self.transcript("replacement", called(future, "bad-clock", "Skill", skill="alpha")), path)
+        self.assertEqual(self.skill_usage()["coverageStart"], None)
+        new = datetime.now(timezone.utc) + timedelta(seconds=1)
+        self.transcript("session.jsonl", called(new, "new", "Skill", skill="alpha"), mode="a")
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["uses"], 1)
 
     def test_the_store_is_private_and_the_old_cache_is_removed(self):
         cache = self.base / "cache" / "omarchy" / "fileblade"

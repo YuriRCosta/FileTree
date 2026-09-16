@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import time
 from collections import Counter
 from typing import Any
 
-from .store import session
+from .store import identity, session
 
 SCHEMA_VERSION = 1
 MAX_OBSERVED = 64
@@ -134,18 +135,25 @@ def mcp_usage() -> dict[str, Any]:
 
 def forget(before: str | None) -> dict[str, Any]:
     try:
-        with session() as (connection, _):
+        with session(ingest_history=False) as (connection, _):
+            connection.execute("PRAGMA secure_delete = ON")
             with connection:
                 connection.execute("BEGIN IMMEDIATE")
                 if before:
                     cutoff = connection.execute("SELECT CAST(strftime('%s', ?, 'utc') AS INTEGER) * 1000", (before,)).fetchone()[0]
                     removed = connection.execute("DELETE FROM event WHERE at < ?", (cutoff,)).rowcount
+                    connection.execute("DELETE FROM failure WHERE at < ?", (cutoff,))
                     connection.execute("UPDATE coverage SET first_at = max(first_at, ?)", (cutoff,))
                 else:
+                    cutoff = time.time_ns() // 1_000_000 + 1
+                    future = connection.execute("SELECT agent, call FROM event WHERE at >= ? UNION "
+                                                "SELECT 'claude', call FROM failure WHERE at >= ?", (cutoff, cutoff)).fetchall()
+                    connection.executemany("INSERT OR IGNORE INTO forgotten VALUES (?)", [(identity(*row),) for row in future])
                     removed = connection.execute("DELETE FROM event").rowcount
-                    for statement in ("DELETE FROM coverage", "UPDATE source SET project = NULL", "DELETE FROM project"):
+                    for statement in ("DELETE FROM failure", "DELETE FROM coverage", "UPDATE source SET project = NULL", "DELETE FROM project"):
                         connection.execute(statement)
-            connection.execute("VACUUM")
+                connection.execute("INSERT INTO retention VALUES (1, ?) ON CONFLICT (id) DO UPDATE "
+                                   "SET before = max(before, excluded.before)", (cutoff,))
             return {"ok": True, "schemaVersion": SCHEMA_VERSION, "removed": removed}
     except (OSError, sqlite3.Error):
         return {"ok": False, "schemaVersion": SCHEMA_VERSION, "removed": 0, "error": UNAVAILABLE}

@@ -15,9 +15,10 @@ MAX_URI_BYTES = 512
 class Batch:
     offset: int
     project: str | None
+    pending: bool = False
     first_at: int | None = None
     events: list[tuple[Any, ...]] = field(default_factory=list)
-    failures: list[tuple[str]] = field(default_factory=list)
+    failures: list[tuple[str, int]] = field(default_factory=list)
 
     def stamp(self, record: dict[str, Any]) -> int | None:
         try:
@@ -55,7 +56,7 @@ def tool(part: dict[str, Any]) -> tuple[str, str, str] | None:
 
 
 def claude_line(raw: bytes) -> bool:
-    return b'"Skill"' in raw or b"mcp__" in raw or b"McpResource" in raw or b"command-name" in raw or b'"is_error":true' in raw
+    return b'"Skill"' in raw or b"mcp__" in raw or b"McpResource" in raw or b"command-name" in raw or b'"is_error"' in raw
 
 
 def codex_line(raw: bytes) -> bool:
@@ -81,8 +82,8 @@ def claude(record: dict[str, Any], batch: Batch) -> None:
     for part in content if isinstance(content, list) else []:
         if not isinstance(part, dict):
             continue
-        if part.get("type") == "tool_result" and part.get("is_error") is True and text(part.get("tool_use_id")):
-            batch.failures.append((part["tool_use_id"],))
+        if part.get("type") == "tool_result" and part.get("is_error") is True and text(part.get("tool_use_id")) and at is not None:
+            batch.failures.append((part["tool_use_id"], at))
         elif part.get("type") == "text":
             texts.append(text(part.get("text")))
     names = COMMAND.findall("\n".join(texts))

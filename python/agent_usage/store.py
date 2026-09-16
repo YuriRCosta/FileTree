@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import fcntl
+import hashlib
 import json
 import os
 import sqlite3
@@ -12,9 +13,10 @@ from pathlib import Path
 
 from . import records
 
-VERSION = 1
+VERSION = 2
 MAX_FILES = 8192
 MAX_RECORD_BYTES = 4 * 1024 * 1024
+CHUNK_BYTES = 8 * 1024 * 1024
 BUDGET_SECONDS = 3.0
 LOCK_SECONDS = 4.0
 SCHEMA = (
@@ -47,6 +49,7 @@ SCHEMA = (
     "CREATE INDEX event_time ON event (kind, at)",
     "CREATE INDEX event_name ON event (kind, server, name, at)",
 )
+RETENTION = "CREATE TABLE retention (id INTEGER PRIMARY KEY CHECK (id = 1), before INTEGER NOT NULL)"
 
 
 def xdg(variable: str, fallback: str) -> Path:
@@ -68,18 +71,26 @@ def connect(directory: Path) -> sqlite3.Connection:
     path = directory / "agent-usage.sqlite3"
     os.close(os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600))
     connection = sqlite3.connect(path, timeout=5, isolation_level=None)
-    connection.execute("PRAGMA busy_timeout = 5000")
-    connection.execute("PRAGMA journal_mode = WAL")
-    if connection.execute("PRAGMA user_version").fetchone()[0] != VERSION:
-        with connection:
-            connection.execute("BEGIN IMMEDIATE")
-            if connection.execute("PRAGMA user_version").fetchone()[0] != VERSION:
-                for (table,) in connection.execute(
-                        "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite%'").fetchall():
-                    connection.execute('DROP TABLE "' + table.replace('"', '""') + '"')
-                for statement in SCHEMA:
-                    connection.execute(statement)
-                connection.execute(f"PRAGMA user_version = {VERSION}")
+    try:
+        connection.execute("PRAGMA busy_timeout = 5000")
+        connection.execute("PRAGMA journal_mode = WAL")
+        if connection.execute("PRAGMA user_version").fetchone()[0] != VERSION:
+            with connection:
+                connection.execute("BEGIN IMMEDIATE")
+                version = connection.execute("PRAGMA user_version").fetchone()[0]
+                if version not in (0, 1, VERSION):
+                    raise sqlite3.DatabaseError("unsupported usage schema")
+                if version == 0:
+                    for statement in SCHEMA:
+                        connection.execute(statement)
+                if version < VERSION:
+                    connection.execute(RETENTION)
+                    connection.execute("CREATE TABLE failure (call TEXT PRIMARY KEY, at INTEGER NOT NULL) WITHOUT ROWID")
+                    connection.execute("CREATE TABLE forgotten (identity BLOB PRIMARY KEY) WITHOUT ROWID")
+                    connection.execute(f"PRAGMA user_version = {VERSION}")
+    except sqlite3.Error:
+        connection.close()
+        raise
     return connection
 
 
@@ -115,22 +126,34 @@ def transcripts() -> tuple[list[tuple[str, str, os.stat_result]], int]:
     return found, unreadable
 
 
-def read(agent: str, path: str, status: os.stat_result, row: tuple | None) -> records.Batch:
+def read(agent: str, path: str, status: os.stat_result, row: tuple | None, deadline: float) -> records.Batch:
     restart = row is None or row[1:3] != (status.st_dev, status.st_ino) or status.st_size < row[5]
     batch = records.Batch(offset=0 if restart else row[5], project=None if restart else row[6])
     wanted, consume = (records.claude_line, records.claude) if agent == "claude" else (records.codex_line, records.codex)
     with open(path, "rb") as handle:
-        handle.seek(batch.offset)
-        for raw in handle:
+        handle.seek(max(0, batch.offset - 1))
+        skipping = batch.offset > 0 and handle.read(1) != b"\n"
+        start = batch.offset
+        while True:
+            if time.monotonic() >= deadline or batch.offset - start >= CHUNK_BYTES or len(batch.events) >= 1024:
+                batch.pending = batch.offset < status.st_size
+                break
+            raw = handle.readline(MAX_RECORD_BYTES + 1)
+            if not raw:
+                break
+            if skipping or len(raw) > MAX_RECORD_BYTES:
+                skipping = not raw.endswith(b"\n")
+                batch.offset += len(raw)
+                continue
             if not raw.endswith(b"\n"):
                 break
             opening = restart and batch.first_at is None and b'"timestamp"' in raw
             batch.offset += len(raw)
-            if len(raw) > MAX_RECORD_BYTES or not (opening or wanted(raw)):
+            if not (opening or wanted(raw)):
                 continue
             try:
                 record = json.loads(raw)
-            except ValueError:
+            except (ValueError, RecursionError):
                 continue
             if isinstance(record, dict):
                 consume(record, batch)
@@ -139,6 +162,10 @@ def read(agent: str, path: str, status: os.stat_result, row: tuple | None) -> re
 
 def clean(value: object) -> object:
     return value.encode("utf-8", "replace").decode("utf-8") if isinstance(value, str) else value
+
+
+def identity(agent: str, call: str) -> bytes:
+    return hashlib.sha256((agent + "\0" + call).encode("utf-8", "replace")).digest()
 
 
 def project_id(connection: sqlite3.Connection, path: str | None) -> int | None:
@@ -151,21 +178,30 @@ def project_id(connection: sqlite3.Connection, path: str | None) -> int | None:
 def write(connection: sqlite3.Connection, agent: str, path: str, status: os.stat_result, batch: records.Batch) -> None:
     with connection:
         connection.execute("BEGIN IMMEDIATE")
+        cutoff = connection.execute("SELECT coalesce(max(before), -9223372036854775808) FROM retention").fetchone()[0]
+        forgotten = {row[0] for row in connection.execute("SELECT identity FROM forgotten")}
+        events = [event for event in batch.events if event[2] >= cutoff and (not forgotten or identity(event[0], event[1]) not in forgotten)]
+        covered = batch.first_at is not None and (bool(events) or (not batch.events and batch.first_at >= cutoff))
         connection.executemany(
             "INSERT OR IGNORE INTO event VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [(*map(clean, event[:8]), project_id(connection, event[8]), event[9]) for event in batch.events],
+            [(*map(clean, event[:8]), project_id(connection, event[8]), event[9]) for event in events],
         )
-        connection.executemany("UPDATE event SET failed = 1 WHERE agent = 'claude' AND call = ?",
-                               [tuple(map(clean, failure)) for failure in batch.failures])
-        if batch.first_at is not None:
+        connection.executemany("INSERT OR IGNORE INTO failure VALUES (?, ?)",
+                               [(clean(call), at) for call, at in batch.failures
+                                if at >= cutoff and (not forgotten or identity("claude", call) not in forgotten)])
+        connection.execute("UPDATE event SET failed = 1 WHERE agent = 'claude' AND call IN (SELECT call FROM failure)")
+        connection.execute("DELETE FROM failure WHERE EXISTS (SELECT 1 FROM event WHERE agent = 'claude' AND event.call = failure.call)")
+        if covered:
             connection.execute("INSERT INTO coverage VALUES (?, ?) ON CONFLICT (agent) DO UPDATE "
-                               "SET first_at = min(first_at, excluded.first_at)", (agent, batch.first_at))
+                               "SET first_at = min(first_at, excluded.first_at)", (agent, max(cutoff, batch.first_at)))
+        project = project_id(connection, batch.project) if covered else connection.execute(
+            "SELECT (SELECT project FROM source WHERE path = ?)", (clean(path),)).fetchone()[0]
         connection.execute(
             "INSERT INTO source (agent, path, device, inode, size, mtime, offset, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT (path) DO UPDATE SET agent = excluded.agent, device = excluded.device, inode = excluded.inode, "
             "size = excluded.size, mtime = excluded.mtime, offset = excluded.offset, project = excluded.project",
             (agent, clean(path), status.st_dev, status.st_ino, status.st_size, status.st_mtime_ns, batch.offset,
-             project_id(connection, batch.project)),
+             project),
         )
 
 
@@ -182,17 +218,22 @@ def ingest(connection: sqlite3.Connection, directory: Path) -> tuple[bool, int]:
         pending = False
         for agent, path, status in found:
             row = known.get(clean(path))
-            if row and row[1:5] == (status.st_dev, status.st_ino, status.st_size, status.st_mtime_ns):
+            if row and row[1:5] == (status.st_dev, status.st_ino, status.st_size, status.st_mtime_ns) and row[5] == status.st_size:
                 continue
             if time.monotonic() >= deadline:
                 pending = True
                 continue
             try:
-                batch = read(agent, path, status, row)
+                while True:
+                    batch = read(agent, path, status, row, deadline)
+                    write(connection, agent, path, status, batch)
+                    if not batch.pending or time.monotonic() >= deadline:
+                        pending = pending or batch.pending
+                        break
+                    row = (path, status.st_dev, status.st_ino, status.st_size, status.st_mtime_ns, batch.offset, batch.project)
             except OSError:
                 unreadable += 1
                 continue
-            write(connection, agent, path, status, batch)
         seen = {clean(path) for _, path, _ in found}
         vanished = [(path,) for path in known if path not in seen and not os.path.exists(path)]
         if vanished and not pending:
@@ -205,10 +246,10 @@ def ingest(connection: sqlite3.Connection, directory: Path) -> tuple[bool, int]:
 
 
 @contextlib.contextmanager
-def session() -> Iterator[tuple[sqlite3.Connection, tuple[bool, int]]]:
+def session(ingest_history: bool = True) -> Iterator[tuple[sqlite3.Connection, tuple[bool, int]]]:
     directory = xdg("XDG_STATE_HOME", ".local/state") / "omarchy" / "fileblade"
     connection = connect(directory)
     try:
-        yield connection, ingest(connection, directory)
+        yield connection, ingest(connection, directory) if ingest_history else (False, 0)
     finally:
         connection.close()
