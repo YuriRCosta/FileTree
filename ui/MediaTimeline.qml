@@ -19,6 +19,9 @@ FocusScope {
   property var parents: []
   property string navigatedKey: ""
   property real dragOffset: 0
+  property string monthFormat: ""
+  property string weekFormat: "yyyy Wkww"
+  property string dayFormat: ""
   readonly property int headerHeight: Style.space(26)
   readonly property real axisTop: headerHeight + Style.space(6)
   readonly property real axisHeight: Math.max(0, height - axisTop - Style.space(6))
@@ -27,7 +30,7 @@ FocusScope {
   readonly property var bounds: Bins.geometry(detail.bins, Math.max(1, columns), pitch, tileHeight)
   readonly property var viewport: Bins.viewport(bounds, contentY, viewportHeight)
   readonly property bool sparseRows: detail.bins.length > 0 && detail.bins.length * Style.space(26) <= axisHeight && detail.bins.every(function(bin) { return bin.count === 1 })
-  readonly property real rowHeight: Math.min(Style.space(26), sparseRows ? Style.space(26) : axisHeight / Math.max(1, detail.bins.length))
+  readonly property real rowHeight: Math.min(Style.space(19), sparseRows ? Style.space(26) : axisHeight / Math.max(1, detail.bins.length))
   readonly property real occupiedHeight: records.length ? (Math.ceil(records.length / Math.max(1, columns)) - 1) * pitch + tileHeight : 0
   readonly property bool showOutline: occupiedHeight > viewportHeight && viewport.start !== null
   readonly property int activePeriod: {
@@ -60,15 +63,32 @@ FocusScope {
   Accessible.name: "Media date timeline"
   Accessible.description: "Up and Down seek periods. Left shows coarser dates. Right shows finer dates."
 
+  function formatted(pattern, start) {
+    if (String(pattern || "") === "") return ""
+    var date = Dates.calendar(start)
+    var moment = new Date(date.year, date.month - 1, date.day || 1)
+    var text = Qt.formatDate(moment, String(pattern))
+    return String(text || "")
+  }
+
   function label(entry, compact) {
     if (entry.level === "undated") return "Undated"
     if (entry.level === "unknown") return compact ? "Unknown" : "Unknown precision"
     if (entry.level === "ranges" || entry.level === "years") return entry.key
-    if (entry.level === "weeks") return (compact ? "W" : entry.weekYear + " · Week ") + Dates.pad(entry.week)
+    if (entry.level === "weeks") {
+      if (!compact) return entry.weekYear + " · Week " + Dates.pad(entry.week)
+      return String(weekFormat).replace("yyyy", entry.weekYear).replace("ww", Dates.pad(entry.week))
+    }
     var date = Dates.calendar(entry.start)
-    if (entry.level === "days") return compact ? Dates.pad(date.month) + "-" + Dates.pad(date.day) : Dates.dayKey(entry.start)
-    if (compact) return String(date.year).slice(-2) + "·" + Dates.pad(date.month)
-    return Qt.locale().standaloneMonthName(date.month - 1, Locale.ShortFormat) + " " + date.year
+    var month = Qt.locale().standaloneMonthName(date.month - 1, Locale.ShortFormat)
+    if (entry.level === "days") {
+      if (!compact) return Dates.dayKey(entry.start)
+      var day = formatted(dayFormat, entry.start)
+      return day !== "" ? day : month + " " + Dates.pad(date.day)
+    }
+    if (!compact) return month + " " + date.year
+    var monthText = formatted(monthFormat, entry.start)
+    return monthText !== "" ? monthText : String(date.year).slice(-2) + "-" + month
   }
 
   function reset() { parents = []; navigatedKey = "" }
