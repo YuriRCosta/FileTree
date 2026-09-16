@@ -15,6 +15,7 @@ Item {
   required property var service
   property bool ready: false
   property bool stateWritable: true
+  property bool stateDegraded: false
   property bool stateRereadPending: false
   property var themePalette: ({})
   property var userPalette: ({})
@@ -679,10 +680,18 @@ Item {
   }
 
   function parseState(raw) {
+    var text = raw === undefined || raw === null ? "" : String(raw).trim()
+    if (text === "") return ({})
     var state = null
-    try { state = raw && String(raw).trim() ? JSON.parse(String(raw)) : null }
+    try { state = JSON.parse(text) }
     catch (e) { state = null }
-    return state && typeof state === "object" ? state : ({})
+    if (!state || typeof state !== "object" || Array.isArray(state)) {
+      stateDegraded = true
+      console.warn("fileblade: the state document exists but could not be read;"
+        + " settings stay in memory for this session and are not written over it")
+      return ({})
+    }
+    return state
   }
 
   function finishHydration(bladeState) {
@@ -760,7 +769,7 @@ Item {
   }
 
   function save() {
-    if (!stateWritable) return
+    if (!stateWritable || stateDegraded) return
     writeState(JSON.stringify(document(), null, 2) + "\n")
   }
 
