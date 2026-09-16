@@ -18,6 +18,7 @@ FocusScope {
   property real headerWidth: width
   property var parents: []
   property string navigatedKey: ""
+  property string levelChoice: ""
   property real dragOffset: 0
   property string monthFormat: ""
   property string weekFormat: ""
@@ -26,7 +27,20 @@ FocusScope {
   readonly property real axisTop: headerHeight + Style.space(6)
   readonly property real axisHeight: Math.max(0, height - axisTop - Style.space(6))
   readonly property int capacity: Math.max(2, Math.floor(axisHeight / Style.space(18)))
-  readonly property var detail: parents.length ? Bins.child(records, parents[parents.length - 1], capacity, calendarRule, showEmptyPeriods) : Bins.overview(records, capacity, calendarRule, showEmptyPeriods)
+  readonly property var globalLadder: ["years", "months", "weeks", "days"]
+  readonly property var autoDetail: Bins.overview(records, capacity, calendarRule, showEmptyPeriods)
+  readonly property var globalDetail: {
+    if (levelChoice === "") return autoDetail
+    var result = null
+    try { result = Bins.build(records, levelChoice, null, calendarRule) } catch (error) { return autoDetail }
+    if (!result || !result.bins.length) return autoDetail
+    return showEmptyPeriods ? Bins.compact(result, capacity) : Bins.compact(Bins.withoutEmpty(result), capacity)
+  }
+  readonly property var detail: parents.length ? Bins.child(records, parents[parents.length - 1], capacity, calendarRule, showEmptyPeriods) : globalDetail
+  readonly property string coarserLevel: {
+    var index = globalLadder.indexOf(detail.level)
+    return index > 0 ? globalLadder[index - 1] : ""
+  }
   readonly property var bounds: Bins.geometry(detail.bins, Math.max(1, columns), pitch, tileHeight)
   readonly property var viewport: Bins.viewport(bounds, contentY, viewportHeight)
   readonly property bool spansYears: {
@@ -50,7 +64,7 @@ FocusScope {
   readonly property var period: activePeriod >= 0 ? detail.bins[activePeriod] : null
   readonly property var nextDetail: period ? Bins.child(records, period, capacity, calendarRule, showEmptyPeriods) : null
   readonly property bool canDrill: !!nextDetail && period.count > 0 && nextDetail.bins.length <= capacity
-  readonly property bool canGoUp: parents.length > 0
+  readonly property bool canGoUp: parents.length > 0 || coarserLevel !== ""
   readonly property string periodLabel: period ? label(period, false) : (parents.length ? label(parents[parents.length - 1], false) : "All dates")
   readonly property string levelLabel: ({ ranges: "Years", years: "Years", months: "Months", weeks: "Weeks", days: "Days", hours: "Hours" })[detail.level] || "Dates"
   readonly property color lightBlue: "#89b4fa"
@@ -113,7 +127,7 @@ FocusScope {
     return monthText !== "" ? monthText : String(date.year).slice(-2) + "-" + month
   }
 
-  function reset() { parents = []; navigatedKey = "" }
+  function reset() { parents = []; navigatedKey = ""; levelChoice = "" }
 
   function drill() {
     if (!canDrill) return
@@ -122,10 +136,15 @@ FocusScope {
   }
 
   function up() {
-    if (!canGoUp) return
-    var previous = parents[parents.length - 1]
-    parents = parents.slice(0, -1)
-    navigatedKey = previous.key
+    if (parents.length > 0) {
+      var previous = parents[parents.length - 1]
+      parents = parents.slice(0, -1)
+      navigatedKey = previous.key
+      return
+    }
+    if (coarserLevel === "") return
+    levelChoice = coarserLevel
+    navigatedKey = ""
   }
 
   function seek(index, fraction) {

@@ -29,7 +29,8 @@ TestCase {
     var view = create()
     compare(view.detail.level, "months")
     compare(view.period.key, "2024-02")
-    compare(view.canGoUp, false)
+    compare(view.canGoUp, true)
+    compare(view.coarserLevel, "years")
     verify(view.canDrill)
     var count = view.records.length
     compare(view.showEmptyPeriods, false)
@@ -141,7 +142,7 @@ TestCase {
     var up = findChild(view, "timeline-up")
     verify(down.Accessible.name.indexOf("Show finer dates") === 0)
     compare(up.Accessible.name, "Show coarser dates")
-    compare(up.enabled, false)
+    compare(up.enabled, true)
     down.forceActiveFocus()
     keyClick(Qt.Key_Space)
     compare(view.detail.level, "weeks")

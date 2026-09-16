@@ -80,13 +80,14 @@ Item {
     Image {
       id: picture
       anchors.fill: parent
+      anchors.margins: Style.space(3)
       source: tile.source
       visible: tile.source !== ""
       asynchronous: true
       cache: true
       smooth: true
       mipmap: true
-      fillMode: Image.PreserveAspectCrop
+      fillMode: Image.PreserveAspectFit
       sourceSize.width: tile.edge
       sourceSize.height: tile.edge
       opacity: status === Image.Ready ? 1 : 0
