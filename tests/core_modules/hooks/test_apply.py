@@ -343,6 +343,7 @@ def test_remove_and_restore_round_trip(sandbox: Path) -> None:
     sys.stdout = captured
     os.environ["HOME"] = str(home)
     os.environ.pop("XDG_STATE_HOME", None)
+    os.environ.pop("XDG_CACHE_HOME", None)
     try:
         code = cli.main(arguments)
     finally:

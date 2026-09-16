@@ -30,7 +30,7 @@ def generate(destination, scenario):
     for path in (config, state, recovery, *native_roots.values()):
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
     environment = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(config_home),
-                       XDG_STATE_HOME=str(state_home), XDG_DATA_HOME=str(data_home),
+                       XDG_STATE_HOME=str(state_home), XDG_CACHE_HOME=str(home / '.cache'), XDG_DATA_HOME=str(data_home),
                        CODEX_HOME=str(home / '.codex'), CLAUDE_CONFIG_DIR=str(home / '.claude'),
                        FILEBLADE_APP_ROOT=str(root), PYTHONDONTWRITEBYTECODE='1')
     environment.pop('FILEBLADE_NATIVE_STATE_ROOT', None)

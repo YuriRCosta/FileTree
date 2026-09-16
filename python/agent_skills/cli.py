@@ -63,24 +63,11 @@ def environment(args: argparse.Namespace) -> discovery.Environment:
 def listing(args: argparse.Namespace) -> dict[str, Any]:
     with WatchPlan() as plan:
         payload = plan.finish(discovery.collect(environment(args)))
-    items = payload.get("items")
-    if not isinstance(items, list) or getattr(args, "no_usage", False):
-        return payload
-    names = {str(item.get("name") or "") for item in items if isinstance(item, dict)}
-    usage = agent_usage.collect(known=names)
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        counts = usage["skills"].get(str(item.get("name") or ""), agent_usage.Tally().document())
-        item.update(counts)
-        metrics = item.get("metrics")
-        if not isinstance(metrics, dict):
-            metrics = {}
-            item["metrics"] = metrics
-        metrics.update(counts)
-    payload["usageTranscripts"] = usage["transcripts"]
-    payload["usageUnreadable"] = usage["unreadable"]
+    payload.update(agent_usage.attach_skills(payload["items"]))
     return payload
+
+def usage(args: argparse.Namespace) -> dict[str, Any]:
+    return agent_usage.skill_usage(discovery.collect(environment(args))["items"])
 
 def roots(args: argparse.Namespace) -> dict[str, Any]:
     env = environment(args)
@@ -115,6 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     for name, handler, helptext in (
         ("list", listing, "List discovered agent skills"),
+        ("usage", usage, "Daily skill use history for a project"),
         ("roots", roots, "List every documented root and whether it exists"),
         ("agents", agents, "List supported agents and their documentation"),
         ("apply", apply, "Link or unlink one skill for one or more agents"),

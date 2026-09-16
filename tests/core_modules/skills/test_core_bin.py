@@ -17,7 +17,8 @@ class CoreBinLifecycle(unittest.TestCase):
         self.home = Path(self.temporary.name) / "home"
         self.binary = os.environ.get("FILEBLADE_BINARY", str(ROOT / "target/release/fileblade"))
         self.env = dict(os.environ, HOME=str(self.home), XDG_CONFIG_HOME=str(self.home / ".config"),
-                        XDG_STATE_HOME=str(self.home / ".local/state"), XDG_DATA_HOME=str(self.home / ".local/share"),
+                        XDG_STATE_HOME=str(self.home / ".local/state"), XDG_CACHE_HOME=str(self.home / ".cache"),
+                        XDG_DATA_HOME=str(self.home / ".local/share"),
                         CODEX_HOME=str(self.home / ".codex"), CLAUDE_CONFIG_DIR=str(self.home / ".claude"),
                         FILEBLADE_BINARY=self.binary, FILEBLADE_APP_ROOT=str(ROOT), PYTHONDONTWRITEBYTECODE="1")
         self.fixture = self.home / ".claude/skills/rivet-fixture"

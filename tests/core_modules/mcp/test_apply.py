@@ -440,10 +440,10 @@ class ApplyCase(unittest.TestCase):
             self.assertEqual(main(["list", "--project", str(self.project), "--json"]), 0)
         after = self.snapshot()
         added = set(after) - set(before)
-        cache = str(self.home / ".cache" / "omarchy" / "fileblade")
+        store = str(self.home / ".local" / "state" / "omarchy" / "fileblade" / "agent-usage.sqlite3")
         self.assertTrue(
-            all(path.startswith(cache) for path in added),
-            f"list may only write the usage cache, wrote {sorted(added)}",
+            all(path.startswith(store) for path in added),
+            f"list may only write the usage store, wrote {sorted(added)}",
         )
         self.assertEqual({k: v for k, v in after.items() if k in before}, before)
         self.assertNotIn(SENTINEL, stdout.getvalue())

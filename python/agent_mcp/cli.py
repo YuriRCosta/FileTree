@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 
 import agent_usage
 from fileblade_inventory import SCOPES, WatchPlan
@@ -49,6 +50,11 @@ def parser() -> argparse.ArgumentParser:
         removing.add_argument("--json", action="store_true", required=True)
         if command == "remove-prepared":
             removing.add_argument("--payload-stdin", action="store_true", required=True)
+    history = commands.add_parser("usage", help="Daily MCP use history")
+    history.add_argument("--json", action="store_true", required=True)
+    forgetting = commands.add_parser("usage-forget", help="Forget recorded agent use history, all of it or before a local date")
+    forgetting.add_argument("--before", type=date.fromisoformat)
+    forgetting.add_argument("--json", action="store_true", required=True)
     for command in ("restore", "discard"):
         restoring = commands.add_parser(command, help="Restore a removal or permanently discard its private recovery record")
         restoring.add_argument("--project", default="")
@@ -56,51 +62,6 @@ def parser() -> argparse.ArgumentParser:
         restoring.add_argument("--payload-stdin", action="store_true")
         restoring.add_argument("--json", action="store_true", required=True)
     return result
-
-
-def attach_usage(document: dict) -> None:
-    """Counts belong to a definition only when its name resolves to one row.
-
-    A transcript records the server name the agent called, not which
-    configuration supplied it, so a name held by two definitions is reported
-    on neither.
-    """
-    definitions = document.get("definitions")
-    if not isinstance(definitions, list) or not definitions:
-        return
-    owners: dict[str, int] = {}
-    for item in definitions:
-        if isinstance(item, dict):
-            owners[str(item.get("name") or "")] = owners.get(str(item.get("name") or ""), 0) + 1
-    usage = agent_usage.collect(known=None)
-    ambiguous = 0
-    for item in definitions:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name") or "")
-        counts = None
-        for recorded, values in usage["servers"].items():
-            if name in agent_usage.server_aliases(recorded):
-                counts = values
-                break
-        if counts is None:
-            item.update(agent_usage.Tally().document())
-            continue
-        if owners.get(name, 0) > 1:
-            ambiguous += 1
-            item.update(agent_usage.Tally().document())
-            item["usageAmbiguous"] = True
-            continue
-        item.update(counts)
-        metrics = item.get("metrics")
-        if not isinstance(metrics, dict):
-            metrics = {}
-            item["metrics"] = metrics
-        metrics.update(counts)
-    document["usageTranscripts"] = usage["transcripts"]
-    document["usageUnreadable"] = usage["unreadable"]
-    if ambiguous:
-        document["usageAmbiguous"] = ambiguous
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -116,13 +77,17 @@ def main(arguments: list[str] | None = None) -> int:
                     document = plan.finish(Inventory(options.project, scope=options.scope).scan())
             else:
                 document = Inventory(options.project, scope=options.scope).scan()
-            attach_usage(document)
+            document.update(agent_usage.attach_mcp(document["definitions"]))
             output = bounded_json(document)
         except (OSError, ValueError, TimeoutError):
             sys.stdout.write('{"ok":false,"error":"Inventory failed, not probed","definitions":[],"healthBasis":"configuration-only","schemaVersion":1,"truncated":true,"warnings":[{"code":"inventory-failed","sourceId":"inventory"}]}\n')
             return 1
         sys.stdout.write(output + "\n")
         return 0
+    if options.command in ("usage", "usage-forget"):
+        document = agent_usage.mcp_usage() if options.command == "usage" else agent_usage.forget(options.before and options.before.isoformat())
+        sys.stdout.write(json.dumps(document, separators=(",", ":")) + "\n")
+        return 0 if document["ok"] else 1
     if options.command in ("apply", "remove", "prepare-remove", "remove-prepared", "restore", "discard"):
         try:
             applier = Applier(Inventory(options.project))
