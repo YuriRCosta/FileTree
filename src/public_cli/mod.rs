@@ -29,6 +29,7 @@ mod ipc;
 mod launch;
 mod plugins;
 mod queries;
+mod usage;
 pub use args::*;
 pub use blade::*;
 use doctor::*;
@@ -38,6 +39,7 @@ use ipc::*;
 use launch::*;
 pub use plugins::*;
 use queries::*;
+pub use usage::*;
 const READ_TARGET: &str = "data-goblin.fileblade";
 const CONTROL_TARGET: &str = "data-goblin.fileblade.control";
 const IPC_TIMEOUT: Duration = Duration::from_secs(5);
@@ -202,6 +204,11 @@ pub enum RootCommand {
     /// Print the current selection as agent context. Always succeeds; prints an
     /// empty context when FileBlade is not running.
     AgentContext(integration::AgentContextArgs),
+    /// Read or forget the recorded daily skill and MCP use history.
+    Usage {
+        #[command(subcommand)]
+        action: UsageCommand,
+    },
     Focus(FocusArgs),
     Search(SearchArgs),
     ClearSearch,
@@ -356,6 +363,7 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
             integration::InstallCommand::Integration(options) => integration::integration(&options),
         },
         RootCommand::AgentContext(options) => integration::agent_context(&options),
+        RootCommand::Usage { action } => usage(action),
         RootCommand::Focus(options) => simple_ipc("focusDirection", &[options.direction]),
         RootCommand::Search(options) => search(options),
         RootCommand::ClearSearch => simple_ipc("clearSearch", &[]),

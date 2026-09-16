@@ -9,14 +9,16 @@
       "entry": "bin/agent-mcpctl",
       "read": [
         "list",
-        "recovery-list"
+        "recovery-list",
+        "usage"
       ],
       "write": [
         "apply",
         "prepare-remove",
         "remove-prepared",
         "restore",
-        "discard"
+        "discard",
+        "usage-forget"
       ],
       "timeoutMs": 8000
     }

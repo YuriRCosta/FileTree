@@ -151,7 +151,7 @@ fn skills_and_memory_writes_need_no_separate_consent() {
 }
 
 #[test]
-fn recovery_and_label_methods_are_limited_to_their_owned_modules() {
+fn recovery_label_and_usage_methods_are_limited_to_their_owned_modules() {
     let fixture = Fixture::new();
     for module in ["hooks", "mcp"] {
         let provider = format!("fileblade.core.{module}");
@@ -173,6 +173,23 @@ fn recovery_and_label_methods_are_limited_to_their_owned_modules() {
             fixture.run(&provider, "", "inventory", "label", true)["ok"],
             module == "hooks"
         );
+    }
+    for module in ["skills", "memory", "hooks", "mcp"] {
+        let provider = format!("fileblade.core.{module}");
+        assert_eq!(
+            fixture.run(&provider, "", "inventory", "usage", false)["ok"],
+            matches!(module, "skills" | "mcp")
+        );
+        assert_eq!(
+            fixture.run(&provider, "", "inventory", "usage-forget", true)["ok"],
+            module == "mcp"
+        );
+        for (method, write) in [("usage", true), ("usage-forget", false)] {
+            assert_eq!(
+                fixture.run(&provider, "", "inventory", method, write)["ok"],
+                false
+            );
+        }
     }
     assert_eq!(
         fixture.run(

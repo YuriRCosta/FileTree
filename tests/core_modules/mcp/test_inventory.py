@@ -579,8 +579,8 @@ class QmlContractCase(unittest.TestCase):
         manifest = json.loads((root / "source.json").read_text())
         helper = manifest["helpers"][0]
         self.assertEqual(helper["entry"], "bin/agent-mcpctl")
-        self.assertEqual(helper["read"], ["list", "recovery-list"])
-        self.assertEqual(helper["write"], ["apply", "prepare-remove", "remove-prepared", "restore", "discard"])
+        self.assertEqual(helper["read"], ["list", "recovery-list", "usage"])
+        self.assertEqual(helper["write"], ["apply", "prepare-remove", "remove-prepared", "restore", "discard", "usage-forget"])
         self.assertIn("if (!item.source) return item.path ? String(item.path) : \"\"", module)
         self.assertIn("root.absoluteSource(entry)].join(\" \")", module)
         self.assertNotIn("entry.source.path].join", module)

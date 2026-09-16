@@ -45,6 +45,7 @@ impl CoreRoute {
             (_, false) => {
                 method == "list"
                     || matches!(self, Self::Hooks | Self::Mcp) && method == "recovery-list"
+                    || matches!(self, Self::Skills | Self::Mcp) && method == "usage"
             }
             (Self::Skills | Self::Memory, true) => method == "apply",
             (Self::Hooks | Self::Mcp, true) => {
@@ -52,6 +53,7 @@ impl CoreRoute {
                     method,
                     "apply" | "prepare-remove" | "remove-prepared" | "restore" | "discard"
                 ) || self == Self::Hooks && method == "label"
+                    || self == Self::Mcp && method == "usage-forget"
             }
         }
     }
