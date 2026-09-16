@@ -9,6 +9,7 @@ This file was written by an agent.
 - Row density returns to five stops named XS to XL. A saved percentage that is not a stop resolves to the nearest one.
 - Delete acts on Skills, Memory, Hooks and MCP rows, or says why it cannot. It previously did nothing at all: the consent refusal never reached a module, and Trash was offered for definitions that have no file of their own.
 - A hook modification is refused when the resulting configuration file would not parse, or would lose a top-level key it did not mean to remove. The original is left byte-identical.
+- The Notes footer shows when the open note was last edited and its word and character counts, in place of the save state and byte total. Save failures and conflicts still show in the notice above the editor.
 
 - Image gallery primitives for modules: `ImageGrid` with month sections and a cursor, `ThumbnailCache` over the backend thumbnail request, a right-hand `TimelineScrubber` with years, month dots and a scrub pill, and a five-step `ImageSizeControl`.
 - Module definitions accept an `icon` image; the picker, the settings sheet and `PaneHeader` draw it tinted through `ModuleIcon`.

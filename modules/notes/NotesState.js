@@ -107,8 +107,11 @@ function copyNotebook(source) {
   for (var index = 0; index < rows.length && index < MAX_NOTES; index++) {
     var row = rows[index] || ({})
     var text = String(row.text || "")
-    items.push({ id: String(row.id || "note-" + (index + 1)), label: cleanLabel(row.label, "Note " + (index + 1)), text: text,
-      cursor: position(row.cursor, text), anchor: position(row.anchor === undefined ? row.cursor : row.anchor, text) })
+    var item = { id: String(row.id || "note-" + (index + 1)), label: cleanLabel(row.label, "Note " + (index + 1)), text: text,
+      cursor: position(row.cursor, text), anchor: position(row.anchor === undefined ? row.cursor : row.anchor, text) }
+    var edited = Math.floor(Number(row.edited))
+    if (isFinite(edited) && edited > 0) item.edited = edited
+    items.push(item)
   }
   var rawNextId = Number(source && source.nextId)
   var nextId = isFinite(rawNextId) && rawNextId >= 1 ? Math.min(1000000000, Math.floor(rawNextId)) : items.length + 1
@@ -230,20 +233,39 @@ function removeNote(notebook, index) {
   return result
 }
 
-function editPlan(notebook, value, overCap) {
+function editPlan(notebook, value, overCap, now) {
   var result = copyNotebook(notebook)
   var index = activeIndex(result)
   if (index < 0) return { action: "hold", notebook: result, bytes: 0, clamped: false }
+  var previous = result.items[index].text
   result.items[index].text = String(value || "")
   var bytes = textBytes(result)
-  if (overCap && bytes > CAP_BYTES) return { action: "hold", notebook: result, bytes: bytes, clamped: false }
+  if (overCap && bytes > CAP_BYTES) {
+    stampEdit(result.items[index], previous, now)
+    return { action: "hold", notebook: result, bytes: bytes, clamped: false }
+  }
   var otherBytes = bytes - utf8Length(result.items[index].text)
   var available = Math.max(0, CAP_BYTES - otherBytes)
   var clamped = available > 0
     ? clampToBytes(result.items[index].text, available)
     : { text: "", clamped: result.items[index].text.length > 0, bytes: 0 }
   result.items[index].text = clamped.text
+  stampEdit(result.items[index], previous, now)
   return { action: "write", notebook: result, bytes: otherBytes + clamped.bytes, clamped: clamped.clamped }
+}
+
+function stampEdit(item, previous, now) {
+  var stamp = Math.floor(Number(now))
+  if (item.text !== previous && isFinite(stamp) && stamp > 0) item.edited = stamp
+}
+
+function wordCount(text) {
+  return (String(text || "").match(/\S+/g) || []).length
+}
+
+function characterCount(text) {
+  var value = String(text || "")
+  return value.length - (value.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g) || []).length
 }
 
 function persistedNotebook(notebook) {

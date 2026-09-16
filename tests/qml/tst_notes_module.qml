@@ -81,7 +81,6 @@ TestCase {
     editor.text = "local edits"
     view.flush()
     verify(view.saving)
-    compare(view.saveStatus, "Saving…")
     compare(mockContext.slotState.text.items[0].text, "local edits")
     mockHost.finish(false)
     tryCompare(view, "saveFailed", true)
@@ -91,7 +90,7 @@ TestCase {
     compare(mockContext.closes, 0)
     mockHost.finish(true)
     tryCompare(view, "saving", false)
-    compare(view.saveStatus, "Saved")
+    verify(!view.dirty && !view.saveFailed)
     compare(mockContext.closes, 1)
   }
 
@@ -146,7 +145,6 @@ TestCase {
     view.resolveConflict(false)
     compare(editor.text, "incoming again")
     verify(!view.dirty && !view.incomingConflict)
-    compare(view.saveStatus, "Loaded")
   }
 
   function test_queued_write_gap_does_not_report_failure() {
@@ -159,7 +157,22 @@ TestCase {
     wait(50)
     verify(view.saving && !view.saveFailed)
     mockHost.finish(true)
-    tryCompare(view, "saveStatus", "Saved")
+    tryCompare(view, "saving", false)
+    verify(!view.dirty && !view.saveFailed)
+  }
+
+  function test_footer_reports_last_edit_words_and_characters() {
+    compare(view.footerFields, ["Last Edit: never", "Words: 2", "Characters: 13"])
+    var before = Date.now()
+    editor.text = "three 😀 words"
+    var edited = view.activeNote.edited
+    verify(edited >= before && edited <= Date.now())
+    compare(view.footerFields, ["Last Edit: " + Qt.formatDateTime(new Date(edited), "yyyy-MM-dd HH:mm"), "Words: 3", "Characters: 13"])
+    view.createNote()
+    compare(view.footerFields, ["Last Edit: never", "Words: 0", "Characters: 0"])
+    view.selectNote(0)
+    compare(view.activeNote.edited, edited)
+    for (var index = 0; index < view.footerFields.length; index++) verify(view.footerFields[index].indexOf("Loaded") < 0)
   }
 
   function test_tabs_restore_selection_and_oversize_loaded_text_is_held() {

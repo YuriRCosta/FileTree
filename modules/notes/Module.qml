@@ -41,14 +41,14 @@ FocusScope {
   property var pendingNotebook: null
   property var incomingConflict: null
   property string observedNotebookText: ""
-  property bool confirmed: false
   property bool closeAfterSave: false
   readonly property var host: context ? context.host : null
   readonly property bool temporary: !!context && !!context.inPopout
-  readonly property string saveStatus: incomingConflict ? "Conflicting version"
-    : saveFailed ? "Save not confirmed" : saving ? "Saving…" : dirty ? "Unsaved changes"
-    : temporary ? "Temporary popout" : confirmed ? "Saved" : "Loaded"
-  readonly property string capacityStatus: bytes + " / " + NotesState.CAP_BYTES + " bytes"
+  readonly property var footerFields: [
+    "Last Edit: " + (activeNote.edited ? Qt.formatDateTime(new Date(activeNote.edited), "yyyy-MM-dd HH:mm") : "never"),
+    "Words: " + NotesState.wordCount(activeNote.text),
+    "Characters: " + NotesState.characterCount(activeNote.text)
+  ]
 
   function takeFocus(part) {
     editor.forceActiveFocus()
@@ -121,7 +121,7 @@ FocusScope {
   function editorChanged(value) {
     if (module.syncingEditor || !editor.activeFocus) return
     var cursor = editor.cursorPosition
-    var plan = NotesState.editPlan(module.notebook, value, module.overCap)
+    var plan = NotesState.editPlan(module.notebook, value, module.overCap, Date.now())
     module.notebook = plan.notebook
     module.bytes = plan.bytes
     if (plan.action !== "write") {
@@ -154,7 +154,6 @@ FocusScope {
     }
     if (NotesState.notebookHydration(incoming, localState()).action !== "apply") return
     module.notebook = incoming.notebook
-    module.confirmed = false
     module.bytes = incoming.bytes
     module.overCap = incoming.overCap
     module.clamped = false
@@ -199,7 +198,6 @@ FocusScope {
     if (JSON.stringify(written) === JSON.stringify(pendingNotebook)) {
       saving = false
       pendingNotebook = null
-      confirmed = true
       saveFailed = false
       if (dirty) saveTimer.restart()
       else if (closeAfterSave && !incomingConflict) { closeAfterSave = false; context.closeBlade() }
@@ -220,7 +218,6 @@ FocusScope {
     } else {
       notebook = incomingConflict
       closeAfterSave = false
-      confirmed = false
       bytes = NotesState.textBytes(notebook)
       overCap = bytes > NotesState.CAP_BYTES
       dirty = false
@@ -398,12 +395,19 @@ FocusScope {
     anchors.bottom: parent.bottom
     padding: Style.space(6)
     spacing: Style.space(3)
-    Text {
-      text: module.saveStatus + " · " + module.capacityStatus
-      color: module.saveFailed || module.incomingConflict ? Color.urgent : Color.foreground
-      textFormat: Text.PlainText
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+    Flow {
+      width: parent.width - parent.leftPadding - parent.rightPadding
+      spacing: Style.space(24)
+      Repeater {
+        model: module.footerFields
+        Text {
+          text: modelData
+          color: Color.foreground
+          textFormat: Text.PlainText
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+      }
     }
     Row {
       spacing: Style.space(4)

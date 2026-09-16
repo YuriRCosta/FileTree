@@ -197,6 +197,37 @@ TestCase {
     compare(NotesState.textBytes(plan.notebook), NotesState.CAP_BYTES)
   }
 
+  function test_edit_plan_stamps_only_real_text_changes_and_round_trips() {
+    var notebook = NotesState.emptyNotebook("First", "alpha", 0)
+    compare(NotesState.activeNote(notebook).edited, undefined)
+    notebook = NotesState.editPlan(notebook, "alpha", false, 1000).notebook
+    compare(NotesState.activeNote(notebook).edited, undefined)
+    notebook = NotesState.editPlan(notebook, "alpha beta", false, 2000).notebook
+    compare(NotesState.activeNote(notebook).edited, 2000)
+    notebook = NotesState.remember(notebook, 3, 3, 3)
+    notebook = NotesState.renameNote(notebook, 0, "Renamed")
+    compare(NotesState.activeNote(notebook).edited, 2000)
+    var full = NotesState.emptyNotebook("Full", repeated("a", NotesState.CAP_BYTES), 0)
+    full.items[0].edited = 3000
+    compare(NotesState.activeNote(NotesState.editPlan(full, repeated("a", NotesState.CAP_BYTES) + "b", false, 4000).notebook).edited, 3000)
+    var restored = NotesState.normalizeNotebook(JSON.parse(JSON.stringify(NotesState.persistedNotebook(notebook)))).notebook
+    compare(NotesState.activeNote(restored).edited, 2000)
+    restored.items[0].edited = "garbage"
+    compare(NotesState.copyNotebook(restored).items[0].edited, undefined)
+  }
+
+  function test_word_and_character_counts() {
+    compare(NotesState.wordCount(""), 0)
+    compare(NotesState.wordCount("   \n\t "), 0)
+    compare(NotesState.wordCount(" one  two\nthree\tfour "), 4)
+    compare(NotesState.wordCount(null), 0)
+    compare(NotesState.characterCount(""), 0)
+    compare(NotesState.characterCount("abc"), 3)
+    compare(NotesState.characterCount("a😀é"), 3)
+    compare(NotesState.characterCount("\uD800x"), 2)
+    compare(NotesState.characterCount(undefined), 0)
+  }
+
   function test_notebook_round_trip_preserves_active_note() {
     var notebook = NotesState.addNote(NotesState.emptyNotebook("First", "alpha", 3))
     notebook = NotesState.renameNote(notebook, 1, "Second")
