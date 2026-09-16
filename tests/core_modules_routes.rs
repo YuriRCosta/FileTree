@@ -64,15 +64,6 @@ impl Fixture {
         serde_json::from_slice(&output.stdout)
             .unwrap_or_else(|_| json!({"ok":false,"error":String::from_utf8_lossy(&output.stderr)}))
     }
-
-    fn allow_management(&self) {
-        let directory = self.root.path().join("config/omarchy/fileblade");
-        fs::create_dir_all(&directory).unwrap();
-        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
-        let settings = directory.join("settings.json");
-        fs::write(&settings, r#"{"version":1,"agentManagement":true}"#).unwrap();
-        fs::set_permissions(settings, fs::Permissions::from_mode(0o600)).unwrap();
-    }
 }
 
 #[test]
@@ -144,20 +135,8 @@ fn core_helpers_never_query_the_registry_and_cannot_be_retargeted() {
 }
 
 #[test]
-fn management_consent_covers_new_and_historical_routes() {
+fn skills_and_memory_writes_need_no_separate_consent() {
     let fixture = Fixture::new();
-    for provider in [
-        "fileblade.core.skills",
-        "fileblade.core.memory",
-        "data-goblin.fileblade-skills",
-        "kurt.agent-memory",
-    ] {
-        assert_eq!(
-            fixture.run(provider, "", "inventory", "apply", true)["ok"],
-            false
-        );
-    }
-    fixture.allow_management();
     for provider in [
         "fileblade.core.skills",
         "fileblade.core.memory",

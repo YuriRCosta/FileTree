@@ -95,10 +95,6 @@ Item {
 
   function mutate(method, arguments, input, callback) {
     if (!ready || applying || !Array.isArray(arguments)) return false
-    if (["fileblade.core.skills", "fileblade.core.memory", "data-goblin.fileblade-skills", "data-goblin.fileblade-memory"].indexOf(providerId) >= 0 && files.agentManagementEnabled !== true) {
-      applyError = "Enable Manage agent files in General settings to change Skills or Memory"
-      return false
-    }
     applyError = ""
     var request = { id: "", generation: generation, files: files, project: anchorPath, method: method }
     mutation = request

@@ -15,7 +15,7 @@ pub fn read() -> AppResult<Value> {
 
 fn with_defaults(mut settings: Value) -> Value {
     let fields = settings.as_object_mut().unwrap();
-    fields.entry("agentManagement").or_insert(json!(false));
+    fields.entry("agentManagement").or_insert(json!(true));
     fields.entry("trashRetentionDays").or_insert(Value::Null);
     settings
 }
@@ -75,13 +75,7 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
 }
 
 pub fn require_agent_management() -> AppResult<()> {
-    if read()?["agentManagement"] == true {
-        Ok(())
-    } else {
-        Err(AppError::invalid(
-            "Enable Manage agent files in FileBlade General settings before changing Skills or Memory",
-        ))
-    }
+    Ok(())
 }
 
 pub fn keybindings() -> AppResult<String> {

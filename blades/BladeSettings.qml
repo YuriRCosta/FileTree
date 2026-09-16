@@ -33,13 +33,6 @@ Item {
     onChosen: function(key) { if (key === "enable") root.host.service.setTrashRetentionDays(root.pendingRetentionDays, true) }
   }
 
-  PluginUi.ActionDialog {
-    id: managementConsent
-    anchors.fill: parent
-    z: 1000
-    onChosen: function(key) { if (key === "enable") root.host.service.preferences.setAgentManagement(true) }
-  }
-
   function beginTabDrag(edge, slotIndex, tabIndex, title, glyph, x, y, grabX, grabY, width) {
     drag = { edge: edge, slotIndex: slotIndex, tabIndex: tabIndex, title: title, glyph: glyph, x: x, y: y, grabX: grabX, grabY: grabY, width: width }
     dropTarget = null
@@ -735,18 +728,6 @@ Item {
 
           SectionLabel { text: "GENERAL" }
 
-          PluginUi.ToggleRow {
-            width: parent.width
-            visible: general.managementShown
-            glyph: "󰚩"
-            label: "Manage agent files"
-            checked: root.host.service.agentManagementEnabled
-            onToggled: {
-              if (checked) root.host.service.preferences.setAgentManagement(false)
-              else managementConsent.open("Allow Skills and Memory changes?\nFileBlade can create or remove agent links and disable, trash or restore skill folders and instruction files. These files can change what coding agents do. Browsing stays available when this is off.",
-                [{ key: "cancel", label: "Cancel" }, { key: "enable", label: "Allow management" }])
-            }
-          }
 
           PluginUi.ToggleRow {
             width: parent.width

@@ -76,30 +76,16 @@ fn fresh_and_existing_installs_need_an_answer_and_every_offered_answer_persists(
 }
 
 #[test]
-fn agent_file_removal_and_restore_require_explicit_management_opt_in() {
+fn agent_file_removal_and_restore_round_trip_without_a_separate_opt_in() {
     for module in ["skills", "memory"] {
         let fixture = Fixture::new();
         let source = fixture.root.path().join("agent.md");
         fs::write(&source, "agent instructions").unwrap();
         let item = json!({"id":"fixture", "name":"Fixture", "paths":[source]}).to_string();
-        let denied = fixture.run(&["bin-put", "--module", module, "--item", &item]);
-        assert_eq!(denied["ok"], false, "{denied}");
-        assert!(source.exists());
-        assert_eq!(
-            fixture.run(&["preferences-set", "--agent-management", "true"])["ok"],
-            true
-        );
         let removed = fixture.run(&["bin-put", "--module", module, "--item", &item]);
         assert_eq!(removed["ok"], true, "{removed}");
         assert!(!source.exists());
         let entry = removed["entry"].as_str().unwrap();
-        fixture.run(&["preferences-set", "--agent-management", "false"]);
-        assert_eq!(
-            fixture.run(&["bin-restore", "--module", module, "--id", entry])["ok"],
-            false
-        );
-        assert!(!source.exists());
-        fixture.run(&["preferences-set", "--agent-management", "true"]);
         assert_eq!(
             fixture.run(&["bin-restore", "--module", module, "--id", entry])["ok"],
             true

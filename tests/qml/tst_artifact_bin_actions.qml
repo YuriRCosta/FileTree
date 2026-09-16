@@ -89,25 +89,12 @@ TestCase {
     wait(0)
   }
 
-  function test_consent_refusal_reaches_the_module_instead_of_returning_in_silence() {
-    consent = false
-    open("skills", null, skillRow())
-    compare(changes, 1)
-    verify(bin.error.indexOf("Manage agent files") >= 0)
-    compare(bin.choices.length, 0)
-    compare(dispatches().length, 0)
-    compare(bin.pending, null)
-  }
-
-  function test_granting_consent_clears_the_refusal_and_opens_the_choices() {
-    consent = false
+  function test_a_skill_offers_every_choice_without_a_separate_consent() {
     var row = skillRow()
     open("skills", null, row)
-    verify(bin.error !== "")
-    consent = true
-    bin.ask(row)
     compare(bin.error, "")
     compare(keys(), ["cancel", "bin", "trash"])
+    compare(dispatches().length, 0)
   }
 
   function test_skill_removal_moves_the_folder_into_the_recoverable_bin() {

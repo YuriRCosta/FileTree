@@ -62,7 +62,7 @@ fn preference_writes_keep_untouched_choices_absent_and_explicit_defaults_present
             "--trash-retention-days",
             "7",
             "agentManagement",
-            json!(false),
+            json!(true),
         ),
         (
             "--agent-management",
