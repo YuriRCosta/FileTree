@@ -259,7 +259,7 @@ FocusScope {
   }
   readonly property var footerLayout: {
     var parts = root.footerParts()
-    var budget = Math.max(0, footerRow.width - (footerMode.visible ? footerMode.width + footerRow.spacing : 0))
+    var budget = Math.max(0, footerRow.width)
     return FooterFields.window(parts, root.footerOffset, function(text) {
       return footerFont.advanceWidth(text)
     }, budget, footerFont.advanceWidth(footerSeparator.text))
@@ -1211,17 +1211,6 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       spacing: footerSeparator.width
       Text {
-        id: footerMode
-        objectName: "footerMode"
-        visible: controller.modeBadge === "footer" && root.activeFocus
-        textFormat: Text.PlainText
-        text: "\ue6ae " + root.editorMode
-        color: controller.editorModeColor
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
-        font.weight: Font.DemiBold
-      }
-      Text {
         id: footerRewind
         objectName: "footerRewind"
         textFormat: Text.PlainText
@@ -1254,7 +1243,7 @@ FocusScope {
         width: Math.max(0, parent.width - footerCount.width - parent.spacing
           - (footerPager.visible ? footerPager.width + parent.spacing : 0)
           - (footerRewind.visible ? footerRewind.width + parent.spacing : 0)
-          - (footerMode.visible ? footerMode.width + parent.spacing : 0))
+          )
         textFormat: Text.PlainText
         text: root.footerLayout.shown.slice(1).join(footerSeparator.text)
         color: root.branchError || (mediaProvider && mediaProvider.error) ? Color.urgent : Color.muted
