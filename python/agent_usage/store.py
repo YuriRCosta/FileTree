@@ -186,11 +186,12 @@ def write(connection: sqlite3.Connection, agent: str, path: str, status: os.stat
             "INSERT OR IGNORE INTO event VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [(*map(clean, event[:8]), project_id(connection, event[8]), event[9]) for event in events],
         )
-        connection.executemany("INSERT OR IGNORE INTO failure VALUES (?, ?)",
-                               [(clean(call), at) for call, at in batch.failures
-                                if at >= cutoff and (not forgotten or identity("claude", call) not in forgotten)])
-        connection.execute("UPDATE event SET failed = 1 WHERE agent = 'claude' AND call IN (SELECT call FROM failure)")
-        connection.execute("DELETE FROM failure WHERE EXISTS (SELECT 1 FROM event WHERE agent = 'claude' AND event.call = failure.call)")
+        if agent == "claude" and (events or batch.failures):
+            connection.executemany("INSERT OR IGNORE INTO failure VALUES (?, ?)",
+                                   [(clean(call), at) for call, at in batch.failures
+                                    if at >= cutoff and (not forgotten or identity("claude", call) not in forgotten)])
+            connection.execute("UPDATE event SET failed = 1 WHERE agent = 'claude' AND call IN (SELECT call FROM failure)")
+            connection.execute("DELETE FROM failure WHERE EXISTS (SELECT 1 FROM event WHERE agent = 'claude' AND event.call = failure.call)")
         if covered:
             connection.execute("INSERT INTO coverage VALUES (?, ?) ON CONFLICT (agent) DO UPDATE "
                                "SET first_at = min(first_at, excluded.first_at)", (agent, max(cutoff, batch.first_at)))
