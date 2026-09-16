@@ -33,6 +33,10 @@ Item {
     "index", "HEAD", "packed-refs", "config", "refs", "logs",
     "MERGE_HEAD", "REBASE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_LOG"
   ]
+  readonly property var gitWatchSubdirectories: [
+    "refs", "refs/heads", "refs/remotes", "refs/tags",
+    "logs", "logs/refs", "logs/refs/heads", "logs/refs/remotes"
+  ]
   readonly property bool stateReady: service.stateReady
   readonly property bool open: service.open
   readonly property string rootPath: service.rootPath
@@ -59,8 +63,9 @@ Item {
   function gitDirectoryEntryMatters(changedPath, gitDirectory) {
     if (changedPath === gitDirectory) return true
     var relative = PathText.relative(changedPath, gitDirectory)
-    if (relative === "" || relative.indexOf("/") >= 0) return true
+    if (relative === "") return true
     if (relative.length > 5 && relative.slice(-5) === ".lock") return false
+    if (relative.indexOf("/") >= 0) return true
     return gitDecorationEntries.indexOf(relative) >= 0
   }
 
@@ -206,7 +211,12 @@ Item {
     var repoRoots = Object.keys(gitRepoDirectories)
     for (var repoIndex = 0; repoIndex < repoRoots.length && result.length < limit; repoIndex++) {
       var gitDir = String(gitRepoDirectories[repoRoots[repoIndex]] || "")
-      if (gitDir && result.indexOf(gitDir) < 0) result.push(gitDir)
+      if (!gitDir) continue
+      if (result.indexOf(gitDir) < 0) result.push(gitDir)
+      for (var subIndex = 0; subIndex < gitWatchSubdirectories.length && result.length < limit; subIndex++) {
+        var subdirectory = gitDir + "/" + gitWatchSubdirectories[subIndex]
+        if (result.indexOf(subdirectory) < 0) result.push(subdirectory)
+      }
     }
     return result
   }
