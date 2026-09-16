@@ -268,7 +268,7 @@ FocusScope {
     x: 0
     y: timeline.axisTop
     width: parent.width
-    height: timeline.sparseRows ? timeline.detail.bins.length * timeline.rowHeight : timeline.axisHeight
+    height: Math.min(timeline.axisHeight, timeline.detail.bins.length * timeline.rowHeight)
     cursorShape: Qt.PointingHandCursor
     onPressed: function(mouse) {
       timeline.forceActiveFocus()
