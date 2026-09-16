@@ -20,7 +20,7 @@ FocusScope {
   property string navigatedKey: ""
   property real dragOffset: 0
   property string monthFormat: ""
-  property string weekFormat: "yyyy Wkww"
+  property string weekFormat: ""
   property string dayFormat: ""
   readonly property int headerHeight: Style.space(26)
   readonly property real axisTop: headerHeight + Style.space(6)
@@ -29,6 +29,16 @@ FocusScope {
   readonly property var detail: parents.length ? Bins.child(records, parents[parents.length - 1], capacity, calendarRule, showEmptyPeriods) : Bins.overview(records, capacity, calendarRule, showEmptyPeriods)
   readonly property var bounds: Bins.geometry(detail.bins, Math.max(1, columns), pitch, tileHeight)
   readonly property var viewport: Bins.viewport(bounds, contentY, viewportHeight)
+  readonly property bool spansYears: {
+    var seen = null
+    for (var i = 0; i < detail.bins.length; i++) {
+      var year = detail.bins[i].weekYear !== undefined ? detail.bins[i].weekYear : detail.bins[i].year
+      if (year === undefined || year === null) continue
+      if (seen === null) seen = year
+      else if (seen !== year) return true
+    }
+    return false
+  }
   readonly property bool sparseRows: detail.bins.length > 0 && detail.bins.length * Style.space(26) <= axisHeight && detail.bins.every(function(bin) { return bin.count === 1 })
   readonly property real rowHeight: Math.min(Style.space(19), sparseRows ? Style.space(26) : axisHeight / Math.max(1, detail.bins.length))
   readonly property real occupiedHeight: records.length ? (Math.ceil(records.length / Math.max(1, columns)) - 1) * pitch + tileHeight : 0
@@ -42,7 +52,7 @@ FocusScope {
   readonly property bool canDrill: !!nextDetail && period.count > 0 && nextDetail.bins.length <= capacity
   readonly property bool canGoUp: parents.length > 0
   readonly property string periodLabel: period ? label(period, false) : (parents.length ? label(parents[parents.length - 1], false) : "All dates")
-  readonly property string levelLabel: ({ ranges: "Years", years: "Years", months: "Months", weeks: "Weeks", days: "Days" })[detail.level] || "Dates"
+  readonly property string levelLabel: ({ ranges: "Years", years: "Years", months: "Months", weeks: "Weeks", days: "Days", hours: "Hours" })[detail.level] || "Dates"
   readonly property color lightBlue: "#89b4fa"
   readonly property color darkBlue: Qt.darker(lightBlue, 2.25)
   readonly property real outlineTop: viewport.start === null ? 0 : axisTop + viewport.start * rowHeight
@@ -77,7 +87,19 @@ FocusScope {
     if (entry.level === "ranges" || entry.level === "years") return entry.key
     if (entry.level === "weeks") {
       if (!compact) return entry.weekYear + " · Week " + Dates.pad(entry.week)
-      return String(weekFormat).replace("yyyy", entry.weekYear).replace("ww", Dates.pad(entry.week))
+      if (weekFormat !== "") {
+        return String(weekFormat).replace("yyyy", entry.weekYear)
+          .replace("yy", String(entry.weekYear).slice(-2)).replace("ww", Dates.pad(entry.week))
+      }
+      return spansYears
+        ? String(entry.weekYear).slice(-2) + " Wk" + Dates.pad(entry.week)
+        : "Wk " + Dates.pad(entry.week)
+    }
+    if (entry.level === "hours") {
+      var when = Dates.calendar(Math.floor(entry.start))
+      var name = Qt.locale().standaloneMonthName(when.month - 1, Locale.ShortFormat)
+      var hour = Dates.pad(entry.hour) + ":00"
+      return compact ? hour : name + " " + Dates.pad(when.day) + " " + hour
     }
     var date = Dates.calendar(entry.start)
     var month = Qt.locale().standaloneMonthName(date.month - 1, Locale.ShortFormat)
