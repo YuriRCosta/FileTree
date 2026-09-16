@@ -24,6 +24,7 @@ mod blade;
 mod doctor;
 mod extension;
 mod files;
+mod integration;
 mod ipc;
 mod launch;
 mod plugins;
@@ -191,6 +192,14 @@ pub enum RootCommand {
         #[command(subcommand)]
         action: ExtensionCommand,
     },
+    /// Install FileBlade into another tool.
+    Install {
+        #[command(subcommand)]
+        action: integration::InstallCommand,
+    },
+    /// Print the current selection as agent context. Always succeeds; prints an
+    /// empty context when FileBlade is not running.
+    AgentContext(integration::AgentContextArgs),
     Focus(FocusArgs),
     Search(SearchArgs),
     ClearSearch,
@@ -340,6 +349,10 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Action(options) => action(options),
         RootCommand::Blade { action } => blade(action),
         RootCommand::Extension { action } => extension(action),
+        RootCommand::Install { action } => match action {
+            integration::InstallCommand::Integration(options) => integration::integration(&options),
+        },
+        RootCommand::AgentContext(options) => integration::agent_context(&options),
         RootCommand::Focus(options) => simple_ipc("focusDirection", &[options.direction]),
         RootCommand::Search(options) => search(options),
         RootCommand::ClearSearch => simple_ipc("clearSearch", &[]),
