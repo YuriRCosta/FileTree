@@ -129,6 +129,8 @@ Item {
   property int gitMetadataNoopCount: 0
   property var dirtyGitRepositories: ({})
   property var gitMetadataRowFingerprints: ({})
+  property var lastGitMetadataPayload: null
+  property bool gitMetadataRepaintPending: false
   property bool activeGitMetadataScoped: false
   property bool gitMetadataFullSweepPending: true
   property int gitMetadataScopedRefreshCount: 0
@@ -231,6 +233,20 @@ Item {
 
   function markTreeStructureChanged() {
     treeStructureRevision++
+    scheduleGitMetadataRepaint()
+  }
+
+  function scheduleGitMetadataRepaint() {
+    if (!lastGitMetadataPayload || gitMetadataRepaintPending) return
+    gitMetadataRepaintPending = true
+    Qt.callLater(repaintGitMetadata)
+  }
+
+  function repaintGitMetadata() {
+    gitMetadataRepaintPending = false
+    var payload = lastGitMetadataPayload
+    if (!payload || !gitEnabled) return
+    applyGitMetadataResults(payload.response, payload.paths, payload.results, payload.exitCode)
   }
 
   function rebuildTreePathIndex() {
@@ -1160,6 +1176,8 @@ Item {
     var scoped = activeGitMetadataScoped
     var snapshot = gitMetadataSnapshot(results)
     var previousRepositories = JSON.stringify(gitRepoDirectories)
+    if (!scoped && results.length > 0)
+      lastGitMetadataPayload = { response: response, paths: paths, results: results, exitCode: exitCode }
     if (gitMetadataRowsChanged(snapshot.rows, scoped)) {
       applyGitMetadataResults(response, paths, results, exitCode)
       storeGitMetadataRows(snapshot.rows, scoped)
