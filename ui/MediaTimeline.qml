@@ -27,7 +27,7 @@ FocusScope {
   readonly property var bounds: Bins.geometry(detail.bins, Math.max(1, columns), pitch, tileHeight)
   readonly property var viewport: Bins.viewport(bounds, contentY, viewportHeight)
   readonly property bool sparseRows: detail.bins.length > 0 && detail.bins.length * Style.space(26) <= axisHeight && detail.bins.every(function(bin) { return bin.count === 1 })
-  readonly property real rowHeight: sparseRows ? Style.space(26) : axisHeight / Math.max(1, detail.bins.length)
+  readonly property real rowHeight: Math.min(Style.space(26), sparseRows ? Style.space(26) : axisHeight / Math.max(1, detail.bins.length))
   readonly property real occupiedHeight: records.length ? (Math.ceil(records.length / Math.max(1, columns)) - 1) * pitch + tileHeight : 0
   readonly property bool showOutline: occupiedHeight > viewportHeight && viewport.start !== null
   readonly property int activePeriod: {
@@ -44,6 +44,13 @@ FocusScope {
   readonly property color darkBlue: Qt.darker(lightBlue, 2.25)
   readonly property real outlineTop: viewport.start === null ? 0 : axisTop + viewport.start * rowHeight
   readonly property real outlineHeight: viewport.start === null ? 0 : Math.max(1, (viewport.end - viewport.start) * rowHeight)
+
+  function barWidth(count) {
+    if (!(count > 0) || !(detail.maximum > 0)) return 0
+    var span = Style.space(23)
+    var scaled = span * Math.sqrt(count / detail.maximum)
+    return Math.max(1, Math.min(span, Math.round(scaled)))
+  }
 
   signal seekRequested(real position)
 
@@ -213,7 +220,7 @@ FocusScope {
         anchors.right: countText.left
         anchors.rightMargin: Style.space(4)
         anchors.verticalCenter: parent.verticalCenter
-        width: timeline.detail.maximum ? Style.space(23) * mark.modelData.count / timeline.detail.maximum : 0
+        width: timeline.barWidth(mark.modelData.count)
         height: Style.space(5)
         color: mark.inViewport ? timeline.lightBlue : timeline.darkBlue
         Repeater {

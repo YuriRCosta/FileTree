@@ -46,6 +46,8 @@ FocusScope {
   onSummaryInTreeChanged: { persistMedia(); Qt.callLater(root.ensureContextRoot) }
   readonly property var densityPresets: [0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25]
   readonly property var densityLabels: ["75%", "80%", "85%", "90%", "95%", "100%", "105%", "110%", "115%", "120%", "125%"]
+  readonly property var densitySizes: ["XS", "XS", "S", "S", "M", "M", "M", "L", "L", "XL", "XL"]
+  readonly property string ordinaryDensitySize: densitySizes[Math.max(0, Math.min(densitySizes.length - 1, ordinaryDensityStep))] || "M"
   property real ordinaryDensityValue: 1
   readonly property real ordinaryDensity: ordinaryDensityValue > 0 ? ordinaryDensityValue : 1
   readonly property int ordinaryDensityStep: root.nearestDensityStep(ordinaryDensity)
@@ -1257,7 +1259,8 @@ FocusScope {
       label: root.mediaActive ? "Preview size" : "Row density"
       labels: root.mediaActive ? ["XS", "S", "M", "L", "XL"] : root.densityLabels
       editableValue: !root.mediaActive
-      readout: root.mediaActive ? "" : Math.round(root.ordinaryDensity * 100) + "%"
+      readout: root.mediaActive ? "" : root.ordinaryDensitySize
+      editText: root.mediaActive ? "" : String(Math.round(root.ordinaryDensity * 100))
       onValueEntered: function(text) { root.applyDensityText(text) }
       onStepRequested: function(step) {
         if (root.mediaActive) { if (mediaView) mediaView.rememberAnchor(); root.mediaSizeStep = step }

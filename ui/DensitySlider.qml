@@ -7,6 +7,7 @@ FocusScope {
 
   property int step: 2
   property string label: "View size"
+  property string editText: ""
   property string shortcutSmaller: "-"
   property string shortcutLarger: "+"
   property var labels: ["XS", "S", "M", "L", "XL"]
@@ -185,7 +186,7 @@ FocusScope {
       hoverEnabled: true
       cursorShape: Qt.IBeamCursor
       onDoubleClicked: {
-        valueField.text = control.valueLabel.replace("%", "")
+        valueField.text = control.editText !== "" ? control.editText : String(control.valueLabel).replace(/[^0-9.]/g, "")
         valueField.visible = true
         valueField.selectAll()
         valueField.forceActiveFocus()
