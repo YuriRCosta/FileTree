@@ -101,6 +101,8 @@ pub enum RootCommand {
     Refresh,
     Up,
     Home,
+    /// Open the directory the default screenshot tool writes to.
+    Screenshots,
     Quicknav(QuicknavArgs),
     Pick(PickArgs),
     Shell(ShellArgs),
@@ -246,6 +248,7 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Refresh => simple_ipc("refresh", &[]),
         RootCommand::Up => simple_ipc("up", &[]),
         RootCommand::Home => simple_ipc("home", &[]),
+        RootCommand::Screenshots => simple_ipc("screenshots", &[]),
         RootCommand::Quicknav(options) => simple_ipc("quickNavChannel", &[options.channel]),
         RootCommand::Pick(options) => pick(options),
         RootCommand::Log(options) => log(options),

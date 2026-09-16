@@ -348,6 +348,9 @@ fn handshake(
                 "request_keys": RECENT_REQUEST_KEYS,
                 "watch_paths": MAX_WATCH_PATHS,
             },
+            "paths": {
+                "screenshots": crate::common::path_text(&crate::paths::screenshots_dir()),
+            },
             "recovered": recovered,
             "version": env!("CARGO_PKG_VERSION"),
         }),

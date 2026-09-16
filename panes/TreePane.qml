@@ -598,6 +598,7 @@ FocusScope {
       forward: function() { controller.goForward(targetScreen()) },
       up: function() { controller.goUp() },
       home: function() { controller.goHome() },
+      screenshots: function() { if (controller.screenshotsPath) controller.setRootPath(controller.screenshotsPath) },
       recent: function() { root.showRecent() },
       drives: function() { root.showDrives() },
       "desktop-trash": function() { root.showTrash(false) }
@@ -805,6 +806,10 @@ FocusScope {
         actions: [{ button: "left", text: "Up" }, { shortcut: "Alt+↑" }], context: [{ glyph: "󰉋", text: controller.parentDirectory(controller.rootPath) }] },
       { key: "home", glyph: "", title: "Home", enabled: controller.rootPath !== controller.home,
         actions: [{ button: "left", text: "Home" }, { shortcut: "Alt+Home" }], context: [{ glyph: "󰉋", text: controller.home }] },
+      { key: "screenshots", glyph: "󰹑", title: "Screenshots",
+        enabled: controller.screenshotsPath !== "" && controller.rootPath !== controller.screenshotsPath,
+        actions: [{ button: "left", text: "Screenshots" }],
+        context: [{ glyph: "󰉋", text: controller.screenshotsPath }] },
       { key: "recent", glyph: "󰋚", title: "Recent", active: controller.recentMode,
         actions: [{ button: "left", text: "Open" }], context: root.recentNavigationContext() },
       { key: "media", glyph: "󰋩", title: root.mediaMode ? "Show files" : "Show media", active: root.mediaMode,

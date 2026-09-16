@@ -100,6 +100,12 @@ QtObject {
     return service.goHome()
   }
 
+  function screenshots(): string {
+    if (service.screenshotsPath === "") return "screenshot directory is unknown"
+    service.setRootPath(service.screenshotsPath)
+    return service.rootPath
+  }
+
   function back(): string {
     return service.goBack()
   }

@@ -49,6 +49,7 @@ Item {
   function retryBackend() { backendClient.retry() }
   function startExtensionInstall() { backendClient.startExtensionInstall() }
   readonly property var backendLimits: backendClient.limits
+  readonly property string screenshotsPath: backendClient.paths && backendClient.paths.screenshots ? String(backendClient.paths.screenshots) : ""
   readonly property string backendError: backendClient.lastError
 
   BackendClient {

@@ -27,6 +27,7 @@ Item {
   property string lastStderr: ""
   property string backendVersion: ""
   property var limits: ({})
+  property var paths: ({})
   readonly property bool nativeAuthority: String(Quickshell.env("FILEBLADE_NATIVE_STATE_ROOT") || "") !== ""
   signal operationAccepted(string requestId, string generation, string operationId)
   signal operationUpdated(string operationId, var frame)
@@ -278,6 +279,7 @@ Item {
       stalled = false
       inFlight = 0
       limits = frame.limits && typeof frame.limits === "object" ? frame.limits : ({})
+      paths = frame.paths && typeof frame.paths === "object" ? frame.paths : ({})
       backendVersion = String(frame.version || "")
       if (versionSkew) console.warn("data-goblin.fileblade: backend " + backendVersion + " does not match plugin " + expectedVersion + "; update or reinstall the plugin")
       var recovered = frame.recovered
