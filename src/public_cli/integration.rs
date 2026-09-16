@@ -192,31 +192,37 @@ fn edit_grouped(document: &mut Value, agent: Agent, remove: bool) -> AppResult<b
 }
 
 fn opencode_plugin() -> String {
-    format!(
+    String::from(
         r#"// Written by `fileblade install integration opencode`.
 // Adds the current FileBlade selection to each prompt. When FileBlade is not
 // running the command yields an empty string and nothing is added.
-import {{ execFile }} from "node:child_process"
-import {{ promisify }} from "node:util"
+import { execFile } from "node:child_process"
+import { promisify } from "node:util"
 
 const run = promisify(execFile)
 
-export const FileBladeSelection = async () => ({{
-  "chat.message": async (_input, output) => {{
-    let context = ""
-    try {{
-      const {{ stdout }} = await run("fileblade", ["{MARKER_ARGS}"], {{ timeout: {HOOK_TIMEOUT}000 }})
-      context = String(stdout || "").trim()
-    }} catch {{
-      context = ""
-    }}
-    if (!context) return
-    output.parts.push({{ type: "text", text: context }})
-  }},
-}})
+async function selection() {
+  try {
+    const { stdout } = await run("fileblade", ["agent-context", "--format", "plain"], { timeout: 5000 })
+    return String(stdout || "").trim()
+  } catch {
+    return ""
+  }
+}
+
+const hooks = {
+  "chat.message": async (_input, output) => {
+    const context = await selection()
+    if (!context || !output || !Array.isArray(output.parts)) return
+    output.parts.push({ type: "text", text: context })
+  },
+}
+
+export default {
+  id: "fileblade-selection",
+  effect: async () => hooks,
+}
 "#,
-        MARKER_ARGS = "agent-context\", \"--format\", \"plain",
-        HOOK_TIMEOUT = HOOK_TIMEOUT
     )
 }
 
