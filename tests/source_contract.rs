@@ -499,7 +499,7 @@ fn settings_rows_sit_under_muted_group_headings() {
     assert!(group.contains("text: title.toUpperCase()"));
 
     let files = text(&root.join("modules/files/FilesSettings.qml"));
-    for title in ["Tree", "Git", "Trash and drives"] {
+    for title in ["Tree", "Git", "Trash and drives", "Toolbar"] {
         assert!(
             files.contains(&format!("PluginUi.SettingsGroup {{ title: \"{title}\" }}")),
             "Files settings lack the {title} group"
@@ -508,7 +508,12 @@ fn settings_rows_sit_under_muted_group_headings() {
     let tree = files.find("title: \"Tree\"").unwrap();
     let git = files.find("title: \"Git\"").unwrap();
     let trash = files.find("title: \"Trash and drives\"").unwrap();
+    let toolbar = files.find("title: \"Toolbar\"").unwrap();
     assert!(tree < git && git < trash);
+    assert!(
+        trash < toolbar,
+        "the nine toolbar rows sit last so the earlier headings stay inside the settings crop"
+    );
     let position = |label: &str| files.find(&format!("label: \"{label}\"")).unwrap();
     for label in [
         "Column",
@@ -529,9 +534,14 @@ fn settings_rows_sit_under_muted_group_headings() {
             "{label} belongs under Git"
         );
     }
-    for label in ["Confirm trash", "Trash retention", "Show system volumes"] {
+    for label in [
+        "Confirm trash",
+        "Trash retention",
+        "Volumes in the tree",
+        "Show system volumes",
+    ] {
         assert!(
-            position(label) > trash,
+            position(label) > trash && position(label) < toolbar,
             "{label} belongs under Trash and drives"
         );
     }
@@ -2193,4 +2203,153 @@ fn qml_objects_do_not_bind_the_same_signal_twice() {
         }
     }
     assert!(offenders.is_empty(), "{}", offenders.join("\n"));
+}
+
+const TOOLBAR_KEYS: [&str; 9] = [
+    "back",
+    "forward",
+    "up",
+    "home",
+    "screenshots",
+    "recent",
+    "media",
+    "drives",
+    "desktop-trash",
+];
+
+#[test]
+fn a_hidden_toolbar_button_keeps_its_own_route_into_the_pane() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let fields = text(&root.join("lib/ToolbarFields.js"));
+    assert!(fields.contains("function normalizeFields(value)"));
+    assert!(
+        fields.contains("if (value === undefined || value === null) return keys"),
+        "a state document without a stored choice keeps every toolbar button"
+    );
+    assert!(
+        fields.contains("return keys.filter(function(key) { return wanted[key] === true })"),
+        "a stored choice is replayed in canonical order, never in the order it was toggled"
+    );
+
+    let tree = text(&root.join("panes/TreePane.qml"));
+    for key in TOOLBAR_KEYS {
+        assert!(
+            fields.contains(&format!("key: \"{key}\"")),
+            "{key} has no row in the toolbar settings"
+        );
+        assert!(
+            tree.contains(&format!("{{ key: \"{key}\", glyph:")),
+            "{key} has no toolbar button"
+        );
+        assert!(
+            tree.contains(&format!("{key}: function()"))
+                || tree.contains(&format!("\"{key}\": function()")),
+            "{key} is only reachable by clicking its toolbar button"
+        );
+    }
+    assert!(
+        tree.contains(
+            "].filter(function(entry) { return root.toolbarButtons.indexOf(entry.key) >= 0 })"
+        ),
+        "the toolbar specs keep their live bindings and are filtered in place"
+    );
+    assert!(tree.contains("context.state.set(\"toolbarButtons\", toolbarButtons)"));
+    assert!(tree.contains(
+        "toolbarButtons = ToolbarFields.normalizeFields(context.state.get(\"toolbarButtons\", undefined))"
+    ));
+
+    let navigation = text(&root.join("ui/PaneNavigation.qml"));
+    assert!(
+        navigation.contains("visible: actions.length > 0"),
+        "turning every button off must leave the header laid out, not empty and reserved"
+    );
+    assert!(
+        tree.contains("mediaMode && toolbarButtons.indexOf(\"media\") >= 0 &&"),
+        "media is the one action with no keyboard, location bar or CLI route, so hiding its button leaves the pane in Files rather than stranded in the grid"
+    );
+
+    let files = text(&root.join("modules/files/FilesSettings.qml"));
+    assert!(files.contains("model: ToolbarFields.choices"));
+    assert!(files.contains("root.pane.setToolbarButtons(next)"));
+}
+
+#[test]
+fn the_tree_hides_volumes_unless_the_reader_already_asked_for_them() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let tree = text(&root.join("panes/TreePane.qml"));
+    assert!(tree.contains("readonly property bool volumesConfigurable: !!context"));
+    assert!(
+        tree.contains("property bool volumesInTree: !volumesConfigurable"),
+        "the chooser has no settings sheet, so it keeps the volume rows it has always had"
+    );
+    assert!(
+        tree.contains(
+            "volumesInTree = context.state.get(\"volumesInTree\", controller.showSystemVolumes === true) === true"
+        ),
+        "a state document with no stored choice falls back to the one older signal that asked for disks"
+    );
+    assert!(tree.contains("context.state.set(\"volumesInTree\", volumesInTree)"));
+    assert!(tree.contains("height: root.volumesInTree ? volumes.height : 0"));
+
+    let document = text(&root.join("lib/StateDocument.js"));
+    let keys = document
+        .split_once("var preferenceKeys = ")
+        .expect("preferenceKeys")
+        .1
+        .split_once(']')
+        .expect("preferenceKeys list")
+        .0;
+    assert!(
+        keys.contains("\"showSystemVolumes\""),
+        "showSystemVolumes must stay a sparse preference, or it stops proving a deliberate choice"
+    );
+    let service = text(&root.join("Service.qml"));
+    assert!(service.contains("stateController.markSettingChoice([\"showSystemVolumes\"])"));
+
+    let files = text(&root.join("modules/files/FilesSettings.qml"));
+    let parent = files
+        .find("label: \"Volumes in the tree\"")
+        .expect("volumes row");
+    let child = files
+        .find("label: \"Show system volumes\"")
+        .expect("system volumes row");
+    assert!(parent < child);
+    assert!(
+        files.contains("enabled: !root.pane || root.pane.volumesInTree"),
+        "system volumes is a child of the volumes gate"
+    );
+    assert!(files.contains("root.pane.volumesInTree = !root.pane.volumesInTree"));
+}
+
+#[test]
+fn row_density_has_five_named_stops_and_a_saved_percentage_lands_on_one() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let tree = text(&root.join("panes/TreePane.qml"));
+    assert!(tree.contains("readonly property var densityPresets: [0.8, 0.9, 1, 1.1, 1.2]"));
+    assert!(
+        tree.contains("readonly property var densitySizes: [\"XS\", \"S\", \"M\", \"L\", \"XL\"]")
+    );
+    assert!(
+        tree.contains("labels: root.densitySizes"),
+        "the slider takes its stop count from the five size names"
+    );
+    assert!(
+        !tree.contains("densityLabels"),
+        "the retired percent labels only ever set the stop count"
+    );
+    assert!(tree.contains("function restoredDensity(value)"));
+    assert!(
+        tree.contains("return saved > 0 ? root.densityPresets[root.nearestDensityStep(saved)] : 1"),
+        "a saved percentage between the stops resolves to the nearest stop"
+    );
+    assert!(tree.contains(
+        "ordinaryDensityValue = root.restoredDensity(context.state.get(\"ordinaryDensityPercent\", 100))"
+    ));
+
+    let slider = text(&root.join("ui/DensitySlider.qml"));
+    assert!(slider.contains("readonly property int steps: Math.max(2, labels.length)"));
+    assert!(
+        !slider.contains("readout"),
+        "the size names are the readout now"
+    );
 }

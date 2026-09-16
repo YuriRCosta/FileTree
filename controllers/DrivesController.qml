@@ -14,6 +14,7 @@ Item {
   property string requestId: ""
   property int failureCount: 0
   property bool showSystemVolumes: false
+  onShowSystemVolumesChanged: rebuild()
   property var volumeRows: []
   property var peerLocations: ({})
   property var peerCandidates: ({})

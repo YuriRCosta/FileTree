@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../../ui" as PluginUi
+import "../../lib/ToolbarFields.js" as ToolbarFields
 
 Column {
   id: root
@@ -181,11 +182,42 @@ Column {
   }
 
   PluginUi.ToggleRow {
+    objectName: "volumesInTreeToggle"
+    width: parent.width
+    glyph: "󰋊"
+    label: "Volumes in the tree"
+    visible: !!root.pane
+    checked: root.pane ? root.pane.volumesInTree : false
+    onToggled: root.pane.volumesInTree = !root.pane.volumesInTree
+  }
+
+  PluginUi.ToggleRow {
     width: parent.width
     glyph: "󰋩"
     label: "Show system volumes"
+    enabled: !root.pane || root.pane.volumesInTree
     checked: root.controller.showSystemVolumes
     onToggled: root.controller.setShowSystemVolumes(!root.controller.showSystemVolumes)
+  }
+
+  PluginUi.SettingsGroup { title: "Toolbar" }
+
+  Repeater {
+    model: ToolbarFields.choices
+
+    PluginUi.ToggleRow {
+      required property var modelData
+      width: parent.width
+      glyph: modelData.glyph
+      label: "Toolbar: " + modelData.label.toLowerCase()
+      visible: !!root.pane
+      checked: root.pane ? root.pane.toolbarButtons.indexOf(modelData.key) >= 0 : false
+      onToggled: {
+        var next = root.pane.toolbarButtons.filter(function(key) { return key !== modelData.key })
+        if (!checked) next.push(modelData.key)
+        root.pane.setToolbarButtons(next)
+      }
+    }
   }
 
   PluginUi.HintLine {

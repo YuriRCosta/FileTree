@@ -13,9 +13,8 @@ FocusScope {
   property var labels: ["XS", "S", "M", "L", "XL"]
   readonly property int steps: Math.max(2, labels.length)
   readonly property int clamped: Math.max(0, Math.min(steps - 1, step))
-  property string readout: ""
   property bool editableValue: false
-  readonly property string valueLabel: readout !== "" ? readout : String(labels[clamped] || clamped + 1)
+  readonly property string valueLabel: String(labels[clamped] || clamped + 1)
   readonly property bool pressed: range.pressed
   signal stepRequested(int step)
   signal valueEntered(string text)

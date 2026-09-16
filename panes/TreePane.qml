@@ -11,6 +11,7 @@ import "../modules/files/ViewChrome.js" as ViewChrome
 import "../lib/FileIcons.js" as FileIcons
 import "../lib/FooterFields.js" as FooterFields
 import "../lib/GitSummary.js" as GitSummary
+import "../lib/ToolbarFields.js" as ToolbarFields
 
 FocusScope {
   id: root
@@ -44,16 +45,17 @@ FocusScope {
   readonly property bool contextRootExpanded: !contextAbove || controller.treeModel.count === 0 || controller.treeModel.get(0).expanded
   onContextRootExpandedChanged: Qt.callLater(root.ensureContextRoot)
   onSummaryInTreeChanged: { persistMedia(); Qt.callLater(root.ensureContextRoot) }
-  readonly property var densityPresets: [0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25]
-  readonly property var densityLabels: ["75%", "80%", "85%", "90%", "95%", "100%", "105%", "110%", "115%", "120%", "125%"]
-  readonly property var densitySizes: ["XS", "XS", "S", "S", "M", "M", "M", "L", "L", "XL", "XL"]
-  readonly property string ordinaryDensitySize: densitySizes[Math.max(0, Math.min(densitySizes.length - 1, ordinaryDensityStep))] || "M"
+  readonly property var densityPresets: [0.8, 0.9, 1, 1.1, 1.2]
+  readonly property var densitySizes: ["XS", "S", "M", "L", "XL"]
+  property var toolbarButtons: ToolbarFields.normalizeFields()
+  readonly property bool volumesConfigurable: !!context
+  property bool volumesInTree: !volumesConfigurable
   property real ordinaryDensityValue: 1
   readonly property real ordinaryDensity: ordinaryDensityValue > 0 ? ordinaryDensityValue : 1
   readonly property int ordinaryDensityStep: root.nearestDensityStep(ordinaryDensity)
   property var mediaLocationDescriptor: null
   property real ordinaryContentY: 0
-  readonly property bool mediaActive: mediaMode && !controller.trashMode && !controller.drivesMode && !controller.recentMode && !PathText.isRemote(controller.rootPath)
+  readonly property bool mediaActive: mediaMode && toolbarButtons.indexOf("media") >= 0 && !controller.trashMode && !controller.drivesMode && !controller.recentMode && !PathText.isRemote(controller.rootPath)
   property var folderCountData: ({ loaded: 0, total: 0, known: false })
   readonly property var folderCount: folderCountData
   readonly property bool folderCountReady: ViewChrome.folderReady(controller.treeModel, controller.rootPath)
@@ -72,6 +74,13 @@ FocusScope {
     context.state.set("mediaShowEmptyPeriods", mediaShowEmptyPeriods)
     context.state.set("ordinaryDensityPercent", Math.round(ordinaryDensityValue * 100))
     context.state.set("rootRowInTree", summaryInTree)
+    context.state.set("toolbarButtons", toolbarButtons)
+    context.state.set("volumesInTree", volumesInTree)
+  }
+
+  function setToolbarButtons(value) {
+    toolbarButtons = ToolbarFields.normalizeFields(value)
+    return toolbarButtons
   }
 
   function ensureContextRoot() {
@@ -202,6 +211,8 @@ FocusScope {
   onMediaSizeStepChanged: persistMedia()
   onMediaShowEmptyPeriodsChanged: persistMedia()
   onOrdinaryDensityStepChanged: persistMedia()
+  onToolbarButtonsChanged: persistMedia()
+  onVolumesInTreeChanged: persistMedia()
   onMediaMatchesChanged: if (mediaProvider && !mediaProvider.busy) reconcileMediaSelection()
 
   Component.onCompleted: {
@@ -209,7 +220,9 @@ FocusScope {
     mediaQuery = String(context.state.get("mediaQuery", ""))
     mediaSizeStep = Math.max(0, Math.min(4, Number(context.state.get("mediaSizeStep", 2))))
     mediaShowEmptyPeriods = context.state.get("mediaShowEmptyPeriods", false) === true
-    ordinaryDensityValue = root.clampDensity(Number(context.state.get("ordinaryDensityPercent", 100))) || 1
+    ordinaryDensityValue = root.restoredDensity(context.state.get("ordinaryDensityPercent", 100))
+    toolbarButtons = ToolbarFields.normalizeFields(context.state.get("toolbarButtons", undefined))
+    volumesInTree = context.state.get("volumesInTree", controller.showSystemVolumes === true) === true
     summaryInTree = context.state.get("rootRowInTree", true) === true
     mediaRecursive = context.state.get("mediaRecursive", false) === true
     mediaMode = context.state.get("mediaMode", false) === true
@@ -307,6 +320,11 @@ FocusScope {
     if (!isFinite(number) || number <= 0) return 0
     if (number > 10) number = number / 100
     return Math.max(0.6, Math.min(1.8, number))
+  }
+
+  function restoredDensity(value) {
+    var saved = root.clampDensity(value)
+    return saved > 0 ? root.densityPresets[root.nearestDensityStep(saved)] : 1
   }
 
   function applyDensityText(text) {
@@ -819,7 +837,7 @@ FocusScope {
         actions: [{ button: "left", text: "Open" }], context: root.drivesNavigationContext() },
       { key: "desktop-trash", glyph: controller.trashCount > 0 ? "󰩹" : "󰩺", title: "Trash", active: controller.trashMode,
         actions: [{ button: "left", text: "Open" }], context: root.trashNavigationContext() }
-    ]
+    ].filter(function(entry) { return root.toolbarButtons.indexOf(entry.key) >= 0 })
     onColumnsCommitted: controller.setPriorityColumns(columns)
     onSortsChanged: root.pushTreeOrder()
     onFilterChanged: root.pushTreeOrder()
@@ -887,13 +905,21 @@ FocusScope {
     pane: root
   }
 
-  DrivesPanel {
+  Item {
     id: drivesSection
     anchors.top: favoritesSection.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    controller: root.controller
-    pane: root
+    height: root.volumesInTree ? volumes.height : 0
+    visible: height > 0
+
+    DrivesPanel {
+      id: volumes
+      anchors.left: parent.left
+      anchors.right: parent.right
+      controller: root.controller
+      pane: root
+    }
   }
 
   PluginUi.PaneSearchField {
@@ -1262,9 +1288,8 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       step: root.mediaActive ? root.mediaSizeStep : root.ordinaryDensityStep
       label: root.mediaActive ? "Preview size" : "Row density"
-      labels: root.mediaActive ? ["XS", "S", "M", "L", "XL"] : root.densityLabels
+      labels: root.densitySizes
       editableValue: !root.mediaActive
-      readout: root.mediaActive ? "" : root.ordinaryDensitySize
       editText: root.mediaActive ? "" : String(Math.round(root.ordinaryDensity * 100))
       onValueEntered: function(text) { root.applyDensityText(text) }
       onStepRequested: function(step) {

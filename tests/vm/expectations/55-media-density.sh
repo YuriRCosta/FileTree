@@ -70,7 +70,7 @@ if state()['mode']:
 current = wait(lambda s: s['ordinary']['count'] > 200 and s['ordinary']['footerCount'] == '427 items')
 probe('ordinaryChoose', 200)
 selected = state()['selected']
-for step, factor, height in [(0, .85, 26), (1, .925, 28), (2, 1, 30), (3, 1.075, 32), (4, 1.15, 35), (0, .85, 26), (4, 1.15, 35)]:
+for step, factor, height in [(0, .8, 24), (1, .9, 27), (2, 1, 30), (3, 1.1, 33), (4, 1.2, 36), (0, .8, 24), (4, 1.2, 36)]:
     before = state()['ordinary']
     anchor = before['rows'][before['first']]['path']
     slider = state()['slider']

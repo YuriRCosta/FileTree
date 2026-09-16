@@ -166,7 +166,7 @@ for large, small, offset in [(4, 0, 42), (0, 4, 30)]:
     probe('density', large)
     probe('clip', 160, offset)
     before = chrome()
-    assert before['height'] == (48 if large == 4 else 36), before
+    assert before['height'] == (50 if large == 4 else 34), before
     probe('density', small)
     time.sleep(.2)
     after = chrome()
