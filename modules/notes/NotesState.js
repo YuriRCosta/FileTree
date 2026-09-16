@@ -268,6 +268,23 @@ function characterCount(text) {
   return value.length - (value.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g) || []).length
 }
 
+function tabStop(widths, gap) {
+  var minimum = Math.max(1, Math.ceil(Number(gap) || 0))
+  var measured = []
+  var widest = 0
+  for (var index = 0; index < widths.length - 1; index++) {
+    var width = Number(widths[index])
+    measured.push(isFinite(width) && width > 0 ? width : 0)
+    widest = Math.max(widest, measured[index])
+  }
+  for (var distance = minimum; distance < Math.ceil(widest) + minimum; distance++) {
+    var fits = true
+    for (var field = 0; field < measured.length && fits; field++) fits = distance - measured[field] % distance >= minimum
+    if (fits) return distance
+  }
+  return Math.ceil(widest) + minimum
+}
+
 function persistedNotebook(notebook) {
   var result = copyNotebook(notebook)
   result.revision++

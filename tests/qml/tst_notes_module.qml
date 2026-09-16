@@ -162,17 +162,29 @@ TestCase {
   }
 
   function test_footer_reports_last_edit_words_and_characters() {
-    compare(view.footerFields, ["Last Edit: never", "Words: 2", "Characters: 13"])
+    compare(view.footerText, "Last Edit: never\tWords: 2\tCharacters: 13")
     var before = Date.now()
     editor.text = "three 😀 words"
     var edited = view.activeNote.edited
     verify(edited >= before && edited <= Date.now())
-    compare(view.footerFields, ["Last Edit: " + Qt.formatDateTime(new Date(edited), "yyyy-MM-dd HH:mm"), "Words: 3", "Characters: 13"])
+    compare(view.footerText, "Last Edit: " + Qt.formatDateTime(new Date(edited), "yyyy-MM-dd HH:mm") + "\tWords: 3\tCharacters: 13")
     view.createNote()
-    compare(view.footerFields, ["Last Edit: never", "Words: 0", "Characters: 0"])
+    compare(view.footerText, "Last Edit: never\tWords: 0\tCharacters: 0")
     view.selectNote(0)
     compare(view.activeNote.edited, edited)
-    for (var index = 0; index < view.footerFields.length; index++) verify(view.footerFields[index].indexOf("Loaded") < 0)
+    verify(view.footerText.indexOf("Loaded") < 0)
+    var footer = findChild(view, "notesFooter")
+    verify(footer)
+    var parts = footer.text.split("\t")
+    compare(parts.length, 3)
+    var offset = 0
+    for (var field = 0; field < parts.length - 1; field++) {
+      offset += parts[field].length
+      var end = footer.positionToRectangle(offset)
+      var next = footer.positionToRectangle(offset + 1)
+      verify(next.x - end.x >= 24 || next.y > end.y)
+      offset++
+    }
   }
 
   function test_tabs_restore_selection_and_oversize_loaded_text_is_held() {

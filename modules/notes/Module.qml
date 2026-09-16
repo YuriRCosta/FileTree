@@ -44,11 +44,11 @@ FocusScope {
   property bool closeAfterSave: false
   readonly property var host: context ? context.host : null
   readonly property bool temporary: !!context && !!context.inPopout
-  readonly property var footerFields: [
+  readonly property string footerText: [
     "Last Edit: " + (activeNote.edited ? Qt.formatDateTime(new Date(activeNote.edited), "yyyy-MM-dd HH:mm") : "never"),
     "Words: " + NotesState.wordCount(activeNote.text),
     "Characters: " + NotesState.characterCount(activeNote.text)
-  ]
+  ].join("\t")
 
   function takeFocus(part) {
     editor.forceActiveFocus()
@@ -395,18 +395,22 @@ FocusScope {
     anchors.bottom: parent.bottom
     padding: Style.space(6)
     spacing: Style.space(3)
-    Flow {
+    TextEdit {
+      objectName: "notesFooter"
       width: parent.width - parent.leftPadding - parent.rightPadding
-      spacing: Style.space(24)
-      Repeater {
-        model: module.footerFields
-        Text {
-          text: modelData
-          color: Color.foreground
-          textFormat: Text.PlainText
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-        }
+      text: module.footerText.replace(/ /g, "\u00A0")
+      tabStopDistance: NotesState.tabStop(text.split("\t").map(function(field) { return footerFont.advanceWidth(field) }), Style.space(24))
+      readOnly: true
+      selectByMouse: false
+      activeFocusOnPress: false
+      textFormat: TextEdit.PlainText
+      wrapMode: TextEdit.WordWrap
+      color: Color.foreground
+      font: footerFont.font
+      FontMetrics {
+        id: footerFont
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
       }
     }
     Row {
