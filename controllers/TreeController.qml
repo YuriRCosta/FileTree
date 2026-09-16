@@ -188,6 +188,7 @@ Item {
     gitMetadataQueued = false
     queuedGitMetadataReason = ""
     lastGitMetadataFingerprint = ""
+    gitMetadataRowFingerprints = ({})
     gitMetadataError = ""
     gitRepoDirectories = ({})
     dirtyGitRepositories = ({})
