@@ -14,6 +14,9 @@ is maintained separately.
 - [Keybindings](keybindings.md): user configuration for pane navigation,
   folding, search and help
 - [Git status](git-status.md): status markers and repository summary preferences
+- [Agent usage history](agent-usage.md): how the Skills and MCP blades record
+  skill and MCP use, the private store, helper methods, the `fileblade usage`
+  CLI and known limits
 - [Extensions](../../EXTENSIONS.md): the public contract for blade modules and
   other FileBlade extension points, including image galleries and bar popouts
 - [Security](../../SECURITY.md): trust boundaries, filesystem protections,

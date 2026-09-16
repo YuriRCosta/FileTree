@@ -1257,6 +1257,102 @@ activation require their separate integration checks.
    routes unchanged. After the scenario, my prior chooser routing, blade
    arrangement and ordinary Notes are restored.
 
+## 48. Agent usage history and activity heatmap
+
+This file was written by an agent.
+
+No VM script covers this section yet. The parts that run without a desktop are
+checked by `tests/qml/tst_usage_heatmap.qml` (weeks by width, colours, tooltip
+text, keyboard cursor), `tests/qml/tst_artifact_inventory.qml` (history
+requests), `tests/qml/tst_artifact_branches.qml` (servers from one file fold
+separately), `tests/test_python_usage.py` (counting and history) and
+`tests/usage_cli_e2e.rs` (the `fileblade usage` commands). Placement under the
+search field, the Activity button, reaching the grid with Tab and automatic
+hiding still need a VM scenario at blade widths 280 and 1000, with the search
+field both shown and auto-hidden. See
+[agent usage history](../docs/agent-written/agent-usage.md) for the counting rules.
+
+1. **E-48-01** When I open a Skills or MCP tab, a grid of small square cells
+   sits between the search field and the list. Each column is a week, and its
+   seven rows start on my locale's first day of the week. The newest week is
+   the rightmost column, today is its last cell, and days after today are not
+   drawn. When the search field is auto-hidden, the grid sits directly under
+   the header.
+2. **E-48-02** When I widen the blade, older weeks appear on the left; when I
+   narrow it, the oldest weeks leave from the left. Cells that stay on screen
+   keep their colour. Width too narrow for another week stays empty on the
+   left, and the grid never shows more than 160 weeks.
+3. **E-48-03** The busier a day, the stronger its cell in the accent colour, in
+   four steps set by how busy my active days are across the whole loaded
+   history. A day with no use has a faint tint. A day before FileBlade's history
+   begins has no fill at all.
+4. **E-48-04** Hovering a cell shows a tooltip such as
+   `Mon 14 Sep 2026: 6 skill uses (4 agent, 2 you, 1 failed)`, with day and
+   month names from my locale. The MCP tab says `MCP calls`, and a single use
+   reads `1 skill use` or `1 MCP call`. Parts that are zero are left out.
+   Commands a scheduled task ran appear as `N scheduled` and are not part of
+   the total. A day with no use says `no skill uses` or `no MCP calls`; a day
+   before the history begins says `no history yet`.
+5. **E-48-05** I can move keyboard focus from the search field onto the grid
+   with Tab. An accent outline marks today, and the tooltip shows for the
+   outlined day. Left and Right move the outline a week, Up and Down a day,
+   Home jumps to the first visible day and End to today; the outline never
+   leaves the visible days. A screen reader reads the same text as the tooltip.
+   Escape returns keyboard focus to the list.
+6. **E-48-06** Skills and MCP tab headers have an Activity button with a
+   calendar glyph. Clicking it hides the grid and the list moves up into the
+   space; clicking it again brings the grid back. The choice belongs to that
+   tab, starts on for a new tab, and survives a shell restart. Files tabs have
+   no Activity button.
+7. **E-48-07** When the tab's section is shorter than about 300 pixels, the grid
+   hides by itself and the list takes the space. When the section grows again,
+   the grid returns, and my Activity choice is unchanged.
+8. **E-48-08** "No history yet" and "no use" are different things. The history
+   begins at the earliest transcript record FileBlade has ever read. Deleting
+   old transcripts, by hand or through the agent's own cleanup, never moves
+   that beginning later. Before any transcript has been read, no cell is filled
+   and every day says `no history yet`.
+9. **E-48-09** Uses survive deleted transcripts. After an agent deletes an old
+   transcript, the Uses, Uses (agent) and Uses (user) columns and the grid still
+   count the uses it held. Counts only go down when I run `fileblade usage forget`.
+10. **E-48-10** Skills Uses counts an agent calling a skill and me typing
+    `/<skill>`. A plugin skill also counts calls recorded as `<plugin>:<skill>`.
+    A command run by a scheduled task is not in Uses, and a slash command that
+    is not a skill, such as `/clear`, counts for nothing. A command copied into
+    a resumed session counts once. A typed command counts the same no matter
+    which tab reads the transcript first.
+11. **E-48-11** An MCP server row counts calls under the name the agent recorded
+    for it. A Claude Code server configured as `my.server` counts its
+    `mcp__my_server__…` calls, a plugin server counts its
+    `plugin_<plugin>_<name>` calls, and a Codex server counts Codex's calls to
+    it. When two servers of one agent would be recorded under the same name,
+    such as `twin.a` and `twin_a`, both show 0 instead of a guess. Servers of
+    other agents show 0.
+12. **E-48-12** An MCP server row with recorded use has a fold marker. Expanding
+    it lists every tool, resource, resource list and prompt the agents used
+    through that server, most used first. Each child has its own glyph, its
+    count in the Uses column, and `N failed` in its detail when any call
+    failed; a resource list reads `resource list`. Children have no actions
+    and no menu. Two servers read from the same configuration file expand and
+    collapse separately. Enter or a double-click expands such a row, and `o`
+    still opens its configuration file.
+13. **E-48-13** The first time a large transcript history is read, the counts
+    and the grid can be partial, newest transcripts first; later refreshes of
+    the tab fill in the rest. Skills and MCP tabs open at the same time never
+    count a use twice.
+14. **E-48-14** `fileblade usage skills` prints one `YYYY-MM-DD<TAB>uses` line
+    per local day with any skill use. Typed commands count for the skills
+    visible from the directory I run it in. `fileblade usage mcp` prints the
+    same for MCP calls. Neither prints anything when there is no use. With
+    `-o json`, both print the whole history document. Both work while the shell
+    is stopped.
+15. **E-48-15** `fileblade usage forget --before 2026-06-01` deletes the history
+    of local days before 1 June 2026 and prints `removed N`; the grid then says
+    `no history yet` before that day. `fileblade usage forget` deletes all of
+    it. Transcripts FileBlade already read are not counted again afterwards. A
+    date that is not a real zero-padded `YYYY-MM-DD`, such as `2026-6-1` or
+    `2026-02-30`, is refused with exit status 2 and nothing is deleted.
+
 ## 90. Checking the native app before installation
 
 This file was written by an agent.

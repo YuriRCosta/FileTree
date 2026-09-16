@@ -369,6 +369,37 @@ identity-checked unlink refuse replacement entries. These protections do not
 isolate enabled code from other same-user processes, including a process that
 already holds a writable file descriptor.
 
+## Agent usage history
+
+This file was written by an agent.
+
+The Skills and MCP helpers read Claude Code and Codex transcripts and keep a
+local SQLite history at `$XDG_STATE_HOME/omarchy/fileblade/agent-usage.sqlite3`
+(normally `~/.local/state/`). The directory is created `0700`, the database and
+its lock file `0600`, and nothing leaves the machine. The file is not encrypted
+and any same-user process can read it.
+
+It holds transcript paths with their device, inode, size, modification time and
+read offset; project directories; and one row per use with a timestamp, agent,
+skill, command, MCP server, tool or prompt name, resource URI (query and
+fragment removed, at most 512 bytes), a subagent flag and a failure flag. It
+never stores tool or command arguments, results, message text or tokens.
+Transcripts are untrusted input: they are opened read-only, records over 4 MiB
+are skipped, at most 8192 files per agent are considered, ingest stops
+starting files after three seconds, and parsed values reach SQLite only as
+bound parameters.
+
+The history outlives the transcripts it came from and survives uninstall with
+the rest of the state directory. `fileblade usage forget --before YYYY-MM-DD`
+deletes events before that local day, and `fileblade usage forget` deletes all
+events and project paths; both then `VACUUM` the database. Transcript paths and
+offsets stay, so transcripts already read are not imported again. `VACUUM` is
+not secure erasure: old pages can remain in the write-ahead log until the last
+connection closes, in filesystem blocks and in backups. Deleting the
+`agent-usage.sqlite3*` files removes everything, and history is then rebuilt
+from whatever transcripts still exist. Details are in
+[agent usage history](docs/agent-written/agent-usage.md).
+
 ## External commands
 
 External tools are started with explicit argument vectors rather than shell

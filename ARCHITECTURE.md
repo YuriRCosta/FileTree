@@ -461,6 +461,7 @@ whose recorded deletion time is old enough.
 ~/.local/state/omarchy/fileblade/journal.json:   undo/redo, at most 100 entries
 ~/.local/state/omarchy/fileblade/audit.jsonl:    selected mutation audit records; rotated at 32 MiB
 ~/.local/state/omarchy/fileblade/frecency.json:  the quick-nav ranking
+~/.local/state/omarchy/fileblade/agent-usage.sqlite3: skill and MCP use history (docs/agent-written/agent-usage.md)
 ~/.local/state/omarchy/fileblade/modules/<id>/:  a module's own state directory (context.stateDir)
 ~/.local/share/fileblade/bin/:                   artifact bins for disabled satellite items
 ~/.local/share/Trash/:                           the normal Freedesktop Trash

@@ -10,6 +10,10 @@ This file was written by an agent.
 - Delete acts on Skills, Memory, Hooks and MCP rows, or says why it cannot. It previously did nothing at all: the consent refusal never reached a module, and Trash was offered for definitions that have no file of their own.
 - A hook modification is refused when the resulting configuration file would not parse, or would lose a top-level key it did not mean to remove. The original is left byte-identical.
 - The Notes footer shows when the open note was last edited and its word and character counts, in place of the save state and byte total. Save failures and conflicts still show in the notice above the editor.
+- Skills and MCP tabs show a daily activity heatmap under the search field. Hover a day, or move to it with the arrow keys, for its uses; the Activity button in the tab header hides it.
+- Skill and MCP use is kept as a private history in `~/.local/state/omarchy/fileblade/agent-usage.sqlite3`, so Uses no longer shrinks when an agent deletes old transcripts. `fileblade usage skills` and `fileblade usage mcp` print the daily history, and `fileblade usage forget [--before YYYY-MM-DD]` deletes it. The old `~/.cache/omarchy/fileblade/agent-usage.json` cache is removed.
+- MCP server rows expand to the tools, resources, resource lists and prompts agents used through them, with use and failure counts. MCP Uses now counts Codex calls, resource and prompt use, and servers whose names contain characters such as `.`, which previously always showed 0.
+- Skill Uses counts plugin skills called as `<plugin>:<skill>`. A typed skill command is no longer lost when another tab reads the transcript first.
 
 - Image gallery primitives for modules: `ImageGrid` with month sections and a cursor, `ThumbnailCache` over the backend thumbnail request, a right-hand `TimelineScrubber` with years, month dots and a scrub pill, and a five-step `ImageSizeControl`.
 - Module definitions accept an `icon` image; the picker, the settings sheet and `PaneHeader` draw it tinted through `ModuleIcon`.
