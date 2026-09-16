@@ -34,8 +34,7 @@ Item {
     "MERGE_HEAD", "REBASE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_LOG"
   ]
   readonly property var gitWatchSubdirectories: [
-    "refs", "refs/heads", "refs/remotes", "refs/tags",
-    "logs", "logs/refs", "logs/refs/heads", "logs/refs/remotes"
+    "refs/heads", "refs/remotes", "refs/tags", "logs/refs/heads", "logs/refs/remotes"
   ]
   readonly property bool stateReady: service.stateReady
   readonly property bool open: service.open

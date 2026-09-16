@@ -190,6 +190,8 @@ Item {
     lastGitMetadataFingerprint = ""
     gitMetadataError = ""
     gitRepoDirectories = ({})
+    dirtyGitRepositories = ({})
+    gitMetadataFullSweepPending = true
     service.treeRowsReplacing()
     treeModel.clear()
     if (service.trashMode) {
