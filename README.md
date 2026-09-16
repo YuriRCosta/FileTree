@@ -31,33 +31,53 @@ This README is human-written. See [here](#details) for more detailed agent-writt
 
 ## Installation / Quick-start
 
-Until FileBlade appears in the Omarchy marketplace, install it directly from
-GitHub. This installs the plugin and its bundled x86-64 Linux binary together;
-no Rust toolchain or separate binary download is needed. Requires Omarchy
-4.0.2 or later. Other architectures need a compatible backend built separately.
+FileBlade ships its bundled x86-64 Linux binary, so no Rust toolchain or
+separate binary download is needed. Requires Omarchy 4.0.2 or later. Other
+architectures need a compatible backend built separately.
 
-1. Install and enable FileBlade:
+Pick one of three routes.
 
-   ```bash
-   OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/data-goblin/fileblade.git --enable
-   ```
+**As an Omarchy plugin**, which is what most people want:
 
-2. Restart the shell after installation finishes:
+```bash
+OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/data-goblin/fileblade.git --enable
+```
+
+**As a native app, from the terminal**, the same shape as `herdr`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/data-goblin/fileblade/main/install.sh | sh
+```
+
+That reads a signed-by-digest release manifest, checks the archive against its
+SHA-256, verifies the payload inventory, and installs to `~/.local/bin`. Set
+`FILEBLADE_INSTALL_MANIFEST` to install from a mirror or a local file.
+
+**From a package**, once FileBlade is published to a repository you have
+enabled:
+
+```bash
+pacman -S fileblade
+```
+
+Then, whichever route you took:
+
+1. Restart the shell after installation finishes:
 
    ```bash
    omarchy restart shell
    ```
 
-3. Add the contents of [`examples/fileblade-bindings.lua`](examples/fileblade-bindings.lua)
+2. Add the contents of [`examples/fileblade-bindings.lua`](examples/fileblade-bindings.lua)
    to your existing `~/.config/hypr/bindings.lua`, then run `hyprctl reload`.
 
-4. Press `Super+B` or `Super+Shift+B` to open a sidebar.
+3. Press `Super+B` or `Super+Shift+B` to open a sidebar.
 
-5. Hold `Super` and drag with the right mouse button over a docked blade to
+4. Hold `Super` and drag with the right mouse button over a docked blade to
    resize it, the same gesture that resizes a window. Over anything else the
    gesture still resizes the window underneath.
 
-To remove FileBlade, remove its extensions first, then run:
+To remove FileBlade, remove any extensions first, then run:
 
 ```bash
 omarchy plugin remove data-goblin.fileblade
@@ -67,21 +87,9 @@ omarchy restart shell
 Your layout, settings, history and recoverable bins are retained. Remove the
 FileBlade bindings you added if you no longer want them.
 
-FileBlade has a plugin system via [extensions](EXTENSIONS.md), which are separate Omarchy plugins. The example extensions add [Skills](https://github.com/data-goblin/fileblade-skills), [Memory](https://github.com/data-goblin/fileblade-memory), [Hooks](https://github.com/data-goblin/fileblade-hooks), and [MCP](https://github.com/data-goblin/fileblade-mcp) views for agent files:
-
-> [!NOTE]
-> I'm open to baking these plugins into FileBlade core (Rust),
-> rather than having them as the Python extensions. I kept them
-> separate because I wasn't sure if adding these in core was an
-> appropriate design decision. If you have an opinion, happy to hear it.
-
-```bash
-OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/data-goblin/fileblade-skills.git --yes --enable
-OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/data-goblin/fileblade-memory.git --yes --enable
-OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/data-goblin/fileblade-hooks.git --yes --enable
-OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/data-goblin/fileblade-mcp.git --yes --enable
-omarchy restart shell
-```
+FileBlade has a plugin system via [extensions](EXTENSIONS.md), which are
+separate Omarchy plugins. Skills, Memory, Hooks and MCP used to be example
+extensions; they are built into core since 0.2.0 and need no separate install.
 
 ![Omarchy, FileBlade and FileBlade extensions](assets/docs/fileblade-extensions-simple.svg)
 
@@ -113,10 +121,10 @@ movable, resizable, tabbed module slots, which you can extend with a plugin syst
 ### FileBlade Repos
 
 - [FileBlade core](https://github.com/data-goblin/fileblade)
-- [Memory](https://github.com/data-goblin/fileblade-memory)
-- [Skills](https://github.com/data-goblin/fileblade-skills)
-- [MCP](https://github.com/data-goblin/fileblade-mcp)
-- [Hooks](https://github.com/data-goblin/fileblade-hooks)
+
+The Memory, Skills, MCP and Hooks extension repositories are archived. Their
+blades are built into core since 0.2.0, and they remain readable as worked
+examples of a FileBlade extension.
 
 ## Features
 

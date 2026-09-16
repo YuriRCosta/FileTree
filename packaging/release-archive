@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+archive_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+fail() { printf 'fileblade release-archive: %s\n' "$*" >&2; exit 1; }
+[[ $# == 2 || $# == 3 ]] || fail 'usage: packaging/release-archive PAYLOAD OUTPUT_DIRECTORY [BASE_URL]'
+source=$(realpath -e -- "$1")
+output=$(realpath -e -- "$2")
+[[ -d $output ]] || fail 'output must be an existing directory'
+"$archive_root/tools/native" verify "$source"
+version=$(jq -er .version "$source/payload.json")
+target=$(jq -er .target "$source/payload.json")
+name=fileblade-$version-$target.tar.gz
+base=${3:-https://github.com/data-goblin/fileblade/releases/download/v$version}
+[[ $base == https://* ]] || fail 'the base URL must be https'
+[[ ! -e $output/$name ]] || fail "refusing to replace $output/$name"
+stage=$(mktemp -d "$output/.fileblade-archive.XXXXXX")
+trap 'rm -rf -- "$stage"' EXIT
+cp -a -- "$source" "$stage/payload"
+chmod 755 "$stage/payload"
+"$archive_root/tools/native" verify "$stage/payload"
+tar --numeric-owner --owner=0 --group=0 --sort=name --mtime=@0 \
+  -czf "$stage/$name" -C "$stage" payload
+digest=$(sha256sum -- "$stage/$name")
+digest=${digest%% *}
+manifest=$output/latest.json
+existing='{"schema":1,"version":"","artifacts":{}}'
+[[ ! -f $manifest ]] || existing=$(cat -- "$manifest")
+jq -e --arg version "$version" --arg target "$target" --arg url "$base/$name" --arg sha "$digest" '
+  .schema = 1
+  | .version = $version
+  | .artifacts[$target] = { url: $url, sha256: $sha }
+' <<< "$existing" > "$stage/latest.json"
+mv -- "$stage/$name" "$output/$name"
+mv -- "$stage/latest.json" "$manifest"
+printf 'Wrote %s\n' "$output/$name"
+printf 'Wrote %s\n' "$manifest"
+printf 'sha256 %s\n' "$digest"
