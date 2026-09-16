@@ -1173,7 +1173,13 @@ fn hidden_entries_are_visible_by_default_and_marked_on_their_own_icon() {
 
     let row = text(&root.join("panes/BrowserRow.qml"));
     assert!(row.contains("readonly property bool hiddenEntry:"));
-    assert!(row.contains("readonly property bool favoriteAvailable: favoriteMode || depth > 0"));
+    assert!(row.contains(
+        "readonly property bool favoriteAvailable: favoriteMode || (!moreRow && !customInteraction)"
+    ));
+    assert!(
+        !row.contains("favoriteMode || depth > 0"),
+        "the tree root sits at depth 0 and must be favoritable"
+    );
     assert!(row.contains("&& row.favoriteAvailable && (row.favorite || row.hovered)"));
     assert!(row.contains("id: hiddenBadge"));
     assert!(row.contains("visible: row.hiddenEntry && !row.moreRow && !row.gitDeleted"));

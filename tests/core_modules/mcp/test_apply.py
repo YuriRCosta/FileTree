@@ -438,7 +438,14 @@ class ApplyCase(unittest.TestCase):
              mock.patch("sys.stdout", stdout), \
              mock.patch("agent_mcp.safeio.atomic_write", side_effect=AssertionError("list must not write")):
             self.assertEqual(main(["list", "--project", str(self.project), "--json"]), 0)
-        self.assertEqual(self.snapshot(), before)
+        after = self.snapshot()
+        added = set(after) - set(before)
+        cache = str(self.home / ".cache" / "omarchy" / "fileblade")
+        self.assertTrue(
+            all(path.startswith(cache) for path in added),
+            f"list may only write the usage cache, wrote {sorted(added)}",
+        )
+        self.assertEqual({k: v for k, v in after.items() if k in before}, before)
         self.assertNotIn(SENTINEL, stdout.getvalue())
         package = Path(__file__).resolve().parents[3] / "python" / "agent_mcp"
         for source in package.glob("*.py"):

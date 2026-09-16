@@ -102,10 +102,10 @@ fn ipc_configs() -> AppResult<Vec<PathBuf>> {
             AppError::command("native IPC requires an absolute FILEBLADE_APP_ROOT")
         })?);
     }
-    if let Some(shell) = shell_config() {
-        if !candidates.contains(&shell) {
-            candidates.push(shell);
-        }
+    if let Some(shell) = shell_config()
+        && !candidates.contains(&shell)
+    {
+        candidates.push(shell);
     }
     if candidates.is_empty() {
         return Err(AppError::command("OMARCHY_PATH is not set"));
@@ -130,12 +130,19 @@ fn ipc_configs() -> AppResult<Vec<PathBuf>> {
 
 pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppResult<String> {
     let configs = ipc_configs()?;
-    let program = which("qs")
-        .or_else(|| which("quickshell"))
-        .ok_or_else(|| AppError::command("quickshell is not installed; install it to use the CLI"))?;
+    let program = which("qs").or_else(|| which("quickshell")).ok_or_else(|| {
+        AppError::command("quickshell is not installed; install it to use the CLI")
+    })?;
     let last = configs.len() - 1;
     for (position, config) in configs.iter().enumerate() {
-        match call_config(&program, config, target, method, arguments, position == last)? {
+        match call_config(
+            &program,
+            config,
+            target,
+            method,
+            arguments,
+            position == last,
+        )? {
             Some(response) => return Ok(response),
             None => continue,
         }
@@ -152,17 +159,15 @@ pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppRes
 
 fn call_config(
     program: &std::path::Path,
-    config: &PathBuf,
+    config: &std::path::Path,
     target: &str,
     method: &str,
     arguments: &[String],
     final_candidate: bool,
 ) -> AppResult<Option<String>> {
-    let program = program.to_path_buf();
-    let config = config.clone();
-    let mut command = CommandSpec::new(program)
+    let mut command = CommandSpec::new(program.to_path_buf())
         .args(["ipc", "-n", "-p"])
-        .args([config])
+        .args([config.to_path_buf()])
         .args(["call", "--", target, method])
         .args(arguments.iter().cloned())
         .timeout(IPC_TIMEOUT)

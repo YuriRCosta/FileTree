@@ -611,13 +611,19 @@ class QmlContractCase(unittest.TestCase):
         self.assertIn('root.context.ui.url("PaneView")', module)
         self.assertIn("readonly property var metricOptions", module)
         self.assertIn(
-            'context.metrics.options(["off", "agents", "status", { key: "transport", shortLabel: "TYPE" }, '
+            'context.metrics.options(["off", "agents", "status", { key: "transport", shortLabel: "TYPE" }, ',
+            module,
+        )
+        self.assertIn('{ key: "uses", label: "Uses", kind: "number" }', module)
+        self.assertIn('{ key: "usesAgent", label: "Uses (agent)", shortLabel: "USES (AGENT)", kind: "number" }', module)
+        self.assertIn('{ key: "usesUser", label: "Uses (user)", shortLabel: "USES (USER)", kind: "number" }', module)
+        self.assertIn(
             '"updated", "created", "tokens", "characters", "words", "bytes", "summary"])',
             module,
         )
         self.assertNotIn('label: "Tokens', module)
         self.assertIn("function onAgentsAllRequested(entry, on) { root.toggleAllAgents(entry, on) }", module)
-        self.assertIn('property: "defaultMetric"; value: "agents"', module)
+        self.assertIn('property: "defaultMetric"; value: "uses"', module)
         self.assertEqual(module.count('property: "view"; value: root.view'), 2)
         self.assertIn('property: "installedAgents"; value: root.installedAgents', module)
         self.assertIn("files && Array.isArray(files.installedAgents) ? files.installedAgents : []", module)

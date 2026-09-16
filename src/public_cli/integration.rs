@@ -129,11 +129,14 @@ fn write_json(path: &Path, value: &Value) -> AppResult<()> {
 }
 
 fn hook_entry(agent: Agent) -> Value {
-    let command = format!("fileblade agent-context --format {}", match agent.format() {
-        ContextFormat::Codex => "codex",
-        ContextFormat::Plain => "plain",
-        ContextFormat::Claude => "claude",
-    });
+    let command = format!(
+        "fileblade agent-context --format {}",
+        match agent.format() {
+            ContextFormat::Codex => "codex",
+            ContextFormat::Plain => "plain",
+            ContextFormat::Claude => "claude",
+        }
+    );
     let timeout = if agent == Agent::CopilotCli {
         json!({ "timeoutSec": HOOK_TIMEOUT })
     } else {
