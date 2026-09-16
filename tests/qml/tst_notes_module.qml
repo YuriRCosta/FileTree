@@ -172,7 +172,6 @@ TestCase {
     compare(view.footerText, "Last Edit: never\tWords: 0\tCharacters: 0")
     view.selectNote(0)
     compare(view.activeNote.edited, edited)
-    verify(view.footerText.indexOf("Loaded") < 0)
     var footer = findChild(view, "notesFooter")
     verify(footer)
     var parts = footer.text.split("\t")

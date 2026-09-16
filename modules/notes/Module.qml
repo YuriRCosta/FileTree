@@ -46,8 +46,8 @@ FocusScope {
   readonly property bool temporary: !!context && !!context.inPopout
   readonly property string footerText: [
     "Last Edit: " + (activeNote.edited ? Qt.formatDateTime(new Date(activeNote.edited), "yyyy-MM-dd HH:mm") : "never"),
-    "Words: " + NotesState.wordCount(activeNote.text),
-    "Characters: " + NotesState.characterCount(activeNote.text)
+    "Words: " + (activeNote.text.match(/\S+/g) || []).length,
+    "Characters: " + [...activeNote.text].length
   ].join("\t")
 
   function takeFocus(part) {

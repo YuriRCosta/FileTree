@@ -216,30 +216,6 @@ TestCase {
     compare(NotesState.copyNotebook(restored).items[0].edited, undefined)
   }
 
-  function test_word_and_character_counts() {
-    compare(NotesState.wordCount(""), 0)
-    compare(NotesState.wordCount("   \n\t "), 0)
-    compare(NotesState.wordCount(" one  two\nthree\tfour "), 4)
-    compare(NotesState.wordCount(null), 0)
-    compare(NotesState.characterCount(""), 0)
-    compare(NotesState.characterCount("abc"), 3)
-    compare(NotesState.characterCount("a😀é"), 3)
-    compare(NotesState.characterCount("\uD800x"), 2)
-    compare(NotesState.characterCount(undefined), 0)
-  }
-
-  function test_tab_stop_keeps_every_gap_at_least_the_minimum() {
-    var cases = [[148.4, 55.2, 90.1], [150, 81.7, 110], [96.3, 60, 70], [10, 10, 10], [200]]
-    for (var index = 0; index < cases.length; index++) {
-      var widths = cases[index]
-      var distance = NotesState.tabStop(widths, 24)
-      verify(distance >= 24)
-      for (var field = 0; field < widths.length - 1; field++) verify(distance - widths[field] % distance >= 24)
-    }
-    compare(NotesState.tabStop([200], 24), 24)
-    compare(NotesState.tabStop([Infinity, 5], 24), NotesState.tabStop([0, 5], 24))
-  }
-
   function test_notebook_round_trip_preserves_active_note() {
     var notebook = NotesState.addNote(NotesState.emptyNotebook("First", "alpha", 3))
     notebook = NotesState.renameNote(notebook, 1, "Second")

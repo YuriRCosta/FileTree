@@ -109,8 +109,7 @@ function copyNotebook(source) {
     var text = String(row.text || "")
     var item = { id: String(row.id || "note-" + (index + 1)), label: cleanLabel(row.label, "Note " + (index + 1)), text: text,
       cursor: position(row.cursor, text), anchor: position(row.anchor === undefined ? row.cursor : row.anchor, text) }
-    var edited = Math.floor(Number(row.edited))
-    if (isFinite(edited) && edited > 0) item.edited = edited
+    if (row.edited > 0) item.edited = Number(row.edited)
     items.push(item)
   }
   var rawNextId = Number(source && source.nextId)
@@ -241,7 +240,7 @@ function editPlan(notebook, value, overCap, now) {
   result.items[index].text = String(value || "")
   var bytes = textBytes(result)
   if (overCap && bytes > CAP_BYTES) {
-    stampEdit(result.items[index], previous, now)
+    if (result.items[index].text !== previous) result.items[index].edited = now
     return { action: "hold", notebook: result, bytes: bytes, clamped: false }
   }
   var otherBytes = bytes - utf8Length(result.items[index].text)
@@ -250,39 +249,13 @@ function editPlan(notebook, value, overCap, now) {
     ? clampToBytes(result.items[index].text, available)
     : { text: "", clamped: result.items[index].text.length > 0, bytes: 0 }
   result.items[index].text = clamped.text
-  stampEdit(result.items[index], previous, now)
+  if (clamped.text !== previous) result.items[index].edited = now
   return { action: "write", notebook: result, bytes: otherBytes + clamped.bytes, clamped: clamped.clamped }
 }
 
-function stampEdit(item, previous, now) {
-  var stamp = Math.floor(Number(now))
-  if (item.text !== previous && isFinite(stamp) && stamp > 0) item.edited = stamp
-}
-
-function wordCount(text) {
-  return (String(text || "").match(/\S+/g) || []).length
-}
-
-function characterCount(text) {
-  var value = String(text || "")
-  return value.length - (value.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g) || []).length
-}
-
 function tabStop(widths, gap) {
-  var minimum = Math.max(1, Math.ceil(Number(gap) || 0))
-  var measured = []
-  var widest = 0
-  for (var index = 0; index < widths.length - 1; index++) {
-    var width = Number(widths[index])
-    measured.push(isFinite(width) && width > 0 ? width : 0)
-    widest = Math.max(widest, measured[index])
-  }
-  for (var distance = minimum; distance < Math.ceil(widest) + minimum; distance++) {
-    var fits = true
-    for (var field = 0; field < measured.length && fits; field++) fits = distance - measured[field] % distance >= minimum
-    if (fits) return distance
-  }
-  return Math.ceil(widest) + minimum
+  for (var distance = gap; ; distance++)
+    if (widths.slice(0, -1).every(function(width) { return distance - width % distance >= gap })) return distance
 }
 
 function persistedNotebook(notebook) {
