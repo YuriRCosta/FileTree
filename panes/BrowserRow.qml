@@ -66,7 +66,7 @@ Rectangle {
   readonly property bool hiddenEntry: !moreRow && name !== "." && name !== ".." && name.charAt(0) === "."
   readonly property bool homeEntry: isDir && !moreRow && path === controller.home
   readonly property string displayName: homeEntry ? FileIcons.homeName() : name
-  readonly property bool favoriteAvailable: favoriteMode || depth > 0
+  readonly property bool favoriteAvailable: favoriteMode || (!moreRow && !customInteraction)
   readonly property var draggedPaths: controller.dropWheel.dragPaths
   readonly property bool dropAllowed: !customInteraction && row.isDir && DragPlan.canDrop(draggedPaths, row.path)
   readonly property bool dropHovered: dropTarget.containsDrag && dropAllowed
