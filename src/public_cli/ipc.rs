@@ -80,29 +80,86 @@ pub(super) fn ipc_target(method: &str) -> &'static str {
     }
 }
 
-pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppResult<String> {
-    let config = if crate::lease::selected_root()?.is_some() {
-        std::env::var_os("FILEBLADE_APP_ROOT")
-            .map(PathBuf::from)
-            .filter(|root| root.is_absolute())
-            .ok_or_else(|| AppError::command("native IPC requires an absolute FILEBLADE_APP_ROOT"))?
-            .join("app")
-    } else {
-        std::env::var_os("OMARCHY_PATH")
-            .filter(|value| !value.is_empty())
-            .map(PathBuf::from)
-            .ok_or_else(|| AppError::command("OMARCHY_PATH is not set"))?
-            .join("shell")
-    };
-    if !config.join("shell.qml").is_file() {
+fn native_config() -> Option<PathBuf> {
+    std::env::var_os("FILEBLADE_APP_ROOT")
+        .map(PathBuf::from)
+        .filter(|root| root.is_absolute())
+        .map(|root| root.join("app"))
+}
+
+fn shell_config() -> Option<PathBuf> {
+    std::env::var_os("OMARCHY_PATH")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .map(|root| root.join("shell"))
+}
+
+fn ipc_configs() -> AppResult<Vec<PathBuf>> {
+    let native = crate::lease::selected_root()?.is_some();
+    let mut candidates = Vec::new();
+    if native {
+        candidates.push(native_config().ok_or_else(|| {
+            AppError::command("native IPC requires an absolute FILEBLADE_APP_ROOT")
+        })?);
+    }
+    if let Some(shell) = shell_config() {
+        if !candidates.contains(&shell) {
+            candidates.push(shell);
+        }
+    }
+    if candidates.is_empty() {
+        return Err(AppError::command("OMARCHY_PATH is not set"));
+    }
+    let present: Vec<PathBuf> = candidates
+        .iter()
+        .filter(|config| config.join("shell.qml").is_file())
+        .cloned()
+        .collect();
+    if present.is_empty() {
         return Err(AppError::command(format!(
-            "omarchy-shell config not found: {}",
-            config.join("shell.qml").display()
+            "no FileBlade shell config found: {}",
+            candidates
+                .iter()
+                .map(|config| config.join("shell.qml").display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         )));
     }
+    Ok(present)
+}
+
+pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppResult<String> {
+    let configs = ipc_configs()?;
     let program = which("qs")
         .or_else(|| which("quickshell"))
-        .ok_or_else(|| AppError::command("omarchy-shell is not running"))?;
+        .ok_or_else(|| AppError::command("quickshell is not installed; install it to use the CLI"))?;
+    let last = configs.len() - 1;
+    for (position, config) in configs.iter().enumerate() {
+        match call_config(&program, config, target, method, arguments, position == last)? {
+            Some(response) => return Ok(response),
+            None => continue,
+        }
+    }
+    Err(AppError::command(format!(
+        "FileBlade is not running; no instance answered on {}",
+        configs
+            .iter()
+            .map(|config| config.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )))
+}
+
+fn call_config(
+    program: &std::path::Path,
+    config: &PathBuf,
+    target: &str,
+    method: &str,
+    arguments: &[String],
+    final_candidate: bool,
+) -> AppResult<Option<String>> {
+    let program = program.to_path_buf();
+    let config = config.clone();
     let mut command = CommandSpec::new(program)
         .args(["ipc", "-n", "-p"])
         .args([config])
@@ -142,7 +199,7 @@ pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppRes
         )));
     }
     if !output.status.success() {
-        return Err(AppError::command("omarchy-shell is not running"));
+        return Ok(None);
     }
     let response = String::from_utf8(output.stdout)
         .map(|value| value.trim().to_string())
@@ -151,6 +208,11 @@ pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppRes
                 "file-tree IPC method {method} returned non-UTF-8 output: {error}"
             ))
         })?;
+    if response.starts_with("No running instances")
+        || (response == "Target not found." && !final_candidate)
+    {
+        return Ok(None);
+    }
     if matches!(
         response.as_str(),
         "Target not found." | "Function not found."
@@ -162,7 +224,7 @@ pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppRes
     if response.starts_with("Not ready to accept queries yet") {
         return Err(AppError::command("omarchy-shell is not ready"));
     }
-    Ok(response)
+    Ok(Some(response))
 }
 
 pub(super) fn wayland_display_candidates() -> Vec<String> {
