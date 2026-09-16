@@ -10,4 +10,6 @@ Item {
   property bool exactProject: true
   property var scanArguments: []
   property var observers: []
+  property string activityMethod: ""
+  property var activityArguments: null
 }

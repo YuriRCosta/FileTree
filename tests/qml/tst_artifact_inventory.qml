@@ -3,6 +3,7 @@ import QtTest
 import "../../ui"
 
 TestCase {
+  id: testCase
   name: "ArtifactInventory"
   property var requests: []
   property var subscriptions: []
@@ -260,6 +261,7 @@ TestCase {
 
   function test_activity_follows_refreshes_one_request_at_a_time_and_drops_stale_answers() {
     inventory.activityMethod = "usage"
+    inventory.observeActivity(testCase, true)
     inventory.activityArguments = function(owner) { return ["--json", "--project", owner.anchorPath].concat(owner.projectArguments) }
     inventory.attach(observer()); start(); inventory.startActivity()
     compare(usageRequests().length, 1)
@@ -291,8 +293,30 @@ TestCase {
     compare(inventory.activity.days[0][1], 2)
   }
 
+  function test_pending_activity_continues_and_hiding_all_views_stops_requests() {
+    inventory.activityMethod = "usage"
+    inventory.attach(observer())
+    inventory.refresh(); inventory.startActivity()
+    compare(usageRequests().length, 0)
+    inventory.observeActivity(testCase, true)
+    inventory.startActivity()
+    compare(usageRequests().length, 1)
+    usageRequests()[0].callback(Object.assign(usage(1), { ingestPending: true }))
+    tryVerify(function() { return usageRequests().length === 2 })
+    usageRequests()[1].callback(usage(3))
+    compare(inventory.activity.days[0][1], 3)
+    inventory.observeActivity(testCase, false)
+    inventory.refresh(); inventory.startActivity()
+    wait(750)
+    compare(usageRequests().length, 2)
+    inventory.observeActivity(testCase, true)
+    inventory.startActivity()
+    compare(usageRequests().length, 3)
+  }
+
   function test_activity_request_is_discarded_with_the_provider() {
     inventory.activityMethod = "usage"
+    inventory.observeActivity(testCase, true)
     inventory.attach(observer()); inventory.startActivity()
     var id = usageRequests()[0].id
     inventory.destroy(); wait(0); inventory = null

@@ -647,7 +647,7 @@ FocusScope {
     return true
   }
 
-  function openCurrent() {
+  function openCurrent(descend) {
     expansion.stop(false)
     var row = rowAt(currentIndex)
     if (!row) return false
@@ -659,7 +659,13 @@ FocusScope {
       }
       return true
     }
-    if (ArtifactTreeFolders.isFolder(tree, row.item) && (row.item.is_dir || row.item.isDir) && files && context)
+    if (descend && ArtifactTreeFolders.isFolder(tree, row.item) && !(row.item.is_dir || row.item.isDir)) {
+      if (!ArtifactTreeFolders.expanded(tree, row.item)) expandCurrent()
+      else {
+        var nested = rowAt(currentIndex + 1)
+        if (nested && nested.depth > row.depth) move(1)
+      }
+    } else if (ArtifactTreeFolders.isFolder(tree, row.item) && (row.item.is_dir || row.item.isDir) && files && context)
       files.navigateToLocation(itemPath(row.item), context.screen, "browse")
     else if (isBinned(row.item)) tree.actionRequested(row.item)
     else tree.activated(row.item)
@@ -688,7 +694,7 @@ FocusScope {
 
   function keyAction(event) { return KeyRouter.artifactAction(event) }
 
-  function runAction(action) {
+  function runAction(action, event) {
     var handlers = {
       search: function() { tree.searchRequested() },
       help: function() { if (context && context.hostWindow) context.hostWindow.shortcutsOpen = true },
@@ -711,7 +717,7 @@ FocusScope {
       "expand-all": function() { return setBranchExpanded(true, true) },
       "collapse-all": function() { return setBranchExpanded(false, true) },
       activate: function() { activateCurrent() },
-      open: function() { return openCurrent() },
+      open: function() { return openCurrent(event && (event.key === Qt.Key_Right || event.key === Qt.Key_L)) },
       reveal: function() { revealCurrent() },
       action: function() { return actionCurrent() },
       menu: function() { return menuCurrent("actions") },
@@ -744,7 +750,7 @@ FocusScope {
       event.accepted = true
       return
     }
-    if (runAction(action)) event.accepted = true
+    if (runAction(action, event)) event.accepted = true
   }
 
   Keys.onReleased: function(event) {

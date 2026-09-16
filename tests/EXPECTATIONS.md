@@ -1264,11 +1264,11 @@ This file was written by an agent.
 No VM script covers this section yet. The parts that run without a desktop are
 checked by `tests/qml/tst_usage_heatmap.qml` (weeks by width, colours, tooltip
 text, keyboard cursor), `tests/qml/tst_artifact_inventory.qml` (history
-requests), `tests/qml/tst_artifact_branches.qml` (servers from one file fold
+requests), `tests/qml/tst_usage_modules.qml` (both modules' focus, visibility,
+errors and MCP Right/`l` expansion), `tests/qml/tst_artifact_branches.qml` (servers from one file fold
 separately), `tests/test_python_usage.py` (counting and history) and
 `tests/usage_cli_e2e.rs` (the `fileblade usage` commands). Placement under the
-search field, the Activity button, reaching the grid with Tab and automatic
-hiding still need a VM scenario at blade widths 280 and 1000, with the search
+search field and compositor focus still need a VM scenario at blade widths 280 and 1000, with the search
 field both shown and auto-hidden. See
 [agent usage history](../docs/agent-written/agent-usage.md) for the counting rules.
 
@@ -1298,7 +1298,8 @@ field both shown and auto-hidden. See
    outlined day. Left and Right move the outline a week, Up and Down a day,
    Home jumps to the first visible day and End to today; the outline never
    leaves the visible days. A screen reader reads the same text as the tooltip.
-   Escape returns keyboard focus to the list.
+   Tab or Escape returns keyboard focus to the list. Shift-Tab returns to
+   search, revealing it when automatically hidden.
 6. **E-48-06** Skills and MCP tab headers have an Activity button with a
    calendar glyph. Clicking it hides the grid and the list moves up into the
    space; clicking it again brings the grid back. The choice belongs to that
@@ -1337,8 +1338,8 @@ field both shown and auto-hidden. See
     collapse separately. Enter or a double-click expands such a row, and `o`
     still opens its configuration file.
 13. **E-48-13** The first time a large transcript history is read, the counts
-    and the grid can be partial, newest transcripts first; later refreshes of
-    the tab fill in the rest. Skills and MCP tabs open at the same time never
+    and the grid can be partial, newest transcripts first; a visible grid
+    automatically fills in the rest. Skills and MCP tabs open at the same time never
     count a use twice.
 14. **E-48-14** `fileblade usage skills` prints one `YYYY-MM-DD<TAB>uses` line
     per local day with any skill use. Typed commands count for the skills
@@ -1352,6 +1353,22 @@ field both shown and auto-hidden. See
     it. Transcripts FileBlade already read are not counted again afterwards. A
     date that is not a real zero-padded `YYYY-MM-DD`, such as `2026-6-1` or
     `2026-02-30`, is refused with exit status 2 and nothing is deleted.
+
+This file was written by an agent.
+
+- **E-48-16** A first open with a large history fills in automatically until
+  reading finishes. The header says “Reading activity…” while more remains.
+  A failed activity request shows its error in the header and keeps the last
+  good grid. Refresh retries it.
+- **E-48-17** Hidden activity does not request daily history. Turning Activity
+  back on or growing a short section requests it again. Hiding the grid while
+  it has keyboard focus returns focus to the list.
+- **E-48-18** Right or `l` on an MCP definition with observed children expands
+  it without opening configuration; pressing again moves to its first child.
+- **E-48-19** Forgotten history stays forgotten when an old transcript is
+  replaced, shortened or copied, or an older unread transcript is found. A
+  full forget also excludes history dated through that moment; later uses
+  still count. Forget reports the number of stored events removed.
 
 ## 90. Checking the native app before installation
 

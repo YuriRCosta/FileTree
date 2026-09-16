@@ -82,6 +82,8 @@ FocusScope {
     if (context && !(context.contractVersion >= 1)) return "Host contract mismatch"
     if (!inventoryActive) return "Paused"
     if (loadError) return loadError
+    if (heatmapLoader.active && inventory && inventory.activityError) return "Activity: " + inventory.activityError
+    if (heatmapLoader.active && inventory && inventory.activity && inventory.activity.ingestPending) return "Reading activity…"
     if (busy) return "Reading configuration…"
     return definitions.length + " definition" + (definitions.length === 1 ? "" : "s")
       + ", not probed" + (inventory && inventory.truncated ? ", truncated" : "")
@@ -240,6 +242,7 @@ FocusScope {
   Binding { target: searchLoader.item; property: "showOptions"; value: true; when: !!searchLoader.item }
   Binding { target: searchLoader.item; property: "caseSensitive"; value: root.caseSensitive; when: !!searchLoader.item }
   Binding { target: searchLoader.item; property: "regex"; value: root.regex; when: !!searchLoader.item }
+  Binding { target: searchLoader.item; property: "tabTarget"; value: heatmapLoader.item && heatmapLoader.item.visible ? heatmapLoader.item : treeLoader.item; when: !!searchLoader.item }
   Binding { target: searchLoader.item; property: "prompt"; value: "Filter MCP…"; when: !!searchLoader.item }
   Connections {
     target: searchLoader.item
@@ -259,6 +262,7 @@ FocusScope {
 
   Loader {
     id: heatmapLoader
+    onActiveChanged: if (!active && root.inventoryActive && treeLoader.item) treeLoader.item.forceActiveFocus()
     height: item && item.visible ? item.implicitHeight : 0
     anchors.top: searchLoader.bottom
     anchors.topMargin: height > 0 ? Style.space(4) : 0
@@ -270,12 +274,13 @@ FocusScope {
     source: active && root.context && root.context.ui ? root.context.ui.url("UsageHeatmap") : ""
   }
 
-  Binding { target: heatmapLoader.item; property: "payload"; value: root.inventory ? root.inventory.activity : null; when: !!heatmapLoader.item }
+  Binding { target: heatmapLoader.item; property: "inventory"; value: root.inventory; when: !!heatmapLoader.item }
   Binding { target: heatmapLoader.item; property: "unitLabel"; value: "MCP calls"; when: !!heatmapLoader.item }
   Connections {
     target: heatmapLoader.item
     ignoreUnknownSignals: true
     function onDismissed() { if (treeLoader.item) treeLoader.item.forceActiveFocus() }
+    function onPreviousRequested() { if (searchLoader.item) searchLoader.item.reveal() }
   }
 
   Loader {

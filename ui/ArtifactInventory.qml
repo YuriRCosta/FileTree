@@ -39,6 +39,8 @@ Item {
   property var activityRequest: null
   property int activityGeneration: 0
   property bool activityQueued: false
+  property var activityObservers: []
+  readonly property bool activityEnabled: activityMethod !== "" && activityObservers.length > 0
 
   signal mutationFinished(string method, var response, string project)
 
@@ -55,6 +57,11 @@ Item {
     observers = observers.filter(function(value) { return value !== context })
   }
 
+  function observeActivity(observer, enabled) {
+    activityObservers = activityObservers.filter(function(value) { return value !== observer })
+    if (enabled) activityObservers = activityObservers.concat([observer])
+  }
+
   function argumentsFor(method, arguments) {
     return ["--provider", providerId, "--plugin-dir", ["fileblade.core.skills", "fileblade.core.memory", "fileblade.core.hooks", "fileblade.core.mcp"].indexOf(providerId) >= 0 ? "" : providerRoot,
             "--helper", helperId, "--method", method, "--arguments", JSON.stringify(arguments)]
@@ -67,13 +74,13 @@ Item {
   }
 
   function requestActivity() {
-    if (!ready) return
+    if (!ready || !activityEnabled) return
     activityQueued = true
     activityDebounce.restart()
   }
 
   function startActivity() {
-    if (!ready || activityMethod === "" || activityRequest || applying || !activityQueued) return
+    if (!ready || !activityEnabled || activityRequest || applying || !activityQueued) return
     activityQueued = false
     var request = { id: "", generation: activityGeneration, files: files }
     activityRequest = request
@@ -91,12 +98,19 @@ Item {
       return
     }
     activityError = ""
+    var wasPending = activity && activity.ingestPending === true
     activity = response
+    if (response.ingestPending === true) activityRetry.restart()
+    else if (wasPending) {
+      projectLane.refresh()
+      userLane.refresh()
+    }
   }
 
   function suspendActivity(dispose) {
     activityGeneration++
     activityDebounce.stop()
+    activityRetry.stop()
     activityQueued = false
     if (activityRequest) activityRequest.files.cancelBackendRequest(activityRequest.id, activityRequest.generation, dispose)
   }
@@ -165,7 +179,13 @@ Item {
     applyError = ""
     projectLane.invalidate()
     suspendActivity()
+    activity = null
+    activityError = ""
     requestActivity()
+  }
+  onActivityEnabledChanged: {
+    if (activityEnabled) requestActivity()
+    else suspendActivity()
   }
   onReadyChanged: {
     if (ready) refresh()
@@ -182,4 +202,5 @@ Item {
   }
 
   Timer { id: activityDebounce; interval: 180; onTriggered: inventory.startActivity() }
+  Timer { id: activityRetry; interval: 500; onTriggered: inventory.requestActivity() }
 }

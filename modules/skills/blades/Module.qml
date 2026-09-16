@@ -239,6 +239,8 @@ FocusScope {
     if (module.loadError) return "error"
     if (module.applying) return "Applying…"
     if (module.applyError) return module.applyError
+    if (heatmap.active && inventory && inventory.activityError) return "Activity: " + inventory.activityError
+    if (heatmap.active && inventory && inventory.activity && inventory.activity.ingestPending) return "Reading activity…"
     if (module.busy) return "Scanning…"
     if (tree.item && tree.item.searching) return tree.item.visibleItems.length + " of " + module.items.length
     if (module.truncated) return module.items.length + " skills (capped)"
@@ -311,6 +313,7 @@ FocusScope {
       item.showOptions = true
       item.caseSensitive = module.caseSensitive
       item.regex = module.regex
+      item.tabTarget = Qt.binding(function() { return heatmap.item && heatmap.item.visible ? heatmap.item : tree.item })
       item.optionsToggled.connect(function(nextCase, nextRegex) {
         module.caseSensitive = nextCase
         module.regex = nextRegex
@@ -324,6 +327,7 @@ FocusScope {
 
   Loader {
     id: heatmap
+    onActiveChanged: if (!active && !module.suspended) module.focusTree()
     anchors.top: search.bottom
     anchors.topMargin: height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
@@ -335,8 +339,9 @@ FocusScope {
     source: module.context ? module.context.ui.url("UsageHeatmap") : ""
     onLoaded: {
       item.unitLabel = "skill uses"
-      item.payload = Qt.binding(function() { return module.inventory ? module.inventory.activity : null })
+      item.inventory = Qt.binding(function() { return module.inventory })
       item.dismissed.connect(function() { module.focusTree() })
+      item.previousRequested.connect(function() { module.openSearch() })
     }
   }
 

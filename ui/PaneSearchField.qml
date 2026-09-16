@@ -28,6 +28,7 @@ TextField {
   signal deepToggled(bool deep)
   signal historyStepped(int delta)
   property bool browsingHistory: false
+  property Item tabTarget: null
   signal advanced()
   signal cleared()
   signal optionsToggled(bool caseSensitive, bool regex)
@@ -60,6 +61,11 @@ TextField {
   Keys.onEscapePressed: function(event) {
     field.dismissed()
     event.accepted = true
+  }
+
+  Keys.onTabPressed: function(event) {
+    event.accepted = !!field.tabTarget
+    if (field.tabTarget) field.tabTarget.forceActiveFocus(Qt.TabFocusReason)
   }
 
   Keys.onDownPressed: function(event) {

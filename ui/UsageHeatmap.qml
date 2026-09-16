@@ -5,7 +5,9 @@ import "../lib/MediaDates.js" as Dates
 Item {
   id: heatmap
 
-  property var payload: null
+  property var inventory: null
+  property var attachedInventory: null
+  property var payload: inventory ? inventory.activity : null
   property var calendarRule: Dates.localeRule(Qt.locale().name, Qt.locale().firstDayOfWeek)
   property string unitLabel: "uses"
   property int cursor: -1
@@ -22,6 +24,14 @@ Item {
   readonly property int tipDay: hoverDay >= 0 ? hoverDay : (activeFocus ? focusDay : -1)
 
   signal dismissed()
+  signal previousRequested()
+
+  onInventoryChanged: {
+    if (attachedInventory) attachedInventory.observeActivity(heatmap, false)
+    attachedInventory = inventory
+    if (attachedInventory) attachedInventory.observeActivity(heatmap, true)
+  }
+  Component.onDestruction: if (attachedInventory) attachedInventory.observeActivity(heatmap, false)
 
   visible: weeks > 0
   implicitHeight: 7 * pitch - gap
@@ -87,7 +97,12 @@ Item {
 
   Keys.onPressed: function(event) {
     if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) return
-    if (event.key === Qt.Key_Escape) {
+    if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && event.modifiers & Qt.ShiftModifier)) {
+      heatmap.previousRequested()
+      event.accepted = true
+      return
+    }
+    if (event.key === Qt.Key_Escape || event.key === Qt.Key_Tab) {
       heatmap.dismissed()
       event.accepted = true
       return
