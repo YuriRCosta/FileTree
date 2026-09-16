@@ -23,6 +23,7 @@ Item {
   property string pendingMode: ""
   property string actionRequestId: ""
   property var restoring: ({})
+  readonly property alias choices: dialog.options
 
   signal changed()
 
@@ -34,6 +35,20 @@ Item {
     if (!entry) return null
     if (isBinned(entry)) return { glyph: "󰑖", title: "Restore" }
     return describe(entry) ? { glyph: "󰩺", title: "Delete", danger: true } : null
+  }
+
+  function refuse(message) {
+    pending = null
+    pendingMode = ""
+    localError = String(message)
+    bin.changed()
+  }
+
+  function trashablePaths(entry) {
+    if (!entry || isBinned(entry)) return []
+    var item = describe(entry)
+    var paths = item && Array.isArray(item.paths) ? item.paths : []
+    return paths.filter(function(path) { return String(path || "") !== "" })
   }
 
   function groupFor(entry) {
@@ -87,9 +102,10 @@ Item {
   function ask(entry) {
     if (!entry || busy) return
     if (["skills", "memory"].indexOf(module) >= 0 && service.agentManagementEnabled !== true) {
-      localError = "Enable Manage agent files in General settings to change Skills or Memory"
+      refuse("Enable Manage agent files in General settings to change Skills or Memory")
       return
     }
+    localError = ""
     pending = entry
     var item = isBinned(entry) ? null : describe(entry)
     var shownPath = item && item.path ? targetPath(entry, item.path) : entryPath(entry)
@@ -99,8 +115,9 @@ Item {
                   [{ key: "cancel", label: "Cancel" }, { key: "purge", label: "Delete forever", danger: true }, { key: "restore", label: "Restore" }])
       return
     }
-    dialog.open(heading,
-                [{ key: "cancel", label: "Cancel" }, { key: "bin", label: "Disable" }, { key: "trash", label: "Trash", danger: true }])
+    var options = [{ key: "cancel", label: "Cancel" }, { key: "bin", label: "Disable" }]
+    if (trashablePaths(entry).length > 0) options.push({ key: "trash", label: "Trash", danger: true })
+    dialog.open(heading, options)
   }
 
   function run(command, mode) {
@@ -125,16 +142,21 @@ Item {
     } else if (key === "purge") {
       run([service.cliPath, "_backend", "bin-purge", "--module", module, "--id", id], "purge")
     } else if (key === "trash") {
-      var target = describe(entry)
-      var paths = target && Array.isArray(target.paths) ? target.paths.filter(function(path) { return String(path || "") !== "" }) : []
-      if (paths.length === 0) return
+      var paths = trashablePaths(entry)
+      if (paths.length === 0) {
+        refuse("This item lives inside a shared configuration file, so there is no file to trash")
+        return
+      }
       var command = service.backendCommand("trash")
       command.push("--follow-symlinks")
       for (var i = 0; i < paths.length; i++) command.push("--path", String(paths[i]))
       run(command, "trash")
     } else if (key === "bin") {
       var item = describe(entry)
-      if (!item) return
+      if (!item) {
+        refuse("This item can no longer be changed; refresh and retry")
+        return
+      }
       var realpath = targetPath(entry, item.path)
       if (realpath && realpath !== String(item.path || "")) item.realpath = realpath
       var command = [service.cliPath, "_backend", helperRoute ? "bin-remove" : "bin-put", "--module", module, "--item", JSON.stringify(item)]

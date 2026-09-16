@@ -26,6 +26,7 @@ FocusScope {
   readonly property bool busy: inventory ? inventory.busy : false
   readonly property bool truncated: inventory ? inventory.truncated : false
   property string viewError: ""
+  property string binError: ""
   property var attachedProvider: null
   property var attachedContext: null
 
@@ -33,7 +34,7 @@ FocusScope {
   property bool caseSensitive: false
   property bool regex: false
   readonly property bool applying: inventory ? inventory.applying : false
-  readonly property string applyError: (inventory ? inventory.applyError || inventory.watchError : "") || (tree.item ? tree.item.folderError : "")
+  readonly property string applyError: binError || (inventory ? inventory.applyError || inventory.watchError : "") || (tree.item ? tree.item.folderError : "")
 
   function takeFocus(part) {
     if (String(part || "") === "search") openSearch()
@@ -80,6 +81,7 @@ FocusScope {
 
   function refresh() {
     viewError = ""
+    binError = ""
     if (inventory) inventory.applyError = ""
     if (inventory && !suspended) inventory.refresh(true)
     if (tree.item) tree.item.refreshFolders()
@@ -335,7 +337,7 @@ FocusScope {
       item.context = Qt.binding(function() { return module.context })
       item.describe = function(entry) { return module.binItem(entry) }
       item.changed.connect(function() {
-        module.viewError = item.error
+        module.binError = item.error
         if (tree.item) tree.item.forceActiveFocus()
         module.rescan()
       })

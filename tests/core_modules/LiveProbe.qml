@@ -41,7 +41,7 @@ Item {
         return { scope: lane.scope, scan: !!lane.scan, watch: !!lane.watch, stopping: lane.stopping }
       }) : [],
       rows: rows().filter(function(row) { return row.scope === "project" }).slice(0, 30),
-      bin: bin ? { rows: bin.rows, busy: bin.busy, error: bin.error, route: bin.helperRoute } : null,
+      bin: bin ? { rows: bin.rows, busy: bin.busy, error: bin.error, route: bin.helperRoute, choices: bin.choices } : null,
       consent: !!subject && subject.files.agentManagementEnabled,
       completions: completions,
       response: response
@@ -82,10 +82,18 @@ Item {
     }
     function bin(id: string, action: string): string {
       var bin = probe.binOf(probe.subject)
-      if (!bin || ["bin", "restore", "purge", "ask"].indexOf(action) < 0) return "unavailable"
-      var row = (action === "bin" ? probe.rows() : bin.rows).find(function(value) { return String(value.id) === id })
+      if (!bin || ["bin", "restore", "purge", "ask", "ask-bin", "ask-trash"].indexOf(action) < 0) return "unavailable"
+      var live = action === "bin" || action === "ask-bin" || action === "ask-trash"
+      var row = (live ? probe.rows() : bin.rows).find(function(value) { return String(value.id) === id })
       if (!row) return "missing fixture row"
       if (action === "ask") { bin.ask(row); return "opened" }
+      if (action === "ask-bin" || action === "ask-trash") {
+        var key = action.slice(4)
+        bin.ask(row)
+        if (!bin.choices.some(function(option) { return String(option.key) === key })) return "unavailable-choice"
+        bin.choose(key)
+        return "queued"
+      }
       bin.pending = row
       bin.choose(action)
       return "queued"
