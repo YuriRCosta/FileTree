@@ -13,7 +13,8 @@ from .adapters import copilot_home
 from .events import mapped_event
 from .redaction import payload_digest, safe_type
 from .recovery import RecoveryFull, RecoveryStore
-from .safeio import Budget, MAX_FILE_BYTES, bounded_depth, expanded, load_json, load_toml
+from .safeio import (Budget, MAX_FILE_BYTES, bounded_depth, document_kind, expanded, load_json,
+                     load_toml, refuse_update)
 
 SCHEMA_VERSION = 1
 
@@ -171,12 +172,18 @@ def unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result[key] = value
     return result
 
-def write_atomic(path: Path, document: dict[str, Any]) -> None:
+def write_atomic(path: Path, document: dict[str, Any], removals: tuple[str, ...] = ()) -> None:
+    snapshot = document.snapshot if isinstance(document, Document) else Snapshot.read(path, MAX_FILE_BYTES)
+    kind = document_kind(snapshot.logical, snapshot.resolved)
+    if kind != "json":
+        raise OSError("TOML hook files are never rewritten as JSON; edit the source directly")
     try:
         payload = (json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
-    except (ValueError, UnicodeError) as error:
+    except (TypeError, ValueError, UnicodeError) as error:
         raise OSError("the updated hook file cannot be represented as UTF-8 JSON") from error
-    snapshot = document.snapshot if isinstance(document, Document) else Snapshot.read(path, MAX_FILE_BYTES)
+    reason = refuse_update(snapshot.data, payload, kind, removals)
+    if reason:
+        raise OSError(reason)
     snapshot.write(payload)
 
 def hooks_container(document: dict[str, Any], agent: str) -> dict[str, Any] | str:
@@ -206,12 +213,13 @@ def antigravity_groups(document: dict[str, Any]) -> list[tuple[str, dict[str, An
     return [(name, definition) for name, definition in document.items()
             if isinstance(name, str) and isinstance(definition, dict)]
 
-def turn_on(agent: str, event: str, document: dict[str, Any], hook: dict[str, Any]) -> bool | str:
+def turn_on(agent: str, event: str, document: dict[str, Any],
+            hook: dict[str, Any]) -> tuple[bool, tuple[str, ...]] | str:
     if agent == "antigravity":
         for _name, definition in antigravity_groups(document):
             definitions = definition.get(event)
             if isinstance(definitions, list) and contains_digest(definitions, hook["digest"]):
-                return False
+                return False, ()
         definition = document.setdefault("hook-" + hook["digest"], {})
         if not isinstance(definition, dict):
             return "the target's hook group is not an object"
@@ -219,7 +227,7 @@ def turn_on(agent: str, event: str, document: dict[str, Any], hook: dict[str, An
         if isinstance(definitions, str):
             return definitions
         definitions.append(group_entry(agent, hook))
-        return True
+        return True, ()
     container = hooks_container(document, agent)
     if isinstance(container, str):
         return container
@@ -227,13 +235,14 @@ def turn_on(agent: str, event: str, document: dict[str, Any], hook: dict[str, An
     if isinstance(definitions, str):
         return definitions
     if contains_digest(definitions, hook["digest"]):
-        return False
+        return False, ()
     definitions.append(hook_entry(agent, hook) if agent == "copilot-cli" else group_entry(agent, hook))
-    return True
+    return True, ()
 
-def turn_off(agent: str, event: str, document: dict[str, Any], digest: str) -> bool | str:
+def turn_off(agent: str, event: str, document: dict[str, Any], digest: str) -> tuple[bool, tuple[str, ...]] | str:
     if agent == "antigravity":
         changed = False
+        dropped: list[str] = []
         for name, definition in antigravity_groups(document):
             definitions = definition.get(event)
             if not isinstance(definitions, list):
@@ -248,20 +257,21 @@ def turn_off(agent: str, event: str, document: dict[str, Any], digest: str) -> b
                 definition.pop(event)
             if not any(key != "enabled" for key in definition):
                 document.pop(name)
-        return changed
+                dropped.append(name)
+        return changed, tuple(dropped)
     container = hooks_container(document, agent)
     if isinstance(container, str):
         return container
     definitions = container.get(event)
     if not isinstance(definitions, list):
-        return False
+        return False, ()
     kept, changed = without_digest(definitions, digest)
     if changed:
         if kept:
             container[event] = kept
         else:
             container.pop(event)
-    return changed
+    return changed, ()
 
 def apply_to_agent(agent: str, row: dict[str, Any], hook: dict[str, Any], state: str,
                    context: dict[str, Any]) -> dict[str, Any]:
@@ -281,11 +291,12 @@ def apply_to_agent(agent: str, row: dict[str, Any], hook: dict[str, Any], state:
     outcome = turn_on(agent, event, document, hook) if state == "on" else turn_off(agent, event, document, hook["digest"])
     if isinstance(outcome, str):
         return refusal(agent, outcome)
-    if not outcome:
+    changed, removals = outcome
+    if not changed:
         verb = "already present under" if state == "on" else "no matching hook under"
         return result(agent, True, False, f"{verb} {event} in {path}")
     try:
-        write_atomic(path, document)
+        write_atomic(path, document, removals)
     except OSError as error:
         return refusal(agent, f"could not write {path}: {error.strerror or error}")
     verb = "added under" if state == "on" else "removed from"

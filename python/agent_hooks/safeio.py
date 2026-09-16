@@ -164,6 +164,44 @@ def load_toml(path: Path) -> dict[str, Any] | None:
         return None
     return parsed if bounded_depth(parsed) else None
 
+def document_kind(*paths: Path) -> str:
+    return "toml" if any(Path(path).suffix.lower() == ".toml" for path in paths) else "json"
+
+def parse_document(data: bytes, kind: str) -> dict[str, Any]:
+    text = data.decode("utf-8")
+    parsed = tomllib.loads(text) if kind == "toml" else json.loads(text)
+    if not isinstance(parsed, dict):
+        raise ValueError("the document is not a table of named keys")
+    return parsed
+
+def container_kind(value: Any) -> str:
+    if isinstance(value, dict):
+        return "table"
+    return "array" if isinstance(value, list) else "value"
+
+def refuse_update(before: bytes | None, candidate: bytes, kind: str, removals: tuple[str, ...] = ()) -> str:
+    label = kind.upper()
+    try:
+        updated = parse_document(candidate, kind)
+    except (ValueError, RecursionError) as error:
+        return f"the update does not parse as {label} ({error}); nothing was written"
+    if not bounded_depth(updated):
+        return f"the update exceeds the {label} nesting limit; nothing was written"
+    if before is None:
+        return ""
+    try:
+        original = parse_document(before, kind)
+    except (ValueError, RecursionError) as error:
+        return f"the file on disk is not valid {label} ({error}); nothing was written"
+    missing = sorted(key for key in original if key not in updated and key not in removals)
+    if missing:
+        return f"the update would drop these top-level keys: {', '.join(missing[:4])}; nothing was written"
+    reshaped = sorted(key for key, value in original.items()
+                      if key in updated and container_kind(value) != container_kind(updated[key]))
+    if reshaped:
+        return f"the update would change the type of these top-level keys: {', '.join(reshaped[:4])}; nothing was written"
+    return ""
+
 def is_regular(path: Path) -> bool:
     return resolved_file(path) is not None
 

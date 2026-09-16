@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 import os
 import sys
@@ -11,7 +12,7 @@ sys.path.insert(0, str(ROOT / "python"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import fixtures
-from agent_hooks import apply, cli, discovery, events
+from agent_hooks import apply, cli, discovery, events, safeio
 
 ETC = {"root": ""}
 TARGET_AGENTS = ("codex", "copilot-cli", "antigravity")
@@ -384,6 +385,100 @@ def test_remove_and_restore_preserve_a_symlinked_source(sandbox: Path) -> None:
     assert any(entry["summary"]["digest"] == row["summary"]["digest"]
                for entry in inventory(home, project)["items"] if entry["agent"] == "claude-code")
 
+class BrokenSerializer:
+    @staticmethod
+    def dumps(*_args, **_kwargs) -> str:
+        return '{"hooks": {"PreToolUse": ['
+
+def refused(call: Callable[[], None]) -> str:
+    try:
+        call()
+    except OSError as error:
+        return str(error)
+    raise AssertionError("the write was not refused")
+
+def test_invalid_json_is_refused_and_the_file_is_untouched(sandbox: Path) -> None:
+    home, project = fresh(sandbox)
+    row = source_row(home, project)
+    target = apply.target_path("codex", context(home))
+    fixtures.write_json(target, {"model": "keep-me", "hooks": {}})
+    before = target.read_bytes()
+    document = apply.load_target(target)
+    assert not isinstance(document, str), document
+    serializer = apply.json
+    apply.json = BrokenSerializer
+    try:
+        message = refused(lambda: apply.write_atomic(target, document))
+    finally:
+        apply.json = serializer
+    assert "does not parse as JSON" in message and "nothing was written" in message, message
+    assert target.read_bytes() == before
+    assert not [name for name in os.listdir(target.parent) if name.endswith(".tmp")]
+    outcome = run(home, project, row["id"], ["codex"], "on")["results"][0]
+    assert outcome["ok"] and outcome["changed"], outcome
+    assert written(target)["model"] == "keep-me"
+
+def test_dropping_an_unrelated_top_level_key_is_refused(sandbox: Path) -> None:
+    home, project = fresh(sandbox)
+    row = source_row(home, project)
+    target = apply.target_path("codex", context(home))
+    fixtures.write_json(target, {"model": "keep-me", "profile": {"name": "work"}, "hooks": {}})
+    before = target.read_bytes()
+    document = apply.load_target(target)
+    document.pop("model")
+    document.pop("profile")
+    message = refused(lambda: apply.write_atomic(target, document))
+    assert "would drop these top-level keys: model, profile" in message, message
+    assert target.read_bytes() == before
+    reshaped = apply.load_target(target)
+    reshaped["profile"] = []
+    assert "would change the type of these top-level keys: profile" in refused(
+        lambda: apply.write_atomic(target, reshaped))
+    assert target.read_bytes() == before
+    declared = apply.load_target(target)
+    declared.pop("profile")
+    apply.write_atomic(target, declared, ("profile",))
+    assert set(written(target)) == {"model", "hooks"}
+    outcome = run(home, project, row["id"], ["codex"], "on")["results"][0]
+    assert outcome["ok"] and outcome["changed"], outcome
+    document = written(target)
+    assert document["model"] == "keep-me"
+    assert document["hooks"]["PreToolUse"][0]["hooks"][0]["command"] == fixtures.CANARY_COMMAND
+
+def test_toml_sources_are_never_rewritten_as_json(sandbox: Path) -> None:
+    home, _project = fresh(sandbox)
+    source = home / ".codex" / "config.toml"
+    before = source.read_bytes()
+    message = refused(lambda: apply.write_atomic(source, {"hooks": {}}))
+    assert "TOML hook files are never rewritten as JSON" in message, message
+    assert source.read_bytes() == before
+    linked = home / ".codex" / "linked.json"
+    linked.symlink_to(source)
+    assert "TOML hook files are never rewritten" in refused(lambda: apply.write_atomic(linked, {"hooks": {}}))
+    assert source.read_bytes() == before
+    assert safeio.document_kind(Path("a.json"), Path("b.toml")) == "toml"
+    assert safeio.document_kind(Path("a.json")) == "json"
+
+def test_the_guard_reads_each_format_as_itself(_sandbox: Path) -> None:
+    toml_before = b'model = "gpt-5"\n\n[hooks]\nStop = []\n'
+    assert safeio.refuse_update(toml_before, b'model = "gpt-5"\n[hooks]\nStop = ["x"]\n', "toml") == ""
+    swallowed = safeio.refuse_update(toml_before, b'[hooks]\nStop = []\nmodel = "gpt-5"\n', "toml")
+    assert "would drop these top-level keys: model" in swallowed, swallowed
+    dropped = safeio.refuse_update(toml_before, b"[hooks]\nStop = []\n", "toml")
+    assert "would drop these top-level keys: model" in dropped, dropped
+    as_json = safeio.refuse_update(toml_before, b'{"model": "gpt-5", "hooks": {}}', "toml")
+    assert "does not parse as TOML" in as_json, as_json
+    json_before = b'{"model": "gpt-5", "hooks": {}}'
+    assert safeio.refuse_update(json_before, b'{"hooks": {}, "model": "gpt-5"}', "json") == ""
+    assert "does not parse as JSON" in safeio.refuse_update(json_before, b'model = "gpt-5"\n', "json")
+    assert "does not parse as JSON" in safeio.refuse_update(json_before, b'{"model": "gpt-5", "hooks": {}', "json")
+    assert "does not parse as JSON" in safeio.refuse_update(json_before, b"[1, 2]", "json")
+    assert "does not parse as JSON" in safeio.refuse_update(json_before, b'{"model": "\xff"}', "json")
+    assert safeio.refuse_update(None, b'{"hooks": {}}', "json") == ""
+    assert "the file on disk is not valid JSON" in safeio.refuse_update(b"// jsonc\n{}", b'{"hooks": {}}', "json")
+    deep = ('{"hooks": ' + "[" * 20 + "]" * 20 + "}").encode("utf-8")
+    assert "nesting limit" in safeio.refuse_update(json_before, deep, "json")
+
 def main() -> None:
     checks = [
         test_on_then_off_round_trip_per_agent, test_condition_survives_only_where_supported,
@@ -392,6 +487,9 @@ def main() -> None:
         test_only_command_hooks_travel,
         test_antigravity_grouped_shape_is_listed, test_top_level_ok_is_the_and_of_results, test_cli_shape,
         test_remove_and_restore_round_trip, test_remove_and_restore_preserve_a_symlinked_source,
+        test_invalid_json_is_refused_and_the_file_is_untouched,
+        test_dropping_an_unrelated_top_level_key_is_refused,
+        test_toml_sources_are_never_rewritten_as_json, test_the_guard_reads_each_format_as_itself,
     ]
     passed = 0
     for check in checks:
