@@ -29,8 +29,8 @@ lock:         agent-usage.sqlite3.lock beside it
 permissions:  directory created 0700, database and lock created 0600; SQLite creates the
               -wal and -shm files with the database's permissions
 engine:       Python standard library sqlite3, WAL journal, busy_timeout 5000
-version:      PRAGMA user_version = 1. Any other value drops every table and recreates the
-              schema, and history rebuilds from the transcripts that still exist
+version:      PRAGMA user_version = 2. Version 1 gains retention, pending-failure and forgotten-identity tables without losing history.
+              Unknown versions are refused; existing tables are never dropped
 old cache:    $XDG_CACHE_HOME/omarchy/fileblade/agent-usage.json and agent-usage.tmp are
               deleted whenever the store opens. Nothing is migrated from them
 ```
@@ -67,6 +67,9 @@ CREATE TABLE event (
 ) WITHOUT ROWID;
 CREATE INDEX event_time ON event (kind, at);
 CREATE INDEX event_name ON event (kind, server, name, at);
+CREATE TABLE retention (id INTEGER PRIMARY KEY CHECK (id = 1), before INTEGER NOT NULL);
+CREATE TABLE failure (call TEXT PRIMARY KEY, at INTEGER NOT NULL) WITHOUT ROWID;
+CREATE TABLE forgotten (identity BLOB PRIMARY KEY) WITHOUT ROWID;
 ```
 
 ```yaml
@@ -75,6 +78,11 @@ source:    one row per transcript file: identity, size, mtime in nanoseconds, an
 project:   working directories seen in transcripts
 coverage:  per agent, the earliest record timestamp ever read. Kept as the minimum across
            runs, so deleting old transcripts never moves it later
+retention: one monotonic UTC millisecond cutoff below which ingest cannot insert events
+forgotten: SHA-256 digests of forgotten call identities with future timestamps, so a bad clock
+           cannot either replay those calls or move the retention cutoff into the future
+failure:   failure call IDs and timestamps awaiting their Claude call, allowing newest-first
+           ingestion to read a result in a resumed transcript before its original call
 event:     one row per use. at is UTC epoch milliseconds
 kind:      skill | command | tool | resource-list | resource
 origin:    agent | user | scheduled
@@ -99,7 +107,8 @@ command:        user record text containing <command-name>/NAME</command-name>, 
                 letters, digits, ":", "_" and "-": kind command, name without the slash,
                 origin scheduled when the record has scheduledTaskId, else user. Every
                 command is stored, skill or not; classification happens at query time
-failure:        user tool_result with is_error true marks the matching claude event failed
+failure:        dated user tool_result with is_error true marks the matching claude event failed;
+                unmatched failures wait for their call, then the pending row is removed
 subagent:       1 when isSidechain is true
 project:        the record's cwd
 ```
@@ -127,10 +136,10 @@ a skill use.
 ## Reading transcripts
 
 There is no transcript watcher and no background process. Every helper call
-that touches usage (`list`, `usage` and `usage-forget`) first runs one
+that reads usage (`list` and `usage`) first runs one
 budgeted ingest in its own process, then answers from what is committed. A
 blade refresh runs `list` for its project and user lanes and one `usage`
-request, so new transcript bytes arrive with the next refresh of an open
+request when an activity view is visible, so new transcript bytes arrive with the next refresh of an open
 Skills or MCP tab, after a mutation, or when the tab's anchor folder changes.
 
 ```yaml
@@ -141,22 +150,24 @@ walk cap:     8192 regular files per agent, taken in directory walk order
 order:        newest mtime first
 lock:         non-blocking flock on the lock file, retried every 50 ms for up to 4 s. A helper
               that never gets it skips ingest and reports pending
-budget:       3 s from the start of ingest, lock wait included. Checked between files: once it
-              is spent no new file starts and the answer reports pending
-unchanged:    a file whose device, inode, size and mtime match its source row is skipped
+budget:       3 s from the start of ingest, lock wait included. Checked between records,
+              including pieces of oversized records; unfinished work reports pending
+unchanged:    a fully read file whose device, inode, size and mtime match its source row is skipped
 offsets:      reading resumes at the stored offset. A changed device or inode, or a size below
               the offset, restarts the file at byte 0
 partial line: reading stops at the first line without a trailing newline, so a half-written
               record waits for the next call
-record cap:   lines over 4 MiB are skipped
+record cap:   lines over 4 MiB are skipped using bounded reads; offsets inside these discarded
+              lines resume skipping until their newline. Malformed or excessively nested JSON is skipped
 prefilter:    Claude lines are parsed only when they contain "Skill", mcp__, McpResource,
-              command-name or "is_error":true; Codex lines only when they contain
+              command-name or "is_error" (regardless of JSON spacing); Codex lines only when they contain
               McpToolCall. On a read from byte 0, lines carrying "timestamp" are also parsed
               until the first record with a real timestamp, so coverage starts where the
               file does
-transaction:  one BEGIN IMMEDIATE per file: INSERT OR IGNORE events, failure updates, the
-              coverage minimum and the source row with its new offset commit together. A crash
-              or timeout never double counts or skips bytes
+transaction:  BEGIN IMMEDIATE per chunk (8 MiB or 1024 events, plus at most one record):
+              INSERT OR IGNORE events, failure updates, coverage and the source offset commit
+              together. Large files commit progress within a call and after budget expiry.
+              Every chunk checks retention inside the transaction, including when forget races it
 duplicates:   the (agent, call) key makes re-reading idempotent and drops a command copied into
               a resumed session
 unreadable:   files that cannot be stat'ed or opened are counted and reported, never fatal
@@ -164,10 +175,13 @@ vanished:     after a scan that finished within budget, source rows whose file n
               are deleted. Events are never deleted by ingest
 ```
 
-Measured on one host with 997 transcripts (6.5 GiB, 5.3 GiB of it Codex): a
-cold store needs about 5 s over two helper calls, the first stopping at the
-budget with `ingestPending` true; a warm call takes 0.06 to 0.09 s per helper
-process. The store was 700 KB.
+Measured during the review with 1,008 transcripts (8.28 GiB): the revised
+store completed in calls of 3.02 s, 3.01 s, 3.01 s and 1.41 s during concurrent
+validation; a warm call took 0.02 s. An earlier run of the previous reader
+took 3.04 s and 2.02 s under different load, so these are not a controlled
+speed comparison. Both produced identical event totals (233 commands, 104
+skill calls and 788 tool calls). Chunk commits bound recovery work if a
+helper is killed during a large file.
 
 ## Name matching
 
@@ -180,15 +194,17 @@ sanitize(name):   re.sub(r"[^a-zA-Z0-9_-]", "_", name); for a name starting with
 skill row:        events of kind skill or command named exactly the row name, or
                   <plugin>:<row name> when the row source is plugin:<plugin>@<marketplace>
 mcp, claude:      the row's event server is sanitize(name). A plugin-scope row uses
-                  plugin_<sanitize(plugin)>_<sanitize(name)>, where plugin is the directory
-                  after the marketplace in ~/.claude/plugins/cache/<marketplace>/<plugin>/...
+                  plugin_<sanitize(plugin)>_<sanitize(name)>, using source.plugin from the
+                  manifest name or installed registry identity, independent of cache layout
                   Stored Claude servers are sanitized before comparison, so a resource call
                   recorded with input.server "my.server" or "plugin:toolkit:docs" meets the
                   same row as mcp__my_server__ or mcp__plugin_toolkit_docs__ tool calls
 mcp, codex:       the event server equals the configured name
 mcp, other:       definitions of any other agent never match and report 0
 ambiguity:        two or more definitions of one agent resolving to the same event server all
-                  report 0, carry usageAmbiguous true and list no observed entries
+                  report 0, carry usageAmbiguous true and list no observed entries. MCP scans
+                  all scopes before filtering the requested lane, so splitting the UI into
+                  project and user lanes cannot hide a collision
 mcp prompt:       a claude command named mcp__<server>__<prompt> counts as kind prompt for that
                   server, origin user or scheduled
 ```
@@ -280,30 +296,41 @@ agent-mcpctl usage-forget [--before YYYY-MM-DD] --json
 ```
 
 ```yaml
-with --before:  runs the normal budgeted ingest, then deletes events before local midnight at
-                the start of that day and raises every coverage.first_at to that moment
-without:        runs the ingest, then deletes every event, every coverage row and every project
-                row (source.project is cleared first)
-then:           VACUUM, so removed rows do not linger in free pages of the database file
-kept:           source rows and offsets, so transcripts already read are not imported again
+with --before:  deletes events before local midnight at the start of that day, raises coverage
+                to that moment and records a retention cutoff
+without:        deletes every event, coverage row and project row (source.project is cleared).
+                Pending failure IDs are removed too. The cutoff advances through now; digests
+                of any already-recorded future call identities prevent their replay
+privacy:        PRAGMA secure_delete = ON overwrites deleted SQLite cells. No post-commit VACUUM
+                can turn completed deletion into an error; allocated space is reused
+kept:           source rows and offsets, plus the monotonic retention cutoff. Replaced,
+                truncated, copied and previously unread transcripts cannot restore older events
 result:         {"ok": true, "schemaVersion": 1, "removed": N}; on a store failure ok false,
                 removed 0, error "usage store unavailable", exit status 1
 audit:          the backend's helper-write audit line records provider, helper and method only
 ```
 
-Ingesting first matters: unread bytes of transcripts that already exist would
-otherwise bring the forgotten history back on the next call.
+Forget does not ingest first. The persisted cutoff also excludes unread history
+and is checked atomically by concurrent writers. `removed` counts stored rows
+deleted, not unread transcript records. Supplying an earlier cutoff later never
+restores history. Deleting the database itself resets this retention policy.
+Secure deletion does not erase a reader's existing WAL snapshot, filesystem
+snapshots, storage blocks or backups.
 
 ## In the blades
 
 `ui/ArtifactInventory.qml` has an opt-in history request. The Skills and MCP
 providers set `activityMethod: "usage"`; Skills passes `["--json", "--project",
 anchorPath]` plus its project arguments, MCP passes `["--json"]`. A request is
-queued on every `refresh()` (which a finished write also triggers) and on an
-anchor change, starts after 180 ms, and runs one at a time. A write or an
+queued on `refresh()` (which a finished write also triggers) and on an anchor
+change only while at least one heatmap is loaded. It starts after 180 ms and
+runs one at a time. A pending answer schedules another request after 500 ms;
+completion refreshes the inventory counts. Closing, hiding or shortening all
+activity views stops the requests; ordinary inventory counts still refresh. A write or an
 anchor change cancels the running request, and a stale generation's answer is
-dropped. A failed answer keeps the last good payload in `activity` and sets
-`activityError`.
+dropped. An anchor change clears the previous activity. A failed answer keeps
+the last good payload in `activity`, sets `activityError` and shows the error
+in the module header. Pending history displays “Reading activity…”.
 
 `ui/UsageHeatmap.qml` takes that payload, a `calendarRule` for the locale's
 first day of the week, and a `unitLabel` ("skill uses" or "MCP calls"). Cells
@@ -314,13 +341,16 @@ widening a blade never recolours a cell. Days before `coverageStart`, or every
 day when it is null, have no fill. The modules load it under the search field
 only while the tab is open, the tab's `activity` view state is on (the header's
 Activity button, default on) and the module is at least `Style.space(300)`
-tall. Its `dismissed()` signal returns focus to the tree.
+tall. Tab from search explicitly focuses the grid; Tab or Escape from the
+grid focuses the tree, and Shift-Tab reveals and focuses search. Hiding a
+focused grid returns focus to the tree.
 
 The MCP module makes a definition with a non-empty `observed` list expandable.
 `ArtifactTree.expansionKey` keys that expansion by the definition `id`, never
 by the configuration path, because several definitions share one file. Each
 observed entry becomes a leaf child with a kind glyph, its `uses` and `failed`
-as metrics, and no actions.
+as metrics, and no actions. Right or `l` expands a definition, then moves to
+its first child; physical folder navigation keeps its existing behavior.
 
 User-visible behaviour is listed in section 48 of the
 [UI expectations](../../tests/EXPECTATIONS.md).
@@ -356,30 +386,18 @@ mcp prompts:         only the spelling <command-name>/mcp__<server>__<prompt></c
                      later release records prompts differently they stop counting, although
                      the raw command events are still stored for a corrected rule to classify
 transcript format:   Claude Code and Codex transcripts are undocumented internal formats and
-                     can change in any release. Record types, field names, the <command-name>
-                     tag and compact JSON (the prefilter looks for "is_error":true without a
-                     space) are all assumptions checked against 2.1.258 and local rollouts
+                     can change in any release. Record types, field names and the command-name
+                     tag are assumptions checked against 2.1.258 and local rollouts
 unobserved records:  Claude resource tool records come from the 2.1.258 binary's schemas and one
                      probe session, not from everyday history. Codex failure detection has only
                      seen completed calls
-plugin mcp servers:  matching needs the plugin cache path /plugins/cache/<marketplace>/<plugin>/.
-                     A plugin installed elsewhere, or a path or name the inventory redacted,
-                     reports 0
-first read:          a large history takes more than one call. The first answer can be partial,
-                     newest transcripts first, and the blades do not ask again on
-                     ingestPending; the rest arrives with later refreshes
-budget granularity:  the budget is checked between files. A single transcript that takes longer
-                     than the 8 s helper timeout to read never commits and restarts every call
+plugin mcp servers:  redacted server names or plugin identities report 0 rather than guessing
+first read:          history fills progressively, newest transcripts first. The CLI reports
+                     ingestPending; visible heatmaps continue until ingestion finishes
 walk cap:            beyond 8192 transcripts per agent, which ones are read follows directory
                      walk order, not age
-forget and rewrites: a transcript whose inode changes or that shrinks is read again from byte
-                     0, and its forgotten events come back
-forget and VACUUM:   the delete commits before VACUUM. A VACUUM that stays busy past 5 s reports
-                     "usage store unavailable" although the events are already gone
 native install:      with FILEBLADE_NATIVE_STATE_ROOT set, fileblade usage forget is refused with
                      "native owner-unavailable", like other CLI mutations; skills and mcp work
-hidden heatmap:      the history request runs on every refresh even while Activity is off, and
-                     activityError is not shown in either blade
-erasure:             VACUUM is not secure deletion. Old pages can remain in the WAL until the
-                     last connection closes, in filesystem blocks and in backups
+erasure:             secure_delete overwrites SQLite cells, not filesystem blocks or backups.
+                     Existing readers can retain deleted pages in their WAL snapshot
 ```

@@ -384,18 +384,23 @@ read offset; project directories; and one row per use with a timestamp, agent,
 skill, command, MCP server, tool or prompt name, resource URI (query and
 fragment removed, at most 512 bytes), a subagent flag and a failure flag. It
 never stores tool or command arguments, results, message text or tokens.
+Failure call IDs and timestamps wait in a separate table when their original
+call has not been read yet; forgetting also removes those pending failures.
+For already-recorded future calls, forget retains only SHA-256 identity digests
+to prevent replay without blocking later uses because of a bad clock.
 Transcripts are untrusted input: they are opened read-only, records over 4 MiB
-are skipped, at most 8192 files per agent are considered, ingest stops
-starting files after three seconds, and parsed values reach SQLite only as
-bound parameters.
+are skipped, at most 8192 files per agent are considered, ingest commits
+bounded chunks and stops reading after about three seconds, and parsed values
+reach SQLite only as bound parameters.
 
 The history outlives the transcripts it came from and survives uninstall with
 the rest of the state directory. `fileblade usage forget --before YYYY-MM-DD`
 deletes events before that local day, and `fileblade usage forget` deletes all
-events and project paths; both then `VACUUM` the database. Transcript paths and
-offsets stay, so transcripts already read are not imported again. `VACUUM` is
-not secure erasure: old pages can remain in the write-ahead log until the last
-connection closes, in filesystem blocks and in backups. Deleting the
+events and project paths. Both enable SQLite `secure_delete` and record a
+retention cutoff, preventing replay of forgotten history from replaced,
+truncated, copied or unread transcripts. Transcript paths and offsets stay.
+Deleting rows overwrites SQLite cells; it does not erase old reader snapshots
+in the write-ahead log, filesystem blocks or backups. Deleting the
 `agent-usage.sqlite3*` files removes everything, and history is then rebuilt
 from whatever transcripts still exist. Details are in
 [agent usage history](docs/agent-written/agent-usage.md).
