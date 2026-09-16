@@ -588,7 +588,7 @@ class QmlContractCase(unittest.TestCase):
         self.assertIn("context.contractVersion >= 1", module)
         self.assertNotIn("context.contractVersion === 1", module)
         self.assertIn("context.bladeOpen && !context.collapsed", module)
-        self.assertEqual(module.count("active: root.inventoryActive"), 2)
+        self.assertEqual(module.count("active: root.inventoryActive"), 3)
         self.assertIn("wanted: root.inventoryActive && !!root.files", module)
         self.assertIn('setSource(root.context.ui.url("ArtifactBin"), { service: root.files })', module)
         self.assertIn('item.module = "mcp"\n      item.context = Qt.binding(function() { return root.context })', module)

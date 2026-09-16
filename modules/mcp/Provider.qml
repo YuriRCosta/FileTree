@@ -23,6 +23,7 @@ Item {
       files: files, providerId: providerId, providerRoot: providerRoot,
       maximumItems: 1024, itemsKey: "definitions", healthBasis: "configuration-only",
       exactProject: false, scanArguments: ["--watch"],
+      activityMethod: "usage", activityArguments: function() { return ["--json"] },
       observers: Qt.binding(function() { return provider.observers })
     })
     return true

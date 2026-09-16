@@ -245,6 +245,60 @@ TestCase {
     compare(inventory.items.length, 0)
   }
 
+  function usageRequests() { return requests.filter(function(request) { return request.args[7] === "usage" }) }
+  function usage(uses) {
+    return { ok: true, schemaVersion: 1, kind: "skill", coverageStart: "2026-05-06", until: "2026-09-16", ingestPending: false,
+             days: uses ? [["2026-09-14", uses, uses, 0, 0, 0]] : [] }
+  }
+
+  function test_activity_stays_inert_without_a_method() {
+    inventory.attach(observer()); start(); inventory.startActivity()
+    compare(requests.length, 2)
+    compare(usageRequests().length, 0)
+    compare(inventory.activity, null)
+  }
+
+  function test_activity_follows_refreshes_one_request_at_a_time_and_drops_stale_answers() {
+    inventory.activityMethod = "usage"
+    inventory.activityArguments = function(owner) { return ["--json", "--project", owner.anchorPath].concat(owner.projectArguments) }
+    inventory.attach(observer()); start(); inventory.startActivity()
+    compare(usageRequests().length, 1)
+    compare(usageRequests()[0].name, "helper-read")
+    compare(JSON.parse(usageRequests()[0].args[9]), ["--json", "--project", "/project/one", "--exact"])
+    inventory.refresh(); inventory.startActivity()
+    compare(usageRequests().length, 1)
+    usageRequests()[0].callback(usage(6))
+    compare(inventory.activity.days[0][1], 6)
+    inventory.startActivity()
+    compare(usageRequests().length, 2)
+    verify(inventory.mutate("apply", []))
+    verify(cancelled.some(function(request) { return request.id === usageRequests()[1].id && !request.discardCallbacks }))
+    usageRequests()[1].callback(usage(1))
+    compare(inventory.activity.days[0][1], 6)
+    inventory.startActivity()
+    compare(usageRequests().length, 2)
+    requests.filter(function(request) { return request.name === "helper-write" })[0].callback({ ok: true, schemaVersion: 1 })
+    inventory.startActivity()
+    compare(usageRequests().length, 3)
+    usageRequests()[2].callback({ ok: false, error: "usage store is busy" })
+    compare(inventory.activityError, "usage store is busy")
+    compare(inventory.activity.days[0][1], 6)
+    files.contextPath = "/project/two"
+    inventory.startActivity()
+    compare(JSON.parse(usageRequests()[3].args[9]), ["--json", "--project", "/project/two", "--exact"])
+    usageRequests()[3].callback(usage(2))
+    compare(inventory.activityError, "")
+    compare(inventory.activity.days[0][1], 2)
+  }
+
+  function test_activity_request_is_discarded_with_the_provider() {
+    inventory.activityMethod = "usage"
+    inventory.attach(observer()); inventory.startActivity()
+    var id = usageRequests()[0].id
+    inventory.destroy(); wait(0); inventory = null
+    verify(cancelled.some(function(request) { return request.id === id && request.discardCallbacks }))
+  }
+
   function test_provider_destruction_cancels_owned_write() {
     inventory.attach(observer()); verify(inventory.mutate("apply", []))
     inventory.destroy(); wait(0); inventory = null

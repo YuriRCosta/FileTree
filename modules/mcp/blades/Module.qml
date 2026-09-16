@@ -31,6 +31,7 @@ FocusScope {
   property string viewError: ""
   property var attachedProvider: null
   property var attachedContext: null
+  readonly property var observedGlyphs: ({ tool: "󰖷", resource: "󰈔", "resource-list": "󰉹", prompt: "󰍩" })
 
   function takeFocus(part) {
     if (part === "search" && searchLoader.item) searchLoader.item.reveal()
@@ -39,6 +40,7 @@ FocusScope {
   }
 
   function specialMetricValue(entry, key) {
+    if (entry.observedKind) return undefined
     if (key === "status") return String(entry.state || "unknown")
     if (key === "transport") return String(entry.transport || "unknown")
     return undefined
@@ -63,6 +65,17 @@ FocusScope {
 
   function isBinned(entry) {
     return !!binLoader.item && binLoader.item.isBinned(entry)
+  }
+
+  function observedRows(entry) {
+    var observed = Array.isArray(entry.observed) ? entry.observed.slice(0, 64) : []
+    return observed.filter(function(raw) {
+      return raw && Object.prototype.hasOwnProperty.call(root.observedGlyphs, String(raw.kind))
+    }).map(function(raw) {
+      var kind = String(raw.kind), name = String(raw.name || "")
+      return { id: [entry.id, kind, name].join(":"), observedKind: kind, name: kind === "resource-list" ? "resource list" : name,
+               metrics: { uses: Math.max(0, Number(raw.uses) || 0), failed: Math.max(0, Number(raw.failed) || 0) } }
+    })
   }
 
   function inventoryStatus() {
@@ -166,6 +179,7 @@ FocusScope {
   Binding { target: viewLoader.item; property: "context"; value: root.context; when: !!viewLoader.item }
   Binding { target: viewLoader.item; property: "options"; value: root.metricOptions; when: !!viewLoader.item }
   Binding { target: viewLoader.item; property: "defaultMetric"; value: "uses"; when: !!viewLoader.item }
+  Binding { target: viewLoader.item; property: "activityOption"; value: true; when: !!viewLoader.item }
 
   Loader {
     id: headerLoader
@@ -244,6 +258,27 @@ FocusScope {
   }
 
   Loader {
+    id: heatmapLoader
+    height: item && item.visible ? item.implicitHeight : 0
+    anchors.top: searchLoader.bottom
+    anchors.topMargin: height > 0 ? Style.space(4) : 0
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.leftMargin: Style.space(7)
+    anchors.rightMargin: Style.space(7)
+    active: root.inventoryActive && !!root.view && root.view.activity && root.height >= Style.space(300)
+    source: active && root.context && root.context.ui ? root.context.ui.url("UsageHeatmap") : ""
+  }
+
+  Binding { target: heatmapLoader.item; property: "payload"; value: root.inventory ? root.inventory.activity : null; when: !!heatmapLoader.item }
+  Binding { target: heatmapLoader.item; property: "unitLabel"; value: "MCP calls"; when: !!heatmapLoader.item }
+  Connections {
+    target: heatmapLoader.item
+    ignoreUnknownSignals: true
+    function onDismissed() { if (treeLoader.item) treeLoader.item.forceActiveFocus() }
+  }
+
+  Loader {
     id: binLoader
     anchors.fill: parent
     z: 60
@@ -274,7 +309,7 @@ FocusScope {
 
   Loader {
     id: treeLoader
-    anchors.top: searchLoader.bottom
+    anchors.top: heatmapLoader.bottom
     anchors.topMargin: Style.space(6)
     anchors.left: parent.left
     anchors.right: parent.right
@@ -285,12 +320,18 @@ FocusScope {
       item.context = Qt.binding(function() { return root.context })
       item.editPathFor = function(entry) { return root.absoluteSource(entry) }
       item.fileActionsFor = function(entry) { return false }
+      item.expandableItems = true
+      item.childMetrics = true
+      item.expansionKey = function(entry) { return Array.isArray(entry.observed) && entry.observed.length > 0 ? String(entry.id || "") : "" }
+      item.childrenFor = function(entry) { return root.observedRows(entry) }
+      item.leafGlyph = function(entry) { return entry.observedKind ? root.observedGlyphs[entry.observedKind] : item.defaultGlyph(entry) }
       item.changed.connect(function() { root.refresh() })
       item.groupsFor = function(entry) {
         return root.isBinned(entry) ? binLoader.item.groupFor(entry) : [entry.agent, entry.scope === "plugin" ? "user" : entry.scope]
       }
       item.leafLabel = function(entry) { return String(entry.name || "") + (root.isBinned(entry) ? binLoader.item.stateSuffix(entry) : "") }
       item.leafDetail = function(entry) {
+        if (entry.observedKind) return entry.metrics.failed > 0 ? entry.metrics.failed + " failed" : ""
         if (root.isBinned(entry)) return String(entry.detail || "")
         return String(entry.source.path || "") + ", " + String(entry.transport || "unknown")
       }

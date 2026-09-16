@@ -32,6 +32,13 @@ Item {
   property int generation: 0
   property var mutation: null
   property bool stopping: false
+  property string activityMethod: ""
+  property var activityArguments: function(inventory) { return [] }
+  property var activity: null
+  property string activityError: ""
+  property var activityRequest: null
+  property int activityGeneration: 0
+  property bool activityQueued: false
 
   signal mutationFinished(string method, var response, string project)
 
@@ -56,6 +63,42 @@ Item {
   function refresh(retryWatch) {
     projectLane.refresh(retryWatch)
     userLane.refresh(retryWatch)
+    requestActivity()
+  }
+
+  function requestActivity() {
+    if (!ready) return
+    activityQueued = true
+    activityDebounce.restart()
+  }
+
+  function startActivity() {
+    if (!ready || activityMethod === "" || activityRequest || applying || !activityQueued) return
+    activityQueued = false
+    var request = { id: "", generation: activityGeneration, files: files }
+    activityRequest = request
+    request.id = files.backendRequest("helper-read", argumentsFor(activityMethod, activityArguments(inventory)), request.generation, function(response) {
+      if (inventory.stopping || inventory.activityRequest !== request) return
+      inventory.activityRequest = null
+      if (inventory.ready && request.generation === inventory.activityGeneration) inventory.acceptActivity(response)
+      if (inventory.activityQueued) activityDebounce.restart()
+    }, null, 35000)
+  }
+
+  function acceptActivity(response) {
+    if (!response || response.ok !== true || response.schemaVersion !== 1 || !Array.isArray(response.days)) {
+      activityError = String(response && (response.error || response.message) || "Activity returned no readable payload").slice(0, 200)
+      return
+    }
+    activityError = ""
+    activity = response
+  }
+
+  function suspendActivity(dispose) {
+    activityGeneration++
+    activityDebounce.stop()
+    activityQueued = false
+    if (activityRequest) activityRequest.files.cancelBackendRequest(activityRequest.id, activityRequest.generation, dispose)
   }
 
   function startScan() {
@@ -103,6 +146,7 @@ Item {
       lane.generation++
       lane.suspendScan()
     }
+    suspendActivity()
     request.id = files.backendRequest("helper-write", argumentsFor(method, arguments.slice()), request.generation, function(response) {
       if (inventory.stopping || inventory.mutation !== request) return
       inventory.mutation = null
@@ -120,14 +164,22 @@ Item {
   onAnchorPathChanged: {
     applyError = ""
     projectLane.invalidate()
+    suspendActivity()
+    requestActivity()
   }
   onReadyChanged: {
     if (ready) refresh()
-    else for (var lane of lanes) lane.suspend()
+    else {
+      for (var lane of lanes) lane.suspend()
+      suspendActivity(stopping)
+    }
   }
   Component.onDestruction: {
     stopping = true
     for (var lane of lanes) lane.shutdown()
+    suspendActivity(true)
     if (mutation) mutation.files.cancelBackendRequest(mutation.id, mutation.generation, true)
   }
+
+  Timer { id: activityDebounce; interval: 180; onTriggered: inventory.startActivity() }
 }

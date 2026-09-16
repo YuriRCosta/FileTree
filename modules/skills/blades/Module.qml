@@ -264,6 +264,7 @@ FocusScope {
     source: module.context ? module.context.ui.url("PaneView") : ""
     onLoaded: {
       item.defaultMetric = "uses"
+      item.activityOption = true
       item.options = module.metricOptions
       item.context = module.context
     }
@@ -322,6 +323,24 @@ FocusScope {
   }
 
   Loader {
+    id: heatmap
+    anchors.top: search.bottom
+    anchors.topMargin: height > 0 ? Style.space(4) : 0
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.leftMargin: Style.space(7)
+    anchors.rightMargin: Style.space(7)
+    active: !module.suspended && !!module.view && module.view.activity && module.height >= Style.space(300)
+    height: item && item.visible ? item.implicitHeight : 0
+    source: module.context ? module.context.ui.url("UsageHeatmap") : ""
+    onLoaded: {
+      item.unitLabel = "skill uses"
+      item.payload = Qt.binding(function() { return module.inventory ? module.inventory.activity : null })
+      item.dismissed.connect(function() { module.focusTree() })
+    }
+  }
+
+  Loader {
     id: bin
     anchors.fill: parent
     z: 60
@@ -346,7 +365,7 @@ FocusScope {
 
   Loader {
     id: tree
-    anchors.top: search.bottom
+    anchors.top: heatmap.bottom
     anchors.topMargin: Style.space(4)
     anchors.bottom: parent.bottom
     anchors.left: parent.left

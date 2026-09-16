@@ -25,6 +25,8 @@ FocusScope {
   property bool expandableItems: false
   property bool loadFolderChildren: false
   property var childrenFor: function(item) { return directories.children(tree.itemPath(item)) }
+  property var expansionKey: function(item) { return item.is_dir || item.isDir ? tree.itemPath(item) : "" }
+  property bool childMetrics: false
   property var editPathFor: function(item) { return item && item.path ? String(item.path) : "" }
   property var fileActionsFor: function(item) { return true }
   property var dropSpec: function(item) { return null }
@@ -657,7 +659,7 @@ FocusScope {
       }
       return true
     }
-    if (ArtifactTreeFolders.isFolder(tree, row.item) && files && context)
+    if (ArtifactTreeFolders.isFolder(tree, row.item) && (row.item.is_dir || row.item.isDir) && files && context)
       files.navigateToLocation(itemPath(row.item), context.screen, "browse")
     else if (isBinned(row.item)) tree.actionRequested(row.item)
     else tree.activated(row.item)
@@ -773,6 +775,7 @@ FocusScope {
       readonly property bool isGroup: rowKind === "group"
       readonly property bool folderGroup: isGroup && rowDepth > 0
       readonly property bool isChild: rowChild
+      readonly property bool showsMetrics: !isChild || tree.childMetrics
       readonly property bool showsAgents: !!entry && !isGroup && !isChild && !tree.isBinned(entry) && tree.metricKind === "agents" && tree.installedAgents.length > 0
       width: list.width
       emphasized: isGroup && !folderGroup
@@ -785,8 +788,8 @@ FocusScope {
         : (isGroup ? (tree.isCollapsed(groupKey) ? "›" : "⌄") : (entry ? String(tree.leafGlyph(entry) || "") : ""))
       glyphColor: (folderGroup && !glyphStruck) || (!isGroup && entry && (entry.is_dir || entry.isDir)) ? Color.accent : Color.muted
       label: folderGroup ? groupLabel : (isGroup ? groupLabel.toUpperCase() : (entry ? tree.leafLabel(entry) : ""))
-      badge: isGroup ? tree.groupText(tree.rowAt(index)) : (isChild ? "" : tree.metricText(entry))
-      extras: isGroup ? tree.extraGroupTexts(tree.rowAt(index)) : (isChild ? [] : tree.extraTexts(entry))
+      badge: isGroup ? tree.groupText(tree.rowAt(index)) : (showsMetrics ? tree.metricText(entry) : "")
+      extras: isGroup ? tree.extraGroupTexts(tree.rowAt(index)) : (showsMetrics ? tree.extraTexts(entry) : [])
       columnWidths: tree.columnWidths()
       metricRightMargin: tree.view && tree.view.metricRightMargin !== undefined
         ? tree.view.metricRightMargin

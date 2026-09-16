@@ -11,7 +11,8 @@ TestCase {
     var tree = { loadFolderChildren: true, expandableItems: true, items: [item],
       expandedFolders: ({ "file:///project/%FF": true, "file:///project/%FF/child": true,
         "/previous/skill": true, "/project/\uFFFD": true, "file:///project/%FF/collapsed": false }),
-      itemPath: function(item) { return item.path }, folderToggled: function(item, open) { compare(open, false) } }
+      itemPath: function(item) { return item.path }, expansionKey: function(item) { return item.path },
+      folderToggled: function(item, open) { compare(open, false) } }
     ArtifactTreeFolders.prune(tree)
     compare(Object.keys(tree.expandedFolders).sort(), ["file:///project/%FF", "file:///project/%FF/child"])
     ArtifactTreeFolders.toggle(tree, item)
@@ -55,6 +56,7 @@ TestCase {
       expandedFolders: ({}),
       childrenRevision: 0,
       itemPath: function(item) { return item.path },
+      expansionKey: function(item) { return item.isDir ? item.path : "" },
       childrenFor: function(item) { return item === root ? [link] : [file] },
       folderToggled: function(item, expanded) {}
     }
@@ -81,6 +83,7 @@ TestCase {
       currentIndex: 0, expandableItems: true, expandedFolders: ({ "/skills/one": true }),
       rowAt: function(index) { return rows[index] || null },
       itemPath: function(item) { return item.path },
+      expansionKey: function(item) { return item.isDir ? item.path : "" },
       move: function(delta) { this.currentIndex += delta },
       activated: function() { fail("must not activate a folder") }
     }

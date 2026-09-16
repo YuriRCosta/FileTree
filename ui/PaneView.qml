@@ -15,10 +15,14 @@ Item {
   property var sorts: []
   property var pinnedSortKeys: []
   property var filter: ({})
+  property bool activityOption: false
+  property bool activity: true
   property var navigationActions: [
     { key: "search", glyph: "󰍉", title: "Search", actions: [{ button: "left", text: "Search" }, { shortcut: "/" }] },
     { key: "filter", glyph: "󰈲", title: "Filter", active: view.filterActive, actions: [{ button: "left", text: "Filter" }, { shortcut: "f" }] }
-  ]
+  ].concat(activityOption ? [
+    { key: "activity", glyph: "󰃭", title: "Activity", active: view.activity, actions: [{ button: "left", text: view.activity ? "Hide activity" : "Show activity" }] }
+  ] : [])
   property int columnRightReserve: 0
   readonly property string metricKey: columns.length > 0 ? String(columns[0]) : "off"
   readonly property string sortKey: sorts.length > 0 ? String(sorts[0].key) : ""
@@ -34,6 +38,12 @@ Item {
   readonly property int metricRightMargin: Style.space(7) + columnRightReserve + addColumnReserve
 
   signal navigationTriggered(string key)
+
+  onNavigationTriggered: function(key) {
+    if (key !== "activity") return
+    activity = !activity
+    remember("activity", activity)
+  }
 
   function optionFor(key) {
     var wanted = String(key || "")
@@ -211,6 +221,7 @@ Item {
     var savedSorts = context.state.get("sort", undefined)
     sorts = sortsWithinColumns(cleanSorts(savedSorts === undefined ? defaultSorts : savedSorts))
     filter = cleanFilter(context.state.get("filter", null))
+    activity = context.state.get("activity", true) !== false
   }
 
   onContextChanged: restore()

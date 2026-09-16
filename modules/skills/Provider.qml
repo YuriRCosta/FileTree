@@ -21,7 +21,8 @@ Item {
     attached = attached.concat([context])
     if (String(runtime.source) === "") runtime.setSource(inventoryComponentUrl, {
       files: files, providerId: providerId, providerRoot: providerRoot,
-      maximumItems: 256,
+      maximumItems: 256, activityMethod: "usage",
+      activityArguments: function(inventory) { return ["--json", "--project", inventory.anchorPath].concat(inventory.projectArguments) },
       observers: Qt.binding(function() { return provider.observers })
     })
     return true

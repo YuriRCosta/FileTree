@@ -14,6 +14,7 @@ TestCase {
       groupKey: function(path) { return JSON.stringify(path) },
       groupsFor: function(item) { return item.groups || [] },
       itemPath: function(item) { return item.path },
+      expansionKey: function(item) { return item.isDir ? item.path : "" },
       isCollapsed: function(key) { return tree.collapsed[key] === true },
       isLinked: function(item) { return !!item.isSymlink }
     }
@@ -92,6 +93,26 @@ TestCase {
     Folders.parent(tree)
     compare(tree.currentIndex, 0)
     compare(tree.expandedFolders, { "/one": true, "/one/child": true })
+  }
+
+  function test_definitions_sharing_one_file_fold_by_their_own_key() {
+    var first = { id: "first", source: { path: "~/.claude.json" }, observed: [{ name: "navigate" }] }
+    var second = { id: "second", source: { path: "~/.claude.json" }, observed: [{ name: "search" }] }
+    var tree = fixture([leaf(first, 2), leaf(second, 2)])
+    tree.itemPath = function(item) { return item.source.path }
+    tree.expansionKey = function(item) { return item.observed ? item.id : "" }
+    tree.childrenFor = function(item) { return item.observed }
+    tree.childrenRevision = 0
+    tree.folderToggled = function() {}
+    verify(Folders.toggle(tree, first))
+    compare(tree.expandedFolders, { first: true })
+    var rows = []
+    for (var item of [first, second]) Folders.appendRows(tree, rows, item, 2, false)
+    compare(rows.map(function(row) { return row.item.name || row.item.id }), ["first", "navigate", "second"])
+    verify(rows[1].child)
+    verify(!Folders.isFolder(tree, rows[1].item))
+    Folders.collapseBranch(tree, Folders.branchScope(tree))
+    compare(tree.expandedFolders, ({}))
   }
 
   function test_closing_a_fold_does_not_navigate_to_its_parent() {
