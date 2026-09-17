@@ -111,4 +111,21 @@ TestCase {
     compare(Typography.px(14, Typography.scaleFromPercent(110)), 15)
     compare(Typography.px(12, Typography.scaleFromPercent(1000)), 24)
   }
+
+  function test_ctrl_plus_minus_and_zero_step_the_scale_like_a_terminal() {
+    compare(Typography.zoomStep(Qt.Key_Equal, Qt.ControlModifier), 1)
+    compare(Typography.zoomStep(Qt.Key_Plus, Qt.ControlModifier | Qt.ShiftModifier), 1)
+    compare(Typography.zoomStep(Qt.Key_Plus, Qt.ControlModifier | Qt.KeypadModifier), 1)
+    compare(Typography.zoomStep(Qt.Key_Minus, Qt.ControlModifier), -1)
+    compare(Typography.zoomStep(Qt.Key_Underscore, Qt.ControlModifier | Qt.ShiftModifier), -1)
+    compare(Typography.zoomStep(Qt.Key_0, Qt.ControlModifier), 0)
+    compare(Typography.zoomStep(Qt.Key_Plus, Qt.NoModifier), null)
+    compare(Typography.zoomStep(Qt.Key_Equal, Qt.ControlModifier | Qt.AltModifier), null)
+    compare(Typography.zoomStep(Qt.Key_A, Qt.ControlModifier), null)
+    compare(Typography.zoomed(1.0, 1), 1.05)
+    compare(Typography.zoomed(1.0, -1), 0.95)
+    compare(Typography.zoomed(2.0, 1), 2.0)
+    compare(Typography.zoomed(0.75, -1), 0.75)
+    compare(Typography.zoomed(1.35, 0), 1.0)
+  }
 }

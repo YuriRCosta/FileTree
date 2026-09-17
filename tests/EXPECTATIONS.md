@@ -498,6 +498,12 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      text in every blade grows or shrinks by that amount while the blade widths
      stay where I put them, a value outside the range settles on the nearest
      end, and the choice survives a restart.
+147c. **E-17-14** Ctrl+= (or Ctrl++) makes the text in every blade one step
+     larger, Ctrl+- one step smaller, and Ctrl+0 returns it to 100%, wherever
+     my focus is inside FileBlade: the tree, a search field, Notes, a picker or
+     the settings sheet. It is the same Font size as the General setting, so the
+     percentage there follows and the choice survives a restart. Plain + and -
+     keep changing the tree density and media tile size.
 
 ## 18. Persistence
 

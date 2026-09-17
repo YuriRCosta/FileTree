@@ -22,6 +22,7 @@ Item {
       { shortcut: "Alt+Z", text: "Collapse / expand module" },
       { shortcut: "Ctrl+Tab  Ctrl+]/[", text: "Next / previous tab" },
       { shortcut: "Ctrl+PgDn/PgUp", text: "Next / previous tab" },
+      { shortcut: "Ctrl+=  Ctrl+-  Ctrl+0", text: "Larger, smaller, normal text" },
       { shortcut: ",  or Enter/o on empty slot", text: "Blade settings" },
       { shortcut: "Esc", text: "Back, then close" },
       { shortcut: "?", text: "This list" },

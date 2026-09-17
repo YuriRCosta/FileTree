@@ -118,3 +118,11 @@ omarchy-shell data-goblin.fileblade.control reloadKeybindings
 ```
 
 This does not reload the plugin or restart the shell.
+
+## Text zoom
+
+`Ctrl+=`, `Ctrl++` and `Ctrl+KP_Add` raise the Font size one step (5%),
+`Ctrl+-`, `Ctrl+_` and `Ctrl+KP_Subtract` lower it, `Ctrl+0` returns to 100%.
+The blade surface handles them after every pane, so they work from any
+focused control; they are not part of the user keymap file and cannot be
+rebound. Plain `+` and `-` remain the tree density and media tile size keys.

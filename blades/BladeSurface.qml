@@ -426,7 +426,11 @@ PanelWindow {
       }
 
       Keys.onPressed: function(event) {
-        if (event.text === "?" && !surface.shortcutsOpen) {
+        var zoom = Typography.zoomStep(event.key, event.modifiers)
+        if (zoom !== null) {
+          surface.host.setFontScale(Typography.zoomed(zoom))
+          event.accepted = true
+        } else if (event.text === "?" && !surface.shortcutsOpen) {
           surface.shortcutsOpen = true
           event.accepted = true
         } else if (event.text === "," && !surface.host.settingsOpen) {
