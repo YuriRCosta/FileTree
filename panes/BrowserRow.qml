@@ -465,8 +465,8 @@ Rectangle {
 
     PanelToolTip {
       id: summaryTip
-      visible: row.showsRepoSummary && pointer.containsMouse
-        && pointer.mouseX >= repoSummary.x && pointer.mouseX <= repoSummary.x + repoSummary.width
+      visible: row.showsRepoSummary && (branchPointer.containsMouse || (pointer.containsMouse
+        && pointer.mouseX >= repoSummary.x && pointer.mouseX <= repoSummary.x + repoSummary.width))
       text: row.repositorySummary.tooltip
       contentItem: Text {
         textFormat: Text.StyledText
