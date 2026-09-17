@@ -131,16 +131,6 @@ QQC.Popup {
           onClicked: popup.close()
         }
       }
-
-      Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.leftMargin: Style.space(4)
-        anchors.rightMargin: Style.space(4)
-        height: 1
-        color: Util.alpha(Color.bar.text, 0.12)
-      }
     }
 
     Item {
