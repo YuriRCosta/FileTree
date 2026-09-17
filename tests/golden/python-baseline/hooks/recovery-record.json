@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "createdAt": "{CREATED_AT}",
+  "definitionId": "b07479258dd9089a",
+  "context": {
+    "project": "{ROOT}/hooks/work/project",
+    "home": "{ROOT}/hooks/home",
+    "etcRoot": "/etc",
+    "policyOwnerUid": "0"
+  },
+  "payload": {
+    "format": 2,
+    "agent": "antigravity",
+    "event": "PostToolUse",
+    "group": "disabled-hook",
+    "index": 0,
+    "grouped": false,
+    "removedGroup": true,
+    "fields": {},
+    "entry": {
+      "type": "command",
+      "command": "audit"
+    },
+    "before": "78a96830ce7519e0d749cc807f6f72df6867faad05d6c30d7637caeb905217ea",
+    "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "source": "{ROOT}/hooks/home/.gemini/config/hooks.json",
+    "target": "{ROOT}/hooks/home/.gemini/config/hooks.json"
+  },
+  "transactionId": "0123456789abcdef0123456789abcdef"
+}

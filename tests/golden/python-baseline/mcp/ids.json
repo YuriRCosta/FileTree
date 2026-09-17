@@ -1,0 +1,114 @@
+[
+  {
+    "id": "6a8009c38cd36be69e8ca787",
+    "name": "shared"
+  },
+  {
+    "id": "c3747448dbffddc5c56d9269",
+    "name": "copilot-same"
+  },
+  {
+    "id": "0dee6c7ecc41a8555c8ffe0e",
+    "name": "pi-high"
+  },
+  {
+    "id": "5ffb7ca03a3b5ecbc5185cc9",
+    "name": "project-only"
+  },
+  {
+    "id": "52e7d74c11f865de835fcb8c",
+    "name": "shared"
+  },
+  {
+    "id": "c1b2e538a4d2b5b3821d9d9b",
+    "name": "server-c1b2e538"
+  },
+  {
+    "id": "20fe59fb632eb9a8dbe71517",
+    "name": "shared"
+  },
+  {
+    "id": "629ba46ec00e8121e8c5b22d",
+    "name": "plugin-server"
+  },
+  {
+    "id": "36d61de80cf93a9ab5c2caa9",
+    "name": "codex-user"
+  },
+  {
+    "id": "ef877c2ba074d43cbf6c6614",
+    "name": "copilot-same"
+  },
+  {
+    "id": "a724e6b9ed7da540022eed94",
+    "name": "disabled-by-setting"
+  },
+  {
+    "id": "8210e24c030974f7764a7f40",
+    "name": "copilot-same"
+  },
+  {
+    "id": "8680d593cbb98f17a674c1df",
+    "name": "copilot-same"
+  },
+  {
+    "id": "53bb22ffba6848a2ff45b5d3",
+    "name": "pi-high"
+  },
+  {
+    "id": "4c00980ea469eb66433b9b93",
+    "name": "project-only"
+  },
+  {
+    "id": "7e19d759974ee7c2e1e5bc11",
+    "name": "shared"
+  },
+  {
+    "id": "150c7d99a9ea147f49025fd5",
+    "name": "copilot-same"
+  },
+  {
+    "id": "68cb02c2e22d71b44108d445",
+    "name": "anti-same"
+  },
+  {
+    "id": "888bcc32442b4c4e557812c3",
+    "name": "anti-same"
+  },
+  {
+    "id": "c5c273f9be1cc8b973867a9d",
+    "name": "open-same"
+  },
+  {
+    "id": "673e9b08413c3bdf21b9c9f4",
+    "name": "open-same"
+  },
+  {
+    "id": "f3d238079cc18c1c17af6f0b",
+    "name": "open-user"
+  },
+  {
+    "id": "8d8cf75f0d5f4013f97ea424",
+    "name": "copilot-same"
+  },
+  {
+    "id": "6207aba0a5dcd8d0cf05c850",
+    "name": "pi-high"
+  },
+  {
+    "id": "1cf50ac7d322520cbfa53d68",
+    "name": "pi-high"
+  },
+  {
+    "id": "3d73380ebbb4b03fc969f7f9",
+    "name": "project-only"
+  },
+  {
+    "id": "984ed9b0e89042802065d76b",
+    "name": "shared"
+  },
+  {
+    "id": "cb1a5e3aa65eed0c25490b83",
+    "name": "pi-high"
+  }
+]

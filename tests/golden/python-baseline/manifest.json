@@ -1,0 +1,25 @@
+{
+  "frozen": "2026-09-17",
+  "root": "/tmp/fileblade-python-baseline",
+  "modules": {
+    "skills": {
+      "rows": 8
+    },
+    "memory": {
+      "rows": 24
+    },
+    "hooks": {
+      "rows": 33,
+      "removedId": "b07479258dd9089a",
+      "recoveryRecords": 1
+    },
+    "mcp": {
+      "rows": 28,
+      "removedId": "c3747448dbffddc5c56d9269",
+      "recoveryRecords": 1
+    },
+    "usage": {
+      "events": 9
+    }
+  }
+}

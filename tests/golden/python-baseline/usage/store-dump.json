@@ -1,0 +1,170 @@
+{
+  "userVersion": 3,
+  "tables": {
+    "coverage": {
+      "columns": [
+        "agent",
+        "first_at"
+      ],
+      "rowCount": 1
+    },
+    "event": {
+      "columns": [
+        "agent",
+        "call",
+        "at",
+        "kind",
+        "origin",
+        "server",
+        "name",
+        "subagent",
+        "project",
+        "failed"
+      ],
+      "rowCount": 9
+    },
+    "failure": {
+      "columns": [
+        "call",
+        "at",
+        "agent"
+      ],
+      "rowCount": 0
+    },
+    "forgotten": {
+      "columns": [
+        "identity"
+      ],
+      "rowCount": 0
+    },
+    "project": {
+      "columns": [
+        "id",
+        "path"
+      ],
+      "rowCount": 1
+    },
+    "retention": {
+      "columns": [
+        "id",
+        "before"
+      ],
+      "rowCount": 0
+    },
+    "source": {
+      "columns": [
+        "id",
+        "agent",
+        "path",
+        "device",
+        "inode",
+        "size",
+        "mtime",
+        "offset",
+        "project"
+      ],
+      "rowCount": 1
+    }
+  },
+  "events": [
+    [
+      "claude",
+      "t00",
+      1789041600000,
+      "skill",
+      "agent",
+      "",
+      "pdf",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "t01",
+      1789041660000,
+      "tool",
+      "agent",
+      "fileblade",
+      "list",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "t10",
+      1789128000000,
+      "skill",
+      "agent",
+      "",
+      "pdf",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "t11",
+      1789128060000,
+      "tool",
+      "agent",
+      "fileblade",
+      "list",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "t20",
+      1789214400000,
+      "skill",
+      "agent",
+      "",
+      "pdf",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "t21",
+      1789214460000,
+      "tool",
+      "agent",
+      "fileblade",
+      "list",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "u0",
+      1789041720000,
+      "command",
+      "user",
+      "",
+      "review",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "u1",
+      1789128120000,
+      "command",
+      "user",
+      "",
+      "review",
+      0,
+      0
+    ],
+    [
+      "claude",
+      "u2",
+      1789214520000,
+      "command",
+      "user",
+      "",
+      "review",
+      0,
+      0
+    ]
+  ]
+}

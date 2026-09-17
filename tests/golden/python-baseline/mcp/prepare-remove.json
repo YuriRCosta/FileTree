@@ -1,0 +1,33 @@
+{
+  "changed": false,
+  "message": "",
+  "ok": true,
+  "payload": {
+    "agent": "claude-code",
+    "container": [
+      "mcpServers"
+    ],
+    "definition": "eca094eae6f62704e21d95138d8fef3c19391cdc8c979d9211afe29363c5c0b5",
+    "format": 2,
+    "kind": "json",
+    "name": "copilot-same",
+    "path": "{ROOT}/mcp/work/project/.mcp.json",
+    "position": 3,
+    "raw": {
+      "command": "SECRET_SENTINEL_DO_NOT_EMIT"
+    },
+    "target": "{ROOT}/mcp/work/project/.mcp.json"
+  },
+  "project": "<project>",
+  "recordId": "0123456789abcdef0123456789abcdef",
+  "results": [
+    {
+      "agent": "claude-code",
+      "changed": false,
+      "message": "prepared recovery",
+      "ok": true,
+      "touched": []
+    }
+  ],
+  "schemaVersion": 1
+}
