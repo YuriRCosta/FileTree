@@ -5,11 +5,15 @@ These files are the behaviour of the Python helpers in `python/`, frozen on
 compared against what the Python version actually produced, not against a
 reading of the code.
 
-Regenerate with `tests/golden/generate-python-baseline.py`. The generator is
-deterministic: fixture timestamps are fixed, the removal transaction id is
-fixed, and every value that still varies is replaced with a placeholder
-(`{ROOT}` for the sandbox root, `{TODAY}` for the local date a query ran on,
-`{CREATED_AT}` for the recovery record's creation time).
+Regenerate with `tests/golden/generate-python-baseline.py`. Fixture timestamps
+are fixed, the removal transaction id is fixed, and every value that still
+varies is replaced with a placeholder (`{ROOT}` for the sandbox root, `{TODAY}`
+for the local date a query ran on, `{CREATED_AT}` for the recovery record's
+creation time), so the JSON fixtures regenerate identically at the same root.
+`usage/agent-usage.sqlite3` is not reproducible that way: its `source` table
+keeps the real device and inode numbers of the machine it was built on, and the
+generator copies the database without normalizing them. It is a frozen
+artifact, kept as it was written.
 
 Row ids hash real paths, so the sandbox root is part of the contract: the
 fixtures were built under `/tmp/fileblade-python-baseline`, the generator's
@@ -18,16 +22,12 @@ default. A different `--root` produces different ids.
 ```yaml
 manifest.json:            the root, the frozen date and the row counts per module
 skills/list.json:         agent-skillsctl list on the tests/core_modules/skills fixtures
-skills/ids.json:          the row ids and names of that listing
 memory/list.json:         agent-memoryctl list on the tests/core_modules/memory fixtures
-memory/ids.json:          the row ids and names of that listing
 hooks/list.json:          agent-hooksctl list on the tests/core_modules/hooks fixtures
-hooks/ids.json:           the row ids and names of that listing
 hooks/prepare-remove.json:   the prepared removal payload for the first removable row
 hooks/remove-prepared.json:  the result of performing that prepared removal
 hooks/recovery-record.json:  the record fileblade_recovery.RecoveryStore wrote for it
 mcp/list.json:            agent-mcpctl list on the tests/core_modules/mcp fixtures
-mcp/ids.json:             the row ids and names of that listing
 mcp/prepare-remove.json:     the prepared removal payload for the first removable row
 mcp/remove-prepared.json:    the result of performing that prepared removal
 mcp/recovery-record.json:    the record fileblade_recovery.RecoveryStore wrote for it

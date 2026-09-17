@@ -1,5 +1,4 @@
 use super::*;
-use std::os::unix::ffi::OsStringExt;
 
 pub(super) fn command_binary(program: &OsStr) -> AppResult<PathBuf> {
     if let Some(text) = program.to_str() {
@@ -30,12 +29,12 @@ pub(super) fn quoted_paths(paths: &[String]) -> String {
 }
 
 pub(super) fn configured_launcher(command: &[OsString], cwd: &str) -> AppResult<Vec<String>> {
-    let binary = crate::common::own_binary()
-        .map_err(|_| AppError::invalid("Configured terminal actions need the FileBlade binary"))?;
-    let program = binary
-        .to_str()
-        .ok_or_else(|| AppError::invalid("Configured terminal actions need the FileBlade binary"))?
-        .to_string();
+    let program = crate::common::own_binary()
+        .ok()
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .ok_or_else(|| {
+            AppError::invalid("Configured terminal actions need the FileBlade binary")
+        })?;
     let folder = parse_path(cwd)?;
     let mut launch = vec![program, EXEC_HEX.to_string()];
     launch.extend(
@@ -59,22 +58,17 @@ pub fn exec_hex(values: &[String]) -> AppResult<()> {
     for value in values {
         decoded.push(decode_hex(value)?);
     }
-    let (folder, argv) = decoded
-        .split_first()
-        .ok_or_else(|| AppError::invalid("exec-hex needs a working directory and a program"))?;
-    let (program, arguments) = argv
-        .split_first()
-        .ok_or_else(|| AppError::invalid("exec-hex needs a working directory and a program"))?;
-    let folder = PathBuf::from(OsString::from_vec(folder.clone()));
-    std::env::set_current_dir(&folder).map_err(|error| {
+    let [folder, program, arguments @ ..] = decoded.as_slice() else {
+        return Err(AppError::invalid(
+            "exec-hex needs a working directory and a program",
+        ));
+    };
+    std::env::set_current_dir(Path::new(OsStr::from_bytes(folder))).map_err(|error| {
         AppError::invalid(format!("exec-hex cannot enter the directory: {error}"))
     })?;
     let error = std::os::unix::process::CommandExt::exec(
-        std::process::Command::new(OsString::from_vec(program.clone())).args(
-            arguments
-                .iter()
-                .map(|value| OsString::from_vec(value.clone())),
-        ),
+        std::process::Command::new(OsStr::from_bytes(program))
+            .args(arguments.iter().map(|value| OsStr::from_bytes(value))),
     );
     Err(AppError::invalid(format!(
         "exec-hex cannot run the program: {error}"

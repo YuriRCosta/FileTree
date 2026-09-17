@@ -15,14 +15,6 @@ fn main() -> ExitCode {
             if let RootCommand::Native(args) = cli.command {
                 return fileblade::native::run(args, output);
             }
-            if let RootCommand::ExecHex(args) = &cli.command {
-                let error = fileblade::drop_target::exec_hex(&args.values)
-                    .err()
-                    .map(|error| error.to_string())
-                    .unwrap_or_default();
-                let _ = output.error(&error);
-                return ExitCode::FAILURE;
-            }
             match execute(cli.command, Arc::clone(&output)) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) if broken_pipe(&error) => ExitCode::SUCCESS,
@@ -37,6 +29,9 @@ fn main() -> ExitCode {
 }
 
 fn execute(command: RootCommand, output: Arc<Output>) -> AppResult<()> {
+    if let RootCommand::ExecHex(args) = &command {
+        return fileblade::drop_target::exec_hex(&args.values);
+    }
     if fileblade::lease::selected_root()?.is_some()
         && match &command {
             RootCommand::Preferences(changes) => {

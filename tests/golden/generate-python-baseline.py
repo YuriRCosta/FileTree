@@ -19,7 +19,6 @@ DEFAULT_OUT = REPO / "tests" / "golden" / "python-baseline"
 FROZEN_EPOCH = 1758000000
 FROZEN_DAY = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
 TRANSACTION_ID = "0123456789abcdef0123456789abcdef"
-MODULES = ("skills", "memory", "hooks", "mcp")
 
 
 def fixed_times(root: Path) -> None:
@@ -147,7 +146,6 @@ def module_baseline(module: str, root: Path, out: Path) -> dict:
     document = run([control, *list_arguments(module, home, project)], env)
     write_json(out / module / "list.json", normalized(document, root))
     rows = rows_of(document)
-    write_json(out / module / "ids.json", [{"id": row["id"], "name": row.get("name", "")} for row in rows])
     summary = {"rows": len(rows)}
     if module in ("hooks", "mcp"):
         summary.update(removal_baseline(module, control, env, root, out, project, home, rows))
@@ -235,8 +233,8 @@ def dump_store(path: Path) -> dict:
         document = {"userVersion": version, "tables": {}}
         for table in tables:
             columns = [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
-            rows = connection.execute(f"SELECT * FROM {table}").fetchall()
-            document["tables"][table] = {"columns": columns, "rowCount": len(rows)}
+            count = connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            document["tables"][table] = {"columns": columns, "rowCount": count}
         events = connection.execute(
             "SELECT agent, call, at, kind, origin, server, name, subagent, failed FROM event ORDER BY agent, call").fetchall()
         document["events"] = [list(row) for row in events]
@@ -264,7 +262,6 @@ def usage_baseline(root: Path, out: Path) -> dict:
     store = state / "omarchy" / "fileblade" / "agent-usage.sqlite3"
     if not store.exists():
         raise SystemExit("the usage store was not written")
-    (out / "usage").mkdir(parents=True, exist_ok=True)
     shutil.copy2(store, out / "usage" / "agent-usage.sqlite3")
     dump = dump_store(store)
     write_json(out / "usage" / "store-dump.json", dump)
@@ -283,7 +280,7 @@ def main() -> int:
         shutil.rmtree(root)
     root.mkdir(parents=True)
     manifest = {"frozen": "2026-09-17", "root": str(root), "modules": {}}
-    for module in MODULES:
+    for module in BUILDERS:
         manifest["modules"][module] = module_baseline(module, root, out)
     manifest["modules"]["usage"] = usage_baseline(root, out)
     write_json(out / "manifest.json", manifest)
