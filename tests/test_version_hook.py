@@ -221,6 +221,31 @@ class VersionHookTests(unittest.TestCase):
         self.git("symbolic-ref", "HEAD", "refs/heads/0.1.4")
         self.hook(False, "branch 0.1.4")
 
+    def test_released_versions_block_equal_or_lower_staged_versions(self):
+        self.git("symbolic-ref", "HEAD", "refs/heads/feature")
+        self.git("commit", "-qm", "Baseline")
+        cases = [
+            ("0.1.3", ["v0.1.3"], "", False, "released 0.1.3"),
+            ("0.1.3", ["v0.1.4"], "", False, "released 0.1.4"),
+            ("0.1.3", [], "## 0.1.4\n", False, "released 0.1.4"),
+            ("0.1.3", [], "## 0.1.4 (unreleased)\n", True, ""),
+            ("0.1.4-rc.1", ["v0.1.3"], "## 0.1.3\n", True, ""),
+            ("0.1.4-rc.1", ["v0.1.4-beta"], "", True, ""),
+            ("0.1.4-rc.1", ["v0.1.4"], "", False, "released 0.1.4"),
+            ("0.1.4+build.7", ["v0.1.4"], "", False, "released 0.1.4"),
+            ("0.1.10", ["v0.1.9"], "## 0.1.2\n", True, ""),
+        ]
+        for value, tags, headings, success, message in cases:
+            with self.subTest(value=value, tags=tags, headings=headings):
+                for tag in tags:
+                    self.git("tag", tag)
+                self.write_versions(value)
+                self.write("CHANGELOG.md", f"## {value} (unreleased)\n{headings}")
+                self.git("add", "--", *SOURCES)
+                self.hook(success, message)
+                for tag in tags:
+                    self.git("tag", "-d", tag)
+
     def test_oversized_staged_metadata_is_rejected(self):
         self.write("manifest.json", '{"version":"0.1.3","padding":"' + "x" * 65536 + '"}')
         self.git("add", "manifest.json")
