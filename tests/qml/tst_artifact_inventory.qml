@@ -339,4 +339,48 @@ TestCase {
     for (var id of ["request-2", "request-3", "watch-0", "watch-1"])
       verify(cancelled.some(function(request) { return request.id === id && request.discardCallbacks }), id)
   }
+
+  function usageSubscriptions() {
+    return subscriptions.filter(function(entry) { return entry.paths[0] === "/home/me/.claude/projects" })
+  }
+
+  function test_transcript_directories_are_watched_and_a_change_refreshes_after_a_pause() {
+    inventory.attach(observer()); start()
+    var listing = rows("row", ["/plugins/inventory/skills"])
+    listing.usageWatchPaths = ["/home/me/.claude/projects", "/home/me/.codex/sessions"]
+    finish(0, listing); finish(1, listing)
+    compare(usageSubscriptions().length, 1)
+    var usage = usageSubscriptions()[0]
+    compare(usage.paths, ["/home/me/.claude/projects", "/home/me/.codex/sessions"])
+    compare(inventory.usageWatchPaths, usage.paths)
+    var before = requests.length
+    usage.event({ events: ["modify"], path: "/home/me/.claude/projects/x/s.jsonl" })
+    usage.event({ events: ["modify"], path: "/home/me/.claude/projects/x/s.jsonl" })
+    compare(requests.length, before)
+    tryVerify(function() { return requests.length >= before + 2 }, inventory.usageChangeDelayMs + 2000)
+    compare(scopeOf(before), "project")
+    compare(scopeOf(before + 1), "user")
+    var again = rows("row", ["/plugins/inventory/skills"])
+    again.usageWatchPaths = usage.paths
+    finish(before, again); finish(before + 1, again)
+    compare(usageSubscriptions().length, 1)
+    usage.closed({ cancelled: false })
+    compare(inventory.usageWatch, null)
+    inventory.refresh(); start()
+    finish(requests.length - 2, again); finish(requests.length - 1, again)
+    compare(usageSubscriptions().length, 2)
+  }
+
+  function test_the_transcript_watch_stops_with_the_last_view() {
+    var view = observer()
+    inventory.attach(view); start()
+    var listing = rows("row", [])
+    listing.usageWatchPaths = ["/home/me/.claude/projects"]
+    finish(0, listing); finish(1, listing)
+    compare(usageSubscriptions().length, 1)
+    var usage = usageSubscriptions()[0]
+    inventory.detach(view)
+    compare(inventory.usageWatch, null)
+    verify(cancelled.some(function(entry) { return entry.id === usage.id }))
+  }
 }

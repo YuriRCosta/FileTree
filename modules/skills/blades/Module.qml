@@ -35,7 +35,7 @@ FocusScope {
   property bool caseSensitive: false
   property bool regex: false
   readonly property bool applying: inventory ? inventory.applying : false
-  readonly property string applyError: binError || (inventory ? inventory.applyError || inventory.watchError : "") || (tree.item ? tree.item.folderError : "")
+  readonly property string applyError: binError || (inventory ? inventory.applyError || inventory.watchError : "") || (bin.item ? bin.item.listingError : "") || (tree.item ? tree.item.folderError : "")
 
   function takeFocus(part) {
     if (String(part || "") === "search") openSearch()
@@ -85,11 +85,18 @@ FocusScope {
     binError = ""
     if (inventory) inventory.applyError = ""
     if (inventory && !suspended) inventory.refresh(true)
+    if (bin.item) bin.item.refresh()
     if (tree.item) tree.item.refreshFolders()
   }
 
   function rescan() {
     if (inventory && !suspended) inventory.refresh()
+    if (bin.item) bin.item.refresh()
+  }
+
+  function livePath(item) {
+    if (!item) return ""
+    return String(item.kind === "bin" && item.realpath ? item.realpath : item.path || "")
   }
 
   function syncProvider() {
@@ -108,9 +115,9 @@ FocusScope {
 
   function skillDescriptorPath(item) {
     if (!item) return ""
-    var descriptor = String(item.descriptorPath || "")
+    var descriptor = String(item.kind === "bin" ? "" : item.descriptorPath || "")
     if (descriptor) return descriptor
-    var path = String(item.path || "")
+    var path = livePath(item)
     if (path.slice(-9) === "/SKILL.md") return path
     return path.slice(-1) === "/" ? path + "SKILL.md" : path + "/SKILL.md"
   }
@@ -206,10 +213,14 @@ FocusScope {
       + " " + String(entry.source || "") + " " + String(entry.scope || "") + " " + agents
   }
 
+  function binnedSkill(item) {
+    return !!item && item.kind === "bin" && String(item.originKind || "") === "skill"
+  }
+
   function openItem(item) {
     if (!item || !files) return
-    if (item.isDir) files.navigateToLocation(String(item.path), context.screen, "browse")
-    else files.openDefault(String(item.path), context.screen, false)
+    if (item.isDir || binnedSkill(item)) files.navigateToLocation(livePath(item), context.screen, "browse")
+    else files.openDefault(livePath(item), context.screen, false)
   }
 
   function openDescriptor(item) {
@@ -217,8 +228,8 @@ FocusScope {
   }
 
   function dropSpec(entry) {
-    if (!entry || !entry.path || entry.skillRoot !== true) return null
-    var applicable = String(entry.scope || "") === "user" || String(entry.scope || "") === "project"
+    if (!entry || !entry.path || (entry.skillRoot !== true && !binnedSkill(entry))) return null
+    var applicable = entry.kind !== "bin" && (String(entry.scope || "") === "user" || String(entry.scope || "") === "project")
     var actions = [
       { id: "skill-open", label: "Open SKILL.md", glyph: "󰍔", key: "o", description: "Open the skill in the editor",
         run: function() { module.openDescriptor(entry) } },
@@ -233,7 +244,7 @@ FocusScope {
   }
 
   function revealItem(item) {
-    if (item && files) files.navigateToLocation(String(item.path), context.screen, "browse")
+    if (item && files) files.navigateToLocation(livePath(item), context.screen, "browse")
   }
 
   function statusText() {
@@ -250,6 +261,7 @@ FocusScope {
 
   onProviderChanged: syncProvider()
   onContextChanged: syncProvider()
+  onItemsChanged: if (bin.item) bin.item.refresh()
   onSuspendedChanged: syncProvider()
   Component.onCompleted: syncProvider()
   Component.onDestruction: if (attachedProvider) attachedProvider.detach(attachedContext)

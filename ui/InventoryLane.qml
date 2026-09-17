@@ -95,6 +95,7 @@ Item {
     }
     items = rows
     startWatch(response.watchPaths, response.watchTruncated === true)
+    if (typeof owner.startUsageWatch === "function") owner.startUsageWatch(response.usageWatchPaths)
   }
 
   function startWatch(raw, capped) {

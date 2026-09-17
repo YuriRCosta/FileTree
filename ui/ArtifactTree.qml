@@ -211,11 +211,11 @@ FocusScope {
   }
 
   function entryFor(item) {
-    if (!item || !item.path || isBinned(item) || !fileActionsFor(item)) return null
+    if (!item || !item.path || !fileActionsFor(item)) return null
     return {
-      path: String(item.path),
+      path: String(isBinned(item) && item.realpath ? item.realpath : item.path),
       name: String(item.name || ""),
-      isDir: !!(item.is_dir || item.isDir),
+      isDir: !!(item.is_dir || item.isDir || (isBinned(item) && String(item.originKind || "") === "skill")),
       isSymlink: tree.isLinked(item),
       kind: String(item.kind || ""),
       mime: String(item.mime || "")
@@ -223,11 +223,6 @@ FocusScope {
   }
 
   function openMenu(item, rowItem, x, y, mode, keyboard) {
-    if (isBinned(item)) {
-      if (mode && mode !== "actions") return false
-      tree.actionRequested(item)
-      return true
-    }
     var entry = entryFor(item)
     if (!entry || !files || !context) return false
     var origin = rowItem || tree

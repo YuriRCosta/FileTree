@@ -33,6 +33,7 @@ def listing(args: argparse.Namespace) -> dict[str, Any]:
     with WatchPlan() as plan:
         payload = plan.finish(discovery.collect(environment(args)))
     payload.update(agent_usage.attach_skills(payload["items"]))
+    payload["usageWatchPaths"] = [NativePath(path) for path in agent_usage.watch_paths()]
     return payload
 
 def usage(args: argparse.Namespace) -> dict[str, Any]:

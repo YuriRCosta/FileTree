@@ -221,6 +221,168 @@ class UsageHistory(unittest.TestCase):
         history = self.helper("mcp", "usage", "--json")
         self.assertEqual((history["kind"], history["coverageStart"], history["days"]), ("mcp", date, [[date, 10, 9, 1, 1, 2]]))
 
+    def codex_rollout(self, *records):
+        rollout = self.home / ".codex" / "sessions" / "2026" / "09" / "14" / "rollout-2026-09-14T10-00-00-c0de.jsonl"
+        rollout.parent.mkdir(parents=True, exist_ok=True)
+        rollout.write_text(lines(session_meta(self.day), *records))
+        return rollout
+
+    def codex_explicit(self, at, identity, name):
+        body = f"<skill>\n<name>{name}</name>\n<path>/home/x/.agents/skills/{name}/SKILL.md</path>\nbody\n</skill>\n"
+        return {"timestamp": iso(at), "type": "response_item",
+                "payload": {"type": "message", "role": "user", "id": identity, "content": [{"type": "input_text", "text": body}],
+                            "internal_chat_message_metadata_passthrough": {"turn_id": "turn-1", "create_time": 1.0,
+                                                                          "content_item_kinds": ["skills.selected_skill_instructions"]}}}
+
+    def codex_read(self, at, identity, turn, path):
+        item = {"type": "CommandExecution", "id": identity, "command": ["/usr/bin/bash", "-lc", f"sed -n '1,240p' {path}"],
+                "cwd": "/work/project", "status": "completed", "exit_code": 0,
+                "parsed_cmd": [{"type": "read", "cmd": f"sed -n '1,240p' {path}", "name": "SKILL.md", "path": path}]}
+        return {"timestamp": iso(at), "type": "event_msg", "payload": {"type": "item_completed", "thread_id": "t", "turn_id": turn, "item": item}}
+
+    def codex_legacy_exec(self, at, call, command):
+        return {"timestamp": iso(at), "type": "response_item",
+                "payload": {"type": "custom_tool_call", "name": "exec", "call_id": call, "id": "ct_" + call, "input": command}}
+
+    def opencode_stable(self, name, parts):
+        directory = self.home / ".local" / "share" / "opencode"
+        directory.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(directory / name)) as connection:
+            connection.executescript(
+                "CREATE TABLE session (id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, title TEXT, version TEXT, "
+                "time_created INTEGER, time_updated INTEGER);"
+                "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);"
+                "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);")
+            at = int(self.day.timestamp() * 1000)
+            connection.execute("INSERT INTO session VALUES ('ses_1', 'p', '/work/project', 't', '1.18.30', ?, ?)", (at, at))
+            for index, (call, tool, status, arguments) in enumerate(parts):
+                data = {"type": "tool", "callID": call, "tool": tool,
+                        "state": {"status": status, "input": arguments, "time": {"start": at + index, "end": at + index + 1}}}
+                connection.execute("INSERT INTO part VALUES (?, 'msg_1', 'ses_1', ?, ?, ?)", (f"prt_{index}", at, at + index, json.dumps(data)))
+            connection.commit()
+
+    def opencode_beta(self, name, items):
+        directory = self.home / ".local" / "share" / "opencode"
+        directory.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(directory / name)) as connection:
+            connection.executescript(
+                "CREATE TABLE session_v2 (id TEXT PRIMARY KEY, directory TEXT, version TEXT, time_created INTEGER, time_updated INTEGER);"
+                "CREATE TABLE session_message (id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER, time_created INTEGER, "
+                "time_updated INTEGER, data TEXT);")
+            at = int(self.day.timestamp() * 1000)
+            connection.execute("INSERT INTO session_v2 VALUES ('ses_2', '/work/project', '0.0.0-beta', ?, ?)", (at, at))
+            content = [{"type": "tool", "id": call, "name": tool, "state": {"status": status, "input": arguments},
+                        "time": {"created": at, "completed": at + 1}} for call, tool, status, arguments in items]
+            connection.execute("INSERT INTO session_message VALUES ('msg_2', 'ses_2', 'assistant', 1, ?, ?, ?)",
+                               (at, at, json.dumps({"content": content, "time": {"created": at}})))
+            connection.commit()
+
+    def copilot_events(self, *events):
+        path = self.home / ".copilot" / "session-state" / "31cbc57f" / "events.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        records = [{"id": f"e{index}", "timestamp": iso(self.day), "parentId": None, "type": kind, "data": data}
+                   for index, (kind, data) in enumerate(events)]
+        path.write_text(lines(*records))
+        return path
+
+    def antigravity_files(self, slash, skill_path):
+        root = self.home / ".gemini" / "antigravity-cli"
+        logs = root / "brain" / "9c1d" / ".system_generated" / "logs"
+        logs.mkdir(parents=True)
+        at = int(self.day.timestamp() * 1000)
+        (root / "history.jsonl").write_text(lines(
+            {"timestamp": at, "workspace": "/work/project", "display": "/usage", "type": "slash_command"},
+            {"timestamp": at + 1, "workspace": "/work/project", "display": slash, "type": "slash_command", "conversationId": "9c1d"},
+            {"timestamp": at + 2, "workspace": "/work/project", "display": "plain prompt"}))
+        (logs / "transcript_full.jsonl").write_text(lines(
+            {"step_index": 0, "type": "USER_INPUT", "source": "USER_EXPLICIT", "status": "DONE", "created_at": self.day.strftime("%Y-%m-%dT%H:%M:%SZ"), "content": "x"},
+            {"step_index": 1, "type": "GENERIC", "source": "MODEL", "status": "DONE", "created_at": self.day.strftime("%Y-%m-%dT%H:%M:%SZ"),
+             "tool_calls": [{"name": "view_file", "args": {"AbsolutePath": skill_path}}, {"name": "list_dir", "args": {"DirectoryPath": "/work"}}]}))
+
+    def pi_session(self, *entries):
+        path = self.home / ".pi" / "agent" / "sessions" / "--work-project--" / "2026-09-14T10-00-00_s1.jsonl"
+        path.parent.mkdir(parents=True)
+        header = {"type": "session", "version": 3, "id": "s1", "timestamp": iso(self.day), "cwd": "/work/project"}
+        path.write_text(lines(header, *entries))
+        return path
+
+    def test_every_supported_agent_counts_skill_uses(self):
+        for name in ("alpha", "beta", "gamma"):
+            self.skill(self.claude / "skills", name)
+        alpha = "/home/x/.agents/skills/alpha/SKILL.md"
+        self.codex_rollout(self.codex_explicit(self.day, "msg_1", "alpha"),
+                           self.codex_read(self.day, "cmd_1", "turn-1", alpha), self.codex_read(self.day, "cmd_2", "turn-1", alpha),
+                           self.codex_legacy_exec(self.day, "call_9", "cat /home/x/.agents/skills/beta/SKILL.md | head"),
+                           codex_call(self.day, "exec-1", "docs", "search"))
+        self.opencode_stable("opencode.db", [("call_a", "skill", "completed", {"name": "alpha"}),
+                                             ("call_b", "skill", "error", {"name": "alpha"}),
+                                             ("call_c", "skill", "running", {"name": "alpha"}),
+                                             ("call_d", "read", "completed", {"filePath": "/x"})])
+        self.opencode_beta("opencode-beta.db", [("call_e", "skill", "completed", {"name": "gamma"}), ("call_f", "bash", "completed", {})])
+        self.copilot_events(("session.start", {"sessionId": "31cbc57f", "context": {"cwd": "/work/project"}}),
+                            ("skill.invoked", {"name": "alpha", "path": "/x/alpha/SKILL.md", "trigger": "user-invoked", "content": "body"}),
+                            ("skill.invoked", {"name": "alpha", "path": "/x/alpha/SKILL.md", "trigger": "agent-invoked", "content": "body"}),
+                            ("skill.invoked", {"name": "beta", "path": "/x/beta/SKILL.md", "trigger": "context-load", "content": "body"}),
+                            ("tool.execution_start", {"toolCallId": "tc-1", "toolName": "docs-search", "mcpServerName": "docs", "mcpToolName": "search"}),
+                            ("tool.execution_complete", {"toolCallId": "tc-1", "success": False}))
+        self.antigravity_files("/alpha do it", "/home/x/.agents/skills/beta/SKILL.md")
+        self.pi_session({"type": "message", "id": "m1", "parentId": None, "timestamp": iso(self.day),
+                         "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "tc_pi", "name": "read",
+                                                                       "arguments": {"path": "/home/x/.pi/agent/skills/gamma/SKILL.md"}}]}},
+                        {"type": "message", "id": "m2", "parentId": "m1", "timestamp": iso(self.day),
+                         "message": {"role": "toolResult", "toolCallId": "tc_pi", "toolName": "read", "content": [], "isError": True}})
+        document = self.skills()
+        rows = document["items"]
+        self.assertEqual(uses(self.row(rows, "alpha")), {"uses": 7, "usesAgent": 4, "usesUser": 3, "usesScheduled": 0, "failed": 1})
+        self.assertEqual(uses(self.row(rows, "beta")), {"uses": 2, "usesAgent": 2, "usesUser": 0, "usesScheduled": 0, "failed": 0})
+        self.assertEqual(uses(self.row(rows, "gamma")), {"uses": 2, "usesAgent": 2, "usesUser": 0, "usesScheduled": 0, "failed": 1})
+        self.assertEqual((document["usageTranscripts"], document["usageUnreadable"], document["usageIngestPending"]), (7, 0, False))
+        self.assertIn(str(self.transcripts.parent), document["usageWatchPaths"])
+        self.assertIn(str(self.home / ".codex" / "sessions"), document["usageWatchPaths"])
+        history = self.skill_usage()
+        self.assertEqual(history["coverageStart"], self.date(self.day))
+        self.assertEqual(history["days"], [[self.date(self.day), 11, 8, 3, 0, 2]])
+        with closing(sqlite3.connect(self.store)) as connection:
+            agents = dict(connection.execute("SELECT agent, count(*) FROM event WHERE kind IN ('skill', 'command') GROUP BY agent"))
+            self.assertEqual(agents, {"codex": 3, "opencode": 3, "copilot": 2, "antigravity": 3, "pi": 1})
+            projects = {row[0] for row in connection.execute("SELECT DISTINCT project.path FROM event JOIN project ON project.id = event.project")}
+            self.assertEqual(projects, {"/work/project"})
+            self.assertEqual(connection.execute("SELECT count(*) FROM failure").fetchone()[0], 0)
+
+    def test_an_opencode_call_that_finishes_later_is_counted_once_it_completes(self):
+        self.skill(self.claude / "skills", "alpha")
+        self.opencode_stable("opencode.db", [("call_a", "skill", "running", {"name": "alpha"})])
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["usesAgent"], 0)
+        at = int(self.day.timestamp() * 1000)
+        with closing(sqlite3.connect(self.home / ".local" / "share" / "opencode" / "opencode.db")) as connection:
+            data = {"type": "tool", "callID": "call_a", "tool": "skill", "state": {"status": "completed", "input": {"name": "alpha"},
+                                                                                     "time": {"start": at, "end": at + 5}}}
+            connection.execute("UPDATE part SET data = ?, time_updated = ? WHERE id = 'prt_0'", (json.dumps(data), at + 5000))
+            connection.commit()
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["usesAgent"], 1)
+        self.assertEqual(self.row(self.skills()["items"], "alpha")["usesAgent"], 1)
+
+    def test_other_agents_mcp_calls_reach_their_definitions(self):
+        (self.home / ".copilot").mkdir(parents=True, exist_ok=True)
+        (self.home / ".copilot" / "mcp-config.json").write_text(json.dumps({"mcpServers": {"docs": {"type": "local", "command": "docs"}}}))
+        (self.home / ".config" / "opencode").mkdir(parents=True, exist_ok=True)
+        (self.home / ".config" / "opencode" / "opencode.json").write_text(json.dumps({"mcp": {"my.docs": {"type": "local", "command": ["docs"]}}}))
+        self.copilot_events(("session.start", {"sessionId": "31cbc57f", "context": {"cwd": "/work/project"}}),
+                            ("tool.execution_start", {"toolCallId": "tc-1", "toolName": "docs-search", "mcpServerName": "docs", "mcpToolName": "search"}),
+                            ("tool.execution_complete", {"toolCallId": "tc-1", "success": False}),
+                            ("tool.execution_start", {"toolCallId": "tc-2", "toolName": "bash", "arguments": {}}),
+                            ("tool.execution_complete", {"toolCallId": "tc-2", "success": True}))
+        self.opencode_stable("opencode.db", [("call_a", "my_docs_search", "completed", {"query": "x"}),
+                                             ("call_b", "my_docs_fetch_page", "error", {"query": "y"}),
+                                             ("call_c", "read", "completed", {"filePath": "/x"})])
+        rows = self.mcp()["definitions"]
+        copilot = self.row(rows, "docs", agent="github-copilot-cli")
+        self.assertEqual(uses(copilot), {"uses": 1, "usesAgent": 1, "usesUser": 0, "usesScheduled": 0, "failed": 1})
+        self.assertEqual([entry["name"] for entry in copilot["observed"]], ["search"])
+        opencode = self.row(rows, "my.docs", agent="opencode")
+        self.assertEqual(uses(opencode), {"uses": 2, "usesAgent": 2, "usesUser": 0, "usesScheduled": 0, "failed": 1})
+        self.assertEqual(sorted(entry["name"] for entry in opencode["observed"]), ["fetch_page", "search"])
+
     def test_an_appended_transcript_is_read_from_where_the_last_read_stopped(self):
         self.skill(self.claude / "skills", "alpha")
         path = self.transcript("s1.jsonl", opening(), called(self.day, "toolu_a1", "Skill", skill="alpha"))

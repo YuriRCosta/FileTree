@@ -1405,6 +1405,23 @@ This file was written by an agent.
   replaced, shortened or copied, or an older unread transcript is found. A
   full forget also excludes history dated through that moment; later uses
   still count. Forget reports the number of stored events removed.
+- **E-48-20** Skill Uses count every agent FileBlade manages. A Codex `$skill`
+  mention counts as a use by me; a Codex, Antigravity or Pi read of a skill's
+  `SKILL.md` counts as one agent use per turn; an OpenCode `skill` tool call
+  counts once it completes; a Copilot CLI skill counts as mine when I invoked
+  it and as the agent's when it did. A Copilot or OpenCode MCP call counts for
+  its server row.
+- **E-48-21** While an agent is running in another window, the Uses column and
+  the heatmap of an open Skills or MCP tab climb on their own within a few
+  seconds of the agent writing its transcript, without me pressing refresh.
+  When the tab is closed nothing is read.
+- **E-48-22** A skill I disabled stays in the list, struck through, from the
+  moment the dialog closes, after a rescan, and after the shell restarts. It
+  never waits for another disable to appear.
+- **E-48-23** Right-clicking a disabled skill opens the same menu as any other
+  skill. Open, Reveal and the file actions act on the disabled copy FileBlade
+  keeps; Enter and the row's action button still offer Restore and Delete
+  forever.
 
 ## 49. Branches
 

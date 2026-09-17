@@ -7,13 +7,14 @@ import time
 from collections import Counter
 from typing import Any
 
-from .store import identity, session
+from .store import MCP_AGENTS, SKILL_AGENTS, identity, session
 
 SCHEMA_VERSION = 1
 MAX_OBSERVED = 64
 WINDOW_DAYS = 160 * 7
 UNAVAILABLE = "usage store unavailable"
 MCP_EVENTS = "(kind IN ('tool', 'resource', 'resource-list') OR (agent = 'claude' AND kind = 'command' AND name GLOB 'mcp__?*__?*'))"
+MCP_DEFINITION_AGENTS = {"claude": "claude", "codex": "codex", "opencode": "opencode", "github-copilot-cli": "copilot"}
 
 
 def sanitize(name: str) -> str:
@@ -29,14 +30,17 @@ def skill_names(item: dict[str, Any]) -> set[str]:
 
 def mcp_server(item: dict[str, Any]) -> tuple[str, str] | None:
     name = str(item.get("name") or "")
-    if item.get("agent") == "codex":
-        return "codex", name
-    if item.get("agent") != "claude":
+    agent = MCP_DEFINITION_AGENTS.get(str(item.get("agent") or ""))
+    if agent is None:
         return None
+    if agent == "opencode":
+        return agent, sanitize(name)
+    if agent != "claude":
+        return agent, name
     if item.get("scope") != "plugin":
-        return "claude", sanitize(name)
+        return agent, sanitize(name)
     plugin = str((item.get("source") or {}).get("plugin") or "")
-    return ("claude", f"plugin_{sanitize(plugin)}_{sanitize(name)}") if plugin else None
+    return (agent, f"plugin_{sanitize(plugin)}_{sanitize(name)}") if plugin else None
 
 
 def counts(agent: int, user: int, scheduled: int, failed: int) -> dict[str, int]:
@@ -65,14 +69,23 @@ def attach_skills(items: list[dict[str, Any]]) -> dict[str, Any]:
                 tally[3] += failed if kind == "skill" else 0
             for item in items:
                 attach(item, counts(*(sum(column) for column in zip(*(tallies.get(name, [0, 0, 0, 0]) for name in skill_names(item))))))
-            return {"usageTranscripts": sources(connection, ("claude",)), "usageUnreadable": unreadable, "usageIngestPending": pending}
+            return {"usageTranscripts": sources(connection, SKILL_AGENTS), "usageUnreadable": unreadable, "usageIngestPending": pending}
     except (OSError, sqlite3.Error):
         return {"usageError": UNAVAILABLE}
+
+
+def opencode_owner(name: str, prefixes: list[str]) -> tuple[str, str]:
+    for prefix in prefixes:
+        if name.startswith(prefix + "_") and len(name) > len(prefix) + 1:
+            return prefix, name[len(prefix) + 1:]
+    return "", name
 
 
 def attach_mcp(definitions: list[dict[str, Any]]) -> dict[str, Any]:
     try:
         with session() as (connection, (pending, unreadable)):
+            keys = [mcp_server(item) for item in definitions]
+            prefixes = sorted({server for key in keys if key and key[0] == "opencode" for server in [key[1]]}, key=len, reverse=True)
             servers: dict[tuple[str, str], dict[tuple[str, str], list[Any]]] = {}
             for agent, server, kind, name, origin, total, failed, last in connection.execute(
                     "SELECT agent, server, kind, name, origin, count(*), sum(failed), "
@@ -81,11 +94,14 @@ def attach_mcp(definitions: list[dict[str, Any]]) -> dict[str, Any]:
                 if kind == "command":
                     _, server, name = name.split("__", 2)
                     kind = "prompt"
-                entry = servers.setdefault((agent, sanitize(server) if agent == "claude" else server), {}).setdefault((kind, name), [0, 0, 0, 0, ""])
+                if agent == "claude":
+                    server = sanitize(server)
+                elif agent == "opencode" and server == "":
+                    server, name = opencode_owner(name, prefixes)
+                entry = servers.setdefault((agent, server), {}).setdefault((kind, name), [0, 0, 0, 0, ""])
                 entry[0 if kind != "prompt" else 1 if origin == "user" else 2] += total
                 entry[3] += failed
                 entry[4] = max(entry[4], last)
-            keys = [mcp_server(item) for item in definitions]
             owners = Counter(key for key in keys if key)
             ambiguous = 0
             for item, key in zip(definitions, keys):
@@ -98,7 +114,7 @@ def attach_mcp(definitions: list[dict[str, Any]]) -> dict[str, Any]:
                 ranked = sorted(observed.items(), key=lambda pair: (-pair[1][0] - pair[1][1], pair[0][1], pair[0][0]))
                 item["observed"] = [{"kind": kind, "name": name, "uses": entry[0] + entry[1], "failed": entry[3], "lastUsed": entry[4]}
                                     for (kind, name), entry in ranked[:MAX_OBSERVED]]
-            return {"usageTranscripts": sources(connection, ("claude", "codex")), "usageUnreadable": unreadable,
+            return {"usageTranscripts": sources(connection, MCP_AGENTS), "usageUnreadable": unreadable,
                     "usageIngestPending": pending, "usageAmbiguous": ambiguous}
     except (OSError, sqlite3.Error):
         return {"usageError": UNAVAILABLE}
@@ -124,12 +140,12 @@ def history(kind: str, agents: tuple[str, ...], where: str, parameters: tuple[An
 
 def skill_usage(items: list[dict[str, Any]]) -> dict[str, Any]:
     names = sorted({name for item in items for name in skill_names(item)})
-    return history("skill", ("claude",),
+    return history("skill", SKILL_AGENTS,
                    "(kind = 'skill' OR (kind = 'command' AND name IN (SELECT value FROM json_each(?))))", (json.dumps(names),))
 
 
 def mcp_usage() -> dict[str, Any]:
-    return history("mcp", ("claude", "codex"), MCP_EVENTS)
+    return history("mcp", MCP_AGENTS, MCP_EVENTS)
 
 
 def forget(before: str | None) -> dict[str, Any]:
@@ -146,7 +162,7 @@ def forget(before: str | None) -> dict[str, Any]:
                 else:
                     cutoff = time.time_ns() // 1_000_000 + 1
                     future = connection.execute("SELECT agent, call FROM event WHERE at >= ? UNION "
-                                                "SELECT 'claude', call FROM failure WHERE at >= ?", (cutoff, cutoff)).fetchall()
+                                                "SELECT agent, call FROM failure WHERE at >= ?", (cutoff, cutoff)).fetchall()
                     connection.executemany("INSERT OR IGNORE INTO forgotten VALUES (?)", [(identity(*row),) for row in future])
                     removed = connection.execute("DELETE FROM event").rowcount
                     for statement in ("DELETE FROM failure", "DELETE FROM coverage", "UPDATE source SET project = NULL", "DELETE FROM project"):

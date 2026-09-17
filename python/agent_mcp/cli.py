@@ -6,6 +6,7 @@ import sys
 from datetime import date
 
 import agent_usage
+from fileblade_paths import NativePath
 from fileblade_inventory import SCOPES, WatchPlan, lane_rows
 
 from .apply import Applier
@@ -78,6 +79,7 @@ def main(arguments: list[str] | None = None) -> int:
             else:
                 document = Inventory(options.project).scan()
             document.update(agent_usage.attach_mcp(document["definitions"]))
+            document["usageWatchPaths"] = [NativePath(path) for path in agent_usage.watch_paths()]
             document["definitions"] = lane_rows(document["definitions"], options.scope, PROJECT_SCOPES)
             document["usageAmbiguous"] = sum(row.get("usageAmbiguous", False) for row in document["definitions"])
             output = bounded_json(document)

@@ -18,6 +18,7 @@ Item {
   readonly property var actionState: actions ? actions.stateFor(module) : ({})
   readonly property bool busy: actionState.busy === true
   readonly property string error: localError || String(actionState.error || "")
+  readonly property alias listingError: listing.error
   property string localError: ""
   property var pending: null
   property string pendingMode: ""

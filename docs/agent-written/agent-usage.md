@@ -12,11 +12,24 @@ the daily heatmap from that store. Events outlive the transcripts they came
 from, so the store holds history that cannot be rebuilt once an agent deletes
 old transcripts.
 
+Six agents feed the store. Their store names are shorter than the labels the
+Skills blade shows:
+
+```yaml
+claude:       Claude Code
+codex:        Codex CLI
+opencode:     OpenCode
+copilot:      GitHub Copilot CLI
+antigravity:  Google Antigravity CLI (agy)
+pi:           Pi
+```
+
 The code is the Python package `python/agent_usage/`:
 
 ```yaml
-records.py:  turns one Claude Code or Codex transcript record into events
-store.py:    store path, schema, lock, and the budgeted transcript ingest
+records.py:  turns one transcript record of any agent into events
+store.py:    store path, schema, lock, the per-agent sources, the budgeted ingest and the
+             directories a blade watches for new transcript bytes
 query.py:    name matching, the list totals, the daily history and forget
 ```
 
@@ -29,7 +42,8 @@ lock:         agent-usage.sqlite3.lock beside it
 permissions:  directory created 0700, database and lock created 0600; SQLite creates the
               -wal and -shm files with the database's permissions
 engine:       Python standard library sqlite3, WAL journal, busy_timeout 5000
-version:      PRAGMA user_version = 2. Version 1 gains retention, pending-failure and forgotten-identity tables without losing history.
+version:      PRAGMA user_version = 3. Version 1 gains retention, pending-failure and forgotten-identity
+              tables, version 2 gains the agent column on failure, both without losing history.
               Unknown versions are refused; existing tables are never dropped
 old cache:    $XDG_CACHE_HOME/omarchy/fileblade/agent-usage.json and agent-usage.tmp are
               deleted whenever the store opens. Nothing is migrated from them
@@ -68,26 +82,32 @@ CREATE TABLE event (
 CREATE INDEX event_time ON event (kind, at);
 CREATE INDEX event_name ON event (kind, server, name, at);
 CREATE TABLE retention (id INTEGER PRIMARY KEY CHECK (id = 1), before INTEGER NOT NULL);
-CREATE TABLE failure (call TEXT PRIMARY KEY, at INTEGER NOT NULL) WITHOUT ROWID;
+CREATE TABLE failure (call TEXT PRIMARY KEY, at INTEGER NOT NULL, agent TEXT NOT NULL DEFAULT 'claude') WITHOUT ROWID;
 CREATE TABLE forgotten (identity BLOB PRIMARY KEY) WITHOUT ROWID;
 ```
 
 ```yaml
 source:    one row per transcript file: identity, size, mtime in nanoseconds, and the byte
-           offset read so far. Codex rollouts also carry their session's project
+           offset read so far. Codex, Copilot, Antigravity and Pi sources also carry their
+           session's project. For an OpenCode database the offset is the newest time_updated
+           read, size and mtime fold in the -wal and -shm files, and a read cut short by the
+           budget stores size -1 so the next call resumes it
 project:   working directories seen in transcripts
 coverage:  per agent, the earliest record timestamp ever read. Kept as the minimum across
            runs, so deleting old transcripts never moves it later
 retention: one monotonic UTC millisecond cutoff below which ingest cannot insert events
 forgotten: SHA-256 digests of forgotten call identities with future timestamps, so a bad clock
            cannot either replay those calls or move the retention cutoff into the future
-failure:   failure call IDs and timestamps awaiting their Claude call, allowing newest-first
+failure:   failure call IDs, timestamps and agent awaiting their call, allowing newest-first
            ingestion to read a result in a resumed transcript before its original call
 event:     one row per use. at is UTC epoch milliseconds
 kind:      skill | command | tool | resource-list | resource
 origin:    agent | user | scheduled
-call:      the tool_use id, the Codex item id, or the record uuid for a typed command
-           (suffixed :1, :2 and so on when one record holds several commands)
+call:      the agent's own call, item, part or event id where it has one, or the record uuid
+           for a typed command (suffixed :1, :2 and so on when one record holds several
+           commands). Codex implicit reads use <turn id>:<skill>, Antigravity steps use
+           <transcript path>:<step>:<call index>, Antigravity slashes use <conversation or
+           workspace>:<timestamp>
 ```
 
 ## What is recorded
@@ -113,17 +133,81 @@ subagent:       1 when isSidechain is true
 project:        the record's cwd
 ```
 
-Codex rollouts:
+Codex rollouts (`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` and
+`archived_sessions`, checked against codex-cli 0.154.0 source):
 
 ```yaml
-tool:     event_msg whose payload is item_completed with an McpToolCall item: kind tool,
-          origin agent, server = item.server (the configured name), name = item.tool,
-          failed when item.status is not "completed" or item.result.isError is true
+command:  a response_item message with role user whose passthrough content_item_kinds names
+          skills.selected_skill_instructions, or whose text starts with <skill>: the user typed
+          $skill. kind command, origin user, name from the <name> tag
+skill:    event_msg item_completed with a CommandExecution item whose parsed_cmd has a read of a
+          path ending in /SKILL.md (or such a path in the command when parsed_cmd is missing):
+          kind skill, origin agent, name = the SKILL.md directory, one event per turn and skill
+          because Codex dedupes the same way. In legacy history_mode files the same rule reads
+          the custom_tool_call exec input string
+tool:     item_completed with an McpToolCall item: server = item.server (the configured name),
+          name = item.tool, failed when item.status is not "completed" or item.result.isError is
+          true. In legacy files a response_item function_call carrying a namespace is recorded
+          as a tool call of that namespace (inferred from the record shape, not documented)
 project:  session_meta payload.cwd
 ```
 
-A record without a usable timestamp, tool_use id, item id or record uuid is
-skipped.
+OpenCode databases (`$XDG_DATA_HOME/opencode/opencode*.db`, one per release
+channel, read with a query-only connection; the old JSON `storage/` tree is not
+read):
+
+```yaml
+stable:   part rows whose data.type is tool with state.status completed or error. tool "skill"
+          is kind skill named state.input.name; any other tool name containing "_" and not a
+          built-in is kind tool with an empty server and the full name, resolved to a server at
+          query time. call = data.callID, at = state.time.end, start or time_created, project =
+          the session's directory, failed when the status is error
+beta:     session_message rows of type assistant: every content item of type tool is read the
+          same way, with call = item.id (or <message id>:<index>) and at = time.completed or
+          created
+watermark: rows are read where time_updated is above the stored offset, so a running call is
+          counted once it completes
+```
+
+Copilot CLI sessions (`$COPILOT_HOME/session-state/*/events.jsonl`, default
+`~/.copilot`, shapes from the Copilot SDK event schema):
+
+```yaml
+skill:    skill.invoked: trigger user-invoked is kind command, origin user; any other trigger
+          except context-load is kind skill, origin agent; context-load is a preload and is
+          skipped. name = data.name, call = the event id
+tool:     tool.execution_start with mcpConfigServerName or mcpServerName: server = that name,
+          name = mcpToolName (else toolName), call = toolCallId. Built-in tools have no server
+          and are not recorded
+failure:  tool.execution_complete with success false marks the call failed
+project:  session.start or session.context_changed data.context.cwd
+subagent: 1 when the event carries agentId
+```
+
+Antigravity CLI (`~/.gemini/antigravity-cli`):
+
+```yaml
+command:  history.jsonl records with type slash_command: kind command, origin user, name = the
+          word after "/". Every slash is stored; skills are classified at query time
+skill:    brain/<conversation>/.system_generated/logs/transcript_full.jsonl steps with a
+          tool_calls entry named view_file whose args.AbsolutePath ends in /SKILL.md: kind skill,
+          origin agent, name = the SKILL.md directory, failed when the step status is ERROR
+project:  history.jsonl workspace; transcript steps carry no directory
+mcp:      not recorded; the transcript's MCP tool-name form is undocumented
+```
+
+Pi (`~/.pi/agent/sessions/**/*.jsonl`, session format 3):
+
+```yaml
+skill:    assistant message content of type toolCall whose arguments.path (or file_path) ends in
+          /SKILL.md, or a bash toolCall whose command names such a path: kind skill, origin
+          agent, name = the SKILL.md directory, call = the toolCall id
+failure:  a toolResult message with isError true marks its toolCallId failed
+project:  the session header cwd
+mcp:      not recorded; Pi reaches MCP only through extensions with their own tool-name schemes
+```
+
+A record without a usable timestamp or identity is skipped.
 
 Never recorded: tool arguments, skill arguments, command arguments, tool
 results, message text, thinking, token counts, resource query strings and
@@ -135,17 +219,33 @@ a skill use.
 
 ## Reading transcripts
 
-There is no transcript watcher and no background process. Every helper call
-that reads usage (`list` and `usage`) first runs one
-budgeted ingest in its own process, then answers from what is committed. A
-blade refresh runs `list` for its project and user lanes and one `usage`
-request when an activity view is visible, so new transcript bytes arrive with the next refresh of an open
-Skills or MCP tab, after a mutation, or when the tab's anchor folder changes.
+There is no background process. Every helper call that reads usage (`list`
+and `usage`) first runs one budgeted ingest in its own process, then answers
+from what is committed. A blade refresh runs `list` for its project and user
+lanes and one `usage` request when an activity view is visible.
+
+An open tab keeps up with running agents through the backend's filesystem
+subscription. Every `list` answer carries `usageWatchPaths`, the directories
+`store.watch_paths()` picks: each agent root that exists, the 24 most recently
+modified Claude project directories, today's and yesterday's Codex day
+directories, the 16 most recent Copilot sessions, the 8 most recent Antigravity
+conversation log directories and the 8 most recent Pi session directories, at
+most 96 in all. `ui/ArtifactInventory.qml` subscribes to that list once per
+distinct set, and any event on it refreshes both lanes and the activity request
+after a 2.5 s pause, so a burst of transcript lines costs one helper run. While
+a tab is open the inventory also refreshes every 60 s as a safety net for
+directories outside the watched set. The subscription stops with the last view
+and is renewed by the next `list` answer if the backend closes it.
 
 ```yaml
 roots:        claude: $CLAUDE_CONFIG_DIR/projects, else ~/.claude/projects, every *.jsonl
               below, subagent transcripts included
               codex: $CODEX_HOME/sessions and $CODEX_HOME/archived_sessions, else ~/.codex/...
+              opencode: $XDG_DATA_HOME/opencode/opencode*.db
+              copilot: $COPILOT_HOME/session-state/*/events.jsonl, else ~/.copilot/...
+              antigravity: $GEMINI_HOME/antigravity-cli/history.jsonl and
+              brain/*/.system_generated/logs/transcript_full.jsonl, else ~/.gemini/...
+              pi: $PI_HOME/agent/sessions, else ~/.pi/agent/sessions, every *.jsonl below
 walk cap:     8192 regular files per agent, taken in directory walk order
 order:        newest mtime first
 lock:         non-blocking flock on the lock file, retried every 50 ms for up to 4 s. A helper
@@ -159,11 +259,14 @@ partial line: reading stops at the first line without a trailing newline, so a h
               record waits for the next call
 record cap:   lines over 4 MiB are skipped using bounded reads; offsets inside these discarded
               lines resume skipping until their newline. Malformed or excessively nested JSON is skipped
-prefilter:    Claude lines are parsed only when they contain "Skill", mcp__, McpResource,
-              command-name or "is_error" (regardless of JSON spacing); Codex lines only when they contain
-              McpToolCall. On a read from byte 0, lines carrying "timestamp" are also parsed
-              until the first record with a real timestamp, so coverage starts where the
-              file does
+prefilter:    each agent's lines are parsed only when they contain a marker of a record that can
+              produce an event (Claude: "Skill", mcp__, McpResource, command-name or "is_error";
+              Codex: McpToolCall, SKILL.md, selected_skill_instructions, <skill>, session_meta or
+              "namespace"; Copilot: skill.invoked, tool.execution_, session.start or
+              session.context_changed; Antigravity: SKILL.md or slash_command; Pi: SKILL.md,
+              toolResult or "session"). On a read from byte 0, lines carrying "timestamp" or
+              "created_at" are also parsed until the first record with a real timestamp, so
+              coverage starts where the file does
 transaction:  BEGIN IMMEDIATE per chunk (8 MiB or 1024 events, plus at most one record):
               INSERT OR IGNORE events, failure updates, coverage and the source offset commit
               together. Large files commit progress within a call and after budget expiry.
@@ -200,6 +303,13 @@ mcp, claude:      the row's event server is sanitize(name). A plugin-scope row u
                   recorded with input.server "my.server" or "plugin:toolkit:docs" meets the
                   same row as mcp__my_server__ or mcp__plugin_toolkit_docs__ tool calls
 mcp, codex:       the event server equals the configured name
+mcp, copilot:     the event server equals the configured name (mcpConfigServerName, else the
+                  display name the CLI recorded)
+mcp, opencode:    OpenCode names a tool sanitize(server) + "_" + tool with the same character
+                  rule as Claude. Events are stored with the full name and an empty server;
+                  at query time the longest sanitized name of the OpenCode definitions in the
+                  scan that prefixes the tool name owns the event, and the remainder is the
+                  tool name shown under observed
 mcp, other:       definitions of any other agent never match and report 0
 ambiguity:        two or more definitions of one agent resolving to the same event server all
                   report 0, carry usageAmbiguous true and list no observed entries. MCP scans
@@ -235,8 +345,9 @@ Unchanged payload shape. Each row carries `uses`, `usesAgent`, `usesUser`,
 adds:
 
 ```yaml
-usageTranscripts:    source rows for the agents that feed the helper (skills: claude;
-                     mcp: claude and codex)
+usageTranscripts:    source rows for the agents that feed the helper (skills: all six;
+                     mcp: claude, codex, opencode and copilot)
+usageWatchPaths:     the transcript directories a blade should watch, see Reading transcripts
 usageUnreadable:     files this call could not read
 usageIngestPending:  true when the budget or the lock left transcripts unread
 usageAmbiguous:      mcp only, the number of ambiguous definitions, 0 when none
@@ -276,7 +387,8 @@ days[]:         [local date, uses, agent, user, scheduled, failed], only days wi
 local date:     date(at / 1000, 'unixepoch', 'localtime'), so TZ in the helper's environment
                 decides the day
 coverageStart:  local date of the earliest coverage.first_at of the contributing agents
-                (skill: claude; mcp: claude and codex), null when nothing was ever read
+                (skill: all six; mcp: claude, codex, opencode and copilot), null when nothing
+                was ever read
 until:          today's local date
 skill days:     every skill event of any name, plus command events whose name matches a skill
                 discovered for --project (scope all, same matching as list)
@@ -379,8 +491,21 @@ shell:      not needed. The CLI dispatches the backend request in its own proces
 ## Known limits
 
 ```yaml
-codex skills:        Codex writes no skill-use event; its model reads SKILL.md through shell
-                     commands. Codex skill counts would be inference, so none are recorded
+codex skills:        a $skill mention is recorded by Codex as an injected user fragment, which
+                     counts as a typed use. An implicit use is a shell read of SKILL.md, the
+                     same signal Codex itself uses for its telemetry; a script run from a
+                     skill's scripts/ directory is not counted
+codex legacy mcp:    the function_call-with-namespace rule for legacy history_mode files is
+                     inferred from local record shapes, not from documentation
+opencode mcp:        a tool name whose server cannot be resolved from the scanned OpenCode
+                     definitions counts for no definition
+copilot:             record shapes come from the Copilot SDK event schema; no local session with
+                     a skill or MCP event was available when this was written
+antigravity:         no MCP events, no project for transcript steps, and a skill slash typed by
+                     the user counts through history.jsonl only; whether a skill slash expands
+                     into the transcript with a marker is unknown
+pi:                  a /skill:name slash leaves no marker in the session file and is not counted;
+                     only reads of SKILL.md are
 mcp prompts:         only the spelling <command-name>/mcp__<server>__<prompt></command-name> is
                      counted, verified on Claude Code 2.1.258 by typing /probe:greet (MCP). If a
                      later release records prompts differently they stop counting, although

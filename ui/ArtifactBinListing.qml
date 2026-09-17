@@ -7,10 +7,13 @@ Item {
   property string module: ""
   property bool active: true
   property var rows: []
+  property string error: ""
+  property int failures: 0
   property var request: null
   property int generation: 0
   property bool stopping: false
   readonly property bool ready: !stopping && active && !!service && module !== ""
+  readonly property int maximumRetries: 5
 
   function cancel() {
     var previous = request
@@ -20,6 +23,7 @@ Item {
 
   function suspend() {
     reload.stop()
+    retry.stop()
     cancel()
   }
 
@@ -30,6 +34,8 @@ Item {
 
   function invalidate() {
     rows = []
+    error = ""
+    failures = 0
     refresh()
   }
 
@@ -41,8 +47,22 @@ Item {
     read.id = service.backendRequest("bin-list", ["--module", module], read.generation, function(response) {
       if (listing.request !== read) return
       listing.request = null
-      listing.rows = response && response.ok === true && Array.isArray(response.items) ? response.items : []
+      listing.accept(response)
     })
+  }
+
+  function accept(response) {
+    if (response && response.ok === true && Array.isArray(response.items)) {
+      rows = response.items
+      error = ""
+      failures = 0
+      return
+    }
+    error = String(response && (response.error || response.message) || "The bin could not be listed").slice(0, 200)
+    if (!ready || failures >= maximumRetries) return
+    failures++
+    retry.interval = 1000 * Math.pow(2, failures - 1)
+    retry.restart()
   }
 
   onModuleChanged: invalidate()
@@ -52,4 +72,5 @@ Item {
   Component.onDestruction: { stopping = true; suspend() }
 
   Timer { id: reload; interval: 0; onTriggered: listing.start() }
+  Timer { id: retry; repeat: false; onTriggered: if (listing.ready && !listing.request) listing.start() }
 }
