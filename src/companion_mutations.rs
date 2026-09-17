@@ -65,6 +65,102 @@ fn parent_for(
     )?)
 }
 
+fn lease() -> AppResult<secure::LockedFile> {
+    secure::try_open_private_lock(&crate::paths::state_dir().join("companion-mutations.lock"))?
+        .ok_or_else(|| {
+            AppError::invalid("another companion change is running; retry when it finishes")
+        })
+}
+
+pub fn write(
+    logical: &Path,
+    target: &Path,
+    expected: Option<&secure::FileVersion>,
+    bytes: &[u8],
+) -> AppResult<()> {
+    let _lease = lease()?;
+    write_locked(logical, target, expected, bytes)
+}
+
+fn write_locked(
+    logical: &Path,
+    target: &Path,
+    expected: Option<&secure::FileVersion>,
+    bytes: &[u8],
+) -> AppResult<()> {
+    if bytes.len() > MAX_CONTENT {
+        return Err(AppError::invalid(
+            "updated configuration exceeds its byte limit",
+        ));
+    }
+    let parent = target
+        .parent()
+        .ok_or_else(|| AppError::invalid("path has no parent"))?;
+    if expected.is_none() {
+        secure::ensure_directories(parent, 0o700)?;
+    }
+    let current = match std::fs::canonicalize(logical) {
+        Ok(path) => path,
+        Err(error) if error.kind() == io::ErrorKind::NotFound && expected.is_none() => {
+            let link = secure::entry_stat(logical);
+            if link
+                .as_ref()
+                .is_ok_and(|stat| stat.kind == secure::EntryKind::Symlink)
+            {
+                return Err(AppError::invalid("source symlink changed or is dangling"));
+            }
+            let logical_parent = std::fs::canonicalize(
+                logical
+                    .parent()
+                    .ok_or_else(|| AppError::invalid("path has no parent"))?,
+            )?;
+            logical_parent.join(
+                logical
+                    .file_name()
+                    .ok_or_else(|| AppError::invalid("path has no name"))?,
+            )
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if current != target {
+        return Err(AppError::invalid("source path changed; refresh and retry"));
+    }
+    let target = secure::resolved_parent(target)?;
+    secure::write_config_expected(target, expected, bytes, MAX_CONTENT)?;
+    Ok(())
+}
+
+pub fn link(path: &Path, parent: &Path, target: &Path) -> AppResult<()> {
+    let _lease = lease()?;
+    link_locked(path, parent, target)
+}
+
+fn link_locked(path: &Path, parent: &Path, target: &Path) -> AppResult<()> {
+    let destination = parent_for(path, parent, true)?;
+    rustix::fs::symlinkat(target, &destination.directory, &destination.name)
+        .map_err(io::Error::from)?;
+    rustix::fs::fsync(&destination.directory).map_err(io::Error::from)?;
+    Ok(())
+}
+
+pub fn unlink(path: &Path, parent: &Path, dev: u64, ino: u64) -> AppResult<()> {
+    let _lease = lease()?;
+    unlink_locked(path, parent, dev, ino)
+}
+
+fn unlink_locked(path: &Path, parent: &Path, dev: u64, ino: u64) -> AppResult<()> {
+    let selected = parent_for(path, parent, false)?;
+    secure::remove_nondirectory_matching_resolved(
+        selected,
+        secure::EntryIdentity {
+            dev,
+            ino,
+            kind: secure::EntryKind::Symlink,
+        },
+    )?;
+    Ok(())
+}
+
 pub fn execute(raw: &[u8]) -> AppResult<Value> {
     if raw.len() > MAX_INPUT {
         return Err(AppError::invalid("mutation input exceeds its byte limit"));
@@ -72,11 +168,7 @@ pub fn execute(raw: &[u8]) -> AppResult<Value> {
     let mutation: Mutation =
         serde_json::from_slice(raw).map_err(|_| AppError::invalid("invalid mutation request"))?;
     // One bounded, cross-process lease also covers different companions editing the same file.
-    let _lease =
-        secure::try_open_private_lock(&crate::paths::state_dir().join("companion-mutations.lock"))?
-            .ok_or_else(|| {
-                AppError::invalid("another companion change is running; retry when it finishes")
-            })?;
+    let _lease = lease()?;
     match mutation {
         Mutation::Write {
             path,
@@ -89,50 +181,14 @@ pub fn execute(raw: &[u8]) -> AppResult<Value> {
             let bytes = BASE64_STANDARD
                 .decode(data)
                 .map_err(|_| AppError::invalid("invalid configuration bytes"))?;
-            if bytes.len() > MAX_CONTENT {
-                return Err(AppError::invalid(
-                    "updated configuration exceeds its byte limit",
-                ));
-            }
-            let parent = target
-                .parent()
-                .ok_or_else(|| AppError::invalid("path has no parent"))?;
-            if expected.is_none() {
-                secure::ensure_directories(parent, 0o700)?;
-            }
-            let current = match std::fs::canonicalize(&logical) {
-                Ok(path) => path,
-                Err(error) if error.kind() == io::ErrorKind::NotFound && expected.is_none() => {
-                    let link = secure::entry_stat(&logical);
-                    if link
-                        .as_ref()
-                        .is_ok_and(|stat| stat.kind == secure::EntryKind::Symlink)
-                    {
-                        return Err(AppError::invalid("source symlink changed or is dangling"));
-                    }
-                    let logical_parent = std::fs::canonicalize(logical.parent().unwrap())?;
-                    logical_parent.join(logical.file_name().unwrap())
-                }
-                Err(error) => return Err(error.into()),
-            };
-            if current != target {
-                return Err(AppError::invalid("source path changed; refresh and retry"));
-            }
-            let target = secure::resolved_parent(&target)?;
-            secure::write_config_expected(target, expected.as_ref(), &bytes, MAX_CONTENT)?;
+            write_locked(&logical, &target, expected.as_ref(), &bytes)?;
         }
         Mutation::Link {
             path,
             parent,
             target,
         } => {
-            let path = absolute(&path)?;
-            let parent = absolute(&parent)?;
-            let target = absolute(&target)?;
-            let destination = parent_for(&path, &parent, true)?;
-            rustix::fs::symlinkat(&target, &destination.directory, &destination.name)
-                .map_err(io::Error::from)?;
-            rustix::fs::fsync(&destination.directory).map_err(io::Error::from)?;
+            link_locked(&absolute(&path)?, &absolute(&parent)?, &absolute(&target)?)?;
         }
         Mutation::Unlink {
             path,
@@ -140,17 +196,7 @@ pub fn execute(raw: &[u8]) -> AppResult<Value> {
             dev,
             ino,
         } => {
-            let path = absolute(&path)?;
-            let parent = absolute(&parent)?;
-            let selected = parent_for(&path, &parent, false)?;
-            secure::remove_nondirectory_matching_resolved(
-                selected,
-                secure::EntryIdentity {
-                    dev,
-                    ino,
-                    kind: secure::EntryKind::Symlink,
-                },
-            )?;
+            unlink_locked(&absolute(&path)?, &absolute(&parent)?, dev, ino)?;
         }
     }
     Ok(json!({"ok":true,"schemaVersion":1}))

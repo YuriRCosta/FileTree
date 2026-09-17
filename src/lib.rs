@@ -10,6 +10,7 @@ pub mod clipboard;
 pub mod command;
 pub mod common;
 pub mod companion_mutations;
+pub mod core_modules;
 pub mod desktop;
 pub mod drop_target;
 pub mod error;

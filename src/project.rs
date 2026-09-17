@@ -17,6 +17,59 @@ const AGENT_MARKERS: [&str; 9] = [
 ];
 const MAX_WALK: usize = 64;
 
+pub const SKILLS_MARKERS: [&str; 1] = [".git"];
+pub const AGENT_MARKERS_WITH_GIT: [&str; 7] = [
+    ".git",
+    ".claude",
+    ".agents",
+    ".codex",
+    ".opencode",
+    ".pi",
+    ".github",
+];
+pub const SKILLS_WALK: usize = 32;
+pub const AGENT_WALK: usize = 24;
+
+#[derive(Clone, Copy)]
+pub struct RootSearch<'a> {
+    pub markers: &'a [&'a str],
+    pub max_walk: usize,
+    pub include_home_parent: bool,
+}
+
+pub const SKILLS_SEARCH: RootSearch<'static> = RootSearch {
+    markers: &SKILLS_MARKERS,
+    max_walk: SKILLS_WALK,
+    include_home_parent: false,
+};
+
+pub const AGENT_SEARCH: RootSearch<'static> = RootSearch {
+    markers: &AGENT_MARKERS_WITH_GIT,
+    max_walk: AGENT_WALK,
+    include_home_parent: true,
+};
+
+pub fn marker_root(start: &Path, search: RootSearch<'_>) -> Option<(PathBuf, String)> {
+    let home = expanded_path("~")
+        .canonicalize()
+        .unwrap_or_else(|_| expanded_path("~"));
+    let boundary = if search.include_home_parent {
+        home.parent().unwrap_or(&home).to_path_buf()
+    } else {
+        home
+    };
+    let start = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
+    for directory in walked(start, &boundary, search.max_walk) {
+        if !eligible_marker_parent(&directory) {
+            continue;
+        }
+        if let Some(marker) = has_marker(&directory, search.markers) {
+            return Some((directory, marker.to_string()));
+        }
+    }
+    None
+}
+
 pub fn project_root(raw_path: &str) -> Value {
     let path = match parse_path(raw_path) {
         Ok(path) => path,
@@ -33,7 +86,7 @@ pub fn project_root(raw_path: &str) -> Value {
         .canonicalize()
         .unwrap_or_else(|_| expanded_path("~"));
     let start = start.canonicalize().unwrap_or(start);
-    let chain = ancestors(start, &home);
+    let chain = walked(start, &home, MAX_WALK);
     for markers in [&PRIMARY_MARKERS[..], &AGENT_MARKERS[..]] {
         for directory in &chain {
             if !eligible_marker_parent(directory) {
@@ -60,11 +113,11 @@ pub fn project_root(raw_path: &str) -> Value {
     })
 }
 
-fn ancestors(start: PathBuf, home: &Path) -> Vec<PathBuf> {
+fn walked(start: PathBuf, boundary: &Path, max_walk: usize) -> Vec<PathBuf> {
     let mut chain = Vec::new();
     let mut current = start;
-    for _ in 0..MAX_WALK {
-        if current == home || current.parent().is_none() {
+    for _ in 0..max_walk {
+        if current == boundary || current.parent().is_none() {
             break;
         }
         chain.push(current.clone());

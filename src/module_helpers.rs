@@ -273,6 +273,11 @@ pub fn run(request: &Request<'_>, cancelled: &AtomicBool) -> AppResult<Value> {
     if request.write && matches!(declared.core, Some(CoreRoute::Skills | CoreRoute::Memory)) {
         crate::preferences::require_agent_management()?
     }
+    if let Some(core) = declared.core
+        && let Some(document) = crate::core_modules::dispatch(core, request, &arguments)
+    {
+        return document;
+    }
     let mut command = CommandSpec::new(declared.program)
         .args([request.method])
         .args(&arguments)
