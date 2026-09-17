@@ -37,6 +37,7 @@ FocusScope {
   property var searchText: function(item) { return String(item.name || "") + " " + String(item.detail || "") + " " + String(item.path || "") }
   property var searchFields: function(item) { return ({}) }
   property var filterKeys: []
+  property var idFilter: null
   property var specialMetricValue: function(item, key) { return undefined }
   property var appliedAgents: function(item) { return Array.isArray(item.agents) ? item.agents : [] }
   property var rowAction: function(item) { return null }
@@ -432,8 +433,11 @@ FocusScope {
 
   function filterItems() {
     var result = []
-    for (var i = 0; i < items.length; i++)
+    var ids = Array.isArray(idFilter) ? idFilter : null
+    for (var i = 0; i < items.length; i++) {
+      if (ids && ids.indexOf(String(items[i].id || "")) < 0) continue
       if (matches(items[i]) && passesFilter(items[i])) result.push(items[i])
+    }
     return result
   }
 

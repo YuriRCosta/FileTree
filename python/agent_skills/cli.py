@@ -39,6 +39,19 @@ def listing(args: argparse.Namespace) -> dict[str, Any]:
 def usage(args: argparse.Namespace) -> dict[str, Any]:
     return agent_usage.skill_usage(discovery.collect(environment(args))["items"])
 
+def item_stubs(raw: str) -> list[dict[str, Any]]:
+    try:
+        decoded = json.loads(raw or "[]")
+    except ValueError:
+        return []
+    return [entry for entry in decoded if isinstance(entry, dict)][:1024] if isinstance(decoded, list) else []
+
+def usage_counts(args: argparse.Namespace) -> dict[str, Any]:
+    return agent_usage.skill_counts(item_stubs(args.items))
+
+def usage_day(args: argparse.Namespace) -> dict[str, Any]:
+    return agent_usage.skill_day(discovery.collect(environment(args))["items"], args.day)
+
 def roots(args: argparse.Namespace) -> dict[str, Any]:
     env = environment(args)
     rows = [
@@ -73,6 +86,8 @@ def build_parser() -> argparse.ArgumentParser:
     for name, handler, helptext in (
         ("list", listing, "List discovered agent skills"),
         ("usage", usage, "Daily skill use history for a project"),
+        ("usage-counts", usage_counts, "Use counts for the given skill stubs, without discovery"),
+        ("usage-day", usage_day, "Skills of a project used on one local day"),
         ("roots", roots, "List every documented root and whether it exists"),
         ("agents", agents, "List supported agents and their documentation"),
         ("apply", apply, "Link or unlink one skill for one or more agents"),
@@ -87,6 +102,10 @@ def build_parser() -> argparse.ArgumentParser:
         command.set_defaults(handler=handler)
         if name == "list":
             command.add_argument("--scope", choices=SCOPES, default="all")
+        if name == "usage-counts":
+            command.add_argument("--items", default="[]")
+        if name == "usage-day":
+            command.add_argument("--day", required=True)
         if name == "apply":
             command.add_argument("--id", required=True)
             command.add_argument("--agent", action="append", required=True)

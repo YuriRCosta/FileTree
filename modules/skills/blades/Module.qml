@@ -32,6 +32,11 @@ FocusScope {
   property var attachedContext: null
 
   property string query: ""
+  property string dayFilter: ""
+  property string dayLabel: ""
+  property var dayIds: null
+  property int dayGeneration: 0
+  property string dayRequestId: ""
   property bool caseSensitive: false
   property bool regex: false
   readonly property bool applying: inventory ? inventory.applying : false
@@ -92,6 +97,40 @@ FocusScope {
   function rescan() {
     if (inventory && !suspended) inventory.refresh()
     if (bin.item) bin.item.refresh()
+  }
+
+  function clearDay() {
+    dayGeneration++
+    if (dayRequestId && files) files.cancelBackendRequest(dayRequestId, dayGeneration - 1, true)
+    dayRequestId = ""
+    dayFilter = ""
+    dayLabel = ""
+    dayIds = null
+  }
+
+  function toggleDay(key, label) {
+    if (!files || !inventory) return
+    if (dayFilter === key) {
+      clearDay()
+      focusTree()
+      return
+    }
+    clearDay()
+    var generation = dayGeneration
+    var requested = String(key)
+    dayRequestId = files.backendRequest("helper-read", inventory.argumentsFor("usage-day",
+      ["--json", "--project", anchorPath, "--day", requested].concat(projectArguments)), generation, function(response) {
+      if (generation !== module.dayGeneration) return
+      module.dayRequestId = ""
+      if (!response || response.ok !== true || !Array.isArray(response.items)) {
+        module.binError = String(response && response.error || "Day filter unavailable").slice(0, 200)
+        return
+      }
+      module.dayFilter = requested
+      module.dayLabel = String(label || requested)
+      module.dayIds = response.items.map(function(entry) { return String(entry.id || "") })
+      module.focusTree()
+    }, null, 15000)
   }
 
   function livePath(item) {
@@ -251,6 +290,7 @@ FocusScope {
     if (module.loadError) return "error"
     if (module.applying) return "Applying…"
     if (module.applyError) return module.applyError
+    if (module.dayFilter) return module.dayLabel + ": " + (module.dayIds ? module.dayIds.length : 0) + " used  ·  Esc clears"
     if (heatmap.active && inventory && inventory.activityError) return "Activity: " + inventory.activityError
     if (heatmap.active && inventory && inventory.activity && inventory.activity.ingestPending) return "Reading activity…"
     if (module.busy) return "Scanning…"
@@ -267,6 +307,11 @@ FocusScope {
   Component.onDestruction: if (attachedProvider) attachedProvider.detach(attachedContext)
 
   Keys.onPressed: function(event) {
+    if (event.key === Qt.Key_Escape && module.dayFilter !== "") {
+      module.clearDay()
+      event.accepted = true
+      return
+    }
     if (KeyMap.resolve(event.key, event.modifiers, Qt) !== "rescan") return
     module.refresh()
     event.accepted = true
@@ -292,8 +337,8 @@ FocusScope {
 
   Loader {
     id: header
-    anchors.top: search.bottom
-    anchors.topMargin: search.height > 0 ? Style.space(4) : 0
+    anchors.top: heatmap.bottom
+    anchors.topMargin: heatmap.height > 0 || search.height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right
     source: module.context ? module.context.ui.url("PaneHeader") : ""
@@ -342,7 +387,7 @@ FocusScope {
   Loader {
     id: heatmap
     onActiveChanged: if (!active && !module.suspended) module.focusTree()
-    anchors.top: header.bottom
+    anchors.top: search.bottom
     anchors.topMargin: height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right
@@ -356,6 +401,7 @@ FocusScope {
       item.inventory = Qt.binding(function() { return module.inventory })
       item.dismissed.connect(function() { module.focusTree() })
       item.previousRequested.connect(function() { module.openSearch() })
+      item.dayActivated.connect(function(day, key) { module.toggleDay(key, item.dateLabel(day)) })
     }
   }
 
@@ -384,7 +430,7 @@ FocusScope {
 
   Loader {
     id: tree
-    anchors.top: heatmap.bottom
+    anchors.top: header.bottom
     anchors.topMargin: Style.space(4)
     anchors.bottom: parent.bottom
     anchors.left: parent.left
@@ -405,6 +451,7 @@ FocusScope {
       item.changed.connect(function() { module.rescan() })
       item.items = Qt.binding(function() { return module.allRows() })
       item.query = Qt.binding(function() { return module.query })
+      item.idFilter = Qt.binding(function() { return module.dayIds })
       item.caseSensitive = Qt.binding(function() { return module.caseSensitive })
       item.regex = Qt.binding(function() { return module.regex })
       item.view = Qt.binding(function() { return module.view })

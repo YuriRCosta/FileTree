@@ -4,6 +4,7 @@ This file was written by an agent.
 
 ## 0.2.0 (unreleased)
 
+- The Skills heatmap tooltip shows the date, the day's total in blue, the unit, and a stacked bar of agent, you and scheduled shares. Left click or Enter on a day shows only the skills used that day; Esc clears. The header sits under the heatmap. A transcript write refreshes the counts and the heatmap without rescanning skill directories, so "Scanning" only shows for real rescans. `docs/agent-written/skills/usage-counting.md` records the counting audit.
 - The native app's Settings gain a Desktop integration section with five independent switches: open folders with FileBlade, reveal in FileBlade, file chooser, Hyprland bindings and start at login. All are off after install, update and first launch; turning one off restores the previous handler when it has not changed since and keeps a newer choice otherwise, and the row says which. `fileblade native roles status|enable|disable` drives the same switches, and removal reverses every owned entry.
 - The Delete dialog on a Skills, Memory, Hooks or MCP row now reads Cancel, Delete <thing>, Deactivate, and adds Delete symlink when the row is a link, so a linked skill can lose its link without losing the files it points at. A deactivated symlink says Delete symlink forever.
 - Every blade tab puts its search field first and the tab header under it: Files, Skills, Memory, Hooks, MCP and Branches share the order. The header's Search button is gone; `/` reveals the field as before.

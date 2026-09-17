@@ -33,6 +33,9 @@ Item {
   property var mutation: null
   property bool stopping: false
   property string activityMethod: ""
+  property string usageCountsMethod: ""
+  property var usageCountsArguments: function(inventory) { return [] }
+  property var countsRequest: null
   property var activityArguments: function(inventory) { return [] }
   property var activity: null
   property string activityError: ""
@@ -77,6 +80,45 @@ Item {
     projectLane.refresh(retryWatch)
     userLane.refresh(retryWatch)
     requestActivity()
+  }
+
+  function refreshUsage() {
+    if (usageCountsMethod === "") {
+      refresh()
+      return
+    }
+    requestActivity()
+    requestCounts()
+  }
+
+  function requestCounts() {
+    if (!ready || usageCountsMethod === "" || countsRequest || applying || items.length === 0) return
+    var stubs = items.map(function(row) { return { id: String(row.id || ""), name: String(row.name || ""), source: String(row.source || "") } })
+    var request = { id: "", generation: generation, files: files }
+    countsRequest = request
+    request.id = files.backendRequest("helper-read", argumentsFor(usageCountsMethod,
+      usageCountsArguments(inventory).concat(["--items", JSON.stringify(stubs)])), request.generation, function(response) {
+      if (inventory.stopping || inventory.countsRequest !== request) return
+      inventory.countsRequest = null
+      if (!inventory.ready || request.generation !== inventory.generation) return
+      inventory.acceptCounts(response)
+    }, null, 20000)
+  }
+
+  function acceptCounts(response) {
+    if (!response || response.ok !== true || !response.counts || typeof response.counts !== "object") return
+    var changed = false
+    var next = items.map(function(row) {
+      var values = response.counts[String(row.id || "")]
+      if (!values) return row
+      var merged = Object.assign({}, row, values)
+      merged.metrics = boundedMetrics(Object.assign({}, row.metrics || {}, values))
+      if (JSON.stringify(merged) !== JSON.stringify(row)) changed = true
+      return merged
+    })
+    if (!changed) return
+    itemsFingerprint = JSON.stringify(next)
+    items = next
   }
 
   function requestActivity() {
@@ -241,13 +283,13 @@ Item {
   }
 
   Timer { id: activityDebounce; interval: 180; onTriggered: inventory.startActivity() }
-  Timer { id: usageChange; interval: inventory.usageChangeDelayMs; onTriggered: inventory.refresh() }
+  Timer { id: usageChange; interval: inventory.usageChangeDelayMs; onTriggered: inventory.refreshUsage() }
   Timer {
     id: usagePoll
     interval: inventory.usagePollIntervalMs
     repeat: true
     running: inventory.ready && inventory.usageWatchPaths.length > 0
-    onTriggered: inventory.refresh()
+    onTriggered: inventory.refreshUsage()
   }
   Timer { id: activityRetry; interval: 500; onTriggered: inventory.requestActivity() }
 }

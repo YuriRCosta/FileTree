@@ -57,21 +57,58 @@ def sources(connection: sqlite3.Connection, agents: tuple[str, ...]) -> int:
                               (json.dumps(agents),)).fetchone()[0]
 
 
+def skill_tallies(connection: sqlite3.Connection, where: str = "", parameters: tuple[Any, ...] = ()) -> dict[str, list[int]]:
+    tallies: dict[str, list[int]] = {}
+    for kind, name, origin, total, failed in connection.execute(
+            "SELECT kind, name, origin, count(*), sum(failed) FROM event WHERE kind IN ('skill', 'command') "
+            f"{where} GROUP BY kind, name, origin", parameters):
+        tally = tallies.setdefault(name, [0, 0, 0, 0])
+        tally[0 if kind == "skill" else 1 if origin == "user" else 2] += total
+        tally[3] += failed if kind == "skill" else 0
+    return tallies
+
+
+def item_counts(item: dict[str, Any], tallies: dict[str, list[int]]) -> dict[str, int]:
+    return counts(*(sum(column) for column in zip(*(tallies.get(name, [0, 0, 0, 0]) for name in skill_names(item)))))
+
+
 def attach_skills(items: list[dict[str, Any]]) -> dict[str, Any]:
     try:
         with session() as (connection, (pending, unreadable)):
-            tallies: dict[str, list[int]] = {}
-            for kind, name, origin, total, failed in connection.execute(
-                    "SELECT kind, name, origin, count(*), sum(failed) FROM event WHERE kind IN ('skill', 'command') "
-                    "GROUP BY kind, name, origin"):
-                tally = tallies.setdefault(name, [0, 0, 0, 0])
-                tally[0 if kind == "skill" else 1 if origin == "user" else 2] += total
-                tally[3] += failed if kind == "skill" else 0
+            tallies = skill_tallies(connection)
             for item in items:
-                attach(item, counts(*(sum(column) for column in zip(*(tallies.get(name, [0, 0, 0, 0]) for name in skill_names(item))))))
+                attach(item, item_counts(item, tallies))
             return {"usageTranscripts": sources(connection, SKILL_AGENTS), "usageUnreadable": unreadable, "usageIngestPending": pending}
     except (OSError, sqlite3.Error):
         return {"usageError": UNAVAILABLE}
+
+
+def skill_counts(items: list[dict[str, Any]]) -> dict[str, Any]:
+    try:
+        with session() as (connection, (pending, unreadable)):
+            tallies = skill_tallies(connection)
+            return {"ok": True, "schemaVersion": SCHEMA_VERSION,
+                    "counts": {str(item.get("id") or ""): item_counts(item, tallies) for item in items if item.get("id")},
+                    "usageTranscripts": sources(connection, SKILL_AGENTS), "usageUnreadable": unreadable, "usageIngestPending": pending}
+    except (OSError, sqlite3.Error):
+        return {"ok": False, "schemaVersion": SCHEMA_VERSION, "error": UNAVAILABLE}
+
+
+def skill_day(items: list[dict[str, Any]], day: str) -> dict[str, Any]:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+        return {"ok": False, "schemaVersion": SCHEMA_VERSION, "error": "day must be YYYY-MM-DD"}
+    try:
+        with session(ingest_history=False) as (connection, _):
+            tallies = skill_tallies(connection, "AND date(at / 1000, 'unixepoch', 'localtime') = ?", (day,))
+            used = []
+            for item in items:
+                values = item_counts(item, tallies)
+                if values["uses"] > 0 or values["usesScheduled"] > 0:
+                    used.append({"id": str(item.get("id") or ""), "name": str(item.get("name") or ""), **values})
+            used.sort(key=lambda entry: (-entry["uses"], entry["name"]))
+            return {"ok": True, "schemaVersion": SCHEMA_VERSION, "day": day, "items": used}
+    except (OSError, sqlite3.Error):
+        return {"ok": False, "schemaVersion": SCHEMA_VERSION, "error": UNAVAILABLE}
 
 
 def opencode_owner(name: str, prefixes: list[str]) -> tuple[str, str]:

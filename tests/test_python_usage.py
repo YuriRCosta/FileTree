@@ -173,6 +173,47 @@ class UsageHistory(unittest.TestCase):
         self.assertEqual(history["until"], datetime.now(timezone.utc).date().isoformat())
         self.assertEqual(history["days"], [[self.date(self.day), 7, 4, 3, 1, 1]])
 
+    def test_usage_day_lists_the_skills_used_on_one_local_day(self):
+        self.skill(self.claude / "skills", "alpha")
+        self.skill(self.claude / "skills", "beta")
+        other = self.day + DAY
+        self.transcript("s1.jsonl", opening(), called(self.day, "toolu_d1", "Skill", skill="alpha"),
+                        typed(self.day, "u1", "alpha"), called(other, "toolu_d2", "Skill", skill="beta"))
+        self.skills()
+        day = self.helper("skills", "usage-day", "--json", "--project", str(self.project), "--day", self.date(self.day))
+        self.assertEqual((day["ok"], day["day"]), (True, self.date(self.day)))
+        self.assertEqual([(entry["name"], entry["uses"], entry["usesAgent"], entry["usesUser"]) for entry in day["items"]],
+                         [("alpha", 2, 1, 1)])
+        later = self.helper("skills", "usage-day", "--json", "--project", str(self.project), "--day", self.date(other))
+        self.assertEqual([entry["name"] for entry in later["items"]], ["beta"])
+        command, env = self.command("skills", "usage-day", "--json", "--project", str(self.project), "--day", "yesterday")
+        process = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60, check=False)
+        self.assertEqual(process.returncode, 1, process.stdout)
+
+    def test_usage_counts_answers_for_stubs_without_discovery(self):
+        self.skill(self.claude / "skills", "alpha")
+        self.transcript("s1.jsonl", opening(), called(self.day, "toolu_c1", "Skill", skill="alpha"), typed(self.day, "u1", "alpha"))
+        rows = self.skills()["items"]
+        alpha = self.row(rows, "alpha")
+        stubs = json.dumps([{"id": alpha["id"], "name": "alpha", "source": alpha.get("source", "")}, {"id": "ghost", "name": "ghost", "source": ""}])
+        document = self.helper("skills", "usage-counts", "--json", "--project", str(self.project), "--items", stubs)
+        self.assertEqual(document["ok"], True)
+        self.assertEqual(uses(document["counts"][alpha["id"]]), {"uses": 2, "usesAgent": 1, "usesUser": 1, "usesScheduled": 0, "failed": 0})
+        self.assertEqual(document["counts"]["ghost"]["uses"], 0)
+
+    @unittest.skipIf(os.geteuid() == 0, "root can read a mode 000 file")
+    def test_a_complete_transcript_is_never_reopened(self):
+        self.skill(self.claude / "skills", "alpha")
+        path = self.transcript("s1.jsonl", opening(), called(self.day, "toolu_r1", "Skill", skill="alpha"))
+        before = self.skills()
+        self.assertEqual((before["usageUnreadable"], self.row(before["items"], "alpha")["uses"]), (0, 1))
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, stat.S_IRUSR | stat.S_IWUSR)
+        after = self.skills()
+        self.assertEqual((after["usageUnreadable"], self.row(after["items"], "alpha")["uses"]), (0, 1))
+        history = self.skill_usage()
+        self.assertEqual(history["days"], [[self.date(self.day), 1, 1, 0, 0, 0]])
+
     def test_mcp_rows_follow_the_server_names_agents_record(self):
         self.plugin()
         servers = {name: {"command": "server"} for name in ("my.server", "twin.a", "twin_a", "quiet")}
