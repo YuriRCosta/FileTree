@@ -1304,6 +1304,20 @@ fn a_drag_leaving_a_blade_only_reaches_the_system_when_the_setting_asks_for_it()
 }
 
 #[test]
+fn the_side_mouse_buttons_walk_the_same_history_as_the_keys() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let pane = text(&root.join("panes/TreePane.qml"));
+    let properties = text(&root.join("panes/PropertiesPane.qml"));
+
+    for source in [&pane, &properties] {
+        assert!(source.contains("acceptedButtons: Qt.BackButton | Qt.ForwardButton"));
+        assert!(source.contains("enabled: root.focusEnabled && root.activeFocus"));
+    }
+    assert!(pane.contains("if (button === Qt.BackButton) root.runBrowserAction(\"back\")"));
+    assert!(properties.contains("if (button === Qt.BackButton) root.runKeyAction(\"back\")"));
+}
+
+#[test]
 fn drop_drag_leaves_the_blade_at_the_sheet_edge_not_the_layer_edge() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let surface = text(&root.join("blades/BladeSurface.qml"));
