@@ -147,7 +147,7 @@ pub fn bounded_glob(plan: &mut WatchPlan, base: &Path, pattern: &str) -> Vec<Pat
             if part != "**" && !fnmatch_case(name, part) {
                 continue;
             }
-            let kind = entry.metadata().ok();
+            let kind = std::fs::metadata(&candidate).ok();
             if part != "**"
                 && index == parts.len() - 1
                 && kind.as_ref().is_some_and(|metadata| metadata.is_file())

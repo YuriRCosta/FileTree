@@ -161,3 +161,37 @@ fn project_marker_searches_are_parameterised_per_module() {
         Some((repository, ".git".to_string()))
     );
 }
+
+#[test]
+fn the_bounded_glob_follows_symlinked_matches_like_the_python_scandir_walk() {
+    let scratch = tempfile::tempdir().unwrap();
+    let root = fs::canonicalize(scratch.path()).unwrap();
+    let source = root.join("source");
+    fs::create_dir_all(source.join("nested")).unwrap();
+    fs::write(source.join("nested/AGENTS.md"), "body").unwrap();
+    let tree = root.join("tree");
+    fs::create_dir_all(&tree).unwrap();
+    std::os::unix::fs::symlink(source.join("nested"), tree.join("linked")).unwrap();
+    std::os::unix::fs::symlink(source.join("nested/AGENTS.md"), tree.join("AGENTS.md")).unwrap();
+
+    let mut plan = WatchPlan::new();
+    let matches = bounded_glob(&mut plan, &root, "tree/**/AGENTS.md");
+    assert!(matches.contains(&tree.join("AGENTS.md")));
+    assert!(matches.contains(&tree.join("linked/AGENTS.md")));
+}
+
+#[test]
+fn marker_root_walks_the_logical_ancestor_chain_through_a_symlink() {
+    let scratch = tempfile::tempdir().unwrap();
+    let root = fs::canonicalize(scratch.path()).unwrap();
+    let repository = root.join("repo");
+    fs::create_dir_all(repository.join("a/b")).unwrap();
+    fs::create_dir_all(repository.join(".git")).unwrap();
+    let link = root.join("link");
+    std::os::unix::fs::symlink(&repository, &link).unwrap();
+
+    assert_eq!(
+        marker_root(&link.join("a/b"), SKILLS_SEARCH),
+        Some((link, ".git".to_string()))
+    );
+}

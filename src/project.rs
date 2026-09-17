@@ -30,36 +30,41 @@ pub const AGENT_MARKERS_WITH_GIT: [&str; 7] = [
 pub const SKILLS_WALK: usize = 32;
 pub const AGENT_WALK: usize = 24;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum WalkBoundary {
+    FilesystemRoot,
+    HomeParent,
+}
+
 #[derive(Clone, Copy)]
 pub struct RootSearch<'a> {
     pub markers: &'a [&'a str],
     pub max_walk: usize,
-    pub include_home_parent: bool,
+    pub boundary: WalkBoundary,
 }
 
 pub const SKILLS_SEARCH: RootSearch<'static> = RootSearch {
     markers: &SKILLS_MARKERS,
     max_walk: SKILLS_WALK,
-    include_home_parent: false,
+    boundary: WalkBoundary::FilesystemRoot,
 };
 
 pub const AGENT_SEARCH: RootSearch<'static> = RootSearch {
     markers: &AGENT_MARKERS_WITH_GIT,
     max_walk: AGENT_WALK,
-    include_home_parent: true,
+    boundary: WalkBoundary::HomeParent,
 };
 
 pub fn marker_root(start: &Path, search: RootSearch<'_>) -> Option<(PathBuf, String)> {
-    let home = expanded_path("~")
-        .canonicalize()
-        .unwrap_or_else(|_| expanded_path("~"));
-    let boundary = if search.include_home_parent {
-        home.parent().unwrap_or(&home).to_path_buf()
-    } else {
-        home
+    let boundary = match search.boundary {
+        WalkBoundary::FilesystemRoot => None,
+        WalkBoundary::HomeParent => {
+            let home = expanded_path("~");
+            Some(home.parent().unwrap_or(&home).to_path_buf())
+        }
     };
-    let start = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
-    for directory in walked(start, &boundary, search.max_walk) {
+    let start = expanded_path(&start.to_string_lossy());
+    for directory in walked(start, boundary.as_deref(), search.max_walk) {
         if !eligible_marker_parent(&directory) {
             continue;
         }
@@ -86,7 +91,7 @@ pub fn project_root(raw_path: &str) -> Value {
         .canonicalize()
         .unwrap_or_else(|_| expanded_path("~"));
     let start = start.canonicalize().unwrap_or(start);
-    let chain = walked(start, &home, MAX_WALK);
+    let chain = walked(start, Some(&home), MAX_WALK);
     for markers in [&PRIMARY_MARKERS[..], &AGENT_MARKERS[..]] {
         for directory in &chain {
             if !eligible_marker_parent(directory) {
@@ -113,11 +118,11 @@ pub fn project_root(raw_path: &str) -> Value {
     })
 }
 
-fn walked(start: PathBuf, boundary: &Path, max_walk: usize) -> Vec<PathBuf> {
+fn walked(start: PathBuf, boundary: Option<&Path>, max_walk: usize) -> Vec<PathBuf> {
     let mut chain = Vec::new();
     let mut current = start;
     for _ in 0..max_walk {
-        if current == boundary || current.parent().is_none() {
+        if boundary.is_some_and(|edge| current == edge) || current.parent().is_none() {
             break;
         }
         chain.push(current.clone());

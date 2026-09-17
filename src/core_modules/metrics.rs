@@ -29,7 +29,7 @@ fn modified_stamp(time: SystemTime) -> String {
 
 pub fn creation_time(path: &Path) -> String {
     use rustix::fs::{AtFlags, CWD, StatxFlags, statx};
-    statx(CWD, path, AtFlags::empty(), StatxFlags::BTIME)
+    statx(CWD, path, AtFlags::SYMLINK_NOFOLLOW, StatxFlags::BTIME)
         .ok()
         .filter(|stat| StatxFlags::from_bits_retain(stat.stx_mask).contains(StatxFlags::BTIME))
         .filter(|stat| stat.stx_btime.tv_sec > 0)
