@@ -55,7 +55,9 @@ fn right_click_keeps_the_menu_inside_the_blade_surface() {
 
     let focus = fs::read_to_string(root.join("blades/BladeFocusController.qml"))
         .expect("read BladeFocusController.qml");
-    assert!(focus.contains("host.dragActive || host.pressActive || host.pointerHeld || menuOpen"));
+    assert!(focus.contains(
+        "host.dragActive || host.pressActive || host.pointerHeld || host.resizeActive || menuOpen"
+    ));
     let focus_blade = focus
         .split("function focusBlade(")
         .nth(1)

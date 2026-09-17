@@ -18,7 +18,6 @@ Item {
   property bool activityOption: false
   property bool activity: true
   property var navigationActions: [
-    { key: "search", glyph: "󰍉", title: "Search", actions: [{ button: "left", text: "Search" }, { shortcut: "/" }] },
     { key: "filter", glyph: "󰈲", title: "Filter", active: view.filterActive, actions: [{ button: "left", text: "Filter" }, { shortcut: "f" }] }
   ].concat(activityOption ? [
     { key: "activity", glyph: "󰃭", title: "Activity", active: view.activity, actions: [{ button: "left", text: view.activity ? "Hide activity" : "Show activity" }] }

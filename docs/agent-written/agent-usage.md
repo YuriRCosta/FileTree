@@ -450,7 +450,7 @@ are `Style.space(8)` with a `Style.space(2)` gap; weeks are
 `min(160, floor((width + gap) / pitch))`. Colour levels split at the 25th, 50th
 and 75th percentile of the non-zero `uses` across the whole payload, so
 widening a blade never recolours a cell. Days before `coverageStart`, or every
-day when it is null, have no fill. The modules load it under the search field
+day when it is null, have no fill. The modules load it under the tab header, which itself sits under the search field,
 only while the tab is open, the tab's `activity` view state is on (the header's
 Activity button, default on) and the module is at least `Style.space(300)`
 tall. Tab from search explicitly focuses the grid; Tab or Escape from the

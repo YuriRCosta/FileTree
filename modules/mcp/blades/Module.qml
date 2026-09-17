@@ -185,7 +185,8 @@ FocusScope {
 
   Loader {
     id: headerLoader
-    anchors.top: parent.top
+    anchors.top: searchLoader.bottom
+    anchors.topMargin: searchLoader.height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right
     source: root.context && root.context.ui ? root.context.ui.url("PaneHeader") : ""
@@ -227,7 +228,7 @@ FocusScope {
   Loader {
     id: searchLoader
     height: item && item.visible ? Style.space(32) : 0
-    anchors.top: headerLoader.bottom
+    anchors.top: parent.top
     anchors.topMargin: height > 0 ? Style.space(6) : 0
     anchors.left: parent.left
     anchors.right: parent.right
@@ -264,7 +265,7 @@ FocusScope {
     id: heatmapLoader
     onActiveChanged: if (!active && root.inventoryActive && treeLoader.item) treeLoader.item.forceActiveFocus()
     height: item && item.visible ? item.implicitHeight : 0
-    anchors.top: searchLoader.bottom
+    anchors.top: headerLoader.bottom
     anchors.topMargin: height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right

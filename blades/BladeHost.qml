@@ -78,6 +78,7 @@ Item {
   property bool layoutReady: false
   property bool pressActive: false
   property bool pointerHeld: false
+  property bool resizeActive: false
   property alias focusedEdge: focusController.focusedEdge
   property alias focusedScreen: focusController.focusedScreen
   readonly property alias focusRevision: focusController.focusRevision

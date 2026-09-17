@@ -292,7 +292,8 @@ FocusScope {
 
   Loader {
     id: header
-    anchors.top: parent.top
+    anchors.top: search.bottom
+    anchors.topMargin: search.height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right
     source: module.context ? module.context.ui.url("PaneHeader") : ""
@@ -310,7 +311,7 @@ FocusScope {
 
   Loader {
     id: search
-    anchors.top: header.bottom
+    anchors.top: parent.top
     anchors.topMargin: height > 0 ? Style.space(6) : 0
     anchors.left: parent.left
     anchors.right: parent.right
@@ -341,7 +342,7 @@ FocusScope {
   Loader {
     id: heatmap
     onActiveChanged: if (!active && !module.suspended) module.focusTree()
-    anchors.top: search.bottom
+    anchors.top: header.bottom
     anchors.topMargin: height > 0 ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right

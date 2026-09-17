@@ -25,7 +25,7 @@ Item {
   readonly property string pluginDir: host.pluginDir
   readonly property var service: host.services ? host.services.files : null
   readonly property bool menuOpen: !!(service && service.actionMenuOpen)
-  readonly property bool pointerBusy: host.dragActive || host.pressActive || host.pointerHeld || menuOpen
+  readonly property bool pointerBusy: host.dragActive || host.pressActive || host.pointerHeld || host.resizeActive || menuOpen
   property string dimRequestId: ""
   property int dimGeneration: 0
   property bool hoverExitPending: false

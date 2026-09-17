@@ -1312,12 +1312,14 @@ search field and compositor focus still need a VM scenario at blade widths 280 a
 field both shown and auto-hidden. See
 [agent usage history](../docs/agent-written/agent-usage.md) for the counting rules.
 
-1. **E-48-01** When I open a Skills or MCP tab, a grid of small square cells
-   sits between the search field and the list. Each column is a week, and its
-   seven rows start on my locale's first day of the week. The newest week is
-   the rightmost column, today is its last cell, and days after today are not
-   drawn. When the search field is auto-hidden, the grid sits directly under
-   the header.
+1. **E-48-01** When I open a Skills or MCP tab, the search field is the first
+   row, the tab header with its columns and buttons is under it, and a grid of
+   small square cells sits between that header and the list. Each column is a
+   week, and its seven rows start on my locale's first day of the week. The
+   newest week is the rightmost column, today is its last cell, and days after
+   today are not drawn. When the search field is auto-hidden, the header moves
+   up to the top and the grid stays directly under it. The header has no
+   Search button; `/` reveals the field.
 2. **E-48-02** When I widen the blade, older weeks appear on the left; when I
    narrow it, the oldest weeks leave from the left. Cells that stay on screen
    keep their colour. Width too narrow for another week stays empty on the

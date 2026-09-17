@@ -1339,7 +1339,7 @@ fn hover_exit_waits_while_the_action_menu_is_open() {
     assert!(
         focus.contains("readonly property bool menuOpen: !!(service && service.actionMenuOpen)")
     );
-    assert!(focus.contains("host.pointerHeld || menuOpen"));
+    assert!(focus.contains("host.pointerHeld || host.resizeActive || menuOpen"));
     assert!(focus.contains("if (!pointerBusy && hoverExitPending) hoverExitTimer.restart()"));
     assert!(focus.contains("if (!hoverExitPending || pointerBusy"));
     let pointer_watch = text(&root.join("blades/BladePointerFocusWatch.qml"));

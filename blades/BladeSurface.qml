@@ -147,6 +147,7 @@ PanelWindow {
   }
 
   onPointerResizingChanged: {
+    host.resizeActive = pointerResizing
     if (pointerResizing) {
       pointerResizeStartWidth = bladeWidth
       liveWidth = bladeWidth
@@ -643,6 +644,7 @@ PanelWindow {
           widthHandle.pressedSceneX = resizeMouse.mapToItem(null, mouse.x, mouse.y).x
           widthHandle.initialWidth = surface.bladeWidth
           surface.liveWidth = surface.bladeWidth
+          surface.host.resizeActive = true
         }
 
         onPositionChanged: function(mouse) {
@@ -652,8 +654,8 @@ PanelWindow {
           surface.liveWidth = Math.round(Math.max(surface.host.minimumWidth, Math.min(surface.surfaceWidth, target)))
         }
 
-        onReleased: surface.commitLiveWidth()
-        onCanceled: surface.commitLiveWidth()
+        onReleased: { surface.host.resizeActive = false; surface.commitLiveWidth() }
+        onCanceled: { surface.host.resizeActive = false; surface.commitLiveWidth() }
       }
     }
 
