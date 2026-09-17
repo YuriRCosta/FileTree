@@ -65,11 +65,15 @@ read_activation() {
   [[ -L $installation/$link/runtime && $(readlink -- "$installation/$link/runtime") == "../../versions/$active_payload" ]] || fail 'receipt and runtime pointer disagree'
 }
 
+dependency_contract() {
+  jq -cS '{schema, backend, commands, packages}' "$1"
+}
+
 check_activation() {
   [[ -n $active_payload ]] || return 0
   [[ -d $installation/versions/$active_payload && ! -L $installation/versions/$active_payload ]] || fail 'active runtime is missing'
   [[ $(sha256sum -- "$installation/versions/$active_payload/payload.json") == "$active_payload "* ]] || fail 'active manifest identity differs'
-  cmp -s -- "$native_root/packaging/runtime.json" "$installation/versions/$active_payload/packaging/runtime.json" || fail 'active runtime dependency contract differs; contract-changing updates require explicit compatibility support'
+  [[ $(dependency_contract "$native_root/packaging/runtime.json") == "$(dependency_contract "$installation/versions/$active_payload/packaging/runtime.json")" ]] || fail 'active runtime dependency contract differs; contract-changing updates require explicit compatibility support'
 }
 
 lifecycle() {
