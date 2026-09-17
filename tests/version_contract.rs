@@ -1,5 +1,58 @@
+use semver::{BuildMetadata, Version};
 use std::fs;
 use std::path::Path;
+use std::process::Command;
+
+fn released_version(text: &str) -> Option<Version> {
+    Version::parse(text).ok().map(|mut version| {
+        version.build = BuildMetadata::EMPTY;
+        version
+    })
+}
+
+#[test]
+fn working_version_is_above_every_released_version() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let working = released_version(env!("CARGO_PKG_VERSION")).unwrap();
+    let changelog = fs::read_to_string(root.join("CHANGELOG.md")).unwrap();
+    let headings: Vec<_> = changelog
+        .lines()
+        .filter_map(|line| line.strip_prefix("## "))
+        .map(str::trim)
+        .collect();
+    assert_eq!(
+        headings
+            .first()
+            .map(|h| h.trim_end_matches(" (unreleased)")),
+        Some(working.to_string().as_str()),
+        "the newest CHANGELOG.md heading must name the working version"
+    );
+    let mut released: Vec<Version> = headings[1..]
+        .iter()
+        .filter(|heading| !heading.ends_with("(unreleased)"))
+        .filter_map(|heading| released_version(heading))
+        .collect();
+    assert!(
+        !released.is_empty(),
+        "CHANGELOG.md lists no released version"
+    );
+    if let Ok(output) = Command::new("git")
+        .args(["-C", root.to_str().unwrap(), "tag", "--list", "v*"])
+        .output()
+        && output.status.success()
+    {
+        released.extend(
+            String::from_utf8_lossy(&output.stdout)
+                .split_whitespace()
+                .filter_map(|tag| released_version(tag.strip_prefix('v')?)),
+        );
+    }
+    let newest = released.iter().max().unwrap();
+    assert!(
+        working > *newest,
+        "the working version {working} is not above the released {newest}"
+    );
+}
 
 #[test]
 fn manifest_and_crate_versions_agree() {

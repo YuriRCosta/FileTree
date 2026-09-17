@@ -94,21 +94,41 @@ def cargo_lock_version(blob):
     return version(records[0].get("version"), "the fileblade record in Cargo.lock")
 
 
-def changelog_version(blob):
+def changelog_headings(blob):
     try:
         lines = blob.decode().splitlines()
     except UnicodeDecodeError:
         fail("CHANGELOG.md in the index is not UTF-8")
+    headings = []
     for line in lines:
         heading = re.fullmatch(r"##[ \t]+(.*)", line)
         if not heading:
             continue
-        text = re.sub(r"[ \t]+\(unreleased\)$", "", heading[1].strip())
+        text, unreleased = re.subn(r"[ \t]+\(unreleased\)$", "", heading[1].strip())
         if len(text) <= 128 and VERSION.fullmatch(text):
-            return version(text, "CHANGELOG.md")
-        if not text or text[0].isdigit() or text.lower() == "unreleased":
+            headings.append((text, bool(unreleased)))
+        elif not headings and (not text or text[0].isdigit() or text.lower() == "unreleased"):
             fail(f"the newest CHANGELOG.md release heading {text!r} names no valid version")
-    fail("CHANGELOG.md in the index has no release heading")
+    if not headings:
+        fail("CHANGELOG.md in the index has no release heading")
+    return headings
+
+
+def semver_key(value):
+    core, _, prerelease = value.partition("+")[0].partition("-")
+    identifiers = tuple(
+        (0, int(part), "") if part.isdigit() else (1, 0, part)
+        for part in prerelease.split(".") if prerelease
+    )
+    return tuple(int(part) for part in core.split(".")), not prerelease, identifiers
+
+
+def released_versions(headings):
+    released = {text for text, unreleased in headings[1:] if not unreleased}
+    for tag in git("tag", "--list", "v*").decode(errors="replace").split():
+        if len(tag) <= 129 and VERSION.fullmatch(tag[1:]):
+            released.add(tag[1:])
+    return released
 
 
 def binary_version(blob):
@@ -162,12 +182,16 @@ def main():
         "manifest.json": manifest_version(staged("manifest.json")),
         "Cargo.toml": cargo_toml_version(staged("Cargo.toml")),
         "Cargo.lock": cargo_lock_version(staged("Cargo.lock")),
-        "CHANGELOG.md": changelog_version(staged("CHANGELOG.md")),
     }
+    headings = changelog_headings(staged("CHANGELOG.md"))
+    sources["CHANGELOG.md"] = headings[0][0]
     expected = sources["manifest.json"]
     for name, value in sources.items():
         if value != expected:
             fail(f"manifest.json is {expected} but staged {name} is {value}")
+    blocking = max(released_versions(headings), key=semver_key, default=None)
+    if blocking and semver_key(blocking) >= semver_key(expected):
+        fail(f"the staged version {expected} is not above the released {blocking}")
     branch = git("branch", "--show-current").decode().strip()
     match = RELEASE_BRANCH.fullmatch(branch)
     if match and match[1] != expected:

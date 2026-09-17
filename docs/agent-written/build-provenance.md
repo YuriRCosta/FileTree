@@ -23,6 +23,10 @@ backend against one another and the release branch name. Partial commits use
 Git's temporary index; unstaged work is preserved. Missing, unresolved or
 symlinked sources are refused. Cargo must declare the FileBlade package version
 directly, and the lockfile must identify exactly one local FileBlade package.
+The staged version must also be strictly above every released version, the
+`v<version>` tags and the changelog headings below the newest one that lack
+`(unreleased)`, compared as SemVer with build metadata ignored; the refusal
+names the released version that blocks it.
 
 The hook runs the staged backend in a private temporary directory inside the
 Git directory, with a five-second deadline and a 4 KiB combined output limit.

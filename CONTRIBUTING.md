@@ -107,6 +107,12 @@ The gate runs Rust formatting, checks, Clippy and tests, Qt 6 lint and regressio
 tests, Python support tests, and a byte-for-byte rebuild of the bundled backend.
 The pinned Rust toolchain is required even when only verifying the bundle.
 
+`tests/version_contract.rs` and the pre-commit hook in `tools/hooks/pre-commit`
+both refuse a version that is not strictly above every released version,
+compared as SemVer with prerelease precedence and build metadata ignored. The
+released set is the union of the `v<version>` git tags and the `## <version>`
+headings of `CHANGELOG.md` below the newest one, without `(unreleased)`.
+
 Source contracts check process ownership, bounded models, command boundaries,
 and UI conventions. Explain deliberate contract changes with the implementation.
 
