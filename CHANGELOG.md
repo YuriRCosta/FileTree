@@ -4,6 +4,7 @@ This file was written by an agent.
 
 ## Unreleased
 
+- A Branches module lists every branch and worktree of the current repository with kind, status, last update, author and subject, and switches branches from the list, including remote-only ones. Open it from `Expand into Branches` in the Switch branch popup or with `fileblade branches`; `fileblade branches close` removes it and `fileblade branches list` prints it.
 - The tree header no longer lists volumes, which the Drives view already lists. Turn "Volumes in the tree" back on in Files settings to restore them, which also restores the one-click route to a connected tailnet peer that lived in that panel.
 - Choose which file toolbar buttons appear, in a Toolbar group in Files settings. Every hidden button except Drives keeps a keyboard route.
 - Row density returns to five stops named XS to XL. A saved percentage that is not a stop resolves to the nearest one.

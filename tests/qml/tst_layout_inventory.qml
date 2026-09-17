@@ -38,4 +38,13 @@ TestCase {
     var resolve = function(name) { return name === "files" ? "file-tree" : name }
     compare(LayoutInventory.missing({ blades: { left: { slots: [{ module: "files" }] } } }, kept, resolve).length, 0)
   }
+
+  function test_branches_slot_lands_under_files_and_properties() {
+    var files = { modules: [{ module: "files" }] }, properties = { modules: [{ module: "properties" }] }, notes = { modules: [{ module: "notes" }] }
+    compare(LayoutInventory.branchesSlotIndex([files, properties, notes]), 2)
+    compare(LayoutInventory.branchesSlotIndex([files, notes, properties]), 1)
+    compare(LayoutInventory.branchesSlotIndex([properties, files]), 2)
+    compare(LayoutInventory.branchesSlotIndex([notes]), 1)
+    compare(LayoutInventory.branchesSlotIndex([]), 0)
+  }
 }

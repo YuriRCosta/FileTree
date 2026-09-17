@@ -821,6 +821,8 @@ Item {
   function focusSearch(targetScreen) { return navigationController.focusSearch(targetScreen) }
   function focusLocation(targetScreen) { return navigationController.focusLocation(targetScreen) }
   function focusProperties(targetScreen) { return navigationController.focusProperties(targetScreen) }
+  function openBranches(targetScreen) { return navigationController.openBranches(targetScreen) }
+  function closeBranches() { return navigationController.closeBranches() }
   function clearLocationValidationError() { locationController.clearError() }
   function navigateToLocation(path, targetScreen, mode) { return locationController.navigate(path, targetScreen, mode) }
   function cancelLocationValidation(clearError) { locationController.cancel(clearError) }

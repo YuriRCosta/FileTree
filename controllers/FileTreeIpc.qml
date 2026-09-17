@@ -904,6 +904,14 @@ QtObject {
     return "ok"
   }
 
+  function openBranches(): string {
+    return service.openBranches(null) ? "ok" : "no-screen"
+  }
+
+  function closeBranches(): string {
+    return service.closeBranches() ? "ok" : "absent"
+  }
+
   function focusSearch(): string {
     service.focusSearch(null)
     return "ok"

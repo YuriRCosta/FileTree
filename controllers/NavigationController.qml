@@ -99,6 +99,8 @@ Item {
   }
 
   function focusProperties(screen) { return service.bladeHost.focusModule("properties", screen, "") }
+  function openBranches(screen) { return service.bladeHost.openBranches(screen) }
+  function closeBranches() { return service.bladeHost.closeBranches() }
 
   function setRootPath(value, rememberHistory, preserveForward) {
     var next = service.normalizeRoot(value)

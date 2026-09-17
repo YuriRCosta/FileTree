@@ -377,6 +377,8 @@ focusBladeOn:   host bind helper, focuses a blade on a named screen
 quickNav:       host bind (Super+Z)
 reloadKeybindings: explicit reread after editing the user keymap; normally handled by its file watcher
 cancelPick:     picker dialog flow, driven by the pick blade itself
+openBranches:   `fileblade branches`; also the Expand row of the Switch branch popup; opens or focuses the Branches module in the left blade
+closeBranches:  `fileblade branches close`; removes the Branches module
 confirmPick:    picker dialog flow, driven by the pick blade itself
 pickerResult:   picker dialog flow, answer from the pick blade
 select:         single-path form of selectEntries, which fileblade select uses

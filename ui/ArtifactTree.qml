@@ -392,6 +392,7 @@ FocusScope {
   }
 
   function groupText(row) {
+    if (!row) return ""
     if (metricKind !== "number") return String(row.badge || "")
     var total = groupTotal(row.path)
     return metricKey === "bytes" ? Format.bytes(total) : Format.compact(total)

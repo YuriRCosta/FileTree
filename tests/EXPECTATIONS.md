@@ -1381,6 +1381,60 @@ This file was written by an agent.
   full forget also excludes history dated through that moment; later uses
   still count. Forget reports the number of stored events removed.
 
+## 49. Branches
+
+This file was written by an agent.
+
+No VM script covers this section yet. The rows, status text, search, switch
+and worktree navigation are checked by `tests/qml/tst_branches_module.qml`
+on a fixture document; the slot position by
+`tests/qml/tst_layout_inventory.qml`; the backend document and the CLI by the
+Rust suites named in the branches contract.
+
+1. **E-49-01** When I click the branch name in the tree footer, the Switch
+   branch popup opens with a first row `Expand into Branches` above a
+   separator and the branch names. Picking it closes the popup and a
+   Branches pane appears in the left blade directly under Files, or under
+   Properties when Properties sits under Files, taking about a third of the
+   height. The blade opens if it was closed and the pane takes focus.
+2. **E-49-02** `fileblade branches` opens or focuses the same pane;
+   `fileblade branches close` removes it and closes the blade when nothing
+   else is left in it. The pane is not part of the default layout; it appears
+   only when I open it, survives a restart once opened, and is listed in Add
+   module like any other module.
+3. **E-49-03** The pane lists a Worktrees group, then Branches, then a Remote
+   subgroup for branches that exist only on a remote. A worktree row shows the
+   folder name of the worktree, its checked-out branch or `detached at <sha>`
+   as its summary, a folder glyph, and a check mark instead of the glyph when
+   it is the one I am in. A branch row shows the branch name, the tip
+   commit's subject as its summary, a branch glyph or a cloud glyph for a
+   remote-only branch, and the same check mark on the checked-out branch.
+4. **E-49-04** The Status column, shown by default, reads
+   `1 staged, 4 changed, 2 untracked` for a worktree with changes (zero parts
+   left out), `2 conflicts` first when merges are unresolved, `, locked`
+   appended for a locked worktree, and `clean` otherwise. A branch checked
+   out in any worktree shows that worktree's status; otherwise `↑3 ↓1` from
+   its upstream, `in sync` when nothing differs, `no upstream` for a local
+   branch without one, `gone` when the upstream was deleted, and `remote` for
+   a remote-only branch. Kind (`local`, `remote`, `both`), Updated (the tip
+   commit's date), Author and Summary are the other column choices.
+5. **E-49-05** Worktrees come first, then branches by most recent commit.
+   Typing in the filter field matches branch names, subjects, authors,
+   upstreams and kinds; `kind:remote` and `remote:origin` narrow by field.
+   The header counts `6 branches, 3 worktrees`, or `2 of 9` while filtering.
+6. **E-49-06** Enter or a double click on a branch switches the repository to
+   it, also when the branch exists only on a remote. A refusal such as a dirty
+   working tree shows in red in the header and nothing changes. On success the
+   list reloads, the check mark moves, and the tree's Git markers and summary
+   chip refresh. Enter on a worktree row opens that folder in the tree; `o`
+   on a branch checked out in another worktree opens that worktree instead
+   of switching.
+7. **E-49-07** The list reloads when I open the pane, when the tree moves to
+   another repository, after the tree's own Git refresh, and on Shift+R. It
+   never polls. Outside a repository the pane says `no repository here`.
+   Escape closes the blade, `/` opens the filter, `f` the column filter and
+   `s` cycles the sort, as in the other panes.
+
 ## 90. Checking the native app before installation
 
 This file was written by an agent.

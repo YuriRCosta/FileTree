@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "../lib/PathText.js" as PathText
+import "../lib/LayoutInventory.js" as LayoutInventory
 
 Item {
   id: host
@@ -561,6 +562,27 @@ Item {
     closeEmptyBlades(next)
     replaceLayout(next, true)
     return placement
+  }
+
+  function openBranches(targetScreen) {
+    if (!findModule("branches")) {
+      if (!registry.module("branches")) return false
+      var next = cloneLayout(layout)
+      if (!next.left) next.left = emptyBlade("left")
+      next.left.slots.splice(LayoutInventory.branchesSlotIndex(next.left.slots), 0, newSlot("branches", 0.34))
+      replaceLayout(next, true)
+    }
+    var location = findModule("branches")
+    setSlotTab(location.edge, location.index, location.tab)
+    return focusBlade(location.edge, targetScreen, location.index, "", true)
+  }
+
+  function closeBranches() {
+    var next = cloneLayout(layout)
+    if (!detachModule(next, "branches")) return false
+    closeEmptyBlades(next)
+    replaceLayout(next, true)
+    return true
   }
 
   function setMonitorMode(value, lock) {
