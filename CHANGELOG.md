@@ -2,7 +2,7 @@ This file was written by an agent.
 
 # Changelog
 
-## Unreleased
+## 0.2.0 (unreleased)
 
 - A Branches module lists every branch and worktree of the current repository with kind, status, last update, author and subject, and switches branches from the list, including remote-only ones. Open it from `Expand into Branches` in the Switch branch popup or with `fileblade branches`; `fileblade branches close` removes it and `fileblade branches list` prints it.
 - The tree header no longer lists volumes, which the Drives view already lists. Turn "Volumes in the tree" back on in Files settings to restore them, which also restores the one-click route to a connected tailnet peer that lived in that panel.
