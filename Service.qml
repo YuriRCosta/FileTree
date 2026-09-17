@@ -242,6 +242,10 @@ Item {
   readonly property alias treeExpansionError: treeController.expansionError
   property alias favoritesModel: favoritesController.model
   readonly property alias drivesController: drivesController
+  readonly property alias capacity: capacityController
+  readonly property bool capacityShown: capacityController.shown
+  readonly property string capacityTip: capacityController.tip.text
+  signal treeRefreshRequested()
   property alias searchModel: searchModel
   property alias applicationModel: applicationController.model
   property alias selectedPath: selectionController.selectedPath
@@ -571,6 +575,14 @@ Item {
     id: drivesController
     service: service
     showSystemVolumes: stateController.showSystemVolumes
+  }
+
+  CapacityController {
+    id: capacityController
+    service: service
+    operations: operationController
+    trash: trashController
+    drives: drivesController
   }
 
   RecentController {
@@ -1093,7 +1105,10 @@ Item {
   function toggleDirectory(index) { treeController.toggleDirectory(index) }
   function setDirectoryExpanded(path, expanded) { return treeController.setDirectoryExpanded(path, expanded) }
   function setBranchExpanded(path, expanded) { return treeController.setBranchExpanded(path, expanded) }
-  function refreshTree(pathMappings, removedPaths) { treeController.refreshTree(pathMappings, removedPaths) }
+  function refreshTree(pathMappings, removedPaths) {
+    treeController.refreshTree(pathMappings, removedPaths)
+    treeRefreshRequested()
+  }
   function refreshRecent() { recentController.refresh() }
   function recordFrecencyVisit(arguments) { recentController.recordVisit(arguments) }
   function treeRowSnapshot(row) { return treeController.treeRowSnapshot(row) }

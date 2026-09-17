@@ -1675,3 +1675,61 @@ shutdown still require the installed-app and UI scenarios.
   without launching another app. A busy refusal returns status 3.
 - **E-97-05** If the installed app's executable is missing, a native status
   request fails before attempting to launch the app.
+
+## 98. Seeing how full the drive is
+
+This file was written by an agent.
+
+Script: `tests/vm/expectations/98-capacity-bar.sh`. The script mounts its own
+64 MiB loop image, a bind mount of it and a tmpfs stacked inside it, and
+removes them when it ends. The home folder's mount is read from `findmnt`,
+never assumed.
+
+- **E-98-01** With the home folder open, a thin blue bar under the file toolbar
+  shows a fill, no wider than the blade, and the bar names the mount the home
+  folder is on.
+- **E-98-02** Hovering the bar shows how much of the drive is used out of how
+  much, the percentage full and the free space, in MB, GB or TB.
+- **E-98-03** Opening the loop image names its mount and the fill shrinks to that
+  image's fullness. A bind mount of it names the bind target with the same
+  numbers. A mount stacked inside it reports itself, and once unmounted the
+  same folder reports the image again.
+- **E-98-04** Trash, Recent and Drives show no fill; only the plain hairline is
+  left under the toolbar.
+- **E-98-05** `fileblade space PATH` reports the used, free and total bytes
+  byte for byte as `df -B1` does, and df's percentage; the text form prints one
+  line with that percentage.
+- **E-98-06** `fileblade space` without a path measures the open folder, and
+  refuses while Trash is open.
+- **E-98-07** Copying a 16 MiB file into the image through FileBlade raises the
+  fill within ten seconds of the copy finishing.
+- **E-98-08** Turning "Drive usage under the toolbar" off in Files settings hides
+  the fill at once and leaves the hairline; the choice survives a shell restart;
+  turning it back on brings the fill back.
+- **E-98-09** Clicking the bar does nothing, and the toolbar buttons just above it
+  keep their own tooltips and still work.
+- **E-98-10** Switching between two folders on different drives within a second
+  ends on the last folder's mount and stays there.
+- **E-98-11** After the backend restarts, the bar asks again on its own and shows
+  the fill. Removing the open folder moves the tree to its parent, with the
+  parent's fill. Unmounting the image under the open folder reports the
+  filesystem left behind.
+- **E-98-12** A file written into the image by another program shows as a larger
+  fill within the minute.
+- **E-98-13** Right after the image is mounted, its row in the Drives list draws
+  a bar as full as the backend's fraction says, within two pixels of its own
+  track, and the backend reports df's percentage for it.
+- **E-98-14** After a theme switch and a shell restart, the fill takes the
+  theme's blue when the theme defines one, and falls back to blue when the
+  theme has none. A theme switch alone does not recolour the running shell.
+- **E-98-15** Opening a symlink to a folder on the image keeps the symlink in the
+  location while the bar reports the image.
+- **E-98-16** Closing the blade or collapsing its section reports the bar hidden
+  and stops the minute refresh; reopening or expanding resumes it. Mirrored
+  outputs share one tab state, so their bars agree; the single-output guest
+  does not exercise that.
+- **E-98-17** When the open folder cannot be read, the next refresh turns the bar
+  into the plain hairline, and once the folder is readable again the fill
+  returns on its own within half a minute. The busy answer of an overlapping
+  probe, including after the first request's deadline, is proven in
+  `tests/capacity_e2e.rs` against one resident backend.

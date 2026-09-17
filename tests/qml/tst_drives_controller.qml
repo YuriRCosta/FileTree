@@ -71,7 +71,7 @@ TestCase {
   function test_rows_carry_drive_icons_and_hide_system_volumes() {
     controller.apply({ actions: true, volumes: [
       volume({}),
-      volume({ name: "ASUS", source: "/dev/sdb1", bus: "usb", removable: true, external: true, tier: "external", mounted: true, mountpoint: "/run/media/kurt/ASUS", used: 400, size: 1000 }),
+      volume({ name: "ASUS", source: "/dev/sdb1", bus: "usb", removable: true, external: true, tier: "external", mounted: true, mountpoint: "/run/media/kurt/ASUS", used: 400, size: 1000, fraction: 0.5 }),
       volume({ name: "Camera", source: "/dev/mmcblk0p1", bus: "mmc", removable: true, external: true, tier: "external" }),
       volume({ name: "fbtest.img", source: "/dev/loop0", image: "/tmp/fbtest.img", external: true, tier: "external" }),
       volume({ name: "/", source: "/dev/mapper/root", mounted: true, mountpoint: "/", tier: "system" })
@@ -81,7 +81,7 @@ TestCase {
     compare(controller.actionsAvailable, true)
     compare(controller.model.get(0).name, "ASUS")
     compare(controller.model.get(0).volumeGlyph, "󱊞")
-    compare(controller.model.get(0).usedFraction, 0.4)
+    compare(controller.model.get(0).usedFraction, 0.5)
     compare(controller.model.get(1).name, "Camera")
     compare(controller.model.get(1).volumeGlyph, "󰑹")
     compare(controller.model.get(2).name, "fbtest.img")

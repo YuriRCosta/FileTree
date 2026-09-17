@@ -1,5 +1,7 @@
 .pragma library
 
+var CAPACITY_FALLBACK_BLUE = "#7aa2f7"
+
 function folderReady(model, path) {
   var root = model.count ? model.get(0) : null
   return !!root && (path === undefined || root.path === path) && root.expanded && root.loaded && !root.loading && !root.error

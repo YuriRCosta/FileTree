@@ -51,6 +51,20 @@ FocusScope {
   property var toolbarButtons: ToolbarFields.normalizeFields()
   readonly property bool volumesConfigurable: !!context
   property bool volumesInTree: !volumesConfigurable
+  readonly property bool capacityBar: !context || !context.slotState || context.slotState.capacityBar !== false
+  readonly property bool capacityDemanded: capacityBar && root.visible && (!context || (context.bladeOpen !== false && !context.collapsed && !context.retired))
+  readonly property bool capacityShown: capacityDemanded && controller.capacity.status === "ready"
+  onCapacityDemandedChanged: syncCapacityDemand()
+  Component.onDestruction: controller.capacity.detach(root)
+
+  function setCapacityBar(value) {
+    return !!context && !!context.state && context.state.set("capacityBar", value === true)
+  }
+
+  function syncCapacityDemand() {
+    if (capacityDemanded) controller.capacity.attach(root)
+    else controller.capacity.detach(root)
+  }
   property real ordinaryDensityValue: 1
   readonly property real ordinaryDensity: ordinaryDensityValue > 0 ? ordinaryDensityValue : 1
   readonly property int ordinaryDensityStep: root.nearestDensityStep(ordinaryDensity)
@@ -1123,12 +1137,12 @@ FocusScope {
       }
     }
 
-    Rectangle {
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.bottom: parent.bottom
-      height: 1
-      color: Util.alpha(Color.bar.text, 0.10)
+    PluginUi.CapacityBar {
+      objectName: "capacityBar"
+      fraction: root.capacityShown ? controller.capacity.fraction : -1
+      fillColor: Util.alpha(controller.themedFolderColor("blue", ViewChrome.CAPACITY_FALLBACK_BLUE), 0.85)
+      tipTitle: root.capacityShown ? controller.capacity.tip.title : ""
+      tipContext: root.capacityShown ? controller.capacity.tip.context : []
     }
   }
 

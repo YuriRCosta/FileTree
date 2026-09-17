@@ -33,6 +33,8 @@ pub struct Volume {
     pub size: u64,
     pub used: Option<u64>,
     pub available: Option<u64>,
+    pub fraction: Option<f64>,
+    pub percent: Option<u64>,
     pub removable: bool,
     pub external: bool,
     pub read_only: bool,
@@ -62,19 +64,6 @@ fn system_mountpoint(mountpoint: &str) -> bool {
         || SYSTEM_PREFIXES
             .iter()
             .any(|prefix| mountpoint.starts_with(prefix))
-}
-
-fn capacity(mountpoint: &str) -> (Option<u64>, Option<u64>) {
-    let Ok(path) = crate::common::parse_path(mountpoint) else {
-        return (None, None);
-    };
-    let Ok(stat) = rustix::fs::statvfs(&path) else {
-        return (None, None);
-    };
-    let block = stat.f_frsize;
-    let used = stat.f_blocks.saturating_sub(stat.f_bfree) * block;
-    let available = stat.f_bavail * block;
-    (Some(used), Some(available))
 }
 
 fn display_name(
@@ -142,7 +131,7 @@ fn volume(device: &block::BlockDevice, table: &mountinfo::MountTable) -> Option<
         (Some(_), false) => "internal",
         (None, false) => "unmounted",
     };
-    let (used, available) = mountpoint.as_deref().map_or((None, None), capacity);
+    let usage = mountpoint.as_deref().and_then(crate::capacity::usage_at);
     let label = properties.label().map(str::to_string);
     Some(Volume {
         name: display_name(
@@ -160,8 +149,10 @@ fn volume(device: &block::BlockDevice, table: &mountinfo::MountTable) -> Option<
         label,
         bus: properties.bus().unwrap_or(&device.bus).to_string(),
         size: device.size,
-        used,
-        available,
+        used: usage.map(|usage| usage.used),
+        available: usage.map(|usage| usage.available),
+        fraction: usage.and_then(|usage| usage.fraction),
+        percent: usage.and_then(|usage| usage.percent),
         removable: device.removable,
         external,
         read_only: device.read_only || record.is_some_and(|record| record.read_only),
@@ -186,6 +177,8 @@ impl Volume {
             "size_label": human_size(self.size),
             "used": self.used,
             "available": self.available,
+            "fraction": self.fraction,
+            "percent": self.percent,
             "removable": self.removable,
             "external": self.external,
             "read_only": self.read_only,
