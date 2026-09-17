@@ -1,6 +1,7 @@
 use super::*;
 use crate::mounts::mountinfo::{MOUNTINFO_PATH, MountTable};
 use std::fs::File;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom};
 
 const DEVICE_LINK_DIRS: [&str; 2] = ["/dev/disk/by-id", "/run/media"];
@@ -30,7 +31,11 @@ fn snapshot(file: &mut File) -> AppResult<Value> {
     file.seek(SeekFrom::Start(0))?;
     file.read_to_string(&mut text)?;
     let volumes = crate::mounts::list_with(&MountTable::from_text(&text));
-    Ok(crate::mounts::payload_with(&volumes))
+    let mut payload = crate::mounts::payload_with(&volumes);
+    let mut hasher = DefaultHasher::new();
+    text.hash(&mut hasher);
+    payload["mount_table"] = Value::String(format!("{:016x}", hasher.finish()));
+    Ok(payload)
 }
 
 fn device_watches(descriptor: &std::os::fd::OwnedFd) -> Vec<String> {

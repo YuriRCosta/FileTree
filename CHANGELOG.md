@@ -6,6 +6,7 @@ This file was written by an agent.
 
 - Every blade tab puts its search field first and the tab header under it: Files, Skills, Memory, Hooks, MCP and Branches share the order. The header's Search button is gone; `/` reveals the field as before.
 - Dragging a blade edge no longer throws the pointer to the middle of the screen or leaves the blade at its maximum width. While a resize drag is in progress the pointer watch that hands focus back to the workspace stays quiet, so no Hyprland focus dispatch and no cursor warp happens mid-drag.
+- A thin blue bar under the file toolbar shows how full the drive holding the open folder is, as `df` reports it. Hover it for the used, total and free space and the percentage. `fileblade space [PATH]` prints the same numbers, and "Drive usage under the toolbar" in Files settings hides the bar per tab.
 - Skill Uses count every agent FileBlade manages, not only Claude Code: Codex `$skill` mentions and SKILL.md reads, OpenCode `skill` tool calls from its SQLite store, Copilot CLI `skill.invoked` events, Antigravity slash commands and SKILL.md reads, and Pi SKILL.md reads. MCP Uses add OpenCode and Copilot CLI calls.
 - An open Skills or MCP tab watches the agents' transcript directories and refreshes its counts and heatmap a few seconds after an agent writes, with a 60-second safety refresh, so Uses climb while agents run.
 - Disabled skills stay listed. The bin listing keeps its last rows and retries when a read fails, and the Skills tab re-reads the bin after every rescan.

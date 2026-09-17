@@ -202,6 +202,16 @@ Column {
 
   PluginUi.SettingsGroup { title: "Toolbar" }
 
+  PluginUi.ToggleRow {
+    objectName: "capacityBarToggle"
+    width: parent.width
+    glyph: "\u{f02ca}"
+    label: "Drive usage under the toolbar"
+    visible: !!root.pane
+    checked: root.pane ? root.pane.capacityBar : false
+    onToggled: root.pane.setCapacityBar(!root.pane.capacityBar)
+  }
+
   Repeater {
     model: ToolbarFields.choices
 

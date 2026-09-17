@@ -142,6 +142,12 @@ impl MountTable {
         &self.records
     }
 
+    pub fn record_for(&self, mount_id: u64, path: &Path) -> Option<&MountRecord> {
+        self.records
+            .iter()
+            .find(|record| record.mount_id == mount_id && path.starts_with(&record.mountpoint))
+    }
+
     pub fn primary(&self, device: &str) -> Option<&MountRecord> {
         self.mounts(device)
             .min_by_key(|record| (record.mountpoint.as_os_str().len(), record.subroot.len()))

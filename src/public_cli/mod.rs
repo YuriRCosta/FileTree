@@ -30,6 +30,7 @@ mod ipc;
 mod launch;
 mod plugins;
 mod queries;
+mod space;
 mod usage;
 pub use args::*;
 pub use blade::*;
@@ -170,6 +171,8 @@ pub enum RootCommand {
     BladeWidth(PixelsArgs),
     Blades,
     Modules,
+    /// Print how full the drive holding a folder is; defaults to the open FileBlade root.
+    Space(space::SpaceArgs),
     RescanModules,
     ModuleDirs(ModuleDirsArgs),
     Actions,
@@ -359,6 +362,7 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
             simple_ipc("setPropertiesBladeWidth", &[options.pixels.to_string()])
         }
         RootCommand::Blades => json_ipc("blades", &[]),
+        RootCommand::Space(options) => space::space(options),
         RootCommand::Modules => modules(),
         RootCommand::RescanModules => simple_ipc("rescanBladeModules", &[]),
         RootCommand::ModuleDirs(options) => module_dirs(options),

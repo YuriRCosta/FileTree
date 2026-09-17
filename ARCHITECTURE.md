@@ -92,10 +92,23 @@ progress:    streamed while a long operation runs (copy, move, deep search)
 subscribe:   a watch the backend keeps open; it emits `event` frames until cancelled
              topic `filesystem`: an inotify watch on a bounded list of paths
              topic `mounts`: POLLPRI on /proc/self/mountinfo plus inotify on /dev/disk/by-id
-                             and /run/media; each frame carries the whole volume list
+                             and /run/media; each frame carries the whole volume list and a
+                             fingerprint of the mount table, so a tmpfs or bind mount still emits
 cancel:      stop a request or a subscription by id and generation
 error:       the backend refusing a malformed or oversized frame
 ```
+
+`capacity --path P` answers with the filesystem numbers under the toolbar
+bar: `fstatvfs` on the opened canonical directory, the mount record found
+through that directory's `STATX_MNT_ID`, `df`'s `used / (used + available)`
+fraction and its rounded-up percentage, all computed once in Rust and shared
+with the Drives volumes. Counters that cannot be trusted (a zero fragment
+size, free above total, available above free, or the all-ones unknown value)
+leave `fraction` and `percent` null. One probe runs at a time: a second
+request while one is outstanding answers `busy` at once, and the flag clears
+only when the blocked probe returns, so a stalled network filesystem cannot
+pile up workers. `fileblade space [PATH]` calls the same command directly and
+prints one line or, with `-o json`, the document.
 
 This file was written by an agent.
 
@@ -571,6 +584,17 @@ Opening the blade, a watcher overflow, and a deliberate tree refresh request a
 full refresh. Turning `gitEnabled` off stops both refresh paths, sends
 `--no-git` on listings and searches, and clears Git presentation from every
 model.
+
+The capacity bar keeps three ideas apart: eligible (the root is a local
+directory, not Trash, Recent, Drives or a remote root), demanded (at least one
+visible, open, uncollapsed Files pane has the setting on) and loaded. A root
+change bumps the generation, cancels the pending request and clears the old
+numbers before the 400 ms debounce sends one `capacity` request with a 5 s
+deadline. Completed operations, Trash operations, mount changes, the manual
+refresh and backend readiness reschedule it; a failure retries with backoff
+from 1 s to 30 s while the pane still demands it; a 60 s tick catches writes
+made by other programs. The Drives list samples on mount events only, so a
+volume row may lag the bar until the next such event.
 
 ## Checkout update checks
 

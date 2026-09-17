@@ -4,6 +4,8 @@ import "../lib/PathText.js" as PathText
 Item {
   id: controller
 
+  signal operationFinished()
+
   required property var service
   property alias model: trashModel
   property bool busy: false
@@ -301,6 +303,7 @@ Item {
       controller.operationLabel = ""
       controller.refresh()
       service.history.refreshJournal()
+      controller.operationFinished()
     }, function(value) {
       if (requestGeneration === controller.operationGeneration) controller.progress = value
     }, 900000, { untimed: true })

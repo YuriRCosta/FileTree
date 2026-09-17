@@ -67,6 +67,7 @@ pub enum BackendCommand {
     Quicknav(QuicknavArgs),
     Visit(PathArg),
     Stat(PathArg),
+    Capacity(PathArg),
     StatBatch(PathsArgs),
     Applications(ApplicationsArgs),
     BladeModules(BladeModulesArgs),
@@ -401,6 +402,7 @@ fn dispatch_command(
         BackendCommand::Stat(options) => {
             crate::filesystem::stat_path_cancellable(&options.path, cancelled)
         }
+        BackendCommand::Capacity(options) => crate::capacity::probe(&options.path)?,
         BackendCommand::StatBatch(options) => {
             crate::filesystem::stat_paths(&options.path[..options.path.len().min(512)])
         }

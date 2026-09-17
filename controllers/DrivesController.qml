@@ -100,7 +100,7 @@ Item {
       sizeLabel: String(volume.size_label || ""),
       used: used,
       available: Number(volume.available) || 0,
-      usedFraction: size > 0 && used >= 0 ? used / size : -1,
+      usedFraction: volume.fraction === null || volume.fraction === undefined ? -1 : Number(volume.fraction),
       removable: !!volume.removable,
       external: !!volume.external,
       readOnly: !!volume.read_only,
