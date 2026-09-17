@@ -244,7 +244,7 @@ fn exchange(
     Ok(value)
 }
 
-fn qml(
+pub(super) fn qml(
     payload: &Path,
     deadline: Instant,
     method: &str,

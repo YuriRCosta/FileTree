@@ -7,6 +7,9 @@ use std::sync::Arc;
 
 mod backend;
 mod drain;
+mod filemanager1;
+mod open;
+pub mod roles;
 
 #[derive(Clone, Debug, ClapArgs)]
 pub struct Args {
@@ -31,10 +34,17 @@ enum Command {
         #[arg(last = true, num_args = 2..)]
         arguments: Vec<OsString>,
     },
+    Open {
+        #[arg(required = true)]
+        paths: Vec<String>,
+    },
+    Filemanager1,
+    Roles(roles::Args),
 }
 
 pub fn run(args: Args, output: Arc<Output>) -> ExitCode {
     let result = match args.command {
+        Command::Roles(args) => return roles::run(args, output),
         Command::Drain { timeout_ms, .. } => {
             let result = drain::run(timeout_ms);
             let code = match result["status"].as_str() {
@@ -54,6 +64,8 @@ pub fn run(args: Args, output: Arc<Output>) -> ExitCode {
             Err(error) => Err(error),
         },
         Command::Portal => crate::chooser::portal::serve(),
+        Command::Open { paths } => open::run(&paths, false),
+        Command::Filemanager1 => filemanager1::serve(),
         Command::Ipc { arguments } => crate::paths::app_root().and_then(|root| {
             Err(std::process::Command::new("qs")
                 .args(["ipc", "-n", "-p"])

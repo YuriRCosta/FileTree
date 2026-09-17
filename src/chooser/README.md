@@ -39,9 +39,9 @@ The immutable offer snapshot remains readable while validation runs.
 The app consumer lives under `app/chooser/` and dynamically loads the real
 Service/TreePane and picker footer. Each session shares the resident backend,
 uses fresh in-memory navigation/layout state, and refuses unrelated writes.
-`FILEBLADE_CHOOSER=1` enables the consumer for development qualification;
-ordinary launches do not activate a desktop role. The final role switch owns
-activation when task 3.3 lands.
+The consumer is always on; `FILEBLADE_CHOOSER=0` is a development override
+that disables it. The "File chooser" desktop role (`native roles`) decides
+whether the portal service activates `native portal` at all.
 
 The backend registers this command group on the resident authority.
 Portal D-Bus registration, exported-parent association and real browser

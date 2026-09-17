@@ -117,6 +117,8 @@ pub enum BackendCommand {
     DropRun(DropRunArgs),
     DropPaste(DropPasteArgs),
     Launch(LaunchArgs),
+    RolesStatus,
+    RolesSet(RolesSetArgs),
 }
 
 pub fn parse<I, T>(arguments: I) -> Result<BackendCommand, clap::Error>
@@ -172,6 +174,7 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::FrecencyVisit(_)
             | BackendCommand::Visit(_)
             | BackendCommand::Recover
+            | BackendCommand::RolesSet(_)
     )
 }
 
@@ -403,6 +406,10 @@ fn dispatch_command(
             crate::filesystem::stat_path_cancellable(&options.path, cancelled)
         }
         BackendCommand::Capacity(options) => crate::capacity::probe(&options.path)?,
+        BackendCommand::RolesStatus => crate::native::roles::status_document()?,
+        BackendCommand::RolesSet(options) => {
+            crate::native::roles::set_document(&options.role, options.on)?
+        }
         BackendCommand::StatBatch(options) => {
             crate::filesystem::stat_paths(&options.path[..options.path.len().min(512)])
         }
