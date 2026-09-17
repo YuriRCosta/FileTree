@@ -582,10 +582,15 @@ Item {
   function openBranches(targetScreen) {
     if (!findModule("branches")) {
       if (!registry.module("branches")) return false
-      var next = cloneLayout(layout)
-      if (!next.left) next.left = emptyBlade("left")
-      next.left.slots.splice(LayoutInventory.branchesSlotIndex(next.left.slots), 0, newSlot("branches", 0.34))
-      replaceLayout(next, true)
+      var beside = findModule("properties")
+      if (beside) {
+        addTab(beside.edge, beside.index, "branches", {})
+      } else {
+        var next = cloneLayout(layout)
+        if (!next.left) next.left = emptyBlade("left")
+        next.left.slots.splice(LayoutInventory.branchesSlotIndex(next.left.slots), 0, newSlot("branches", 0.34))
+        replaceLayout(next, true)
+      }
     }
     var location = findModule("branches")
     setSlotTab(location.edge, location.index, location.tab)

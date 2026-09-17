@@ -173,6 +173,12 @@ fn assert_places(document: &Value, fixture: &Fixture) {
     assert_eq!(linked["unstaged"], 1);
     assert_eq!(linked["untracked"], 1);
     assert_eq!(linked["conflicted"], 0);
+    assert_eq!(linked["modified"], 2);
+    assert_eq!(linked["added"], 0);
+    assert_eq!(linked["deleted"], 0);
+    assert_eq!(linked["renamed"], 0);
+    assert_eq!(linked["copied"], 0);
+    assert_eq!(linked["type_changed"], 0);
     assert_eq!(linked["locked"], false);
     assert_eq!(linked["prunable"], false);
     let detached = worktree(document, &fixture.detached);

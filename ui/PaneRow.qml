@@ -8,6 +8,7 @@ Rectangle {
   property string label: ""
   property string detail: ""
   property string badge: ""
+  property string badgeMarkup: ""
   property string glyph: ""
   property bool glyphStruck: false
   property string expander: ""
@@ -230,14 +231,15 @@ Rectangle {
         }
 
         Text {
-          textFormat: Text.PlainText
+          readonly property bool styled: cell.primary && row.badgeMarkup !== ""
+          textFormat: styled ? Text.StyledText : Text.PlainText
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           width: cell.numericBar ? Math.min(row.valueWidth, parent.width) : parent.width
           visible: !(cell.primary && !!row.trailing)
           horizontalAlignment: Text.AlignRight
-          elide: Text.ElideLeft
-          text: row.metricText(cell.index)
+          elide: styled ? Text.ElideRight : Text.ElideLeft
+          text: styled ? row.badgeMarkup : row.metricText(cell.index)
           color: Color.muted
           opacity: row.contentOpacity
           font.family: Style.font.family

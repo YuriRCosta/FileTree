@@ -1,4 +1,7 @@
-use super::{add_repository_identity, branch_name_is_safe, git_repository_cancellable, run_git};
+use super::{
+    GitStatusCounts, add_repository_identity, branch_name_is_safe, display_git_status,
+    git_repository_cancellable, run_git,
+};
 use crate::common::path_text;
 use crate::filesystem::read_regular_prefix;
 use serde_json::{Value, json};
@@ -23,6 +26,7 @@ struct Worktree {
     locked: bool,
     prunable: bool,
     counts: [usize; 4],
+    changes: GitStatusCounts,
     at: i64,
 }
 
@@ -198,6 +202,7 @@ fn worktree_rows(root: &Path, cancelled: &AtomicBool) -> Vec<Worktree> {
         }
         let path = PathBuf::from(fields.get("worktree").copied().unwrap_or_default());
         let current = std::fs::canonicalize(&path).is_ok_and(|real| real == real_root);
+        let (counts, changes) = status_counts(&path, cancelled);
         rows.push(Worktree {
             branch: fields
                 .get("branch")
@@ -209,7 +214,8 @@ fn worktree_rows(root: &Path, cancelled: &AtomicBool) -> Vec<Worktree> {
             current,
             locked: fields.contains_key("locked"),
             prunable: fields.contains_key("prunable"),
-            counts: status_counts(&path, cancelled),
+            counts,
+            changes,
             at: 0,
             path,
         });
@@ -217,37 +223,45 @@ fn worktree_rows(root: &Path, cancelled: &AtomicBool) -> Vec<Worktree> {
     rows
 }
 
-fn status_counts(path: &Path, cancelled: &AtomicBool) -> [usize; 4] {
+fn status_counts(path: &Path, cancelled: &AtomicBool) -> ([usize; 4], GitStatusCounts) {
     let mut counts = [0; 4];
+    let mut changes = GitStatusCounts::default();
     let output = run_git(
         [OsString::from("-C"), path.as_os_str().to_owned()]
             .into_iter()
-            .chain(
-                ["status", "--porcelain=v2", "-z", "--untracked-files=normal"].map(OsString::from),
-            ),
+            .chain(["status", "--porcelain=v2", "-z", "--untracked-files=all"].map(OsString::from)),
         PLACE_TIMEOUT,
         PLACE_BYTES,
         cancelled,
     );
     let Ok(output) = output else {
-        return counts;
+        return (counts, changes);
     };
     let mut records = output.stdout.split(|byte| *byte == 0);
     while let Some(record) = records.next() {
-        match record {
-            [b'?', b' ', ..] => counts[2] += 1,
-            [b'u', b' ', ..] => counts[3] += 1,
+        let xy = match record {
+            [b'?', b' ', ..] => {
+                counts[2] += 1;
+                *b"??"
+            }
+            [b'u', b' ', x, y, b' ', ..] => {
+                counts[3] += 1;
+                [*x, *y]
+            }
             [kind @ (b'1' | b'2'), b' ', index, worktree, b' ', ..] => {
                 counts[0] += usize::from(*index != b'.');
                 counts[1] += usize::from(*worktree != b'.');
                 if *kind == b'2' {
                     records.next();
                 }
+                [*index, *worktree]
             }
-            _ => {}
-        }
+            _ => continue,
+        };
+        let letter = |byte: u8| if byte == b'.' { ' ' } else { byte as char };
+        changes.add(&display_git_status(letter(xy[0]), letter(xy[1])));
     }
-    counts
+    (counts, changes)
 }
 
 fn worktree_document(row: &Worktree) -> Value {
@@ -265,6 +279,12 @@ fn worktree_document(row: &Worktree) -> Value {
         "unstaged": unstaged,
         "untracked": untracked,
         "conflicted": conflicted,
+        "modified": row.changes.modified,
+        "added": row.changes.added,
+        "deleted": row.changes.deleted,
+        "renamed": row.changes.renamed,
+        "copied": row.changes.copied,
+        "type_changed": row.changes.type_changed,
         "at": row.at
     })
 }

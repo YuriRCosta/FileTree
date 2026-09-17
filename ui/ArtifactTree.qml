@@ -39,6 +39,7 @@ FocusScope {
   property var filterKeys: []
   property var idFilter: null
   property var specialMetricValue: function(item, key) { return undefined }
+  property var metricMarkup: function(item, key) { return "" }
   property var appliedAgents: function(item) { return Array.isArray(item.agents) ? item.agents : [] }
   property var rowAction: function(item) { return null }
   property var rowMark: function(item) { return tree.defaultMark(item) }
@@ -796,6 +797,7 @@ FocusScope {
       glyphColor: (folderGroup && !glyphStruck) || (!isGroup && entry && (entry.is_dir || entry.isDir)) ? Color.accent : Color.muted
       label: folderGroup ? groupLabel : (isGroup ? groupLabel.toUpperCase() : (entry ? tree.leafLabel(entry) : ""))
       badge: isGroup ? tree.groupText(tree.rowAt(index)) : (showsMetrics ? tree.metricText(entry) : "")
+      badgeMarkup: !isGroup && showsMetrics && entry ? String(tree.metricMarkup(entry, tree.metricKey) || "") : ""
       extras: isGroup ? tree.extraGroupTexts(tree.rowAt(index)) : (showsMetrics ? tree.extraTexts(entry) : [])
       columnWidths: tree.columnWidths()
       metricRightMargin: tree.view && tree.view.metricRightMargin !== undefined

@@ -748,6 +748,15 @@ Automation for the remaining tab-management scenarios is pending.
 New notebooks begin with the supplied Lovecraft quotation. Existing notes,
 including intentionally empty notes, retain their saved contents.
 
+This file was written by an agent.
+
+The last-edit time, word count and character count use the muted theme color
+so they remain less prominent than the note text. Canonical Material Design
+glyphs from Nerd Fonts replace the labels: clock-edit-outline for last edit,
+text for words, and alphabetical for characters. Until a note has been edited,
+the last-edit field is absent, with no placeholder or empty gap. Counts remain
+visible, including zero; screen readers receive the full labels and values.
+
 `tests/vm/expectations/25-notes.sh`
 
 217. **E-25-01** If I add the Notes module, I can type a plain-text note directly
@@ -1381,6 +1390,17 @@ field both shown and auto-hidden. See
    space; clicking it again brings the grid back. The choice belongs to that
    tab, starts on for a new tab, and survives a shell restart. Files tabs have
    no Activity button.
+
+   In Skills, selecting a skill with the mouse or keyboard scopes the visible
+   heatmap to that skill, including its agent and typed uses. Selecting a file
+   inside that skill retains the scope; selecting a group returns to all skills.
+   Clicking a day or pressing Enter on it filters the tree to skills used that
+   day without rescanning the skill directories. Switching days keeps the
+   current filtered rows until the next result arrives. The selected square
+   has an inset foreground-colored border, and all other squares are dimmed;
+   the border remains visible after focus returns to the tree. Clicking the
+   selected day again or pressing Escape in the tree clears the day filter,
+   border and dimming. Changing projects clears the old selection and filter.
 7. **E-48-07** When the tab's section is shorter than about 300 pixels, the grid
    hides by itself and the list takes the space. When the section grows again,
    the grid returns, and my Activity choice is unchanged.
@@ -1483,43 +1503,58 @@ Rust suites named in the branches contract.
 1. **E-49-01** When I click the branch name in the tree footer, the Switch
    branch popup opens with a first row `Expand into Branches` above a
    separator and the branch names. Picking it closes the popup and a
-   Branches pane appears in the left blade directly under Files, or under
-   Properties when Properties sits under Files, taking about a third of the
-   height. The blade opens if it was closed and the pane takes focus.
+   Branches tab appears beside Properties, in whichever blade Properties
+   sits, and becomes the active tab. Without a Properties slot it takes its
+   own pane under Files at about a third of the height. The blade opens if
+   it was closed and the pane takes focus.
 2. **E-49-02** `fileblade branches` opens or focuses the same pane;
    `fileblade branches close` removes it and closes the blade when nothing
-   else is left in it. The pane is not part of the default layout; it appears
-   only when I open it, survives a restart once opened, and is listed in Add
-   module like any other module.
-3. **E-49-03** The pane lists a Worktrees group, then Branches, then a Remote
-   subgroup for branches that exist only on a remote. A worktree row shows the
-   folder name of the worktree, its checked-out branch or `detached at <sha>`
-   as its summary, a folder glyph, and a check mark instead of the glyph when
-   it is the one I am in. A branch row shows the branch name, the tip
-   commit's subject as its summary, a branch glyph or a cloud glyph for a
-   remote-only branch, and the same check mark on the checked-out branch.
-4. **E-49-04** The Status column, shown by default, reads
-   `1 staged, 4 changed, 2 untracked` for a worktree with changes (zero parts
-   left out), `2 conflicts` first when merges are unresolved, `, locked`
-   appended for a locked worktree, and `clean` otherwise. A branch checked
-   out in any worktree shows that worktree's status; otherwise `↑3 ↓1` from
-   its upstream, `in sync` when nothing differs, `no upstream` for a local
-   branch without one, `gone` when the upstream was deleted, and `remote` for
-   a remote-only branch. Kind (`local`, `remote`, `both`), Updated (the tip
-   commit's date), Author and Summary are the other column choices.
-5. **E-49-05** Worktrees come first, then branches by most recent commit.
-   Typing in the filter field matches branch names, subjects, authors,
-   upstreams and kinds; `kind:remote` and `remote:origin` narrow by field.
-   The header counts `6 branches, 3 worktrees`, or `2 of 9` while filtering.
-6. **E-49-06** Enter or a double click on a branch switches the repository to
-   it, also when the branch exists only on a remote. A refusal such as a dirty
+   else is left in it. On first opening FileBlade, Branches is already the
+   second tab behind Properties, with Properties selected. My saved layout
+   remains authoritative: closing Branches does not make it return on restart.
+   It is also listed in Add module.
+3. **E-49-03** The pane lists a Branches group, a Remote subgroup for
+   branches that exist only on a remote, then a Worktrees group for detached
+   worktrees. The main checkout is never listed as a worktree; its branch
+   carries the check mark. A linked worktree sits nested under the branch it
+   has checked out, open by default, showing the folder name of the worktree
+   with its path as summary, a folder glyph, and a separate check mark
+   when it is the one I am in. A branch row shows the branch name, the
+   tip commit's subject as its summary, a blue theme-accent branch glyph for
+   local branches or a dim cloud glyph for a remote-only branch, and a
+   separate check mark on the checked-out branch.
+4. **E-49-04** The Status column, shown by default, uses the same layout and
+   colours as the repository summary on the tree's root row: `↑3 ↓1 M4 A1 ?2`
+   for a branch with an upstream and a checkout with changes, following the
+   Git summary fields setting. A branch checked out nowhere shows only its
+   arrows, `↑0 ↓0` when in sync; a nested worktree row shows its changes with
+   `locked` appended when locked; `clean` when nothing differs, `no upstream`
+   for a local branch without one, `gone` when the upstream was deleted, and
+   `remote` for a remote-only branch. Kind (`local`, `remote`, `both`),
+   Updated (the tip commit's date), Author and Summary are the other column
+   choices.
+5. **E-49-05** Branches come first, by most recent commit, then detached
+   worktrees. Typing in the filter field matches branch names, subjects,
+   authors, upstreams, kinds and worktree paths; `kind:remote` and
+   `remote:origin` narrow by field. The header shows the current branch and
+   its status with a Git branch glyph, or `2 of 7` while filtering. Without
+   a current branch it counts branches and linked worktrees.
+6. **E-49-06** Selecting a checked-out local branch or a worktree selects its
+   folder in the Files tree when it is already listed; otherwise Files opens
+   that folder. Mouse and keyboard selection behave alike. Selecting a
+   remote-only branch does not navigate. Enter or a double click on a branch
+   without a checkout switches the repository to it, also when it exists
+   only on a remote. A refusal such as a dirty
    working tree shows in red in the header and nothing changes. On success the
    list reloads, the check mark moves, and the tree's Git markers and summary
-   chip refresh. Enter on a worktree row opens that folder in the tree; `o`
-   on a branch checked out in another worktree opens that worktree instead
-   of switching.
+   chip refresh. Enter on a worktree row, nested or detached, opens that
+   folder in the tree; Enter on a branch with a nested worktree folds or
+   unfolds it; `o` on a branch checked out in another worktree opens that
+   worktree instead of switching.
 7. **E-49-07** The list reloads when I open the pane, when the tree moves to
-   another repository, after the tree's own Git refresh, and on Shift+R. It
+   another repository, after the tree's own Git refresh, and on Shift+R.
+   Closely spaced refreshes run once; closing or changing context cancels
+   pending work and late replies cannot replace the current repository. It
    never polls. Outside a repository the pane says `no repository here`.
    Escape closes the blade, `/` opens the filter, `f` the column filter and
    `s` cycles the sort, as in the other panes.

@@ -32,26 +32,45 @@ change Git data, sorting, staging, or repository contents.
 ## Branches
 
 The Switch branch popup on the footer branch name starts with `Expand into
-Branches`, which opens the Branches module in the left blade under Files (or
-under Properties when Properties is under Files) at about a third of the
-height. `fileblade branches` opens or focuses it, `fileblade branches close`
+Branches`, which opens the Branches module as a tab beside Properties, wherever
+Properties sits; without a Properties slot it takes its own slot under Files at
+about a third of the height. `fileblade branches` opens or focuses it, `fileblade branches close`
 removes it, and `fileblade branches list [-o json]` prints the same document
-in the terminal. It is not part of the default layout, but it persists once
-opened and appears in Add module.
+in the terminal. First-use layouts include Branches as the second tab behind
+Properties, with Properties active. Saved layouts are preserved, including
+when Branches has been dismissed. It also appears in Add module.
 
 The module reads one backend document, `git-places`, for the repository the
 tree's context path resolves to: every local and remote branch merged by short
 name (`local`, `remote` or `both`), its upstream with ahead and behind counts,
 the worktree it is checked out in, its tip commit date, author and subject,
-and every worktree with its head, lock state and staged, changed, untracked
-and conflicted counts. Nothing is fetched from the network and nothing is
-written.
+and every worktree with its head, lock state, staged, changed, untracked and
+conflicted counts, and the same per-letter change counts (`modified`, `added`,
+`untracked`, `deleted`, `renamed`, `copied`, `type_changed`, `conflicted`) the
+tree's repository summary uses. Nothing is fetched from the network and
+nothing is written.
 
-Rows are grouped as Worktrees, Branches and Branches / Remote. The Status
-column is on by default; Kind, Updated, Author and Summary are the other
-choices. Enter on a branch runs `git-switch` (a remote-only branch is tracked
-from its single remote), then refreshes the module and the tree's Git
-metadata; a refusal shows in the header. Enter on a worktree opens it in the
-tree, and `o` on a branch checked out elsewhere opens that worktree. The list
-reloads on open, on a context path change, after the tree's Git refresh and
-on Shift+R.
+Rows are grouped as Branches, Branches / Remote, then Worktrees. The main
+checkout is never a worktree row: it is the checked-out branch. A linked
+worktree nests under the branch it has checked out, open by default, with its
+path as summary; a detached worktree lands in the Worktrees group. The Status
+column, on by default, uses the tree's repository summary format and colours
+(`↑3 ↓1 M4 A1 ?2`, honouring the Git summary fields setting): a branch shows
+its upstream arrows plus the changes of its checkout, a worktree row shows its
+changes plus `locked`, and `remote`, `gone`, `no upstream` or `clean` stand
+in when there is nothing to show. Kind, Updated, Author and Summary are the
+other choices. Enter on a branch runs `git-switch` (a remote-only branch is
+tracked from its single remote), then refreshes the module and the tree's
+Git metadata; a refusal shows in the header. Enter on a branch with a linked
+worktree folds it instead, since Git refuses to switch to it. Enter on a
+worktree opens it in the tree, and `o` on a branch checked out elsewhere
+opens that worktree. Selecting a checked-out branch or worktree first looks
+up its path in the Files tree index and selects that row, otherwise navigating
+to the checkout. Remote-only selection never navigates. Local branch glyphs
+use the theme accent; remote glyphs are muted. A separate mark identifies
+the current checkout. The header shows its branch and summary with a Git glyph.
+
+Refreshes on open, context changes, Git metadata updates and Shift+R are
+coalesced for 120 ms. Superseded requests are cancelled through the host and
+generation checks reject late responses. Closing the pane cancels its work.
+Git status is collected once per checkout, never once per branch.

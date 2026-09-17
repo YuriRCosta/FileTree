@@ -1,6 +1,8 @@
 import QtQuick
 import qs.Commons
 import "../../lib/Format.js" as Format
+import "../../lib/GitSummary.js" as GitSummary
+import "../../lib/Highlight.js" as Highlight
 import "../../theme"
 
 FocusScope {
@@ -13,7 +15,7 @@ FocusScope {
     {
       title: "Branches",
       items: [
-        { shortcut: "Enter", text: "Switch to branch, or open worktree" },
+        { shortcut: "Enter", text: "Switch to branch, open worktree, or fold a branch with one" },
         { shortcut: "o", text: "Open the worktree a branch is checked out in" },
         { shortcut: "s", text: "Cycle sort" },
         { shortcut: "f", text: "Filter" },
@@ -34,32 +36,51 @@ FocusScope {
   property bool busy: false
   property bool switching: false
   property int generation: 0
+  property string requestId: ""
   property string query: ""
   property bool caseSensitive: false
   property bool regex: false
 
   readonly property var branches: document && Array.isArray(document.branches) ? document.branches : []
   readonly property var worktrees: document && Array.isArray(document.worktrees) ? document.worktrees : []
-  readonly property var items: buildItems(worktrees, branches)
+  readonly property var linkedWorktrees: worktrees.filter(function(tree) { return tree.main !== true })
+  readonly property var summaryFields: files && files.gitSummaryFields !== undefined ? files.gitSummaryFields : undefined
+  readonly property var items: buildItems(worktrees, branches, summaryFields)
+  property var knownFolders: ({})
+  readonly property var currentBranch: items.find(function(entry) { return entry.kind !== "worktree" && entry.current }) || null
+  readonly property string repositoryStatus: currentBranch ? currentBranch.name + " " + currentBranch.metrics.status : ""
   readonly property string error: loadError || switchError
   readonly property string status: {
     if (switching) return "Switching…"
     if (error !== "") return error
     if (busy && !document) return "Loading…"
     if (tree.item && tree.item.searching) return tree.item.visibleItems.length + " of " + items.length
-    return branches.length + " branches, " + worktrees.length + " worktrees"
+    return branches.length + " branches, " + linkedWorktrees.length + " worktrees"
   }
 
   function takeFocus(part) {
     if (tree.item) tree.item.forceActiveFocus()
   }
 
+  function cancelRefresh() {
+    refreshDelay.stop()
+    if (requestId && files) files.cancelBackendRequest(requestId, generation)
+    requestId = ""
+    generation++
+    busy = false
+  }
+
   function refresh() {
-    if (!files || !active || anchorPath === "") return
+    cancelRefresh()
+    if (files && active && anchorPath !== "") refreshDelay.restart()
+  }
+
+  function requestPlaces() {
     var serial = ++generation
     busy = true
-    files.backendRequest("git-places", ["--path", anchorPath], serial, function(response) {
+    requestId = files.backendRequest("git-places", ["--path", anchorPath], serial, function(response) {
       if (serial !== module.generation) return
+      module.requestId = ""
       module.busy = false
       if (!response || response.ok !== true) {
         module.loadError = response && response.error ? String(response.error) : "branch list is unavailable"
@@ -67,6 +88,7 @@ FocusScope {
         return
       }
       module.loadError = ""
+      if (!module.document || module.document.root !== response.root) module.knownFolders = ({})
       module.document = response
     })
   }
@@ -89,12 +111,21 @@ FocusScope {
   }
 
   function openWorktree(path) {
-    if (files && path) files.navigateToLocation(String(path), context.screen, "browse")
+    if (!files || !path) return
+    var index = files.indexOfTreePath(String(path))
+    if (index >= 0) files.selectModelIndex(files.treeModel, index, "replace")
+    else files.navigateToLocation(String(path), context.screen, "browse")
+  }
+
+  function selectCheckout(entry) {
+    if (!entry) return
+    if (entry.kind === "worktree") openWorktree(entry.path)
+    else if (entry.kind !== "remote" && entry.worktree) openWorktree(entry.worktree)
   }
 
   function activate(entry) {
     if (!entry) return
-    if (entry.kind === "worktree") openWorktree(entry.path)
+    if (entry.kind === "worktree" || entry.worktree) selectCheckout(entry)
     else switchTo(entry)
   }
 
@@ -103,25 +134,51 @@ FocusScope {
     return text.slice(text.lastIndexOf("/") + 1)
   }
 
-  function worktreeStatus(entry) {
-    var parts = []
-    if (entry.conflicted > 0) parts.push(entry.conflicted + " conflicts")
-    if (entry.staged > 0) parts.push(entry.staged + " staged")
-    if (entry.unstaged > 0) parts.push(entry.unstaged + " changed")
-    if (entry.untracked > 0) parts.push(entry.untracked + " untracked")
-    var text = parts.length > 0 ? parts.join(", ") : "clean"
-    return entry.locked ? text + ", locked" : text
+  function changeCounts(tree) {
+    var keys = ["modified", "added", "untracked", "deleted", "renamed", "copied", "type_changed", "conflicted"]
+    var result = ({})
+    for (var i = 0; i < keys.length; i++) result[keys[i]] = Number(tree[keys[i]]) || 0
+    return result
   }
 
-  function branchStatus(entry, checkouts) {
-    if (entry.worktree && checkouts[entry.worktree]) return worktreeStatus(checkouts[entry.worktree])
-    if (entry.kind === "remote") return "remote"
-    if (entry.gone) return "gone"
-    if (!entry.upstream) return "no upstream"
-    var parts = []
-    if (entry.ahead > 0) parts.push("↑" + entry.ahead)
-    if (entry.behind > 0) parts.push("↓" + entry.behind)
-    return parts.length > 0 ? parts.join(" ") : "in sync"
+  function describe(summary, fields) {
+    return GitSummary.describe(JSON.stringify(Object.assign({ ok: true, ahead: null, behind: null, upstream: "" }, summary)), fields)
+  }
+
+  function worktreeSummary(tree, fields) {
+    var described = describe(changeCounts(tree), fields)
+    var text = described.text || "clean"
+    return { text: tree.locked ? text + " locked" : text, tokens: described.tokens }
+  }
+
+  function branchSummary(branch, checkout, fields) {
+    var summary = checkout ? changeCounts(checkout) : ({})
+    if (branch.upstream && !branch.gone) {
+      summary.upstream = String(branch.upstream)
+      summary.ahead = Number(branch.ahead) || 0
+      summary.behind = Number(branch.behind) || 0
+    }
+    var described = describe(summary, fields)
+    var fallback = branch.kind === "remote" ? "remote" : (branch.gone ? "gone" : (!branch.upstream ? (checkout ? "clean" : "no upstream") : "clean"))
+    return { text: described.text || fallback, tokens: described.tokens }
+  }
+
+  function tokenColor(marker) {
+    var status = files && typeof files.gitStatusColor === "function" ? files.gitStatusColor : function() { return Color.muted }
+    if (marker === "ahead") return Color.accent
+    if (marker === "behind") return status("M")
+    return marker ? status(marker) : Color.muted
+  }
+
+  function markupFor(tokens) {
+    if (!Array.isArray(tokens) || tokens.length === 0) return ""
+    return tokens.map(function(part) {
+      return '<font color="' + tokenColor(part.marker) + '">' + Highlight.escapeHtml(part.text) + '</font>'
+    }).join(" ")
+  }
+
+  function statusMarkup(entry, key) {
+    return key === "status" && entry && Array.isArray(entry.tokens) ? markupFor(entry.tokens) : ""
   }
 
   function updatedText(at) {
@@ -129,38 +186,66 @@ FocusScope {
     return isFinite(seconds) && seconds > 0 ? Format.isoDate(new Date(seconds * 1000)) : ""
   }
 
-  function buildItems(worktreeRows, branchRows) {
+  function worktreeItem(tree, groups, fields) {
+    var path = String(tree.path || "")
+    var summary = worktreeSummary(tree, fields)
+    return { id: "worktree:" + path, kind: "worktree", name: leafName(path), path: path,
+             detail: tree.branch ? path : "detached at " + String(tree.head || ""),
+             current: tree.current === true, groups: groups, tokens: summary.tokens,
+             metrics: { kind: "worktree", status: summary.text, updated: updatedText(tree.at), author: "" } }
+  }
+
+  function buildItems(worktreeRows, branchRows, fields) {
     var checkouts = ({})
     var result = []
-    for (var w = 0; w < worktreeRows.length; w++) {
-      var tree = worktreeRows[w]
-      var path = String(tree.path || "")
-      checkouts[path] = tree
-      result.push({ id: "worktree:" + path, kind: "worktree", name: leafName(path), path: path,
-                    detail: tree.branch ? String(tree.branch) : "detached at " + String(tree.head || ""),
-                    current: tree.current === true, groups: ["Worktrees"],
-                    metrics: { kind: "worktree", status: worktreeStatus(tree), updated: updatedText(tree.at), author: "" } })
-    }
+    for (var w = 0; w < worktreeRows.length; w++) checkouts[String(worktreeRows[w].path || "")] = worktreeRows[w]
+    var claimed = ({})
     for (var b = 0; b < branchRows.length; b++) {
       var branch = branchRows[b]
+      var checkout = branch.worktree ? checkouts[branch.worktree] : null
+      var linked = checkout && checkout.main !== true ? worktreeItem(checkout, [], fields) : null
+      if (linked) claimed[linked.path] = true
+      var summary = branchSummary(branch, checkout, fields)
       result.push({ id: "branch:" + String(branch.name), kind: String(branch.kind || "local"), name: String(branch.name || ""),
                     detail: String(branch.subject || ""), current: branch.current === true, worktree: String(branch.worktree || ""),
                     remote: String(branch.remote || ""), upstream: String(branch.upstream || ""), author: String(branch.author || ""),
-                    groups: branch.kind === "remote" ? ["Branches", "Remote"] : ["Branches"],
-                    metrics: { kind: String(branch.kind || "local"), status: branchStatus(branch, checkouts),
+                    groups: branch.kind === "remote" ? ["Branches", "Remote"] : ["Branches"], linked: linked, tokens: summary.tokens,
+                    metrics: { kind: String(branch.kind || "local"), status: summary.text,
                                updated: updatedText(branch.at), author: String(branch.author || "") } })
+    }
+    for (var t = 0; t < worktreeRows.length; t++) {
+      var tree = worktreeRows[t]
+      if (tree.main === true || claimed[String(tree.path || "")]) continue
+      result.push(worktreeItem(tree, ["Worktrees"], fields))
     }
     return result
   }
 
+  function expansionKeyFor(entry) {
+    return entry && entry.linked ? String(entry.id) : ""
+  }
+
+  function revealNewFolders() {
+    if (!tree.item) return
+    var next = Object.assign({}, tree.item.expandedFolders)
+    var known = Object.assign({}, knownFolders)
+    for (var i = 0; i < items.length; i++) {
+      var key = expansionKeyFor(items[i])
+      if (key === "" || known[key]) continue
+      known[key] = true
+      next[key] = true
+    }
+    knownFolders = known
+    tree.item.expandedFolders = next
+  }
+
   function glyphFor(entry) {
-    if (entry.current) return "󰄬"
     if (entry.kind === "worktree") return "󰉖"
-    return entry.kind === "remote" ? "󰅡" : "󰘬"
+    return entry.kind === "remote" ? "󰅡" : ""
   }
 
   function searchText(entry) {
-    return [entry.name, entry.detail, entry.author, entry.upstream, entry.kind].join(" ")
+    return [entry.name, entry.detail, entry.author, entry.upstream, entry.kind, entry.path].join(" ")
   }
 
   function handleKey(event) {
@@ -172,8 +257,16 @@ FocusScope {
   }
 
   onActiveChanged: refresh()
-  onAnchorPathChanged: refresh()
+  onAnchorPathChanged: { document = null; switchError = ""; refresh() }
+  onItemsChanged: revealNewFolders()
   Component.onCompleted: refresh()
+  Component.onDestruction: cancelRefresh()
+
+  Timer {
+    id: refreshDelay
+    interval: 120
+    onTriggered: module.requestPlaces()
+  }
 
   Connections {
     target: module.files
@@ -211,7 +304,8 @@ FocusScope {
       item.reservedRight = Qt.binding(function() { return module.context.cornerReserveRight })
       item.highlighted = Qt.binding(function() { return module.activeFocus })
       item.view = Qt.binding(function() { return module.view })
-      item.status = Qt.binding(function() { return module.status })
+      item.status = Qt.binding(function() { return module.error !== "" || module.switching || (tree.item && tree.item.searching) || !module.currentBranch ? module.status : module.repositoryStatus })
+      item.statusGlyph = Qt.binding(function() { return module.currentBranch && !module.switching && module.error === "" ? "" : "" })
       item.statusColor = Qt.binding(function() { return module.error !== "" ? Color.urgent : Color.muted })
     }
   }
@@ -276,13 +370,20 @@ FocusScope {
       item.view = Qt.binding(function() { return module.view })
       item.surfaceColor = Qt.binding(function() { return module.paneBackground })
       item.fileActionsFor = function(entry) { return false }
+      item.expandableItems = true
+      item.childMetrics = true
+      item.expansionKey = function(entry) { return module.expansionKeyFor(entry) }
+      item.childrenFor = function(entry) { return entry && entry.linked ? [entry.linked] : [] }
+      item.metricMarkup = function(entry, key) { return module.statusMarkup(entry, key) }
       item.groupsFor = function(entry) { return entry.groups }
       item.leafGlyph = function(entry) { return module.glyphFor(entry) }
-      item.rowMark = function(entry) { return "" }
+      item.leafGlyphColor = function(entry) { return entry && entry.kind !== "remote" ? Color.accent : Color.muted }
+      item.rowMark = function(entry) { return entry.current ? "󰄬" : "" }
       item.searchText = function(entry) { return module.searchText(entry) }
       item.filterKeys = ["kind", "remote"]
       item.searchFields = function(entry) { return ({ kind: entry.kind, remote: entry.remote }) }
       item.keyHandler = function(event) { return module.handleKey(event) }
+      item.selectionChanged.connect(function(entry) { module.selectCheckout(entry) })
       item.activated.connect(function(entry) { module.activate(entry) })
       item.revealed.connect(function(entry) { if (entry.worktree) module.openWorktree(entry.worktree) })
       item.searchRequested.connect(function() { module.openSearch() })
@@ -290,6 +391,7 @@ FocusScope {
       item.focusNextRequested.connect(function() { module.context.focusNext() })
       item.focusPreviousRequested.connect(function() { module.context.focusPrevious() })
       item.dismissRequested.connect(function() { module.context.closeBlade() })
+      module.revealNewFolders()
     }
   }
 

@@ -16,6 +16,8 @@ TestCase {
   property var navigated: []
   property int gitRefreshes: 0
   property int treeRefreshes: 0
+  property var selections: []
+  property var cancelled: []
 
   readonly property var places: ({
     ok: true, root: "/repo", current: "0.2.0", detached: false, truncated: false,
@@ -28,9 +30,9 @@ TestCase {
       { name: "feature", kind: "remote", remote: "origin", upstream: "", ahead: 0, behind: 0, gone: false, current: false, worktree: "", at: 1789100000, author: "Other Dev", subject: "Feat: remote only" }
     ],
     worktrees: [
-      { path: "/repo", branch: "0.2.0", head: "7a01419", main: true, current: true, locked: false, prunable: false, dirty: true, staged: 1, unstaged: 4, untracked: 2, conflicted: 0, at: 1789600000 },
-      { path: "/repo/target/wt/scratch", branch: "scratch", head: "abc1234", main: false, current: false, locked: true, prunable: false, dirty: true, staged: 0, unstaged: 0, untracked: 0, conflicted: 2, at: 1789400000 },
-      { path: "/repo/target/wt/free", branch: "", head: "def5678", main: false, current: false, locked: false, prunable: false, dirty: false, staged: 0, unstaged: 0, untracked: 0, conflicted: 0, at: 1789000000 }
+      { path: "/repo", branch: "0.2.0", head: "7a01419", main: true, current: true, locked: false, prunable: false, dirty: true, staged: 1, unstaged: 4, untracked: 2, conflicted: 0, modified: 4, added: 1, deleted: 0, renamed: 0, copied: 0, type_changed: 0, at: 1789600000 },
+      { path: "/repo/target/wt/scratch", branch: "scratch", head: "abc1234", main: false, current: false, locked: true, prunable: false, dirty: true, staged: 0, unstaged: 0, untracked: 0, conflicted: 2, modified: 0, added: 0, deleted: 0, renamed: 0, copied: 0, type_changed: 0, at: 1789400000 },
+      { path: "/repo/target/wt/free", branch: "", head: "def5678", main: false, current: false, locked: false, prunable: false, dirty: false, staged: 0, unstaged: 0, untracked: 0, conflicted: 0, modified: 0, added: 0, deleted: 0, renamed: 0, copied: 0, type_changed: 0, at: 1789000000 }
     ]
   })
 
@@ -47,7 +49,10 @@ TestCase {
       requests.push({ command: command, args: args, callback: callback })
       return "request-" + requests.length
     }
-    function cancelBackendRequest() {}
+    property var treeModel: ({})
+    function indexOfTreePath(path) { return path === "/repo" ? 0 : -1 }
+    function selectModelIndex(model, index, mode) { selections.push({ index: index, mode: mode }) }
+    function cancelBackendRequest(id, generation) { cancelled.push(id) }
     function navigateToLocation(path, screen, mode) { navigated.push(path + ":" + mode); return "ok" }
     function requestVisibleGitMetadataRefresh(reason) { gitRefreshes++ }
     function refreshTree() { treeRefreshes++ }
@@ -87,13 +92,13 @@ TestCase {
   }
 
   function init() {
-    requests = []; navigated = []; gitRefreshes = 0; treeRefreshes = 0; context.closes = 0
+    requests = []; navigated = []; selections = []; cancelled = []; context.bladeOpen = true; files.contextPath = "/repo/src"; gitRefreshes = 0; treeRefreshes = 0; context.closes = 0
     var component = Qt.createComponent("../../modules/branches/Module.qml")
     compare(component.status, Component.Ready, component.errorString())
     module = component.createObject(test, { context: context, width: 385, height: 650 })
     component.destroy()
     verify(module !== null)
-    wait(0)
+    tryVerify(function() { return requests.length > 0 })
   }
   function cleanup() {
     if (module) module.destroy()
@@ -115,24 +120,46 @@ TestCase {
 
   function test_rows_groups_and_status_text() {
     load(places)
-    compare(module.status, "6 branches, 3 worktrees")
+    compare(module.status, "6 branches, 2 worktrees")
     var groups = tree().rows.filter(function(row) { return row.kind === "group" }).map(function(row) { return row.label })
-    compare(groups.join("|"), "Worktrees|Branches|Remote")
-    compare(leafRows().map(function(row) { return row.item.name }).join(","), "repo,scratch,free,0.2.0,main,scratch,old,lonely,feature")
+    compare(groups.join("|"), "Branches|Remote|Worktrees")
+    compare(leafRows().map(function(row) { return row.item.name }).join(","), "0.2.0,main,scratch,scratch,old,lonely,feature,free")
+    verify(!leafRows()[2].child)
+    verify(leafRows()[3].child)
+    compare(leafRows()[3].depth, 2)
+    compare(leafRows()[3].item.kind, "worktree")
+    compare(leafRows()[3].item.detail, "/repo/target/wt/scratch")
     compare(rowNamed("free").item.detail, "detached at def5678")
-    compare(statusOf("repo"), "1 staged, 4 changed, 2 untracked")
+    compare(statusOf("0.2.0"), "↑3 ↓1 M4 A1 ?2")
     compare(statusOf("free"), "clean")
-    compare(statusOf("0.2.0"), "1 staged, 4 changed, 2 untracked")
-    compare(statusOf("main"), "in sync")
-    compare(tree().metricTextFor(rowNamed("scratch").item, "status"), "2 conflicts, locked")
-    compare(tree().metricTextFor(leafRows()[5].item, "status"), "2 conflicts, locked")
+    compare(statusOf("main"), "↑0 ↓0")
+    compare(statusOf("scratch"), "U2")
+    compare(tree().metricTextFor(leafRows()[3].item, "status"), "U2 locked")
     compare(statusOf("old"), "gone")
     compare(statusOf("lonely"), "no upstream")
     compare(statusOf("feature"), "remote")
+    verify(tree().metricMarkup(rowNamed("0.2.0").item, "status").indexOf("<font color=") === 0)
+    compare(tree().metricMarkup(rowNamed("0.2.0").item, "status").split("</font>").length, 6)
+    compare(tree().metricMarkup(rowNamed("old").item, "status"), "")
+    compare(tree().metricMarkup(rowNamed("0.2.0").item, "kind"), "")
     compare(tree().metricTextFor(rowNamed("main").item, "kind"), "both")
     compare(tree().metricTextFor(rowNamed("feature").item, "author"), "Other Dev")
     compare(tree().metricTextFor(rowNamed("main").item, "updated"), Format.isoDate(new Date(1789500000 * 1000)))
     compare(tree().metricTextFor(rowNamed("main").item, "summary"), "Release: 0.1.2")
+  }
+
+  function test_main_checkout_is_never_a_worktree_row_and_folds_persist() {
+    load(places)
+    compare(leafRows().filter(function(row) { return row.item.kind === "worktree" }).map(function(row) { return row.item.path }).join(","),
+            "/repo/target/wt/scratch,/repo/target/wt/free")
+    tree().forceActiveFocus()
+    tree().currentIndex = tree().rows.indexOf(rowNamed("scratch"))
+    var count = requests.length
+    keyClick(Qt.Key_Return)
+    compare(requests.length, count)
+    compare(leafRows().map(function(row) { return row.item.name }).join(","), "0.2.0,main,scratch,old,lonely,feature,free")
+    load(places)
+    compare(leafRows().map(function(row) { return row.item.name }).join(","), "0.2.0,main,scratch,old,lonely,feature,free")
   }
 
   function test_ahead_behind_arrows_and_current_mark() {
@@ -141,11 +168,13 @@ TestCase {
     document.worktrees.shift()
     load(document)
     compare(statusOf("0.2.0"), "↑3 ↓1")
-    compare(tree().leafGlyph(rowNamed("0.2.0").item), "󰄬")
-    compare(tree().leafGlyph(rowNamed("main").item), "󰘬")
+    compare(tree().leafGlyph(rowNamed("0.2.0").item), "")
+    compare(tree().rowMark(rowNamed("0.2.0").item), "󰄬")
+    compare(tree().leafGlyph(rowNamed("main").item), "")
+    verify(tree().leafGlyphColor(rowNamed("main").item) !== tree().leafGlyphColor(rowNamed("feature").item))
     compare(tree().leafGlyph(rowNamed("feature").item), "󰅡")
     compare(tree().leafGlyph(rowNamed("free").item), "󰉖")
-    compare(tree().leafGlyph(leafRows()[0].item), "󰉖")
+    compare(tree().leafGlyph(leafRows()[3].item), "󰉖")
   }
 
   function test_search_and_filter() {
@@ -159,7 +188,7 @@ TestCase {
     module.query = "origin/main"
     wait(0)
     compare(leafRows().map(function(row) { return row.item.name }).join(","), "main")
-    compare(module.status, "1 of 9")
+    compare(module.status, "1 of 7")
     module.query = ""
   }
 
@@ -179,22 +208,30 @@ TestCase {
     requests[requests.length - 1].callback({ ok: true })
     compare(gitRefreshes, 1)
     compare(treeRefreshes, 1)
-    compare(requests[requests.length - 1].command, "git-places")
-    compare(module.status, "6 branches, 3 worktrees")
+    tryVerify(function() { return requests[requests.length - 1].command === "git-places" })
+    compare(module.status, "6 branches, 2 worktrees")
   }
 
   function test_worktree_navigation_and_close() {
     load(places)
     tree().forceActiveFocus()
     tree().currentIndex = tree().rows.indexOf(rowNamed("free"))
+    compare(navigated.join(","), "/repo/target/wt/free:browse")
+    navigated = []
     keyClick(Qt.Key_Return)
     compare(navigated.join(","), "/repo/target/wt/free:browse")
-    tree().currentIndex = tree().rows.indexOf(leafRows()[5])
-    keyClick(Qt.Key_O)
+    tree().currentIndex = tree().rows.indexOf(leafRows()[3])
+    navigated = ["/repo/target/wt/free:browse"]
+    keyClick(Qt.Key_Return)
     compare(navigated.join(","), "/repo/target/wt/free:browse,/repo/target/wt/scratch:browse")
+    tree().currentIndex = tree().rows.indexOf(rowNamed("scratch"))
+    navigated = navigated.slice(0, 2)
+    keyClick(Qt.Key_O)
+    compare(navigated.length, 3)
+    compare(navigated[2], "/repo/target/wt/scratch:browse")
     tree().currentIndex = tree().rows.indexOf(rowNamed("main"))
     keyClick(Qt.Key_O)
-    compare(navigated.length, 2)
+    compare(navigated.length, 3)
     compare(requests[requests.length - 1].command, "git-switch")
     compare(requests[requests.length - 1].args.join(" "), "--path /repo --branch main")
     requests[requests.length - 1].callback({ ok: true })
@@ -202,11 +239,43 @@ TestCase {
     compare(context.closes, 1)
   }
 
+  function test_selection_reuses_tree_and_refreshes_coalesce() {
+    load(places)
+    var header = descendant(module, "PaneHeader")
+    compare(header.statusGlyph, "")
+    compare(header.status, "0.2.0 ↑3 ↓1 M4 A1 ?2")
+    tree().selectIndex(tree().rows.indexOf(rowNamed("0.2.0")))
+    compare(selections.length, 1)
+    compare(selections[0].index, 0)
+    compare(navigated.length, 0)
+    tree().selectIndex(tree().rows.indexOf(rowNamed("scratch")))
+    compare(navigated.join(","), "/repo/target/wt/scratch:browse")
+    tree().selectIndex(tree().rows.indexOf(rowNamed("feature")))
+    compare(navigated.length, 1)
+    var count = requests.length
+    files.gitMetadataRefreshCount++
+    files.gitMetadataRefreshCount++
+    module.refresh()
+    compare(requests.length, count)
+    tryVerify(function() { return requests.length === count + 1 })
+    var stale = requests[requests.length - 1]
+    files.contextPath = "/other"
+    compare(cancelled.length, 1)
+    stale.callback(places)
+    compare(module.document, null)
+    tryVerify(function() { return requests.length === count + 2 })
+    compare(requests[requests.length - 1].args.join(" "), "--path /other")
+    context.bladeOpen = false
+    compare(cancelled.length, 2)
+    requests[requests.length - 1].callback(places)
+    compare(module.document, null)
+  }
+
   function test_git_refresh_and_errors_reload() {
     load(places)
     var count = requests.length
     files.gitMetadataRefreshCount++
-    compare(requests.length, count + 1)
+    tryVerify(function() { return requests.length === count + 1 })
     load({ ok: false, error: "no repository here" })
     compare(module.status, "no repository here")
     compare(module.items.length, 0)
