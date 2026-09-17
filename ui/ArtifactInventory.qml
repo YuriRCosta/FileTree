@@ -41,6 +41,12 @@ Item {
   property bool activityQueued: false
   property var activityObservers: []
   readonly property bool activityEnabled: activityMethod !== "" && activityObservers.length > 0
+  property var usageWatch: null
+  property int usageWatchGeneration: 0
+  property string usageWatchFingerprint: ""
+  property var usageWatchPaths: []
+  readonly property int usageChangeDelayMs: 2500
+  readonly property int usagePollIntervalMs: 60000
 
   signal mutationFinished(string method, var response, string project)
 
@@ -105,6 +111,37 @@ Item {
       projectLane.refresh()
       userLane.refresh()
     }
+  }
+
+  function startUsageWatch(raw) {
+    var paths = Array.isArray(raw) ? raw.filter(function(path) { return typeof path === "string" && path !== "" }).slice(0, 128) : []
+    var fingerprint = JSON.stringify(paths)
+    if (usageWatch && fingerprint === usageWatchFingerprint) return
+    stopUsageWatch()
+    usageWatchPaths = paths
+    if (!ready || paths.length === 0) return
+    usageWatchFingerprint = fingerprint
+    var request = { id: "", generation: ++usageWatchGeneration, files: files }
+    usageWatch = request
+    request.id = files.backendSubscribe(paths, request.generation, function(event) {
+      if (inventory.usageWatch !== request || !inventory.ready) return
+      if (event && (event.overflow || (event.events || []).some(function(name) {
+        return name === "delete_self" || name === "move_self" || name === "unmount" || name === "ignored"
+      }))) inventory.stopUsageWatch()
+      usageChange.restart()
+    }, null, function(response) {
+      if (inventory.usageWatch !== request) return
+      inventory.usageWatch = null
+      inventory.usageWatchFingerprint = ""
+    })
+  }
+
+  function stopUsageWatch(dispose) {
+    var request = usageWatch
+    usageWatch = null
+    usageWatchFingerprint = ""
+    usageChange.stop()
+    if (request) request.files.cancelBackendRequest(request.id, request.generation, dispose)
   }
 
   function suspendActivity(dispose) {
@@ -192,15 +229,25 @@ Item {
     else {
       for (var lane of lanes) lane.suspend()
       suspendActivity(stopping)
+      stopUsageWatch(stopping)
     }
   }
   Component.onDestruction: {
     stopping = true
     for (var lane of lanes) lane.shutdown()
     suspendActivity(true)
+    stopUsageWatch(true)
     if (mutation) mutation.files.cancelBackendRequest(mutation.id, mutation.generation, true)
   }
 
   Timer { id: activityDebounce; interval: 180; onTriggered: inventory.startActivity() }
+  Timer { id: usageChange; interval: inventory.usageChangeDelayMs; onTriggered: inventory.refresh() }
+  Timer {
+    id: usagePoll
+    interval: inventory.usagePollIntervalMs
+    repeat: true
+    running: inventory.ready && inventory.usageWatchPaths.length > 0
+    onTriggered: inventory.refresh()
+  }
   Timer { id: activityRetry; interval: 500; onTriggered: inventory.requestActivity() }
 }

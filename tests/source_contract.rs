@@ -1385,7 +1385,7 @@ fn artifact_tree_inherits_navigation_without_swallowing_domain_shortcuts() {
     assert!(tree.contains("KeyRouter.artifactAction(event)"));
     assert!(tree.contains("typeof keyHandler === \"function\" && keyHandler(event, repeated)"));
     assert!(tree.contains("property var fileActionsFor:"));
-    assert!(tree.contains("isBinned(item) || !fileActionsFor(item)"));
+    assert!(tree.contains("if (!item || !item.path || !fileActionsFor(item)) return null"));
     assert!(tree.contains("return handler() !== false"));
     assert!(tree.contains("return openMenu(item, rowItem"));
     assert!(tree.contains("KeyRouter.ignoresAutoRepeat(action, event.key)"));
@@ -1403,9 +1403,14 @@ fn artifact_tree_inherits_navigation_without_swallowing_domain_shortcuts() {
     assert!(edit.contains("editPathFor(item)"));
     assert!(!edit.contains("entryFor("));
     assert!(edit.contains("!isBinned(item)"));
-    assert!(tree.contains(
-        "if (!item || !item.path || isBinned(item) || !fileActionsFor(item)) return null"
-    ));
+    assert!(
+        tree.contains("path: String(isBinned(item) && item.realpath ? item.realpath : item.path)")
+    );
+    assert!(
+        !tree.contains(
+            "if (isBinned(item)) {\n      if (mode && mode !== \"actions\") return false"
+        )
+    );
     assert!(tree.contains("enabled: !row.isGroup && !!tree.entryFor(row.entry)"));
     let search = text(&root.join("ui/PaneSearchField.qml"));
     assert!(search.contains("property bool showDeepOption: false"));

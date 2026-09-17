@@ -361,13 +361,13 @@ fn dispatch_command(
         }
         BackendCommand::ClipboardText(options) => clipboard_text(&options.path, cancelled),
         BackendCommand::KeybindingsPrepare => {
-            json!({"ok":true,"text":crate::preferences::keybindings()?})
+            let mut document = crate::preferences::keybindings()?;
+            document["ok"] = json!(true);
+            document
         }
-        BackendCommand::PreferencesRead => {
-            json!({"ok":true,"settings":crate::preferences::read()?})
-        }
+        BackendCommand::PreferencesRead => preferences_document(crate::preferences::read()?),
         BackendCommand::PreferencesSet(changes) => {
-            json!({"ok":true,"settings":crate::preferences::change(&changes)?})
+            preferences_document(crate::preferences::change(&changes)?)
         }
         BackendCommand::StateRead => private_document_read(&state_path()),
         BackendCommand::StateWrite(options) => {
@@ -608,4 +608,15 @@ fn dispatch_command(
         crate::frecency::remap_from(&value);
     }
     Ok(value)
+}
+
+fn preferences_document(settings: Value) -> Value {
+    let (written_by, newer) = crate::preferences::writer(&settings);
+    json!({
+        "ok": true,
+        "settings": settings,
+        "writtenBy": written_by,
+        "newerWriter": newer,
+        "buildVersion": env!("CARGO_PKG_VERSION"),
+    })
 }

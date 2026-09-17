@@ -5,6 +5,11 @@ This file was written by an agent.
 ## 0.2.0 (unreleased)
 
 - A thin blue bar under the file toolbar shows how full the drive holding the open folder is, as `df` reports it. Hover it for the used, total and free space and the percentage. `fileblade space [PATH]` prints the same numbers, and "Drive usage under the toolbar" in Files settings hides the bar per tab.
+- Skill Uses count every agent FileBlade manages, not only Claude Code: Codex `$skill` mentions and SKILL.md reads, OpenCode `skill` tool calls from its SQLite store, Copilot CLI `skill.invoked` events, Antigravity slash commands and SKILL.md reads, and Pi SKILL.md reads. MCP Uses add OpenCode and Copilot CLI calls.
+- An open Skills or MCP tab watches the agents' transcript directories and refreshes its counts and heatmap a few seconds after an agent writes, with a 60-second safety refresh, so Uses climb while agents run.
+- Disabled skills stay listed. The bin listing keeps its last rows and retries when a read fails, and the Skills tab re-reads the bin after every rescan.
+- Right-clicking a disabled skill opens the same menu as any other skill, acting on the bin's copy; Open and Reveal on a disabled skill go to that copy too.
+- Keybindings from a newer or older FileBlade no longer cancel each other: unknown actions and unparseable bindings are dropped with a notice instead of rejecting the whole file, and neither `keybindings.json` nor `settings.json` has its `filebladeVersion` moved backward by an older FileBlade. Both reads report who wrote the file.
 - A Branches module lists every branch and worktree of the current repository with kind, status, last update, author and subject, and switches branches from the list, including remote-only ones. Open it from `Expand into Branches` in the Switch branch popup or with `fileblade branches`; `fileblade branches close` removes it and `fileblade branches list` prints it.
 - The tree header no longer lists volumes, which the Drives view already lists. Turn "Volumes in the tree" back on in Files settings to restore them, which also restores the one-click route to a connected tailnet peer that lived in that panel.
 - Choose which file toolbar buttons appear, in a Toolbar group in Files settings. Every hidden button except Drives keeps a keyboard route.

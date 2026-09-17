@@ -8,6 +8,8 @@ Item {
   readonly property string path: service.bladeHost.configDir + "/keybindings.json"
   property var plan: KeyBindings.compile({})
   property string error: ""
+  property string writtenBy: ""
+  property bool newerWriter: false
   property string requestId: ""
   property int generation: 0
   readonly property var treeShortcuts: ({
@@ -43,7 +45,9 @@ Item {
         if (!missing && (!response || !response.ok)) throw new Error(String(response && response.error || "Unable to read keybindings"))
         var next = KeyBindings.compile(missing ? {} : JSON.parse(response.text))
         if (JSON.stringify(next) !== JSON.stringify(root.plan)) root.plan = next
-        root.error = ""
+        root.writtenBy = missing ? "" : String(response.writtenBy || "")
+        root.newerWriter = !missing && response.newerWriter === true
+        root.error = next.problems.length ? next.problems.join("; ").slice(0, 300) : ""
       } catch (failure) {
         root.error = String(failure).slice(0, 300)
         console.warn("FileBlade keybindings: " + root.error + "; keeping previous bindings")

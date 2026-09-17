@@ -7,6 +7,8 @@ Item {
   property bool saving: false
   property string error: ""
   property var settings: ({})
+  property string writtenBy: ""
+  property bool newerWriter: false
   property int pendingTrashDays: 0
   property int generation: 0
   property string requestId: ""
@@ -52,6 +54,8 @@ Item {
       return false
     }
     settings = response.settings
+    writtenBy = String(response.writtenBy || "")
+    newerWriter = response.newerWriter === true
     ready = true
     error = ""
     return true
