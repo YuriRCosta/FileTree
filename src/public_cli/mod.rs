@@ -21,6 +21,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 mod args;
 mod blade;
+mod branches;
 mod doctor;
 mod extension;
 mod files;
@@ -32,6 +33,7 @@ mod queries;
 mod usage;
 pub use args::*;
 pub use blade::*;
+pub use branches::*;
 use doctor::*;
 pub use extension::*;
 use files::*;
@@ -190,6 +192,11 @@ pub enum RootCommand {
     Blade {
         #[command(subcommand)]
         action: BladeCommand,
+    },
+    /// Open the Branches module, close it, or list branches and worktrees.
+    Branches {
+        #[command(subcommand)]
+        action: Option<BranchesCommand>,
     },
     /// Scaffold a FileBlade extension.
     Extension {
@@ -358,6 +365,7 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Actions => actions(),
         RootCommand::Action(options) => action(options),
         RootCommand::Blade { action } => blade(action),
+        RootCommand::Branches { action } => branches(action),
         RootCommand::Extension { action } => extension(action),
         RootCommand::Install { action } => match action {
             integration::InstallCommand::Integration(options) => integration::integration(&options),

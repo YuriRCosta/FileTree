@@ -12,6 +12,7 @@ use std::time::{Duration, Instant};
 mod batch;
 mod cache;
 mod excludes;
+mod places;
 
 pub(crate) use batch::cached_git_repositories_for_markers_bounded;
 pub use batch::{
@@ -19,6 +20,7 @@ pub use batch::{
     git_repositories_for_markers_bounded, git_repositories_for_markers_cancellable,
 };
 pub use excludes::ignored_paths;
+pub use places::git_places;
 
 pub const MAX_GIT_STATUS_BYTES: usize = 4 * 1024 * 1024;
 const MAX_GIT_STATUS_ENTRIES: usize = 100_000;
@@ -852,15 +854,22 @@ pub fn git_switch(raw_path: &str, branch: &str, cancelled: &AtomicBool) -> Value
     if repository.branch == branch {
         return json!({"ok": true, "branch": branch, "root": path_text(&repository.root)});
     }
+    let selection = match places::remote_only_upstream(&repository.root, branch, cancelled) {
+        Some(upstream) => vec![OsString::from("--track"), OsString::from(upstream)],
+        None => vec![
+            OsString::from("--no-guess"),
+            OsString::from("--"),
+            OsString::from(branch),
+        ],
+    };
     let output = run_git(
         [
             OsString::from("-C"),
             repository.root.clone().into_os_string(),
             OsString::from("switch"),
-            OsString::from("--no-guess"),
-            OsString::from("--"),
-            OsString::from(branch),
-        ],
+        ]
+        .into_iter()
+        .chain(selection),
         Duration::from_secs(20),
         256 * 1024,
         cancelled,

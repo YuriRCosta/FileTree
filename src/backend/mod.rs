@@ -34,6 +34,7 @@ pub enum BackendCommand {
     ChildrenWindow(ChildrenWindowArgs),
     GitMetadataBatch(PathsArgs),
     GitBranches(PathArg),
+    GitPlaces(PathArg),
     GitSwitch(GitSwitchArgs),
     Search(SearchArgs),
     IndexInvalidate,
@@ -256,6 +257,7 @@ fn dispatch_command(
             cancelled,
         ),
         BackendCommand::GitBranches(options) => crate::git::git_branches(&options.path, cancelled),
+        BackendCommand::GitPlaces(options) => crate::git::git_places(&options.path, cancelled),
         BackendCommand::GitSwitch(options) => {
             crate::git::git_switch(&options.path, &options.branch, cancelled)
         }

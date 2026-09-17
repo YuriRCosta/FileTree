@@ -68,11 +68,15 @@ printf '%s\n' "$FILEBLADE_TEST_RESPONSE"
     }
 
     fn run(&self, arguments: &[&str], response: &str) -> Output {
+        self.run_in(self.temporary.path(), arguments, response)
+    }
+
+    fn run_in(&self, directory: &Path, arguments: &[&str], response: &str) -> Output {
         let root = self.temporary.path();
         let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
         command
             .args(arguments)
-            .current_dir(root)
+            .current_dir(directory)
             .env_clear()
             .env("PATH", &self.fake_bin)
             .env("HOME", root.join("home"))
@@ -674,4 +678,100 @@ fn action_cli_refuses_invalid_waits_and_paths_before_the_control_target() {
     assert_eq!(large.status.code(), Some(1));
     assert!(stderr(&large).contains("too large for shell IPC"));
     assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+}
+
+#[test]
+fn branches_open_close_and_list_the_repository_of_the_current_directory() {
+    let harness = CliHarness::new();
+    for (arguments, expected) in [
+        (&["branches"][..], &["openBranches"][..]),
+        (&["branches", "close"], &["closeBranches"]),
+    ] {
+        let output = harness.run(arguments, "ok");
+        assert!(output.status.success(), "{}", stderr(&output));
+        let recorded = harness.recorded_arguments();
+        assert_eq!(&recorded[6..7], ["data-goblin.fileblade.control"]);
+        assert_eq!(&recorded[7..], expected, "{arguments:?}: {recorded:?}");
+    }
+    let git = which_git();
+    std::os::unix::fs::symlink(&git, harness.fake_bin.join("git")).unwrap();
+    let repo = harness.temporary.path().join("repo");
+    fs::create_dir_all(&repo).unwrap();
+    let run_git = |arguments: &[&str]| {
+        let output = Command::new(&git)
+            .args([
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.com",
+            ])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "init.defaultBranch=main",
+            ])
+            .args(arguments)
+            .current_dir(&repo)
+            .env("HOME", harness.temporary.path().join("home"))
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {arguments:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+    run_git(&["init"]);
+    fs::write(repo.join("README"), "one\n").unwrap();
+    run_git(&["add", "README"]);
+    run_git(&["commit", "-m", "Initial commit"]);
+    run_git(&["branch", "scratch"]);
+    fs::write(repo.join("README"), "two\n").unwrap();
+    let output = harness.run_in(&repo, &["branches", "list"], "unused");
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = String::from_utf8_lossy(&output.stdout);
+    let repo_text = repo.to_str().unwrap();
+    assert_eq!(
+        text,
+        format!(
+            "* main local 1 changed just now\n  scratch local no upstream just now\n{repo_text} main 1 changed\n"
+        )
+    );
+    let output = harness.run_in(&repo, &["-o", "json", "branches", "list"], "unused");
+    assert!(output.status.success(), "{}", stderr(&output));
+    let document: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(document["ok"], true);
+    assert_eq!(document["root"], repo_text);
+    assert_eq!(document["current"], "main");
+    assert_eq!(document["branches"][0]["name"], "main");
+    assert_eq!(document["branches"][0]["kind"], "local");
+    assert_eq!(document["branches"][0]["current"], true);
+    assert_eq!(document["branches"][1]["name"], "scratch");
+    assert_eq!(document["worktrees"][0]["path"], repo_text);
+    assert_eq!(document["worktrees"][0]["unstaged"], 1);
+    assert_eq!(document["worktrees"][0]["dirty"], true);
+    assert_eq!(document["worktrees"][0]["main"], true);
+    assert!(
+        !harness
+            .recorded_arguments()
+            .contains(&"git-places".to_string())
+    );
+    let output = harness.run(&["branches", "list"], "unused");
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("no repository here"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+fn which_git() -> PathBuf {
+    std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|paths| std::env::split_paths(&paths).collect::<Vec<_>>())
+        .map(|directory| directory.join("git"))
+        .find(|candidate| candidate.is_file())
+        .expect("git on PATH")
 }
