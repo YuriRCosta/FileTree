@@ -9,6 +9,7 @@ Item {
   property string title: ""
   property var actions: []
   property var context: []
+  property Component body: null
   property Item anchorItem: null
   property bool revealed: false
   property int maximumWidth: Style.space(220)
@@ -119,6 +120,11 @@ Item {
       color: tip.panelForeground
       font.family: tip.fontFamily
       font.pixelSize: tip.fontSize
+    }
+
+    Loader {
+      active: !!tip.body
+      sourceComponent: tip.body
     }
 
     Repeater {

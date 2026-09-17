@@ -25,6 +25,10 @@ Item {
 
   signal dismissed()
   signal previousRequested()
+  signal dayActivated(int day, string key)
+  readonly property color countColor: inventory && inventory.files && typeof inventory.files.themedFolderColor === "function"
+    ? inventory.files.themedFolderColor("blue", "#7aa2f7") : "#7aa2f7"
+  readonly property var tipEntry: tipDay >= 0 && usage && tipDay >= usage.coverage ? countsFor(tipDay) : null
 
   onInventoryChanged: {
     if (attachedInventory) attachedInventory.observeActivity(heatmap, false)
@@ -74,10 +78,18 @@ Item {
     return level === 0 ? Util.alpha(Color.bar.text, 0.06) : Util.alpha(Color.accent, [0.30, 0.50, 0.75, 1.0][level - 1])
   }
 
+  function dateLabel(day) {
+    var date = Dates.calendar(day)
+    return Qt.locale().toString(new Date(date.year, date.month - 1, date.day), "ddd d MMM yyyy")
+  }
+
+  function unitFor(count) {
+    return count === 1 ? unitLabel.replace(/s$/, "") : unitLabel
+  }
+
   function describe(day) {
     if (!usage) return ""
-    var date = Dates.calendar(day)
-    var label = Qt.locale().toString(new Date(date.year, date.month - 1, date.day), "ddd d MMM yyyy") + ": "
+    var label = dateLabel(day) + ": "
     if (day < usage.coverage) return label + "no history yet"
     var entry = countsFor(day)
     var parts = [[entry[1], "agent"], [entry[2], "you"], [entry[3], "scheduled"], [entry[4], "failed"]]
@@ -104,6 +116,11 @@ Item {
     }
     if (event.key === Qt.Key_Escape || event.key === Qt.Key_Tab) {
       heatmap.dismissed()
+      event.accepted = true
+      return
+    }
+    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+      if (focusDay >= 0) heatmap.dayActivated(focusDay, Dates.dayKey(focusDay))
       event.accepted = true
       return
     }
@@ -154,8 +171,13 @@ Item {
   MouseArea {
     id: pointer
     anchors.fill: parent
-    acceptedButtons: Qt.NoButton
+    acceptedButtons: Qt.LeftButton
     hoverEnabled: true
+    cursorShape: heatmap.hoverDay >= 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+    onClicked: function(mouse) {
+      var day = heatmap.dayAt(mouse.x, mouse.y)
+      if (day >= 0) heatmap.dayActivated(day, Dates.dayKey(day))
+    }
   }
 
   HintTip {
@@ -163,6 +185,77 @@ Item {
     objectName: "usage-tip"
     visible: heatmap.tipDay >= 0
     anchorItem: tipAnchor
-    title: heatmap.tipDay >= 0 ? heatmap.describe(heatmap.tipDay) : ""
+    title: heatmap.tipDay >= 0 ? heatmap.dateLabel(heatmap.tipDay) : ""
+    body: Component {
+      Column {
+        spacing: Style.space(2)
+        readonly property var entry: heatmap.tipEntry
+        readonly property int total: entry ? entry[0] : 0
+        readonly property int agent: entry ? entry[1] : 0
+        readonly property int user: entry ? entry[2] : 0
+        readonly property int scheduled: entry ? entry[3] : 0
+        readonly property int parts: agent + user + scheduled
+
+        Text {
+          textFormat: Text.PlainText
+          visible: !heatmap.tipEntry
+          text: "no history yet"
+          color: Util.alpha(tip.panelForeground, 0.6)
+          font.family: tip.fontFamily
+          font.pixelSize: tip.fontSize
+        }
+        Text {
+          textFormat: Text.PlainText
+          visible: !!heatmap.tipEntry
+          text: String(total)
+          color: heatmap.countColor
+          font.family: tip.fontFamily
+          font.pixelSize: Typography.body
+          font.weight: Font.DemiBold
+        }
+        Text {
+          textFormat: Text.PlainText
+          visible: !!heatmap.tipEntry
+          text: heatmap.unitFor(total).replace(/^./, function(c) { return c.toUpperCase() })
+          color: Util.alpha(tip.panelForeground, 0.55)
+          font.family: tip.fontFamily
+          font.pixelSize: Typography.caption
+        }
+        Item {
+          visible: !!heatmap.tipEntry && parts > 0
+          width: Style.space(150)
+          height: Style.space(4)
+          Rectangle { anchors.fill: parent; color: Util.alpha(tip.panelForeground, 0.10) }
+          Rectangle {
+            id: agentSegment
+            x: 0
+            height: parent.height
+            width: Math.round(parent.width * agent / Math.max(1, parts))
+            color: heatmap.countColor
+          }
+          Rectangle {
+            id: userSegment
+            x: agentSegment.width
+            height: parent.height
+            width: Math.round(parent.width * user / Math.max(1, parts))
+            color: Util.alpha(heatmap.countColor, 0.45)
+          }
+          Rectangle {
+            x: agentSegment.width + userSegment.width
+            height: parent.height
+            width: Math.round(parent.width * scheduled / Math.max(1, parts))
+            color: Util.alpha(tip.panelForeground, 0.35)
+          }
+        }
+        Text {
+          textFormat: Text.PlainText
+          visible: !!heatmap.tipEntry && parts > 0
+          text: [agent + " agent", user + " you"].concat(scheduled > 0 ? [scheduled + " scheduled"] : []).join("  ·  ")
+          color: Util.alpha(tip.panelForeground, 0.55)
+          font.family: tip.fontFamily
+          font.pixelSize: Typography.caption
+        }
+      }
+    }
   }
 }
