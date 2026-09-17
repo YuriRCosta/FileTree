@@ -254,6 +254,9 @@ keeps the bars visible. The choice survives a shell restart.
 
 `tests/vm/expectations/09-search.sh`
 
+66b. **E-09-00** The Files search field sits below the project header, the
+    favorites and the volumes, directly above the navigation icons, so the
+    project and favorites stay at the top of the blade.
 67. **E-09-01** If I press `/`, the search field takes focus so I can type
     immediately.
 68. **E-09-02** When I type a plain search, the current tree is filtered and I
@@ -1138,12 +1141,14 @@ Fixture: `tests/vm/fixtures/media_icons.py` with its QML fixture.
 This file was written by an agent.
 
 `tests/vm/expectations/40-native-authority.sh`
+`tests/vm/expectations/48-native-roles.sh`
 
-This script emits E-40-01 through E-40-04. E-40-05 through E-40-11 are
+The first script emits E-40-01 through E-40-04. E-40-05 through E-40-11 are
 additional lifecycle expectations; their presence here does not imply that
 the section-40 script exercises them. Installed lifecycle and reboot checks
 also live in `tests/vm/expectations/95-delivery-installed.sh` and
-`tests/vm/native-reboot`.
+`tests/vm/native-reboot`. The second script emits E-40-12 through E-40-18
+against temporary XDG roots in the installed guest.
 
 1. **E-40-01** If I close FileBlade's view after a move has started, the move
    finishes. Each moved file reaches its destination, and reopening FileBlade
@@ -1183,6 +1188,29 @@ also live in `tests/vm/expectations/95-delivery-installed.sh` and
     or I have temporary Notes that have no saved home, an update, removal or
     shutdown request is refused. FileBlade does not report success or force
     the view closed while my unsaved work remains at risk.
+12. **E-40-12** After installing, updating or first launching the native app,
+    every Desktop integration switch is off. Opening a folder from another
+    application, "reveal in file manager" and the file chooser still reach
+    the handler I had before, and FileBlade runs beside it.
+13. **E-40-13** Turning on "Open folders with FileBlade" in Settings makes
+    FileBlade the `inode/directory` handler through the stable launcher. My
+    other associations in `mimeapps.list` are left as they were.
+14. **E-40-14** Turning on "File chooser" registers FileBlade's portal
+    descriptor and service and prefers it for `FileChooser` in
+    `portals.conf`, keeping every other portal route.
+15. **E-40-15** Turning a role off when I have not changed the handler since
+    restores the previous handler byte for byte, removes the files FileBlade
+    created, and the row says "restored the previous handler".
+16. **E-40-16** Turning a role off after I chose a different handler keeps my
+    newer choice, releases FileBlade's ownership, and the row says "kept your
+    newer choice".
+17. **E-40-17** Turning on "Reveal in FileBlade" while another file manager
+    owns `org.freedesktop.FileManager1` still enables the role and the row
+    names the current owner and asks me to log out and in. Nothing is killed.
+18. **E-40-18** Removing the app runs `native roles disable --all`, which
+    reverses every FileBlade-owned entry, leaves the prior handler as it was,
+    and reports the exact document the installer requires; a second run
+    reports every role already off.
 
 ## 41. Native modules and extension popouts
 

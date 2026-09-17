@@ -880,8 +880,7 @@ FocusScope {
 
   PluginUi.PaneHeader {
     id: header
-    anchors.top: searchField.bottom
-    anchors.topMargin: searchField.visible ? Style.space(4) : 0
+    anchors.top: parent.top
     preferredHeight: header.integrated ? 0 : Style.space(34)
     context: root.context
     title: "FILEBLADE"
@@ -941,8 +940,8 @@ FocusScope {
   PluginUi.PaneSearchField {
     id: searchField
     service: root.controller
-    anchors.top: parent.top
-    anchors.topMargin: visible ? Style.space(6) : 0
+    anchors.top: drivesSection.bottom
+    anchors.topMargin: visible ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right
     text: root.mediaActive ? root.mediaQuery : (controller.quickNavActive ? "" : controller.searchQuery)
@@ -1016,7 +1015,8 @@ FocusScope {
 
   PluginUi.PaneRow {
     id: contextSummary
-    anchors.top: drivesSection.bottom
+    anchors.top: searchField.bottom
+    anchors.topMargin: searchField.visible ? Style.space(4) : 0
     anchors.left: parent.left
     anchors.right: parent.right
     readonly property var entry: visible && controller.treeModel.count > 0 && controller.treeModel.get(0).path === controller.rootPath ? controller.treeModel.get(0) : null
