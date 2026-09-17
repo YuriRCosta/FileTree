@@ -42,6 +42,10 @@ payload_inventory() {
   done
 }
 
+dependency_contract() {
+  jq -cS '{schema, backend, commands, packages}' "$1"
+}
+
 verify_payload() {
   local root manifest actual expected target required
   root=$(realpath -e -- "$1")
@@ -66,7 +70,7 @@ verify_payload() {
   done < <(jq -r '.required[]' "$native_root/packaging/runtime.json")
   [[ -x $root/app/launch && -x $root/bin/fileblade && -x $root/tools/native ]] || fail 'runtime entrypoint is not executable'
   [[ $(jq -r .version "$root/manifest.json") == "$(jq -r .version "$manifest")" ]] || fail 'runtime version differs'
-  cmp -s -- "$native_root/packaging/runtime.json" "$root/packaging/runtime.json" || fail 'payload dependency contract differs from installer'
+  [[ $(dependency_contract "$native_root/packaging/runtime.json") == "$(dependency_contract "$root/packaging/runtime.json")" ]] || fail 'payload dependency contract differs from installer'
   target=$(jq -r .target "$manifest")
   check_elf "$root/bin/fileblade" "$target"
   printf 'Verified FileBlade %s (%s)\n' "$(jq -r .version "$manifest")" "$target"

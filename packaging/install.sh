@@ -65,10 +65,6 @@ read_activation() {
   [[ -L $installation/$link/runtime && $(readlink -- "$installation/$link/runtime") == "../../versions/$active_payload" ]] || fail 'receipt and runtime pointer disagree'
 }
 
-dependency_contract() {
-  jq -cS '{schema, backend, commands, packages}' "$1"
-}
-
 check_activation() {
   [[ -n $active_payload ]] || return 0
   [[ -d $installation/versions/$active_payload && ! -L $installation/versions/$active_payload ]] || fail 'active runtime is missing'
