@@ -4,6 +4,7 @@ This file was written by an agent.
 
 ## 0.2.0 (unreleased)
 
+- The Skills heatmap tooltip shows the date, the day's total in blue, the unit, and a stacked bar of agent, you and scheduled shares. Left click or Enter on a day shows only the skills used that day; Esc clears. The header sits under the heatmap. A transcript write refreshes the counts and the heatmap without rescanning skill directories, so "Scanning" only shows for real rescans. `docs/agent-written/skills/usage-counting.md` records the counting audit.
 - The Delete dialog on a Skills, Memory, Hooks or MCP row now reads Cancel, Delete <thing>, Deactivate, and adds Delete symlink when the row is a link, so a linked skill can lose its link without losing the files it points at. A deactivated symlink says Delete symlink forever.
 - Every blade tab puts its search field first and the tab header under it: Files, Skills, Memory, Hooks, MCP and Branches share the order. The header's Search button is gone; `/` reveals the field as before.
 - Dragging a blade edge no longer throws the pointer to the middle of the screen or leaves the blade at its maximum width. While a resize drag is in progress the pointer watch that hands focus back to the workspace stays quiet, so no Hyprland focus dispatch and no cursor warp happens mid-drag.
