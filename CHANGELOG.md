@@ -4,6 +4,7 @@ This file was written by an agent.
 
 ## 0.2.0 (unreleased)
 
+- The Delete dialog on a Skills, Memory, Hooks or MCP row now reads Cancel, Delete <thing>, Deactivate, and adds Delete symlink when the row is a link, so a linked skill can lose its link without losing the files it points at. A deactivated symlink says Delete symlink forever.
 - Every blade tab puts its search field first and the tab header under it: Files, Skills, Memory, Hooks, MCP and Branches share the order. The header's Search button is gone; `/` reveals the field as before.
 - Dragging a blade edge no longer throws the pointer to the middle of the screen or leaves the blade at its maximum width. While a resize drag is in progress the pointer watch that hands focus back to the workspace stays quiet, so no Hyprland focus dispatch and no cursor warp happens mid-drag.
 - A thin blue bar under the file toolbar shows how full the drive holding the open folder is, as `df` reports it. Hover it for the used, total and free space and the percentage. `fileblade space [PATH]` prints the same numbers, and "Drive usage under the toolbar" in Files settings hides the bar per tab.

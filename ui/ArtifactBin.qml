@@ -6,6 +6,7 @@ Item {
   id: bin
 
   property string module: ""
+  readonly property string noun: ({ skills: "skill", memory: "memory", hooks: "hook", mcp: "MCP server" })[module] || "item"
   required property var service
   property var context: null
   ActionKeyGuard { id: binKeys; active: bin.active; shared: bin.context && bin.context.hostWindow ? bin.context.hostWindow.actionKeys : null }
@@ -36,6 +37,13 @@ Item {
     if (!entry) return null
     if (isBinned(entry)) return { glyph: "󰑖", title: "Restore" }
     return describe(entry) ? { glyph: "󰩺", title: "Delete", danger: true } : null
+  }
+
+  function isLinked(entry) {
+    if (!entry) return false
+    var source = entry.source && typeof entry.source === "object" ? entry.source : ({})
+    return !!(entry.linkTarget || entry.link_target || entry.is_symlink || entry.isSymlink
+      || source.linkTarget || source.link_target || source.is_symlink || source.isSymlink)
   }
 
   function refuse(message) {
@@ -109,11 +117,17 @@ Item {
     var heading = String(entry.name || "") + "\n" + shownPath
     if (isBinned(entry)) {
       dialog.open(heading,
-                  [{ key: "cancel", label: "Cancel" }, { key: "purge", label: "Delete forever", danger: true }, { key: "restore", label: "Restore" }])
+                  [{ key: "cancel", label: "Cancel" },
+                   { key: "purge", label: isLinked(entry) ? "Delete symlink forever" : "Delete forever", danger: true },
+                   { key: "restore", label: "Restore" }])
       return
     }
-    var options = [{ key: "cancel", label: "Cancel" }, { key: "bin", label: "Disable" }]
-    if (trashablePaths(entry).length > 0) options.push({ key: "trash", label: "Trash", danger: true })
+    var options = [{ key: "cancel", label: "Cancel" }]
+    if (trashablePaths(entry).length > 0) {
+      options.push({ key: "trash", label: "Delete " + noun, danger: true })
+      if (isLinked(entry)) options.push({ key: "unlink", label: "Delete symlink", danger: true })
+    }
+    options.push({ key: "bin", label: "Deactivate" })
     dialog.open(heading, options)
   }
 
@@ -138,14 +152,14 @@ Item {
       run([service.cliPath, "_backend", "bin-restore", "--module", module, "--id", id].concat(actions ? actions.restoreArguments(module) : []), "restore")
     } else if (key === "purge") {
       run([service.cliPath, "_backend", "bin-purge", "--module", module, "--id", id], "purge")
-    } else if (key === "trash") {
+    } else if (key === "trash" || key === "unlink") {
       var paths = trashablePaths(entry)
       if (paths.length === 0) {
         refuse("This item lives inside a shared configuration file, so there is no file to trash")
         return
       }
       var command = service.backendCommand("trash")
-      command.push("--follow-symlinks")
+      if (key === "trash") command.push("--follow-symlinks")
       for (var i = 0; i < paths.length; i++) command.push("--path", String(paths[i]))
       run(command, "trash")
     } else if (key === "bin") {

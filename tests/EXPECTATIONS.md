@@ -1428,6 +1428,13 @@ This file was written by an agent.
   skill. Open, Reveal and the file actions act on the disabled copy FileBlade
   keeps; Enter and the row's action button still offer Restore and Delete
   forever.
+- **E-48-24** The row's Delete button asks Cancel, Delete skill, then
+  Deactivate. When the skill is a symlink, Delete symlink sits between them:
+  Delete skill trashes the folder the link points at, Delete symlink trashes
+  only the link, and Deactivate moves the link into FileBlade's bin with the
+  target untouched. Delete forever on a deactivated symlink reads Delete
+  symlink forever and never touches the target. Memory, Hooks and MCP rows use
+  their own noun in the same dialog.
 
 ## 49. Branches
 

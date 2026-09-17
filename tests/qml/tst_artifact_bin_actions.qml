@@ -93,13 +93,13 @@ TestCase {
     var row = skillRow()
     open("skills", null, row)
     compare(bin.error, "")
-    compare(keys(), ["cancel", "bin", "trash"])
+    compare(keys(), ["cancel", "trash", "bin"])
     compare(dispatches().length, 0)
   }
 
   function test_skill_removal_moves_the_folder_into_the_recoverable_bin() {
     open("skills", null, skillRow())
-    compare(keys(), ["cancel", "bin", "trash"])
+    compare(keys(), ["cancel", "trash", "bin"])
     bin.choose("bin")
     compare(dispatches().length, 1)
     var request = dispatches()[0]
@@ -119,12 +119,30 @@ TestCase {
     compare(argument(request, "--path"), "/home/agent/.claude/skills/fixture")
   }
 
+  function test_a_symlinked_skill_offers_deleting_only_the_link() {
+    var row = skillRow()
+    row.item.linkTarget = "/home/agent/vault/skills/fixture"
+    row.linkTarget = "/home/agent/vault/skills/fixture"
+    open("skills", null, row)
+    compare(keys(), ["cancel", "trash", "unlink", "bin"])
+    compare(bin.choices.map(function(option) { return String(option.label) }), ["Cancel", "Delete skill", "Delete symlink", "Deactivate"])
+    bin.choose("unlink")
+    var request = dispatches()[0]
+    compare(request.command, "trash")
+    verify(request.args.indexOf("--follow-symlinks") < 0)
+    compare(argument(request, "--path"), "/home/agent/.claude/skills/fixture")
+    complete({ ok: true })
+    var binned = { id: "bin:2", name: "Fixture", kind: "bin", groups: ["Trash"], linkTarget: "/home/agent/vault/skills/fixture" }
+    bin.ask(binned)
+    compare(bin.choices.map(function(option) { return String(option.label) }), ["Cancel", "Delete symlink forever", "Restore"])
+  }
+
   function test_memory_removal_uses_the_path_bin_without_a_helper_route() {
     var row = { id: "memory-1", name: "AGENTS.md",
                 item: { id: "memory-1", name: "AGENTS.md", kind: "memory", scope: "project",
                         path: "/project/AGENTS.md", paths: ["/project/AGENTS.md"] } }
     open("memory", null, row)
-    compare(keys(), ["cancel", "bin", "trash"])
+    compare(keys(), ["cancel", "trash", "bin"])
     bin.choose("bin")
     compare(dispatches()[0].command, "bin-put")
     compare(argument(dispatches()[0], "--module"), "memory")
