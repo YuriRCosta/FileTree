@@ -81,7 +81,7 @@ def claude_line(raw: bytes) -> bool:
 
 def codex_line(raw: bytes) -> bool:
     return (b"McpToolCall" in raw or b"SKILL.md" in raw or b"selected_skill_instructions" in raw or b"<skill>" in raw
-            or b"session_meta" in raw or b'"namespace"' in raw)
+            or b"session_meta" in raw)
 
 
 def copilot_line(raw: bytes) -> bool:
@@ -184,13 +184,10 @@ def codex_item(payload: dict[str, Any], at: int, batch: Batch) -> None:
 
 def codex_legacy(payload: dict[str, Any], at: int, batch: Batch) -> None:
     call = text(payload.get("call_id")) or text(payload.get("id"))
-    if not call:
+    if not call or payload.get("type") != "custom_tool_call" or text(payload.get("name")) != "exec":
         return
-    if payload.get("type") == "custom_tool_call" and text(payload.get("name")) == "exec":
-        for skill in skills_in_command(text(payload.get("input"))):
-            batch.events.append(("codex", f"{call}:{skill}", at, "skill", "agent", "", skill, 0, batch.project, 0))
-    elif payload.get("type") == "function_call" and text(payload.get("namespace")) and text(payload.get("name")):
-        batch.events.append(("codex", call, at, "tool", "agent", payload["namespace"], payload["name"], 0, batch.project, 0))
+    for skill in skills_in_command(text(payload.get("input"))):
+        batch.events.append(("codex", f"{call}:{skill}", at, "skill", "agent", "", skill, 0, batch.project, 0))
 
 
 def codex(record: dict[str, Any], batch: Batch) -> None:

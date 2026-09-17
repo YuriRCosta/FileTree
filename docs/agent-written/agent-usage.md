@@ -147,8 +147,8 @@ skill:    event_msg item_completed with a CommandExecution item whose parsed_cmd
           the custom_tool_call exec input string
 tool:     item_completed with an McpToolCall item: server = item.server (the configured name),
           name = item.tool, failed when item.status is not "completed" or item.result.isError is
-          true. In legacy files a response_item function_call carrying a namespace is recorded
-          as a tool call of that namespace (inferred from the record shape, not documented)
+          true. A response_item function_call with a namespace is not an MCP call: that key
+          also marks Codex's built-in collaboration and clock tools, so it is ignored
 project:  session_meta payload.cwd
 ```
 
@@ -261,8 +261,8 @@ record cap:   lines over 4 MiB are skipped using bounded reads; offsets inside t
               lines resume skipping until their newline. Malformed or excessively nested JSON is skipped
 prefilter:    each agent's lines are parsed only when they contain a marker of a record that can
               produce an event (Claude: "Skill", mcp__, McpResource, command-name or "is_error";
-              Codex: McpToolCall, SKILL.md, selected_skill_instructions, <skill>, session_meta or
-              "namespace"; Copilot: skill.invoked, tool.execution_, session.start or
+              Codex: McpToolCall, SKILL.md, selected_skill_instructions, <skill> or session_meta;
+              Copilot: skill.invoked, tool.execution_, session.start or
               session.context_changed; Antigravity: SKILL.md or slash_command; Pi: SKILL.md,
               toolResult or "session"). On a read from byte 0, lines carrying "timestamp" or
               "created_at" are also parsed until the first record with a real timestamp, so
@@ -495,8 +495,9 @@ codex skills:        a $skill mention is recorded by Codex as an injected user f
                      counts as a typed use. An implicit use is a shell read of SKILL.md, the
                      same signal Codex itself uses for its telemetry; a script run from a
                      skill's scripts/ directory is not counted
-codex legacy mcp:    the function_call-with-namespace rule for legacy history_mode files is
-                     inferred from local record shapes, not from documentation
+codex legacy mcp:    a legacy history_mode rollout that never persisted an McpToolCall item
+                     leaves its MCP calls uncounted; function_call namespaces cannot tell an
+                     MCP server from a built-in tool group
 opencode mcp:        a tool name whose server cannot be resolved from the scanned OpenCode
                      definitions counts for no definition
 copilot:             record shapes come from the Copilot SDK event schema; no local session with
