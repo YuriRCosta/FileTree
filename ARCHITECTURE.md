@@ -480,7 +480,7 @@ gitStatusPollIntervalMs:     5000       Git fallback base in ms; 6x while inotif
 dropModifier:               space      drop-wheel hold key: space, alt, ctrl, shift, or meta
 monitorMode:                active     invocation monitor; all mirrors, locked uses the saved monitorLock
 animateBlades:              true       slide blades open and closed
-checkUpdates:               true       the six-hourly git fetch described under Checkout update checks
+checkUpdates:               true       the six-hourly ref lookup described under Checkout update checks
 blades:                     omitted    optional full first-run left/right layout; supersedes the legacy layout keys above
 ```
 
@@ -511,8 +511,8 @@ Keys: `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta`, `muted`.
 FileBlade has two independent Git integrations. The files module decorates
 working trees with live repository metadata, while the update checker compares
 the FileBlade and enabled satellite checkouts with their upstream branches.
-Working-tree metadata is read-only. Update checks fetch objects and
-remote-tracking refs, but never check out, merge, or alter local worktree files.
+Both integrations are read-only. Update checks read remote branch and tag IDs
+without fetching objects, changing refs, or altering checkout files.
 
 ## Working-tree metadata
 
@@ -572,25 +572,32 @@ model.
 
 ## Checkout update checks
 
-When a blade opens or the saved state loads, and the last attempt is older
-than six hours, FileBlade runs `git fetch --quiet --no-tags` on its own checkout
-and on every enabled plugin that contributes a blade module, then compares each
-checkout with its upstream branch. The attempt time is stored before the fetch,
-so an offline machine tries once per window, not once per blade open. Nothing
-is downloaded beyond git objects and nothing is checked out. `checkUpdates:
-false` removes the check.
+This file was written by an agent.
 
-When a checkout is behind, the blade footer shows an `Update available` chip.
-Hovering lists what would change; clicking explains the manual update path. A
-checkout with local changes or commits ahead of upstream is listed as skipped.
+When a blade opens or saved state loads, and the last attempt is older than six
+hours, FileBlade checks its checkout and enabled blade providers with one
+`git ls-remote` per repository. Each request includes the configured upstream ref
+(or origin HEAD for detached installs) and `refs/tags/v*`, with a 20-second deadline,
+64 KiB stdout, 16 KiB stderr and 512-ref caps. The attempt is saved before the
+request; `checkUpdates: false` disables automatic checks. No objects, refs or
+checkout files are downloaded or changed.
 
-FileBlade deliberately has no in-process update action: changing a running
-plugin's watched checkout can reload it halfway through the operation. Disable
-the affected plugins, update them from a terminal, then re-enable them and run
-`omarchy restart shell`. The checkout includes the matching backend; users do
-not build it. Development and packaged overrides must still match the plugin
-version. A mismatch is reported by the footer, tree status, and
-`fileblade doctor`.
+A valid version from the remote commit's locally available manifest takes
+precedence. Otherwise the highest SemVer release tag must resolve to that exact
+commit, using the peeled commit for an annotated tag. Version strings are capped
+at 64 bytes. This follows the release convention that `vX.Y.Z` matches the manifest;
+it does not claim to verify an unavailable manifest. Untagged tips and unavailable
+versions get versionless notices. SemVer precedence distinguishes newer, same and
+older versions, including prereleases and build metadata.
+
+The footer's Update available chip opens a notice naming the FileBlade version
+and one compact line of companion versions, without commit counts. Local work
+and ahead commits remain skipped; CLI history fields use existing objects only.
+The notice keeps Close and Check again, and explains that FileBlade checks only:
+stop the shell before running `omarchy plugin update`, then run
+`omarchy restart shell`. Disabling a pane does not stop the plugin watcher.
+The checkout contains the matching backend; users do not build it. A backend
+version mismatch is reported by the footer, tree status and `fileblade doctor`.
 
 # Satellites
 

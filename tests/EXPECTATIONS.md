@@ -808,9 +808,18 @@ shared there.
 
 235. **E-27-01** If FileBlade or an enabled companion has an update available, I
      see an Update available chip in the blade footer.
-236. **E-27-02** If I hover over the update chip, I see what can be updated; if I
-     click it, I see safe manual update instructions rather than FileBlade
-     changing its own running files.
+This file was written by an agent.
+
+236. **E-27-02** The update notice names the available FileBlade version, for
+     example "Version 0.1.2 of FileBlade is now available!", and puts companion
+     versions on one compact line. It shows no commit counts. If a version cannot
+     be determined, it says so; changes within the same version or to an older
+     version are described accurately. A release tag names the update only when
+     it is the highest valid version and resolves to the checked branch tip;
+     otherwise the checker needs that tip's manifest already stored locally.
+     The notice says FileBlade only checks and does not install while running,
+     tells me to stop the shell, run `omarchy plugin update`, then run
+     `omarchy restart shell`, and keeps Close and Check again.
 237. **E-27-03** If my FileBlade checkout has local work or commits that must
      not be overwritten, the update details tell me it was skipped.
 238. **E-27-04** If FileBlade's interface and native helper are out of sync after
