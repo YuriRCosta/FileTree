@@ -902,9 +902,13 @@ shell. Once FileBlade is enabled, the pop-up disappears.
 252. **E-30-02** An empty binding array disables an action; key sequences can
      use a custom prefix and cancel on Escape or focus loss without opening,
      copying or deleting an item.
-253. **E-30-03** Invalid or conflicting bindings preserve the last valid map and
-     show an error. Fixing or removing the file clears the error and restores
-     the corresponding bindings.
+253. **E-30-03** Conflicting bindings preserve the last valid map and show an
+     error. An action this FileBlade does not know, or a binding it cannot
+     read, is dropped and named in the error while every other binding in the
+     file still applies, so a file shared with a newer FileBlade keeps working.
+     Fixing or removing the file clears the error and restores the
+     corresponding bindings. A `keybindings.json` written by a newer FileBlade
+     is never rewritten by an older one.
 254. **E-30-04** Artifact trees inherit the same defaults and user overrides;
      the extension shortcut guide reports the effective bindings rather than a
      separately maintained keymap.

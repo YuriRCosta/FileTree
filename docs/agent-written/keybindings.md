@@ -29,6 +29,29 @@ Only include actions you want to change. An array replaces all bindings for
 that action; `[]` disables it. Omitted actions retain their defaults. To restore
 defaults, remove the file or use `{"version":1,"bindings":{}}`.
 
+## Versions
+
+The file carries two version fields. `version` is the format, currently 1;
+`filebladeVersion` is the FileBlade that last wrote the file. The backend adds
+both when they are missing and moves `filebladeVersion` forward when an older
+FileBlade wrote the file. It never moves it backward: a file written by a newer
+FileBlade is read but left byte-identical, and the `keybindings-prepare` answer
+reports `writtenBy` and `newerWriter: true` so the shell can say so. A `version`
+other than 1 is refused and preserved.
+
+Within version 1 the reader is forward tolerant. An action this FileBlade does
+not know, a binding it cannot parse, or a value that is not an array is
+dropped with a problem message and the rest of the file still applies, so a
+file shared between two FileBlade versions keeps working in both. The problems
+appear in the keybindings error the Files tree reports. Two custom bindings
+that conflict with each other are still refused as a whole, since that is a
+mistake in the file rather than a version difference.
+
+`settings.json` carries the same two fields. A read never rewrites it; a
+settings change stamps `filebladeVersion` with the FileBlade that made the
+change, whichever version that is, because the stamp names the last writer.
+`preferences-read` and `preferences-set` report `writtenBy` and `newerWriter`.
+
 For example, `"expand": ["l", "Right"]` restores IDE-style expansion on
 those keys; `o` still opens the selected folder. Custom bindings take priority
 over defaults, including defaults whose sequences would conflict. Two custom

@@ -110,14 +110,29 @@ TestCase {
     compare(JSON.stringify(restored), before)
   }
 
-  function test_validation_rejects_ambiguous_unknown_and_unbounded_configs() {
-    for (var document of [[], {version: 2}, {bindings: []}, {bindings: {unknown: ["F1"]}},
-      {bindings: {open: "F1"}}, {bindings: {open: ["Potato"]}}, {bindings: {open: ["Hyper+O"]}},
-      {bindings: {open: ["z"], expand: ["z o"]}}, {bindings: {open: ["F1"], help: ["F1"]}},
-      {bindings: {open: ["a b c d e"]}}, {bindings: {open: ["z Escape"]}}]) {
+  function test_validation_rejects_ambiguous_and_unversioned_configs() {
+    for (var document of [[], {version: 2}, {bindings: []},
+      {bindings: {open: ["z"], expand: ["z o"]}}, {bindings: {open: ["F1"], help: ["F1"]}}]) {
       var rejected = false
       try { KeyBindings.compile(document) } catch (_) { rejected = true }
       verify(rejected, JSON.stringify(document))
     }
+  }
+
+  function test_unknown_actions_and_bad_bindings_are_dropped_with_a_problem_and_the_rest_still_applies() {
+    for (var document of [{bindings: {unknown: ["F1"], open: ["F3"]}}, {bindings: {open: "F1", help: ["F3"]}},
+      {bindings: {open: ["Potato", "F3"]}}, {bindings: {open: ["Hyper+O", "F3"]}},
+      {bindings: {open: ["a b c d e", "F3"]}}, {bindings: {open: ["z Escape", "F3"]}}]) {
+      var plan = KeyBindings.compile(document)
+      verify(plan.problems.length > 0, JSON.stringify(document))
+      folds.plan = plan
+      compare(press(Qt.Key_F3), document.bindings.help ? "help" : "open", JSON.stringify(document))
+      compare(press(Qt.Key_J), "next")
+    }
+    compare(KeyBindings.compile({}).problems, [])
+    var kept = KeyBindings.compile({bindings: {open: "F1"}})
+    folds.plan = kept
+    compare(press(Qt.Key_L), "open")
+    compare(kept.custom, [])
   }
 }
