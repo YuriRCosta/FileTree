@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Quick navigation. Expectations E-10-01 .. E-10-04.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

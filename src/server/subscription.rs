@@ -124,46 +124,14 @@ pub(super) fn watch_filesystem(
     output: &Output,
 ) {
     let result = filesystem_events(key, &generation, paths, cancelled, output);
-    let frame = if deadline_exceeded.load(Ordering::Relaxed) {
-        json!({
-            "v": VERSION,
-            "type": "response",
-            "id": key.id,
-            "generation": generation,
-            "ok": false,
-            "deadline_exceeded": true,
-            "error": "subscription deadline exceeded",
-        })
-    } else if cancelled.load(Ordering::Relaxed) {
-        json!({
-            "v": VERSION,
-            "type": "response",
-            "id": key.id,
-            "generation": generation,
-            "ok": false,
-            "cancelled": true,
-            "error": "subscription cancelled",
-        })
-    } else {
-        match result {
-            Ok(()) => json!({
-                "v": VERSION,
-                "type": "response",
-                "id": key.id,
-                "generation": generation,
-                "ok": true,
-                "payload": {"topic": "filesystem", "closed": true},
-            }),
-            Err(error) => json!({
-                "v": VERSION,
-                "type": "response",
-                "id": key.id,
-                "generation": generation,
-                "ok": false,
-                "error": error.to_string(),
-            }),
-        }
-    };
+    let frame = closing_frame(
+        key,
+        generation,
+        "filesystem",
+        result,
+        cancelled,
+        deadline_exceeded,
+    );
     let _ = emit(output, &frame);
 }
 
@@ -327,4 +295,54 @@ pub(super) fn event_names(flags: ReadFlags) -> Vec<&'static str> {
     .into_iter()
     .filter_map(|(flag, name)| flags.contains(flag).then_some(name))
     .collect()
+}
+
+pub(super) fn closing_frame(
+    key: &RequestKey,
+    generation: Value,
+    topic: &str,
+    result: AppResult<()>,
+    cancelled: &AtomicBool,
+    deadline_exceeded: &AtomicBool,
+) -> Value {
+    if deadline_exceeded.load(Ordering::Relaxed) {
+        json!({
+            "v": VERSION,
+            "type": "response",
+            "id": key.id,
+            "generation": generation,
+            "ok": false,
+            "deadline_exceeded": true,
+            "error": "subscription deadline exceeded",
+        })
+    } else if cancelled.load(Ordering::Relaxed) {
+        json!({
+            "v": VERSION,
+            "type": "response",
+            "id": key.id,
+            "generation": generation,
+            "ok": false,
+            "cancelled": true,
+            "error": "subscription cancelled",
+        })
+    } else {
+        match result {
+            Ok(()) => json!({
+                "v": VERSION,
+                "type": "response",
+                "id": key.id,
+                "generation": generation,
+                "ok": true,
+                "payload": {"topic": topic, "closed": true},
+            }),
+            Err(error) => json!({
+                "v": VERSION,
+                "type": "response",
+                "id": key.id,
+                "generation": generation,
+                "ok": false,
+                "error": error.to_string(),
+            }),
+        }
+    }
 }

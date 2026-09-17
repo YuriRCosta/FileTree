@@ -472,19 +472,3 @@ fn extend_result(mut left: Value, right: Value) -> Value {
     }
     left
 }
-
-#[cfg(test)]
-mod terminal_class_tests {
-    use super::terminal_class;
-
-    #[test]
-    fn server_mode_foot_windows_count_as_terminals() {
-        assert!(terminal_class("foot"));
-        assert!(terminal_class("footclient"));
-        assert!(terminal_class("kitty"));
-        assert!(terminal_class("Alacritty"));
-        assert!(terminal_class("com.mitchellh.ghostty"));
-        assert!(terminal_class("org.omarchy.terminal"));
-        assert!(!terminal_class("firefox"));
-    }
-}

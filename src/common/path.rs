@@ -7,7 +7,6 @@ use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use url::Url;
 
-// Keep ordinary paths compatible; file URIs carry bytes JSON cannot represent.
 pub fn path_text(path: &Path) -> String {
     match path.to_str() {
         Some(text) => text.to_string(),
@@ -113,7 +112,6 @@ fn local_path_parser_refuses_remote_schemes() {
     );
 }
 
-// Escape literal backslashes too: display text must not impersonate another name.
 pub fn display_path(path: &Path) -> String {
     let mut bytes = path.as_os_str().as_bytes();
     let mut text = String::new();

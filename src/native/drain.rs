@@ -6,7 +6,6 @@ use std::os::fd::AsRawFd;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub fn run(timeout_ms: u64) -> Value {
@@ -251,30 +250,19 @@ fn qml(
     method: &str,
     arguments: &[String],
 ) -> AppResult<Option<Value>> {
-    remaining(deadline)?;
-    let mut child = Command::new("qs")
+    let output = crate::command::CommandSpec::new("qs")
         .args(["ipc", "-n", "-p"])
-        .arg(payload.join("app"))
+        .args([payload.join("app")])
         .args(["call", "--", "fileblade.native", method])
         .args(arguments)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    loop {
-        if child.try_wait()?.is_some() {
-            break;
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(AppError::command(
-                "native drain control query exceeded its deadline",
-            ));
-        }
-        std::thread::sleep(Duration::from_millis(10));
+        .timeout(remaining(deadline)?)
+        .limits(1024 * 1024, 256 * 1024)
+        .run()?;
+    if output.stdout_truncated {
+        return Err(AppError::command(
+            "native drain control response exceeds its byte limit",
+        ));
     }
-    let output = child.wait_with_output()?;
     if let Ok(value) = serde_json::from_slice::<Value>(&output.stdout) {
         return Ok(Some(value));
     }

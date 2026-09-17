@@ -11,16 +11,13 @@ const MAX_CONTEXT_PATHS: usize = 20;
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum InstallCommand {
-    /// Give a coding agent the FileBlade selection as context on every prompt.
     Integration(IntegrationArgs),
 }
 
 #[derive(Clone, Debug, Args)]
 pub struct IntegrationArgs {
-    /// Agent to configure.
     #[arg(value_enum)]
     pub agent: Agent,
-    /// Remove the integration instead of adding it.
     #[arg(long)]
     pub remove: bool,
 }
@@ -38,7 +35,6 @@ pub enum Agent {
 
 #[derive(Clone, Debug, Args)]
 pub struct AgentContextArgs {
-    /// Output shape for the agent that runs the hook.
     #[arg(long, value_enum, default_value_t = ContextFormat::Claude)]
     pub format: ContextFormat,
 }
@@ -197,8 +193,6 @@ fn edit_grouped(document: &mut Value, agent: Agent, remove: bool) -> AppResult<b
 fn opencode_plugin() -> String {
     String::from(
         r#"// Written by `fileblade install integration opencode`.
-// Adds the current FileBlade selection to each prompt. When FileBlade is not
-// running the command yields an empty string and nothing is added.
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 

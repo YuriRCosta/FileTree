@@ -22,7 +22,7 @@ fn relatives(payload: &Value) -> Vec<String> {
 }
 
 fn run(root: &Path, query: &str) -> Value {
-    let payload = search::search(root.to_str().unwrap(), query, false, 100, &[]);
+    let payload = search_default(root.to_str().unwrap(), query, false, 100, &[]);
     assert_eq!(payload["ok"], true, "{payload}");
     assert_eq!(payload["partial"], false);
     payload
@@ -47,7 +47,7 @@ fn metadata_filters_are_applied_before_the_candidate_limit() {
     }
     write(root, "z-target.png", "image fixture");
     for query in ["type:image", "mime:image/", "format:png"] {
-        let response = search::search(root.to_str().unwrap(), query, false, 200, &[]);
+        let response = search_default(root.to_str().unwrap(), query, false, 200, &[]);
         assert_eq!(response["ok"], true, "{response}");
         assert_eq!(response["partial"], false, "{response}");
         assert_eq!(
@@ -118,7 +118,7 @@ fn filter_only_queries_list_alphabetically_and_hidden_toggle_extends_the_index()
     );
     assert_eq!(relatives(&run(root, "type:folder")), ["notes", "src"]);
     assert_eq!(relatives(&run(root, "format:md in:src")), ["src/reader.md"]);
-    let hidden = search::search(
+    let hidden = search_default(
         root.to_str().unwrap(),
         "hidden-toggle-fixture",
         true,
@@ -150,8 +150,6 @@ fn index_respects_gitignore_and_rebuilds_after_invalidation() {
     write(root, ".gitignore", "ignored.txt\n");
     write(root, "ignored.txt", "x");
     write(root, "kept.txt", "x");
-    // Other parallel fixtures can evict unused indexes from the three-slot cache.
-    // Keep this snapshot alive while asserting behavior before invalidation.
     let cached = index::acquire(root, false, false);
     assert_eq!(relatives(&run(root, "txt$ -random")), ["kept.txt"]);
     write(root, "later.txt", "x");
@@ -190,7 +188,7 @@ fn index_respects_gitignore_and_rebuilds_after_invalidation() {
 fn missing_roots_report_an_error_instead_of_an_empty_list() {
     let temporary = tempdir().unwrap();
     let missing = temporary.path().join("gone");
-    let payload = search::search(missing.to_str().unwrap(), "anything", false, 10, &[]);
+    let payload = search_default(missing.to_str().unwrap(), "anything", false, 10, &[]);
     assert_eq!(payload["ok"], false, "{payload}");
     assert!(payload["entries"].as_array().unwrap().is_empty());
 }
@@ -298,7 +296,7 @@ fn scope_everywhere_ranks_plocate_candidates_as_absolute_rows() {
         return;
     }
     let temporary = tempdir().unwrap();
-    let payload = search::search(
+    let payload = search_default(
         temporary.path().to_str().unwrap(),
         "scope:everywhere / -zzzz",
         false,
@@ -390,4 +388,29 @@ fn tree_layout_emits_expanded_ancestors_with_depth() {
     assert_eq!(rows[1]["is_dir"], true);
     assert_eq!(rows[2]["depth"], 1);
     assert_eq!(rows[2]["name_spans"], "7-9");
+}
+
+fn search_default(
+    root: &str,
+    query: &str,
+    show_hidden: bool,
+    limit: usize,
+    repository_roots: &[String],
+) -> serde_json::Value {
+    search::search_streaming(
+        &search::SearchRequest {
+            root,
+            query,
+            show_hidden,
+            limit,
+            repository_roots,
+            options: search::SearchOptions::default(),
+            fresh: false,
+            list: None,
+            tree: false,
+            git_enabled: true,
+        },
+        &AtomicBool::new(false),
+        &mut |_| Ok(()),
+    )
 }

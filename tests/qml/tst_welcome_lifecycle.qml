@@ -55,7 +55,6 @@ TestCase {
     property int requests: 0
     property int writes: 0
     function backendRequest(name, args, generation, callback) { requests++ }
-    function startExtensionInstall() { requests++ }
     function setWelcomeState(next, version) {
       writes++
       welcomeState = next

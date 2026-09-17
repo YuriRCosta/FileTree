@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Trash. Expectations E-14-01 .. E-14-12.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

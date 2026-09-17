@@ -142,7 +142,6 @@ pub(super) fn run(spec: &CommandSpec, cancelled: &AtomicBool) -> AppResult<Comma
                 libc::POLLIN,
             ),
         ];
-        // These owned pipes remain open for the poll; -1 explicitly disables an entry.
         if unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as _, 50) } < 0 {
             let error = io::Error::last_os_error();
             if error.kind() == io::ErrorKind::Interrupted {

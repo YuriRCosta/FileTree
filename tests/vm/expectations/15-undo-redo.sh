@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Undo and redo. Expectations E-15-01 .. E-15-07.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

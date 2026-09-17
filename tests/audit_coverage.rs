@@ -20,7 +20,6 @@ fn every_verb_that_deletes_or_runs_something_is_audited() {
         "bin-purge",
         "archive-extract",
         "plugin-add",
-        "plugin-install",
         "set-default",
         "drop-run",
         "action-run",

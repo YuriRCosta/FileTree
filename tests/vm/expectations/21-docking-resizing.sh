@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Docking, resizing and window behavior. Expectations E-21-01 .. E-21-10.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -26,8 +25,6 @@ docked_x=$(window_x)
 expect_true E-21-01 "a docked blade pushes tiled windows aside" "[[ -n '$docked_x' && '$docked_x' != '$undocked_x' ]]"
 expect_true E-21-01 "and the window starts beyond the blade" "[[ '$docked_x' -ge \$(field sidebarWidth) ]]"
 
-# In window mode the blade is a real window, not a layer, so every later case
-# has to see it docked again or it inherits the wrong world.
 left_mode() { status | jq -r '.bladeModes.left'; }
 dock_left() {
   [[ $(left_mode) == docked ]] && return 0
@@ -76,9 +73,6 @@ expect_true E-21-06 "with no blade focused it closes the window instead" "[[ \$(
 
 dock_left
 ensure_left_open
-# With a window between the blades the first step to the right lands on that
-# window, which is the natural order E-21-07 describes; the blade-to-blade hop
-# is only observable with no window open.
 kill_windows
 ctl openBlade right; wait_for "[[ \$(blade_layer right) == 1 ]]" 12
 ctl focusBlade left; wait_for "[[ \$(field focusedBlade) == left ]]" 10

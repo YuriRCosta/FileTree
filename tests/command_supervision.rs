@@ -205,7 +205,6 @@ fn command_worker() {
         return;
     }
     if mode == "stdio" {
-        // Only this disposable worker's standard streams are closed.
         for fd in 0..=2 {
             unsafe { libc::close(fd) };
         }

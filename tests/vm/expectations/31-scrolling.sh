@@ -1,30 +1,21 @@
 #!/usr/bin/env bash
-# Scroll position survives refreshes; the marked ruler. Expectations E-31-01 .. E-31-06.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
 
-# The ruler sits 2 px inside the tree edge, clear of the blade's resize grip:
-# marks at x 364..367, thumb at x 368.
 RULER_X=366
 RULER_TOP=$(row_y 0)
 ruler_strip() { "$OVM" shot "$1" 2>/dev/null | tail -1; }
-# Count pixels in the ruler column that match a colour (fuzz absorbs llvmpipe
-# rounding). The strip starts below the first row so the cursor border of a
-# selected root row never counts as a thumb.
 ruler_pixels() {
   local shot=$1 colour=$2
   magick "$shot" -crop "8x860+361+$((RULER_TOP + 40))" +repage -fuzz 6% -fill white -opaque "$colour" -fill black +opaque white -format '%[fx:int(mean*w*h)]' info: 2>/dev/null
 }
-# The rows area of the tree, without the ruler column. Two shots of an
-# unmoved tree differ only in noise; a one-row scroll changes thousands of pixels.
 tree_view() { local shot; shot=$("$OVM" shot "$1" 2>/dev/null | tail -1); magick "$shot" -crop "300x540+0+$RULER_TOP" +repage "${shot%.png}-view.png" && printf '%s\n' "${shot%.png}-view.png"; }
 same_view() { local diff; diff=$(magick compare -metric AE -fuzz 4% "$1" "$2" null: 2>&1); diff=${diff%% *}; diff=${diff%%.*}; [[ $diff =~ ^[0-9]+$ ]] && (( diff < 400 )); }
 
 fixture >/dev/null
 open_left
 goto_root "$ROOT_DIR"
-# Names avoid 0, 6 and 8: the OCR that locates rows misreads those digits.
 guest "cd $ROOT_DIR && for i in 11 12 13 14 15 17 19 21 22 23 24 25 27 29 31 32 33 34 35 37 39 41 42 43 44 45 47 49 51 52 53 54 55 57 59 71 72 73 74 75 77 79 91 92 93 94 95 97 99; do printf x > many-\$i.txt; done"
 sleep 3
 ctl expandPath "$ROOT_DIR/repo"; sleep 2
@@ -60,14 +51,12 @@ marks_after=$(ruler_pixels "$shot" '#E5C07B')
 expect_true E-31-04 "and the mark goes away once the file is clean again" "[[ '$marks_after' =~ ^[0-9]+$ && '$marks_after' -lt '$marks' ]]"
 guest "cd $ROOT_DIR/repo && printf 'changed\n' >> tracked.txt"
 
-# Amber at half opacity over the pane background.
 HALF_AMBER='#857357'
 focus_tree
 "$OVM" key end; sleep 1.5
 shot=$(ruler_strip marks-away)
 expect_true E-31-05 "marks for rows out of view are drawn at half strength" "[[ '$(ruler_pixels "$shot" "$HALF_AMBER")' -ge 2 && '$(ruler_pixels "$shot" '#E5C07B')' -eq 0 ]]"
 "$OVM" mouse click "$RULER_X" "$((RULER_TOP + 6))"; sleep 1
-# A hovered thumb brightens, so leave the ruler before sampling its colour.
 "$OVM" mouse move 200 900; sleep 1
 shot=$(ruler_strip marks-near)
 expect_true E-31-05 "marks for rows in view are drawn in full" "[[ '$(ruler_pixels "$shot" '#E5C07B')' -ge 2 ]]"

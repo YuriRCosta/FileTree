@@ -25,10 +25,6 @@ const METADATA_DEADLINE: Duration = Duration::from_secs(2);
 const ORDER_IDLE: Duration = Duration::from_secs(5);
 const SORT_KEYS: [&str; 5] = ["name", "size", "modified", "created", "type"];
 
-#[cfg(test)]
-#[path = "../tests/support/listing_cache.rs"]
-mod tests;
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ListingKey {
     pub path: PathBuf,

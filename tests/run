@@ -12,7 +12,6 @@ else
   cargo fetch --locked
 fi
 cargo fmt --all -- --check
-cargo check "${cargo_flags[@]}"
 cargo clippy "${cargo_flags[@]}" -- -D warnings
 cargo test "${cargo_flags[@]}"
 mapfile -t qml_sources < <(find . \( -path './.git' -o -path './target' -o -path './.*' \) -prune -o -type f \( -name '*.qml' -o -name '*.js' \) -print | sort)
@@ -57,13 +56,9 @@ for suite in tests/qml/tst_*.qml; do
     exit 1
   fi
 done
-PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_paths.py
-PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_process.py
-PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_inventory.py
-PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_mutations.py
-PYTHONDONTWRITEBYTECODE=1 python3 tests/test_python_usage.py
-PYTHONDONTWRITEBYTECODE=1 python3 tests/test_extension_image.py
-PYTHONDONTWRITEBYTECODE=1 python3 tests/core_modules/run.py
-PYTHONDONTWRITEBYTECODE=1 python3 -B tests/companion_readonly.py
+export PYTHONDONTWRITEBYTECODE=1
+for suite in tests/test_python_{paths,process,inventory,mutations,usage}.py tests/test_extension_image.py tests/core_modules/run.py tests/companion_readonly.py; do
+  python3 "$suite"
+done
 tools/bundle verify
 printf '%s\n' 'Rust, QML, companion support and bundled backend checks: ok'

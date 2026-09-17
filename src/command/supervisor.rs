@@ -15,7 +15,6 @@ pub(super) struct Running {
 }
 
 fn above_stdio(fd: impl AsFd) -> io::Result<OwnedFd> {
-    // Command's stdio setup may reuse 0..=2 if the caller closed a standard stream.
     Ok(rustix::io::fcntl_dupfd_cloexec(fd, 3)?)
 }
 
@@ -52,8 +51,6 @@ impl Running {
             })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        // All captured data is immutable scalar state. The guard child returns to
-        // Rust's normal exec/error-pipe path; the guardian never returns to Rust.
         unsafe { command.pre_exec(move || guard::enter(controls)) };
         let child = command.spawn().map_err(|error| {
             AppError::command(format!(
@@ -71,8 +68,6 @@ impl Running {
 
     pub fn cancel(&mut self) {
         if let Some(mut pipe) = self.cancel.take() {
-            // A byte, not only EOF: another in-flight fork can briefly retain a
-            // CLOEXEC writer. At most one byte is ever written to this pipe.
             let _ = pipe.write_all(&[1]);
         }
     }

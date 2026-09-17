@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# E-26-11: real selection wheel, multiplexers, and Hunk in the headless VM.
-# Prerequisite: real Hunk at ~/fb-hunk-wheel/bin/hunk in the guest.
 set -euo pipefail
 : "${OVM:?set OVM to the headless VM harness}"
 FILEBLADE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"

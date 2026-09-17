@@ -30,7 +30,6 @@ pub mod mounts;
 pub mod operations;
 pub mod paths;
 pub mod plugin_catalog;
-pub mod plugin_install;
 pub mod preferences;
 pub mod preview;
 pub mod project;

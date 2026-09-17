@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Shared search visibility. Expectation E-32-01.
 source "$(dirname "$0")/lib.sh"
 require_guest
 fixture >/dev/null

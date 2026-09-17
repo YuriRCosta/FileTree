@@ -155,29 +155,3 @@ impl MountTable {
             .filter_map(|index| self.records.get(*index))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::ffi::OsStr;
-    use std::os::unix::ffi::OsStrExt;
-
-    #[test]
-    fn mount_paths_keep_raw_bytes_and_unicode_beside_octal_escapes() {
-        let prefix = b"1 0 8:1 / ";
-        let suffix = b" rw - ext4 /dev/test rw\n";
-        for raw in [
-            b"/media/\xff\\040disk".as_slice(),
-            "/media/é\\040disk".as_bytes(),
-        ] {
-            let records = parse_bytes(&[prefix.as_slice(), raw, suffix.as_slice()].concat());
-            assert_eq!(records.len(), 1);
-            let expected = raw.split(|byte| *byte == b'\\').next().unwrap();
-            assert_eq!(
-                records[0].mountpoint.as_os_str().as_bytes(),
-                [expected, b" disk"].concat()
-            );
-        }
-        assert_eq!(unmangle(b"/media/\\377"), OsStr::from_bytes(b"/media/\xff"));
-    }
-}

@@ -667,11 +667,10 @@ fn directory_undo_detects_same_size_edits_despite_newer_siblings() {
     fs::create_dir(&destination).unwrap();
     fs::write(source.join("note.txt"), "old").unwrap();
     fs::write(source.join("future.txt"), "future").unwrap();
-    filetime::set_file_mtime(
-        source.join("future.txt"),
-        filetime::FileTime::from_unix_time(2_000_000_000, 0),
-    )
-    .unwrap();
+    fs::File::open(source.join("future.txt"))
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(2_000_000_000))
+        .unwrap();
     let copied = backend(
         root,
         &[
@@ -684,9 +683,12 @@ fn directory_undo_detects_same_size_edits_despite_newer_siblings() {
     );
     assert_eq!(copied["ok"], true, "{copied}");
     let note = destination.join("source/note.txt");
-    let modified = filetime::FileTime::from_last_modification_time(&fs::metadata(&note).unwrap());
+    let modified = fs::metadata(&note).unwrap().modified().unwrap();
     fs::write(&note, "new").unwrap();
-    filetime::set_file_mtime(&note, modified).unwrap();
+    fs::File::open(&note)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
     let refused = backend(root, &["undo"]);
     assert_eq!(refused["refused"], true, "{refused}");
     assert_eq!(fs::read_to_string(note).unwrap(), "new");

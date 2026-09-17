@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import ctypes
 import datetime as dt
 import hashlib
 import json
 import os
 import re
 import stat
-import struct
 import tomllib
 from pathlib import Path
 from typing import Any
 
 from fileblade_paths import parse_path, wire
-from fileblade_inventory import watch_path
+from fileblade_inventory import creation_time, watch_path
 
 MAX_FILE_BYTES = 256 * 1024
 MAX_DIR_ENTRIES = 256
@@ -24,21 +22,6 @@ MAX_SOURCES = 128
 MAX_ROWS = 600
 MAX_STDOUT_BYTES = 1024 * 1024
 COMMENT_PATTERN = re.compile(r'("(?:\\.|[^"\\])*")|(//[^\n]*|/\*.*?\*/)', re.DOTALL)
-
-def creation_time(path: Path) -> str:
-    try:
-        statx = ctypes.CDLL(None, use_errno=True).statx
-        statx.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
-                          ctypes.c_uint, ctypes.c_void_p]
-        statx.restype = ctypes.c_int
-        result = ctypes.create_string_buffer(256)
-        if statx(-100, os.fsencode(path), 0x100, 0x800, ctypes.byref(result)) != 0:
-            return ""
-        mask = struct.unpack_from("I", result.raw, 0)[0]
-        seconds = struct.unpack_from("q", result.raw, 80)[0]
-        return dt.datetime.fromtimestamp(seconds).strftime("%Y-%m-%d %H:%M") if mask & 0x800 and seconds > 0 else ""
-    except (AttributeError, OSError, OverflowError, struct.error, ValueError):
-        return ""
 
 def resolved_file(path: Path) -> Path | None:
     watch_path(path)

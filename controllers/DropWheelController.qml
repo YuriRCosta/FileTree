@@ -1,5 +1,4 @@
 import QtQuick
-import "../lib/PathText.js" as PathText
 import Quickshell
 import "../ui" as PluginUi
 import "../lib/DropFocusPolicy.js" as DropFocusPolicy
@@ -23,7 +22,6 @@ Item {
   readonly property var modifierSpec: modifierTable[modifierName] || modifierTable.space
   readonly property int modifierFlag: modifierSpec.flag
   readonly property int modifierKey: modifierSpec.key
-  readonly property string modifierLabel: modifierSpec.label
 
   property bool dragActive: false
   property Item dragSource: null
@@ -120,18 +118,6 @@ Item {
     service.bladeHost.pressActive = true
     dragActive = true
     return true
-  }
-
-  function relativePreview(path) {
-    var root = String(service.projectRoot || "")
-    return root && PathText.within(path, root) ? PathText.relative(path, root) : PathText.name(path)
-  }
-
-  function previewPath(form) {
-    if (dragPaths.length === 0) return ""
-    var first = String(dragPaths[0])
-    var shown = form === "relative" ? relativePreview(first) : form === "name" ? PathText.name(first) : first
-    return dragPaths.length > 1 ? shown + "  +" + (dragPaths.length - 1) : shown
   }
 
   function updateDrag(x, y, outside, modifiers) {

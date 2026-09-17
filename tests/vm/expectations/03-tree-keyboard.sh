@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Moving through the tree with the keyboard. Expectations E-03-01 .. E-03-07.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

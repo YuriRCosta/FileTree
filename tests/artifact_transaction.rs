@@ -9,6 +9,37 @@ use std::process::{Command, Stdio};
 struct Fixture {
     root: tempfile::TempDir,
 }
+
+#[test]
+fn pruning_reports_a_full_scan_budget_at_a_module_boundary() {
+    let fixture = Fixture::new();
+    let base = fixture.root.path().join("data/fileblade/bin");
+    fs::create_dir_all(&base).unwrap();
+    fs::set_permissions(&base, fs::Permissions::from_mode(0o700)).unwrap();
+    for module_index in 0..21 {
+        let module = format!("module-{module_index}");
+        let directory = base.join(&module);
+        fs::create_dir(&directory).unwrap();
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+        let manifest = json!({"schemaVersion":1,"module":module,"id":"item",
+            "name":"item","kind":"hook","scope":"user","detail":"",
+            "path":"","realpath":"","deletedAt":"2099-01-01T00:00:00Z",
+            "deletedAtEpoch":4070908800_i64,"items":[]})
+        .to_string();
+        for entry_index in 0..500 {
+            let entry = directory.join(format!("entry-{entry_index}"));
+            fs::create_dir(&entry).unwrap();
+            fs::set_permissions(&entry, fs::Permissions::from_mode(0o700)).unwrap();
+            let path = entry.join("manifest.json");
+            fs::write(&path, &manifest).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+    }
+    let result = fixture.run(&["trash-prune".into(), "--days".into(), "7".into()]);
+    assert_eq!(result["satellites"]["examined"], 10_000, "{result}");
+    assert_eq!(result["satellites"]["truncated"], true, "{result}");
+    assert_eq!(result["satellites"]["completed"], 0, "{result}");
+}
 impl Fixture {
     fn new() -> Self {
         let root = tempfile::tempdir().unwrap();

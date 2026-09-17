@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Hidden entries and Git presentation. Expectations E-07-01 .. E-07-08.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

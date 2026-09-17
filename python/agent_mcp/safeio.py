@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import ctypes
 from dataclasses import dataclass
 import datetime as dt
 import os
 from pathlib import Path
 import re
 import stat
-import struct
 import time
 
-from fileblade_inventory import watch_path
+from fileblade_inventory import creation_time, watch_path
 from fileblade_mutations import Snapshot, MAX_CONTENT
 
 
@@ -18,23 +16,6 @@ from fileblade_mutations import Snapshot, MAX_CONTENT
 class ReadResult:
     data: bytes | None
     error: str | None = None
-
-
-def creation_time(path: Path) -> str:
-    try:
-        statx = ctypes.CDLL(None, use_errno=True).statx
-        statx.argtypes = [
-            ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint, ctypes.c_void_p,
-        ]
-        statx.restype = ctypes.c_int
-        result = ctypes.create_string_buffer(256)
-        if statx(-100, os.fsencode(path), 0x100, 0x800, ctypes.byref(result)) != 0:
-            return ""
-        mask = struct.unpack_from("I", result.raw, 0)[0]
-        seconds = struct.unpack_from("q", result.raw, 80)[0]
-        return dt.datetime.fromtimestamp(seconds).strftime("%Y-%m-%d %H:%M") if mask & 0x800 and seconds > 0 else ""
-    except (AttributeError, OSError, struct.error, ValueError):
-        return ""
 
 
 def artifact_metrics(path: Path, data: bytes) -> dict[str, object]:
@@ -146,7 +127,7 @@ def safe_relative_file(root: Path, relative: object) -> Path | None:
     return root.joinpath(*path.parts)
 
 
-def bounded_directories(root: Path, maximum: int, deadline: Deadline) -> list[Path]:
+def bounded_entries(root: Path, maximum: int, deadline: Deadline, predicate) -> list[Path]:
     watch_path(root, directory=True)
     result: list[Path] = []
     descriptor = -1
@@ -158,7 +139,7 @@ def bounded_directories(root: Path, maximum: int, deadline: Deadline) -> list[Pa
                 if index >= maximum:
                     deadline.truncated = True
                     break
-                if entry.is_dir(follow_symlinks=False):
+                if predicate(entry):
                     result.append(root / entry.name)
     except OSError:
         return []
@@ -166,28 +147,14 @@ def bounded_directories(root: Path, maximum: int, deadline: Deadline) -> list[Pa
         if descriptor >= 0:
             os.close(descriptor)
     return sorted(result, key=lambda path: path.name)
+
+
+def bounded_directories(root: Path, maximum: int, deadline: Deadline) -> list[Path]:
+    return bounded_entries(root, maximum, deadline, lambda entry: entry.is_dir(follow_symlinks=False))
 
 
 def bounded_files(root: Path, maximum: int, deadline: Deadline) -> list[Path]:
-    watch_path(root, directory=True)
-    result: list[Path] = []
-    descriptor = -1
-    try:
-        descriptor = _open_directory_nofollow(root)
-        with os.scandir(descriptor) as entries:
-            for index, entry in enumerate(entries):
-                deadline.check()
-                if index >= maximum:
-                    deadline.truncated = True
-                    break
-                if entry.is_file(follow_symlinks=False):
-                    result.append(root / entry.name)
-    except OSError:
-        return []
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-    return sorted(result, key=lambda path: path.name)
+    return bounded_entries(root, maximum, deadline, lambda entry: entry.is_file(follow_symlinks=False))
 
 
 def atomic_write(path: Path, data: bytes, *, snapshot: Snapshot | None = None) -> str | None:

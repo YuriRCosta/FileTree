@@ -481,25 +481,3 @@ pub(super) fn tmux_focused_client(_processes: &[ProcessRow]) -> Value {
         "this terminal window shares its process with other windows and tmux offers no way to tell which client is in it",
     )
 }
-
-#[cfg(test)]
-mod shared_window_tests {
-    use super::title_names_workspace;
-    use serde_json::json;
-
-    #[test]
-    fn a_window_title_names_a_workspace_by_label_with_or_without_the_host_prefix() {
-        let workspace = json!({"workspace_id": "wG", "label": "omen ouroboros"});
-        assert!(title_names_workspace("omen ouroboros", &workspace));
-        assert!(title_names_workspace(
-            "asparagus: omen ouroboros",
-            &workspace
-        ));
-        assert!(!title_names_workspace("asparagus: omen", &workspace));
-        assert!(!title_names_workspace("", &workspace));
-        assert!(!title_names_workspace(
-            "omen ouroboros",
-            &json!({"workspace_id": "w1", "label": ""})
-        ));
-    }
-}

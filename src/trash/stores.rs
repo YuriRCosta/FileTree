@@ -271,10 +271,6 @@ pub(super) fn normalized_absolute(path: &Path) -> Option<PathBuf> {
     Some(normalize_path(path))
 }
 
-pub(super) fn normalize_absolute_or_empty(path: &Path) -> PathBuf {
-    normalized_absolute(path).unwrap_or_default()
-}
-
 pub(super) fn valid_stored_name(value: &[u8]) -> bool {
     !value.is_empty()
         && value != b"."

@@ -337,6 +337,92 @@ fn action_list_returns_rows_without_the_command_vector() {
 }
 
 #[test]
+fn action_discovery_bounds_invalid_entries_and_preserves_valid_siblings() {
+    let fixture = Fixture::new();
+    let discover = |entries: Vec<Value>| {
+        fs::write(
+            fixture.plugin_dir().join("manifest.json"),
+            json!({
+                "id":"kurt.tools", "extensions":{"data-goblin.fileblade/action":entries}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fixture.backend(&[
+            "action-list".into(),
+            "--provider".into(),
+            format!("kurt.tools={}", text(&fixture.plugin_dir())),
+        ])
+    };
+    let definition = |patch: Value| {
+        let mut value =
+            json!({"id":"dump", "title":"Dump", "contexts":["dir"], "argv":["scripts/echo-env"]});
+        value
+            .as_object_mut()
+            .unwrap()
+            .extend(patch.as_object().unwrap().clone());
+        value
+    };
+    for patch in [
+        json!({"argv":vec!["arg";33]}),
+        json!({"argv":vec!["b".repeat(1024);9]}),
+        json!({"argv":["scripts/echo-env","a".repeat(1025)]}),
+        json!({"argv":["a\u{7}b"]}),
+        json!({"argv":[]}),
+        json!({"argv":"scripts/echo-env"}),
+        json!({"contexts":["nope"]}),
+        json!({"contexts":[]}),
+        json!({"id":"-bad"}),
+        json!({"id":"a".repeat(65)}),
+        json!({"title":""}),
+    ] {
+        let response = discover(vec![definition(patch), definition(json!({"id":"good"}))]);
+        assert_eq!(
+            response["actions"].as_array().unwrap().len(),
+            1,
+            "{response}"
+        );
+        assert_eq!(response["actions"][0]["id"], "good", "{response}");
+        assert_eq!(
+            response["errors"].as_array().unwrap().len(),
+            1,
+            "{response}"
+        );
+    }
+    let response = discover(vec![definition(json!({"contexts":["dir","nope","dir"],
+        "title":"Run\u{202e}gpj.exe\u{7}", "description":"one\u{2028}two\u{2066}three",
+        "timeout":100000, "cwd":"invalid", "paths":"invalid", "output":"invalid"}))]);
+    let row = &response["actions"][0];
+    assert_eq!(row["contexts"], json!(["dir"]));
+    assert_eq!(row["title"], "Rungpj.exe");
+    assert_eq!(row["description"], "onetwothree");
+    assert_eq!(row["timeout"], 900);
+    let execution = fixture.run(
+        "dump",
+        "dir",
+        &["--path", fixture.work_dir().to_str().unwrap()],
+    );
+    assert_eq!(execution["ok"], true, "{execution}");
+    let environment = reported(&execution);
+    assert_eq!(environment["CWD"], text(&fixture.plugin_dir()));
+    assert_eq!(environment["ARGS"], "");
+    assert_eq!(row["output"], "notice");
+    let response = discover(
+        (0..17)
+            .map(|i| definition(json!({"id":format!("a{i}")})))
+            .collect(),
+    );
+    assert_eq!(response["actions"].as_array().unwrap().len(), 16);
+    assert_eq!(response["truncated"], true);
+    let response = discover(vec![definition(json!({})); 2]);
+    assert_eq!(response["actions"].as_array().unwrap().len(), 1);
+    assert_eq!(response["errors"].as_array().unwrap().len(), 1);
+    let response = discover(vec![json!({}); 500]);
+    assert_eq!(response["errors"].as_array().unwrap().len(), 16);
+    assert_eq!(response["truncated"], true);
+}
+
+#[test]
 fn a_manifest_under_another_id_is_reported_and_never_run() {
     let fixture = Fixture::new();
     let document = fixture.backend(&[

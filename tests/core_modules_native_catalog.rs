@@ -7,7 +7,8 @@ use std::process::Command;
 fn native_discovery_without_authority_cannot_create_activation_receipts() {
     let binary = std::env::var_os("FILEBLADE_BINARY")
         .unwrap_or_else(|| env!("CARGO_BIN_EXE_fileblade").into());
-    for receipt_selected in [false, true] {
+    for selection in ["explicit", "receipt", "mismatched", "missing"] {
+        let receipt_selected = selection != "explicit";
         let root = tempfile::tempdir().unwrap();
         let config = root.path().join("config");
         let state = root.path().join("state");
@@ -34,7 +35,7 @@ fn native_discovery_without_authority_cannot_create_activation_receipts() {
             fs::create_dir_all(&generation).unwrap();
             fs::write(
                 generation.join("receipt.json"),
-                json!({"schema":1,"owner":"direct","installation":installation,"payload":payload})
+                json!({"schema":1,"owner":"direct","installation":installation,"payload":if selection == "mismatched" {"b".repeat(64)} else {payload.clone()}})
                     .to_string(),
             )
             .unwrap();
@@ -54,6 +55,12 @@ fn native_discovery_without_authority_cannot_create_activation_receipts() {
         } else {
             binary.clone().into()
         };
+        if selection == "missing" {
+            fs::remove_file(
+                data.join("fileblade/installation/generations/generation.fixture/receipt.json"),
+            )
+            .unwrap();
+        }
         let mut command = Command::new(executable);
         command
             .args(["_backend", "plugin-catalog"])
@@ -72,14 +79,19 @@ fn native_discovery_without_authority_cannot_create_activation_receipts() {
         let output = command.output().unwrap();
         assert!(output.status.success(), "{output:?}");
         let catalog: Value = serde_json::from_slice(&output.stdout).unwrap();
-        assert_eq!(
-            catalog["providers"].as_array().unwrap().len(),
-            1,
-            "{catalog}"
-        );
-        assert_eq!(catalog["providers"][0]["id"], "test.goblins");
+        if matches!(selection, "missing" | "mismatched") {
+            assert_eq!(catalog["providers"], json!([]), "{catalog}");
+            assert!(!catalog["diagnostics"].as_array().unwrap().is_empty());
+        } else {
+            assert_eq!(
+                catalog["providers"].as_array().unwrap().len(),
+                1,
+                "{catalog}"
+            );
+            assert_eq!(catalog["providers"][0]["id"], "test.goblins");
+            assert_eq!(catalog["providers"][0]["enabled"], false, "{catalog}");
+        }
         assert_eq!(catalog["activation"], "unknown", "{catalog}");
-        assert_eq!(catalog["providers"][0]["enabled"], false, "{catalog}");
         assert!(!config.join("omarchy").exists());
         assert!(!state.exists());
     }

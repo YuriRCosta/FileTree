@@ -27,10 +27,6 @@ pub fn local_path_from_file_uri(uri: &str) -> Option<PathBuf> {
     std::fs::symlink_metadata(&path).ok().map(|_| path)
 }
 
-pub fn clipboard_files(limit: usize) -> Value {
-    clipboard_files_cancellable(limit, &AtomicBool::new(false))
-}
-
 pub fn clipboard_files_cancellable(limit: usize, cancelled: &AtomicBool) -> Value {
     if cancelled.load(Ordering::Relaxed) {
         return clipboard_error("", "operation cancelled");

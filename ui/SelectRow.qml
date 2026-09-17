@@ -38,9 +38,9 @@ Item {
       id: valueLabel
       textFormat: Text.PlainText
       anchors.left: parent.left
-      anchors.right: chevron.left
+      anchors.right: parent.right
       anchors.leftMargin: Style.space(8)
-      anchors.rightMargin: Style.space(4)
+      anchors.rightMargin: valuePointer.glyphWidth + Style.space(6) + Style.space(4)
       anchors.verticalCenter: parent.verticalCenter
       text: control.current
       color: Color.bar.text
@@ -49,23 +49,8 @@ Item {
       font.pixelSize: Style.font.caption
     }
 
-    Text {
-      id: chevron
-      textFormat: Text.PlainText
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(6)
-      anchors.verticalCenter: parent.verticalCenter
-      text: "󰅀"
-      color: Color.muted
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-    }
-
-    MouseArea {
+    ChevronHit {
       id: valuePointer
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
       onClicked: {
         menu.rows = Form.popupRows(control.row, control.row.value)
         menu.present()

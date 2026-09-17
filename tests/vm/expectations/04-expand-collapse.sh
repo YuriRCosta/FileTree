@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Expanding and collapsing. Expectations E-04-01 .. E-04-06.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Favorites. Expectations E-16-01 .. E-16-04.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

@@ -6,42 +6,11 @@ import os
 import sys
 from typing import Any
 
-from fileblade_paths import NativePath, parse_path, wire
+from fileblade_paths import NativePath, parse_path
 import agent_usage
-from fileblade_inventory import SCOPES, WatchPlan
+from fileblade_inventory import MAX_OUTPUT_BYTES, SCOPES, WatchPlan, encoded
 
 from . import apply as applying, discovery, registry
-
-MAX_OUTPUT_BYTES = 1024 * 1024
-
-def serialized(value: dict[str, Any]) -> bytes:
-    return (json.dumps(wire(value), ensure_ascii=True, separators=(",", ":")) + "\n").encode("utf-8")
-
-def encoded(payload: dict[str, Any]) -> bytes:
-    def document(items: list[Any], truncated: bool) -> bytes:
-        value = dict(payload)
-        value["items"] = items
-        value["count"] = len(items)
-        value["truncated"] = bool(value.get("truncated")) or truncated
-        return serialized(value)
-
-    items = payload.get("items")
-    if not isinstance(items, list):
-        return serialized(payload)
-    data = document(items, False)
-    if len(data) <= MAX_OUTPUT_BYTES:
-        return data
-    low, high = 0, len(items)
-    best = document([], True)
-    while low <= high:
-        middle = (low + high) // 2
-        candidate = document(items[:middle], True)
-        if len(candidate) <= MAX_OUTPUT_BYTES:
-            best = candidate
-            low = middle + 1
-        else:
-            high = middle - 1
-    return best
 
 def emit(payload: dict[str, Any]) -> None:
     sys.stdout.buffer.write(encoded(payload))

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Dragging files outside a blade. Expectations E-26-01 .. E-26-10.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -39,8 +38,6 @@ if ! guest "printf '%s' $space_data | base64 -d > $(printf '%q' "$space_helper")
   fail harness "stage the modifier helper" "could not copy the helper into the guest"
   summary
 fi
-# Wedge i of n is centred at -90 + i * 360 / n degrees, on the ring between the
-# hub and the rim (WheelGeometry.wedgeAngle; labelRadius is 58 at scale 1).
 wedge_point() { awk -v x="$1" -v y="$2" -v n="$3" -v i="$4" 'BEGIN { a = (-90 + i * 360 / n) * 3.14159265 / 180; printf "%d %d\n", x + 58 * cos(a), y + 58 * sin(a) }'; }
 
 choose_child() {
@@ -215,7 +212,6 @@ sleep 1
 expect_true E-26-08 "Escape cancels the open wheel drag and release opens nothing" "[[ \$(wheel dragging) == false && \$(wheel open) == false && \$(field open) == true && \$(clients) == 0 ]]"
 focus_tree
 
-# Release on the hub: the wheel must open under the pointer and then stay.
 drag_with_space "$ROW_X" "$(row_y "$(row_index alpha.txt)")" 900 500 ease_in_out 12 3000 E-26-01-drag-ghost "" E-26-03-wheel-open E-26-04-desktop-actions
 expect_true E-26-01 "leaving the blade with a row starts a drag" "[[ \$(mid dragging) == true ]]"
 expect_true E-26-01 "that carries one item" "[[ \$(mid count) == 1 ]]"
@@ -255,9 +251,6 @@ expect_true E-26-08 "without opening anything" "[[ \$(clients) == 0 ]]"
 expect_out E-26-08 "and the file is untouched" "test -f $ROOT_DIR/alpha.txt && echo yes || echo no" yes
 shot E-26-08-cancelled
 
-# Release on a wedge: the wheel opens 60 px before the drop, so the release
-# lands on the wedge in the direction of travel. From a low row up and right
-# the angle is about -42 degrees, inside the top wedge, Open in new window.
 drag_with_space "$ROW_X" "$(row_y "$(row_index long.txt)")" 560 220 linear 60 3000 "" "" "" ""
 wait_for "[[ \$(clients) -ge 1 ]]" 20
 expect_true E-26-07 "releasing on Open in new window opens the file" "[[ \$(clients) -ge 1 ]]"

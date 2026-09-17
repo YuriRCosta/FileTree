@@ -30,7 +30,6 @@ Item {
   property string pointerResizeEdge: ""
   property real pointerResizeStartX: 0
   property real pointerResizeStartY: 0
-  readonly property bool pointerResizeActive: pointerResizeEdge !== ""
 
   function notePointer(edge, sceneX, sceneY) {
     pointerEdge = String(edge || "")
@@ -344,10 +343,6 @@ Item {
     return desired
   }
 
-  function toggleAll() {
-    return setAllOpen(!anyOpen)
-  }
-
   function toggleOpen(edge) {
     return setOpen(edge, !isOpen(edge), true)
   }
@@ -458,19 +453,6 @@ Item {
     var slotIndex = Number(index)
     if (!validIndex(slotIndex, slots(target).length)) return false
     updateBlade(target, function(blade) { blade.slots.splice(slotIndex, 1) }, true)
-    return true
-  }
-
-  function moveSlot(edge, index, delta) {
-    var target = normalizeEdge(edge)
-    var list = slots(target)
-    var from = Number(index)
-    var to = from + Number(delta)
-    if (!validIndex(from, list.length) || !validIndex(to, list.length)) return false
-    updateBlade(target, function(blade) {
-      var moved = blade.slots.splice(from, 1)[0]
-      blade.slots.splice(to, 0, moved)
-    }, true)
     return true
   }
 

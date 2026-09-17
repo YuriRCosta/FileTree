@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Archives and long operations. Expectations E-28-01 .. E-28-05.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

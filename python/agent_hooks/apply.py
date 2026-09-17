@@ -12,7 +12,7 @@ from . import discovery, records
 from .adapters import copilot_home
 from .events import mapped_event
 from .redaction import payload_digest, safe_type
-from .recovery import RecoveryFull, RecoveryStore
+from fileblade_recovery import RecoveryFull, RecoveryStore
 from .safeio import (Budget, MAX_FILE_BYTES, bounded_depth, document_kind, expanded, load_json,
                      load_toml, refuse_update)
 

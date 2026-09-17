@@ -62,6 +62,9 @@ TestCase {
     verify(provider.attach(second))
     compare(provider.viewCount, 2)
     var inventory = provider.inventory
+    compare(inventory.maximumItems, { skills: 256, memory: 1000, hooks: 1000, mcp: 1024 }[data.module])
+    compare(inventory.itemsKey, data.module === "mcp" ? "definitions" : "items")
+    compare(inventory.activityMethod, ["skills", "mcp"].indexOf(data.module) >= 0 ? "usage" : "")
     inventory.startScan()
     compare(requests.length, 2)
     reply(0, "project"); reply(1, "user")
@@ -108,5 +111,9 @@ TestCase {
     compare(JSON.parse(requests[7].args[9])[1], "/next-project")
     provider.detach(second)
     reply(7, "late"); reply(8, "late")
+    provider.shutdown()
+    compare(provider.inventory, null)
+    compare(provider.viewCount, 0)
+    verify(!provider.attach(first))
   }
 }

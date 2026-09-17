@@ -7,9 +7,6 @@ Item {
   id: root
 
   required property string cliPath
-  function startExtensionInstall() {
-    Quickshell.execDetached([root.cliPath, "_backend", "plugin-install"])
-  }
   property string expectedVersion: ""
   property bool ready: false
   property bool desiredRunning: true

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import ctypes
 import datetime as dt
 import os
 import re
 import stat
-import struct
 from typing import Any
 
-from fileblade_inventory import watch_path
+from fileblade_inventory import creation_time, watch_path
 
 MAX_ITEMS = 256
 MAX_NAME = 256
@@ -28,20 +26,6 @@ MAX_EXTENSIONS = 128
 MAX_MANIFEST_BYTES = 64 * 1024
 
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
-
-def creation_time(path: str) -> str:
-    try:
-        statx = ctypes.CDLL(None, use_errno=True).statx
-        statx.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint, ctypes.c_void_p)
-        statx.restype = ctypes.c_int
-        result = ctypes.create_string_buffer(256)
-        if statx(-100, os.fsencode(path), 0x100, 0x800, ctypes.byref(result)) != 0:
-            return ""
-        mask = struct.unpack_from("I", result.raw, 0)[0]
-        seconds = struct.unpack_from("q", result.raw, 80)[0]
-        return dt.datetime.fromtimestamp(seconds).strftime("%Y-%m-%d %H:%M") if mask & 0x800 and seconds > 0 else ""
-    except (AttributeError, OSError, struct.error, ValueError):
-        return ""
 
 def estimated_tokens(text: str) -> int:
     return (len(text.encode("utf-8", "replace")) + 3) // 4

@@ -229,7 +229,6 @@ fn load_repository_status(
         repository.summary_counts.add(&entry.status);
     }
     for record in output.stdout.split(|byte| *byte == 0) {
-        // Headers precede entries; a rename's original filename may start with '# '.
         if !record.starts_with(b"# ") {
             break;
         }
@@ -253,11 +252,6 @@ pub(crate) fn cached_git_worktree_status(
     cancelled: &AtomicBool,
 ) -> Option<GitRepository> {
     cache::repository(marker, refresh, timeout, cancelled)
-}
-
-pub fn repository_status_index(repository: &GitRepository) -> GitStatusIndex {
-    repository_status_index_cancellable(repository, &AtomicBool::new(false))
-        .unwrap_or_else(empty_status_index)
 }
 
 pub fn repository_status_index_cancellable(
@@ -695,15 +689,6 @@ fn build_git_status_index(
         descendants,
         counts,
     })
-}
-
-fn empty_status_index() -> GitStatusIndex {
-    GitStatusIndex {
-        statuses: Vec::new(),
-        exact: HashMap::new(),
-        descendants: HashMap::new(),
-        counts: HashMap::new(),
-    }
 }
 
 impl GitStatusCounts {

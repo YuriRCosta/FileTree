@@ -5,8 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[3]
-KIND = 'hooks'
+ROOT = Path(__file__).resolve().parents[2]
+KIND = os.environ["FILEBLADE_TEST_MODULE"]
 PROVIDER = "fileblade.core." + KIND
 
 

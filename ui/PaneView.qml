@@ -158,10 +158,6 @@ Item {
     rememberSorts()
   }
 
-  function setSort(key, descending) {
-    setSorts([{ key: String(key || ""), desc: !!descending }])
-  }
-
   function sortFor(key) {
     for (var i = 0; i < sorts.length; i++)
       if (sorts[i].key === String(key)) return sorts[i]

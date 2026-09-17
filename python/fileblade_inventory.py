@@ -1,8 +1,13 @@
 """Bounded filesystem watch plans collected alongside provider discovery."""
 
 from contextvars import ContextVar
+import ctypes
+import datetime as dt
 import json
+import os
+import struct
 from pathlib import Path
+from typing import Any
 
 from fileblade_paths import NativePath, wire
 
@@ -82,3 +87,51 @@ def watch_path(path, *, directory=False):
                 plan.directory(path.resolve().parent)
         except (OSError, RuntimeError):
             pass
+
+
+def creation_time(path: str | Path) -> str:
+    try:
+        statx = ctypes.CDLL(None, use_errno=True).statx
+        statx.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
+                          ctypes.c_uint, ctypes.c_void_p]
+        statx.restype = ctypes.c_int
+        result = ctypes.create_string_buffer(256)
+        if statx(-100, os.fsencode(path), 0x100, 0x800, ctypes.byref(result)) != 0:
+            return ""
+        mask = struct.unpack_from("I", result.raw, 0)[0]
+        seconds = struct.unpack_from("q", result.raw, 80)[0]
+        return dt.datetime.fromtimestamp(seconds).strftime("%Y-%m-%d %H:%M") if mask & 0x800 and seconds > 0 else ""
+    except (AttributeError, OSError, OverflowError, struct.error, ValueError):
+        return ""
+
+
+MAX_OUTPUT_BYTES = 1024 * 1024
+
+def serialized(value: dict[str, Any]) -> bytes:
+    return (json.dumps(wire(value), ensure_ascii=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+def encoded(payload: dict[str, Any], max_bytes: int = MAX_OUTPUT_BYTES) -> bytes:
+    def document(items: list[Any], truncated: bool) -> bytes:
+        value = dict(payload)
+        value["items"] = items
+        value["count"] = len(items)
+        value["truncated"] = bool(value.get("truncated")) or truncated
+        return serialized(value)
+
+    items = payload.get("items")
+    if not isinstance(items, list):
+        return serialized(payload)
+    data = document(items, False)
+    if len(data) <= max_bytes:
+        return data
+    low, high = 0, len(items)
+    best = document([], True)
+    while low <= high:
+        middle = (low + high) // 2
+        candidate = document(items[:middle], True)
+        if len(candidate) <= max_bytes:
+            best = candidate
+            low = middle + 1
+        else:
+            high = middle - 1
+    return best

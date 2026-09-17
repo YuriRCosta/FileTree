@@ -96,42 +96,11 @@ cancel:      stop a request or a subscription by id and generation
 error:       the backend refusing a malformed or oversized frame
 ```
 
-The Welcome tab starts a separate `fileblade _backend plugin-install` process
-only after an explicit Install click. Omarchy reloads all plugins during
-installation, so the operation must outlive the resident backend. A private
-lock prevents overlapping runs; `extension-install.json` in FileBlade state
-records progress. Welcome reads `plugin-install-status` once on load and once
-per second while installation runs. Each extension is pinned: `EXTENSIONS` in
-`src/plugin_install.rs` carries a full commit beside every repository URL, the
-clone is reset to that commit and refused unless `git rev-parse HEAD` matches
-it, so a branch that moves after review cannot change the installed bytes and
-the progress record names the commit being installed. Moving a pin is a
-FileBlade change; an installed extension updates normally through
-`omarchy plugin update`. There is no other install path: the backend has no
-command that adds a plugin from a URL. Omarchy's plugin watcher reloads every
-plugin on any change under the plugins directory, so the installer clones and
-validates all four repositories in a sibling staging directory first
-(`omarchy-git-url-check`, `git clone`, `omarchy-plugin-validate`, manifest ID
-check), then renames them into the plugins directory back to back so the
-shell's debounce collapses the four arrivals into one reload, and enables them
-once `omarchy-plugin-list` reports them. Retries skip already-present clones
-and enable ones a previous run left disabled. Failed or abandoned runs show an
-error and require another click. Loading FileBlade never starts an install.
-When the status file reports `installed`, Welcome places the extensions from
-`WelcomePlan.PLACEMENTS`: Skills, MCP and Hooks become a new slot at the top of
-the right blade with the first tab active, and Memory is appended to the slot
-holding Notes (or a new bottom slot when Notes is gone). Modules already in the
-layout are skipped; modules the registry has not loaded yet are placed when
-`registryChanged`, `layoutChanged` or `layoutWritableChanged` fires, and a
-refused or wiped placement stays queued until it is present again. Placement
-never touches an unwritable layout: a layout read that fails because the
-backend is restarting (every extension enable reloads the plugin) marks
-`layoutRereadPending`, and the host reads the layout again when the backend is
-back instead of keeping the default seed. `welcomeState` stays empty until every placement exists and the
-backend has acknowledged writing that exact layout (`lastWrittenLayoutText`),
-so a plugin reload in between resumes from the status file instead of losing
-the queue. A thirty-second deadline reports the still-missing extensions, or an
-unsaved layout, in the tab and re-enables Install as the retry.
+This file was written by an agent.
+
+Skills, Memory, Hooks and MCP ship as built-in modules. Welcome does not acquire
+or install companion repositories.
+
 Plugin storage paths are resolved before reading manifests, so a symlinked
 plugins directory works; manifest reads remain bounded and reject symlinks.
 
@@ -348,6 +317,8 @@ with `NativePath`; filesystem operations still receive native strings. Display
 sanitization and output bounds must never rewrite or truncate an action path.
 `tests/run` checks the Python codec alongside the Rust and QML implementations.
 
+This file was written by an agent.
+
 Captured native commands share `src/command/`. Rust's normal `Command` setup
 preserves native arguments, environment, working directory and exec errors.
 A private Linux supervisor owns each command group, retains the leader's PID
@@ -355,7 +326,14 @@ through cleanup, and monitors backend death through a pidfd. The request worker
 polls nonblocking stdin, stdout and stderr without per-pipe threads or a copied
 input buffer. Completion drains remaining output for a bounded interval;
 independent daemons cannot hold the request open. Explicitly detached desktop
-launches retain their separate lifetime.
+launches retain their separate lifetime. The guardian enters through `pre_exec`
+and uses `_Fork` to avoid pthread atfork handlers in the multithreaded backend.
+Its child-side supervision uses fixed stack storage and async-signal-safe calls:
+no allocation, Rust locks, or destructors. It keeps the leader unreaped through
+the final group signal so that PID reuse cannot redirect cleanup. Private control
+descriptors are duplicated above stderr before command stdio setup; all other
+guardian descriptors are closed. Adopted children in independent groups are only
+reaped after exit, never killed.
 
 Python companion commands share `python/fileblade_process.py`. A Linux
 supervisor drains bounded streams, enforces a deadline and stops the owned

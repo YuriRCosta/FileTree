@@ -64,6 +64,19 @@ Item {
   function bladeState(edge) { return host.bladeState(edge) }
   function windowTitle(edge) { return host.windowTitle(edge) }
 
+  function cancelPendingFocusRequests() {
+    emptyWorkspaceFocusTimer.stop()
+    if (emptyFocusRequestId && service) service.cancelBackendRequest(emptyFocusRequestId, emptyFocusGeneration)
+    emptyFocusGeneration++
+    emptyFocusRequestId = ""
+    if (directionRequestId && service) service.cancelBackendRequest(directionRequestId, directionGeneration)
+    directionGeneration++
+    directionRequestId = ""
+    if (restoreRequestId && service) service.cancelBackendRequest(restoreRequestId, restoreGeneration)
+    restoreGeneration++
+    restoreRequestId = ""
+  }
+
   function focusBlade(edge, targetScreen, slotIndex, part, openIfClosed) {
     externalFocusHandoff = false
     externalFocusHandoffTimer.stop()
@@ -80,16 +93,7 @@ Item {
       if (openIfClosed !== true) return false
       setOpen(target, true, true)
     }
-    emptyWorkspaceFocusTimer.stop()
-    if (emptyFocusRequestId && service) service.cancelBackendRequest(emptyFocusRequestId, emptyFocusGeneration)
-    emptyFocusGeneration++
-    emptyFocusRequestId = ""
-    if (directionRequestId && service) service.cancelBackendRequest(directionRequestId, directionGeneration)
-    directionGeneration++
-    directionRequestId = ""
-    if (restoreRequestId && service) service.cancelBackendRequest(restoreRequestId, restoreGeneration)
-    restoreGeneration++
-    restoreRequestId = ""
+    cancelPendingFocusRequests()
     if (focusedEdge === "") rememberWorkspaceFocus()
     focusedScreen = screen
     focusRevision++
@@ -336,16 +340,7 @@ Item {
     if (hoverTargetRequestId && service) service.cancelBackendRequest(hoverTargetRequestId, hoverTargetGeneration)
     hoverTargetGeneration++
     hoverTargetRequestId = ""
-    emptyWorkspaceFocusTimer.stop()
-    if (emptyFocusRequestId && service) service.cancelBackendRequest(emptyFocusRequestId, emptyFocusGeneration)
-    emptyFocusGeneration++
-    emptyFocusRequestId = ""
-    if (directionRequestId && service) service.cancelBackendRequest(directionRequestId, directionGeneration)
-    directionGeneration++
-    directionRequestId = ""
-    if (restoreRequestId && service) service.cancelBackendRequest(restoreRequestId, restoreGeneration)
-    restoreGeneration++
-    restoreRequestId = ""
+    cancelPendingFocusRequests()
     focusRevision++
     host.bladeFocusReleased(target)
     focusedEdge = ""

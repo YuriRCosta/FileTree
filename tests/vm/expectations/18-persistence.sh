@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Persistence. Expectations E-18-01 .. E-18-04.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

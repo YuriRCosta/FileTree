@@ -36,6 +36,7 @@ elif args[0] == 'info':
     if not mode.startswith('unknown'): print('access::can-read: ' + ('FALSE' if mode == 'denied' else 'TRUE'))
 elif args[0] == 'list':
     (root/'listed').touch()
+    if (root/'listing').exists(): print((root/'listing').read_text(), end='')
     if mode == 'unknown-denied': sys.exit(1)
 else:
     sys.exit(2)
@@ -46,6 +47,9 @@ else:
         .args(["--exact", &name, "--nocapture"])
         .env("FILEBLADE_CONNECT_FIXTURE", root.path())
         .env("PATH", root.path())
+        .env("HOME", root.path())
+        .env("XDG_CONFIG_HOME", root.path().join("config"))
+        .env("XDG_STATE_HOME", root.path().join("state"))
         .output()
         .unwrap();
     assert!(
@@ -220,4 +224,131 @@ fn admission_requires_read_evidence_and_keeps_cleanup_retriable_without_touching
     );
     assert!(sftp::snapshot(&cleanup.id).is_none());
     assert!(!root.join("mounted").exists());
+}
+
+#[test]
+fn remote_listing_preserves_names_and_refuses_other_authorities_or_parent_paths() {
+    let Some(root) = fixture() else { return };
+    mode(&root, "normal");
+    let cancelled = AtomicBool::new(false);
+    let connected = sftp::connect(&candidate(), &saved(), &cancelled).unwrap();
+    let list = |path: &str| {
+        let command = fileblade::backend::parse([
+            "fileblade",
+            "list",
+            "--location",
+            &connected.id,
+            "--generation",
+            &connected.session_generation,
+            "--path",
+            path,
+        ])
+        .unwrap();
+        fileblade::backend::dispatch(command, &cancelled, &mut |_| Ok(())).unwrap()
+    };
+    fs::write(
+        root.join("listing"),
+        "sftp://user@peer.tail.test/files/a%0Ab%25\t4\t(regular)\ttime::modified=1700000000\n",
+    )
+    .unwrap();
+    let response = list("");
+    assert_eq!(response["ok"], true, "{response}");
+    assert_eq!(response["entries"][0]["name"], "a\nb%");
+    assert_eq!(response["entries"][0]["modified"], "2023-11-14T22:13:20Z");
+    for uri in [
+        "file:///files/name",
+        "sftp://user@other/files/name",
+        "sftp://other@peer.tail.test/files/name",
+        "sftp://user@peer.tail.test/elsewhere/name",
+        "sftp://user@peer.tail.test/files/a%2Fb",
+        "broken record",
+    ] {
+        fs::write(root.join("listing"), format!("{uri}\t4\t(regular)\n")).unwrap();
+        let response = list("");
+        assert_eq!(response["ok"], false, "{response}");
+        assert_eq!(response["entries"], serde_json::json!([]));
+    }
+    for path in ["..", "/files", "../escape", "sftp://other/files"] {
+        assert_eq!(list(path)["error_id"], "invalid-location-path");
+    }
+    assert_eq!(
+        sftp::disconnect(&connected.id, &connected.session_generation, &cancelled)["ok"],
+        true
+    );
+}
+
+#[test]
+fn pending_connection_counts_toward_capacity_and_releases_its_reservation() {
+    let Some(root) = fixture() else { return };
+    mode(&root, "normal");
+    let cancelled = AtomicBool::new(false);
+    for index in 0..63 {
+        let mut peer = candidate();
+        peer.location.id = format!("tailnet:capacity-{index}");
+        sftp::connect(&peer, &saved(), &cancelled).unwrap();
+    }
+    fs::write(root.join("mode"), "pause").unwrap();
+    std::thread::scope(|scope| {
+        let pending = scope.spawn(|| sftp::connect(&candidate(), &saved(), &cancelled));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !root.join("blocked").exists() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            sftp::connect(&candidate(), &saved(), &cancelled)
+                .unwrap_err()
+                .to_string()
+                .contains("already pending")
+        );
+        let mut overflow = candidate();
+        overflow.location.id = "tailnet:overflow".into();
+        assert!(
+            sftp::connect(&overflow, &saved(), &cancelled)
+                .unwrap_err()
+                .to_string()
+                .contains("at most 64")
+        );
+        cancelled.store(true, Ordering::Relaxed);
+        fs::write(root.join("release"), "").unwrap();
+        assert!(pending.join().unwrap().is_err());
+    });
+    fs::write(root.join("mode"), "normal").unwrap();
+    let connected = sftp::connect(&candidate(), &saved(), &AtomicBool::new(false)).unwrap();
+    assert_eq!(connected.connection, Connection::Connected);
+}
+
+#[test]
+fn saved_remote_locations_encode_literal_names_and_refuse_extra_authority_fields() {
+    let Some(root) = fixture() else { return };
+    mode(&root, "normal");
+    let selected = sftp::Saved {
+        path: "/space #percent%/雪".into(),
+        ..saved()
+    };
+    fileblade::locations::saved::remember(&selected).unwrap();
+    let stored = fileblade::locations::saved::read().unwrap();
+    assert_eq!(stored, [selected]);
+    let descriptor = sftp::connect(&candidate(), &stored[0], &AtomicBool::new(false)).unwrap();
+    assert!(
+        descriptor
+            .canonical_uri
+            .ends_with("/space%20%23percent%25/%E9%9B%AA")
+    );
+    let path = root.join("config/omarchy/fileblade/locations.json");
+    let mut document: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(document["entries"][0].as_object().unwrap().len(), 3);
+    document["entries"][0]["password"] = serde_json::json!("secret");
+    fs::write(&path, document.to_string()).unwrap();
+    assert!(fileblade::locations::saved::read().is_err());
+    for host in ["user:secret@host", "host/path", "-oProxyCommand=bad"] {
+        assert!(
+            fileblade::locations::saved::remember(&sftp::Saved {
+                host: host.into(),
+                ..saved()
+            })
+            .is_err()
+        );
+    }
 }

@@ -100,8 +100,6 @@ pub enum BackendCommand {
     Redo(HistoryStepArgs),
     SetDefault(SetDefaultArgs),
     PluginCatalog,
-    PluginInstall,
-    PluginInstallStatus,
     HyprOption(HyprOptionArgs),
     NativeBarState,
     FontMatch,
@@ -160,7 +158,6 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::ArchiveExtract(_)
             | BackendCommand::ArchiveCreate(_)
             | BackendCommand::PermissionsSet(_)
-            | BackendCommand::PluginInstall
             | BackendCommand::MountVolume(_)
             | BackendCommand::UnmountVolume(_)
             | BackendCommand::EjectVolume(_)
@@ -473,14 +470,14 @@ fn dispatch_command(
             cancelled,
         ),
         BackendCommand::TrashList(options) => trash_list(limited(options.limit, 1000), cancelled),
-        BackendCommand::TrashRestore(options) => crate::trash::restore(
+        BackendCommand::TrashRestore(options) => crate::trash::TrashContext::system().restore(
             &options.id,
             &options.destination,
             options.recreate_parent,
             cancelled,
         ),
         BackendCommand::TrashDelete(options) => {
-            crate::trash::delete_permanently(&options.id, cancelled)
+            crate::trash::TrashContext::system().delete_permanently(&options.id, cancelled)
         }
         BackendCommand::TrashEmpty => trash_empty(cancelled, progress)?,
         BackendCommand::TrashPrune(options) => trash_prune(options.days, cancelled, progress)?,
@@ -494,8 +491,6 @@ fn dispatch_command(
             crate::journal::redo(options.drop, options.force, cancelled)
         }
         BackendCommand::PluginCatalog => crate::plugin_catalog::catalog()?,
-        BackendCommand::PluginInstall => crate::plugin_install::install()?,
-        BackendCommand::PluginInstallStatus => crate::plugin_install::status()?,
         BackendCommand::SetDefault(options) => crate::operations::set_default_application(
             &options.mime,
             &options.desktop_id,
@@ -507,7 +502,7 @@ fn dispatch_command(
             cancelled,
         ),
         BackendCommand::HyprOption(options) => {
-            crate::hyprland::hypr_query(&format!("getoption {}", options.name.as_str()))?
+            crate::hyprland::hypr_query(&format!("getoption {}", value_name(options.name)))?
         }
         BackendCommand::NativeBarState => json!({
             "ok": true,
@@ -529,7 +524,7 @@ fn dispatch_command(
         BackendCommand::PlaceBladeWindow(options) => crate::hyprland::place_blade_window(
             &crate::hyprland::PlaceBladeOptions {
                 title: options.title,
-                edge: options.edge.as_str().to_string(),
+                edge: value_name(options.edge),
                 width: options.width,
                 timeout: seconds(options.timeout, 0.2, 900.0),
             },
@@ -561,7 +556,7 @@ fn dispatch_command(
             }
         }
         BackendCommand::WindowDispatch(options) => crate::hyprland::window_dispatch(
-            options.action.as_str(),
+            &value_name(options.action),
             options.x,
             options.y,
             &options.direction,
@@ -586,7 +581,7 @@ fn dispatch_command(
             crate::drop_target::drop_paste(&crate::drop_target::DropPasteOptions {
                 x: options.x,
                 y: options.y,
-                form: options.form.as_str().to_string(),
+                form: value_name(options.form),
                 paths: options.path,
                 blade_titles: options.blade_title,
                 dry_run: options.dry_run,
@@ -595,7 +590,7 @@ fn dispatch_command(
         BackendCommand::Launch(options) => {
             crate::hyprland::launch_path(&crate::hyprland::LaunchOptions {
                 path: options.path,
-                mode: options.mode.as_str().to_string(),
+                mode: value_name(options.mode),
                 desktop_id: options.desktop_id,
                 timeout: seconds(options.timeout, 0.25, 20.0),
                 line: options.line,

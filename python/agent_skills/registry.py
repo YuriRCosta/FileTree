@@ -76,6 +76,3 @@ PROJECT_MARKERS = (".git",)
 
 def agents() -> tuple[str, ...]:
     return tuple(AGENT_LABELS)
-
-def documented_paths() -> frozenset[str]:
-    return frozenset(root.path for root in ROOTS if root.path)

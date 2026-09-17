@@ -249,19 +249,9 @@ def add_candidate(
     if enabled is not None:
         existing.enabled = enabled
 
-def scan_root(
-    collected: dict[tuple[str, str], Candidate],
-    entry: registry.Root,
-    root_path: str,
-    env: Environment,
-    budget: Budget,
-    order: int,
-    source: str = "",
-    enabled: bool | None = None,
-) -> None:
+def bounded_child_dirs(root_path: str, budget: Budget):
     names, truncated = bounded_names(root_path, min(MAX_ENTRIES_PER_ROOT, MAX_TOTAL_ENTRIES - budget.entries))
     budget.truncated |= truncated
-    reserved_allowed = entry.agent == "claude-code" and entry.kind in ("managed", "user", "project")
     seen = 0
     for name in names:
         if seen >= MAX_ENTRIES_PER_ROOT or not budget.spend():
@@ -274,6 +264,20 @@ def scan_root(
         except OSError:
             continue
         seen += 1
+        yield name, child
+
+def scan_root(
+    collected: dict[tuple[str, str], Candidate],
+    entry: registry.Root,
+    root_path: str,
+    env: Environment,
+    budget: Budget,
+    order: int,
+    source: str = "",
+    enabled: bool | None = None,
+) -> None:
+    reserved_allowed = entry.agent == "claude-code" and entry.kind in ("managed", "user", "project")
+    for name, child in bounded_child_dirs(root_path, budget):
         if descriptor(child) is None:
             if reserved_allowed and name.lower() == registry.RESERVED_CLAUDE_SUBDIR:
                 scan_reserved(collected, entry, child, env, budget, order)
@@ -288,20 +292,7 @@ def scan_reserved(
     budget: Budget,
     order: int,
 ) -> None:
-    names, truncated = bounded_names(root_path, min(MAX_ENTRIES_PER_ROOT, MAX_TOTAL_ENTRIES - budget.entries))
-    budget.truncated |= truncated
-    seen = 0
-    for name in names:
-        if seen >= MAX_ENTRIES_PER_ROOT or not budget.spend():
-            budget.truncated = True
-            return
-        child = os.path.join(root_path, name)
-        try:
-            if not os.path.isdir(child):
-                continue
-        except OSError:
-            continue
-        seen += 1
+    for _, child in bounded_child_dirs(root_path, budget):
         if descriptor(child) is not None:
             add_candidate(collected, entry, root_path, child, env, order, "synced", None)
 

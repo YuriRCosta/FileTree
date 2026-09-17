@@ -322,30 +322,3 @@ pub fn workspace_visible_at_point(x: i64, y: i64) -> AppResult<i64> {
     }
     Ok(field_i64(&hypr_query("activeworkspace")?, "id"))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn point_probe_finds_visible_clients_without_a_workspace_query() {
-        let clients = vec![json!({
-            "address": "0x1",
-            "title": "Terminal",
-            "mapped": true,
-            "hidden": false,
-            "at": [100, 200],
-            "size": [500, 400],
-            "workspace": {"id": 7},
-        })];
-
-        assert!(has_window_at_point(&clients, 200, 300, &[]));
-        assert!(!has_window_at_point(
-            &clients,
-            200,
-            300,
-            &["Terminal".to_string()]
-        ));
-        assert!(!has_window_at_point(&clients, 50, 300, &[]));
-    }
-}

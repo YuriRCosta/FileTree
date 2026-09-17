@@ -15,6 +15,97 @@ struct Server {
     reader: Option<JoinHandle<()>>,
 }
 
+#[test]
+fn handshake_resolves_the_screenshot_directory_from_xdg_user_dirs() {
+    let root = TempDir::new().unwrap();
+    let config = root.path().join("config");
+    std::fs::create_dir_all(config.join("omarchy/fileblade")).unwrap();
+    std::fs::write(
+        config.join("user-dirs.dirs"),
+        "XDG_PICTURES_DIR=\"$HOME/Bilder\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        config.join("omarchy/fileblade/user-dirs.dirs"),
+        "XDG_PICTURES_DIR=\"/wrong\"\n",
+    )
+    .unwrap();
+    let mut server = Server::start_with(&[
+        ("HOME", root.path()),
+        ("XDG_CONFIG_HOME", &config),
+        ("XDG_STATE_HOME", root.path()),
+        ("OMARCHY_SCREENSHOT_DIR", std::path::Path::new("")),
+        ("XDG_PICTURES_DIR", std::path::Path::new("")),
+    ]);
+    server.send(json!({"v":1,"type":"hello"}));
+    assert_eq!(
+        server.receive()["paths"]["screenshots"],
+        root.path().join("Bilder").to_str().unwrap()
+    );
+    server.finish();
+}
+
+#[test]
+fn navigation_writes_preserve_reads_and_file_mutations_refresh_listing_and_search() {
+    let root = TempDir::new().unwrap();
+    let directory = root.path().join("files");
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.to_str().unwrap();
+    let mut server = Server::start_with(&[
+        ("XDG_STATE_HOME", root.path()),
+        ("XDG_CONFIG_HOME", root.path()),
+    ]);
+    server.send(json!({"v":1,"type":"hello"}));
+    assert_eq!(server.receive()["ok"], true);
+    let mut generation = 0;
+    let mut request = |command: &str, arguments: Value| {
+        generation += 1;
+        server.send(
+            json!({"v":1,"type":"request","id":"cache","generation":generation,
+            "command":command,"arguments":arguments}),
+        );
+        let response = server.receive_where(|frame| frame["type"] == "response");
+        assert_eq!(response["ok"], true, "{response}");
+        response["payload"].clone()
+    };
+    let listing = json!(["--path", path, "--no-git"]);
+    let search = json!(["--root", path, "--query", "new.txt", "--no-git"]);
+    assert_eq!(request("children-window", listing.clone())["total"], 0);
+    assert_eq!(request("search", search.clone())["entries"], json!([]));
+    for (command, arguments) in [
+        ("state-write", json!(["--document", "{}"])),
+        ("layout-write", json!(["--document", "{}"])),
+        ("frecency-visit", json!(["--path", path])),
+    ] {
+        assert_eq!(request(command, arguments)["ok"], true);
+        assert_eq!(request("children-window", listing.clone())["total"], 0);
+        assert_eq!(request("search", search.clone())["entries"], json!([]));
+    }
+    assert_eq!(
+        request("create", json!(["--parent", path, "--name", "new.txt"]))["ok"],
+        true
+    );
+    assert_eq!(
+        request("children-window", listing.clone())["entries"][0]["name"],
+        "new.txt"
+    );
+    assert_eq!(
+        request("search", search.clone())["entries"][0]["name"],
+        "new.txt"
+    );
+    let renamed = request(
+        "rename",
+        json!(["--path", directory.join("new.txt"), "--name", "old.txt"]),
+    );
+    assert_eq!(renamed["ok"], true, "{renamed}");
+    assert_eq!(
+        request("children-window", listing)["entries"][0]["name"],
+        "old.txt"
+    );
+    assert_eq!(request("search", search)["entries"], json!([]));
+    server.finish();
+}
+
 impl Server {
     fn start() -> Self {
         Self::start_with(&[])

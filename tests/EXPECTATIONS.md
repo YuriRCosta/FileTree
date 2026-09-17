@@ -308,6 +308,12 @@ keeps the bars visible. The choice survives a shell restart.
 82. **E-10-04** If I press `Escape`, quick navigation closes and I remain in my
     current folder.
 
+This file was written by an agent.
+
+- **E-10-05** The Screenshots shortcut opens my configured pictures directory,
+  including a custom path in `$XDG_CONFIG_HOME/user-dirs.dirs`. Explicit screenshot
+  and pictures environment settings keep their precedence.
+
 ## 11. The actions menu
 
 `tests/vm/expectations/11-actions-menu.sh`
@@ -1006,13 +1012,18 @@ Trash stores on other mounts.
   changing retention in settings still works. A failed save leaves the question
   present and automatic cleanup off. Config and keybindings record their schema
   and FileBlade release, preserving existing keybindings.
-- **E-36-04** Skills and Memory are browsable by default. Changes require explicitly
-  enabling Manage agent files after its explanation; disabling it refuses further
-  management actions, including CLI bin removal and restore.
+
+This file was written by an agent.
+
+- **E-36-04** Skills and Memory are browsable and manageable by default, with no
+  setup toggle. Removing a fixture places it in the artifact bin; restoring it
+  returns the original source bytes.
 - **E-36-05** Purging an MCP or Hooks removal deletes its private recovery too.
   Repeating removal and purge does not fill an invisible undo quota. Core recovery
   needs no companion activation. An unavailable helper refuses recovery or cleanup
   while keeping its evidence recoverable.
+  If automatic cleanup reaches its scan limit, it reports an incomplete scan
+  instead of claiming that every module was checked.
 - **E-36-06** Welcome remains built in, dismissible and reopenable, without installing
   companions or changing their existing checkouts. An update check downloads no Git objects
   and does not invent history details when those objects are not available.

@@ -371,6 +371,3 @@ fn executable_file(path: &Path) -> bool {
         .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
         .unwrap_or(false)
 }
-
-#[cfg(test)]
-mod tests;

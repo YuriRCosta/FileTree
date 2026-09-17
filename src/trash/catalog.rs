@@ -14,7 +14,7 @@ pub(super) fn build_catalog(context: &TrashContext, cancelled: &AtomicBool) -> C
         catalog.cancelled = true;
         return catalog;
     }
-    let stores = context.stores(&mut catalog.errors);
+    let stores = discover_stores(context, &mut catalog.errors);
     catalog.store_count = stores.len();
     for store in &stores {
         catalog.watch_paths.push(store.path.join("info"));
@@ -473,21 +473,12 @@ pub(super) fn percent_decode(value: &[u8]) -> Option<Vec<u8>> {
         if index + 2 >= value.len() {
             return None;
         }
-        let high = hex_value(value[index + 1])?;
-        let low = hex_value(value[index + 2])?;
-        output.push(high * 16 + low);
+        let high = (value[index + 1] as char).to_digit(16)?;
+        let low = (value[index + 2] as char).to_digit(16)?;
+        output.push((high * 16 + low) as u8);
         index += 3;
     }
     Some(output)
-}
-
-pub(super) fn hex_value(value: u8) -> Option<u8> {
-    match value {
-        b'0'..=b'9' => Some(value - b'0'),
-        b'a'..=b'f' => Some(value - b'a' + 10),
-        b'A'..=b'F' => Some(value - b'A' + 10),
-        _ => None,
-    }
 }
 
 pub(super) fn trim_carriage_return(value: &[u8]) -> &[u8] {
@@ -565,17 +556,14 @@ pub(super) fn same_entry_identity(left: Option<EntryStat>, right: Option<EntrySt
     }
 }
 
-pub(super) fn push_error(errors: &mut Vec<String>, message: &str) {
-    if errors.len() >= MAX_ERRORS {
-        return;
-    }
+pub(super) fn bounded_error(message: &str) -> String {
     let mut value = message.replace(['\n', '\r', '\0'], " ");
-    if value.len() > MAX_ERROR_BYTES {
-        let mut end = MAX_ERROR_BYTES;
-        while !value.is_char_boundary(end) {
-            end -= 1;
-        }
-        value.truncate(end);
+    value.truncate(value.floor_char_boundary(MAX_ERROR_BYTES));
+    value
+}
+
+pub(super) fn push_error(errors: &mut Vec<String>, message: &str) {
+    if errors.len() < MAX_ERRORS {
+        errors.push(bounded_error(message));
     }
-    errors.push(value);
 }

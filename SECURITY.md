@@ -77,26 +77,10 @@ Updates happen outside FileBlade with the shell stopped before replacing
 watched plugin files, followed by a fresh shell start. Disabling only a pane
 does not stop Omarchy's plugin watcher.
 
-The Welcome tab's explicit Install action acquires only the four full commit IDs
-compiled into `src/plugin_install.rs`. Shallow, no-checkout clones disable templates,
-submodules, automatic maintenance and checkout hooks. Acquisition has a 180-second
-command deadline, 16 MiB per-file and 512 MiB address-space limits. A staging budget
-of 128 MiB and 16,384 entries is checked every 50 ms and at completion; this is a
-monitored aggregate limit, not an OS disk quota, so transient overshoot is possible.
-Before checkout, each pinned tree must contain at most 2,048 regular files, eight
-MiB total, and paths at most 16 segments/1,024 bytes. Symlinks and submodules are
-refused. The final HEAD is verified and Omarchy validates the checkout before
-publication or enablement. Detached pinned checkouts support Omarchy's
-`fetch origin HEAD` / `merge --ff-only FETCH_HEAD` update path.
+This file was written by an agent.
 
-Unique, exclusive private staging has a durable device/inode identity; cleanup
-refuses a replacement directory. Publication uses no-replace rename. A private
-lock excludes overlapping installs, and progress survives plugin reloads. Existing
-checkouts are preserved. Welcome enables them only when the origin matches, HEAD
-is exactly the reviewed pin, the tree has no tracked, untracked or ignored changes,
-and validation succeeds. Otherwise it asks for an explicit update or enable action.
-No installation happens on startup. Companion host-enable buttons use an overall
-20-second timeout with a one-second termination grace and never acquire code.
+Skills, Memory, Hooks and MCP ship with FileBlade. The backend has no companion
+repository installation command.
 
 FileBlade sends no telemetry, uses no privilege elevation, and does not install
 system packages or modify Hyprland, systemd, sudoers, or udev configuration.

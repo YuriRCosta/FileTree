@@ -41,7 +41,7 @@ Item {
     id: current
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    width: currentLabelText.implicitWidth + chevron.implicitWidth + Style.space(18)
+    width: currentLabelText.implicitWidth + pointer.glyphWidth + Style.space(18)
     height: Style.space(22)
     radius: Style.space(4)
     color: pointer.containsMouse || menu.visible ? Util.alpha(Color.accent, 0.22) : Util.alpha(Color.bar.text, 0.1)
@@ -58,23 +58,8 @@ Item {
       font.pixelSize: Style.font.caption
     }
 
-    Text {
-      id: chevron
-      textFormat: Text.PlainText
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(6)
-      anchors.verticalCenter: parent.verticalCenter
-      text: "󰅀"
-      color: Color.muted
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-    }
-
-    MouseArea {
+    ChevronHit {
       id: pointer
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
       onClicked: row.open()
     }
   }

@@ -18,17 +18,6 @@ pub enum HyprOption {
     GapsOut,
 }
 
-impl HyprOption {
-    pub(super) fn as_str(self) -> &'static str {
-        match self {
-            Self::BorderSize => "general:border_size",
-            Self::AnimationsEnabled => "animations:enabled",
-            Self::Rounding => "decoration:rounding",
-            Self::GapsOut => "general:gaps_out",
-        }
-    }
-}
-
 #[derive(Clone, Debug, Args)]
 pub struct FocusWindowArgs {
     #[arg(long)]
@@ -51,15 +40,6 @@ pub struct PlaceBladeWindowArgs {
 pub enum Edge {
     Left,
     Right,
-}
-
-impl Edge {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Left => "left",
-            Self::Right => "right",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Args)]
@@ -119,18 +99,6 @@ pub enum WindowAction {
     Focus,
 }
 
-impl WindowAction {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Close => "close",
-            Self::Float => "float",
-            Self::Resize => "resize",
-            Self::Swap => "swap",
-            Self::Focus => "focus",
-        }
-    }
-}
-
 #[derive(Clone, Debug, Args)]
 pub struct DropContextArgs {
     #[arg(long, allow_hyphen_values = true)]
@@ -181,15 +149,6 @@ pub enum PathForm {
     Relative,
 }
 
-impl PathForm {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Absolute => "absolute",
-            Self::Relative => "relative",
-        }
-    }
-}
-
 #[derive(Clone, Debug, Args)]
 pub struct LaunchArgs {
     #[arg(long)]
@@ -212,13 +171,9 @@ pub enum LaunchMode {
     Application,
 }
 
-impl LaunchMode {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Default => "default",
-            Self::Editor => "editor",
-            Self::Reveal => "reveal",
-            Self::Application => "application",
-        }
-    }
+pub(crate) fn value_name(value: impl ValueEnum) -> String {
+    value
+        .to_possible_value()
+        .map(|value| value.get_name().to_string())
+        .unwrap_or_default()
 }

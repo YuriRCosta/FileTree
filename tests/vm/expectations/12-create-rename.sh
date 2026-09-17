@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Creating and renaming. Expectations E-12-01 .. E-12-08.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -27,9 +26,6 @@ click_row bravo.txt
 dialog_do r "renamed-with-r.txt"
 expect_out E-12-03 "r renames on disk" "test -f $ROOT_DIR/renamed-with-r.txt && echo yes || echo no" yes
 expect_out E-12-03 "and the old name is gone" "test -e $ROOT_DIR/bravo.txt && echo yes || echo no" no
-# The renamed row sorts past the visible rows, and click_row's check passes
-# vacuously because the rename already left it selected. The cursor is still on
-# it after the dialog closes, so press F2 without clicking.
 dialog_do f2 "renamed-with-f2.txt"
 expect_out E-12-03 "F2 renames on disk" "test -f $ROOT_DIR/renamed-with-f2.txt && echo yes || echo no" yes
 

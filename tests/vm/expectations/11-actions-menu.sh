@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# The actions menu. Expectations E-11-01 .. E-11-11.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
 
 menu_text() { ocr_crop ocr-menu 430x620+375+190 200% 6; }
 close_menu() { [[ $(field actionMenuOpen) == true ]] && { "$OVM" key esc; wait_for "[[ \$(field actionMenuOpen) == false ]]" 8; }; return 0; }
-# The menu key only lands when the tree holds focus, so seat it every time.
 open_menu_on() { close_menu; click_row "$1" || return 1; "$OVM" key m; wait_for "[[ \$(field actionMenuOpen) == true ]]" 10; }
 
 fixture >/dev/null
@@ -69,13 +67,8 @@ expect E-11-09 "escape closes the menu" actionMenuOpen false
 expect E-11-09 "and leaves the blade open" open true
 expect E-11-09 "and focused" focusedBlade left
 
-# Seeding is proved on disk: append to whatever the field already holds. A
-# seeded field yields alpha.txt.bak, an empty one yields .bak.
 click_row alpha.txt
 "$OVM" key r; sleep 2.5
-# The seeded name arrives selected, so typing would replace it. End collapses
-# the selection to the tail, which is what makes this an append and not a
-# rename to ".bak".
 "$OVM" key end; sleep 0.6
 "$OVM" type ".bak"; sleep 1.2
 "$OVM" key ret; sleep 3
@@ -92,7 +85,6 @@ idx=$(row_index alpha.txt)
 expect_out E-11-10 "and the menu route seeds it the same way" "test -f '$ROOT_DIR/alpha.txt.bak2' && echo yes || echo no" yes
 guest "mv '$ROOT_DIR/alpha.txt.bak2' '$ROOT_DIR/alpha.txt'"; sleep 3
 
-# A create dialog that started empty yields exactly what was typed.
 click_row deep
 "$OVM" key ctrl-shift-n; sleep 2.5
 "$OVM" type "fresh"; sleep 1.2

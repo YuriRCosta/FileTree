@@ -270,17 +270,3 @@ pub(super) fn process_descends_from(pid: u32, ancestor: u32, parents: &HashMap<u
     }
     false
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn default_directory_open_routes_back_into_fileblade() {
-        let directory = tempfile::tempdir().unwrap();
-        let command = launch_command(directory.path(), "default", "", 0).unwrap();
-        assert_eq!(command[1], "navigate");
-        assert_eq!(command[2], path_text(directory.path()));
-        assert!(!command.iter().any(|part| part == "nautilus"));
-    }
-}

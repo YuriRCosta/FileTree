@@ -94,9 +94,6 @@ fn recover_stage(record: &Value) -> std::io::Result<Outcome> {
     let stage = record_path(record, "stage")?;
     let item = stage.join(record["item"].as_str().unwrap_or_default());
     let original = record_path(record, "original")?;
-    if stage.as_os_str().is_empty() || original.as_os_str().is_empty() {
-        return Ok(Outcome::Done);
-    }
     if !secure::entry_exists(&item)? {
         if secure::entry_exists(&stage)? {
             let _ = secure::remove_empty_directory(&stage);
@@ -116,7 +113,7 @@ fn recover_stage(record: &Value) -> std::io::Result<Outcome> {
 
 fn recover_partial(record: &Value) -> std::io::Result<Outcome> {
     let partial = record_path(record, "partial")?;
-    if partial.as_os_str().is_empty() || !secure::entry_exists(&partial)? {
+    if !secure::entry_exists(&partial)? {
         return Ok(Outcome::Done);
     }
     let name = partial

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Selecting. Expectations E-05-01 .. E-05-07.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

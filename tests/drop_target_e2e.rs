@@ -70,8 +70,6 @@ fn hunk_review_routes_each_destination_with_repository_cwd_and_quoted_paths() {
                     .flat_map(strings)
                     .find(|s| s.contains("hunk"))
                     .unwrap();
-                // Parse through a real shell, replacing only the command with printf.
-                // This catches quoting bugs that would execute filename punctuation.
                 let output = Command::new("bash")
                     .args([
                         "-c",

@@ -12,7 +12,7 @@ from agent_mcp.apply import Applier, ServerSpec
 from agent_mcp.inventory import Inventory
 from agent_mcp.model import CORE_AGENT_IDS
 from agent_mcp.parsers import ParseFailure, parse_json, parse_toml
-from agent_mcp.recovery import RecoveryStore
+from fileblade_recovery import RecoveryStore
 
 
 class ExactUndo(unittest.TestCase):

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Updates and recovery. Expectations E-27-01 .. E-27-06.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -14,8 +13,6 @@ pending E-27-01 "an update chip appears when an update is available" "needs a ch
 pending E-27-02 "the chip explains what can update and never rewrites running files" "depends on E-27-01"
 pending E-27-03 "a checkout with local work reports the update as skipped" "depends on E-27-01"
 
-# Version skew is inducible: the manifest the shell reads and the binary it
-# runs are separate files, so disagreeing about the version is a two line edit.
 guest "cp $GUEST_PLUGIN/manifest.json /tmp/manifest.backup.json"
 "$(dirname "$0")/../stop-shell" || exit 1
 guest "sed -i 's/\"version\": *\"[^\"]*\"/\"version\": \"9.9.9\"/' $GUEST_PLUGIN/manifest.json"
@@ -32,8 +29,6 @@ open_left; goto_root "$ROOT_DIR"
 restored=$(summary_text)
 expect_missing E-27-04 "and the warning clears once they agree" "$restored" "does not match plugin"
 
-# Offline is the normal state for this guest; the point is that it neither
-# nags nor spins.
 expect_true E-27-05 "an offline update check leaves no busy indicator" "[[ \$(field operationBusy) == false ]]"
 expect_true E-27-05 "and the tree is usable" "[[ \$(field treeEntries) -ge 1 ]]"
 expect_missing E-27-05 "with no repeated prompt on screen" "$(summary_text)" "Checking for updates"

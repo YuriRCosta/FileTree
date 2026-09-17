@@ -176,7 +176,6 @@ Item {
     }
   }
 
-  function moduleInventory(raw) { return LayoutInventory.modules(raw) }
 
   function missingModules(raw, normalized) {
     return LayoutInventory.missing(raw, normalized, aliasedModule)

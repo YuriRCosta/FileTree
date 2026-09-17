@@ -276,8 +276,6 @@ fn terminate_group(child: &mut Child) {
     if let Some(pid) = Pid::from_raw(child.id() as i32) {
         let _ = kill_process_group(pid, Signal::TERM);
         let until = Instant::now() + Duration::from_millis(150);
-        // Do not reap the leader before the final group signal: an exited leader
-        // can leave live descendants, and its unreaped PID reserves the PGID.
         thread::sleep(until.saturating_duration_since(Instant::now()));
         let _ = kill_process_group(pid, Signal::KILL);
     } else {

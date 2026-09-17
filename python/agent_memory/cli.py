@@ -1,46 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from typing import Any
 
-from fileblade_paths import wire
-from fileblade_inventory import SCOPES, WatchPlan
+from fileblade_inventory import MAX_OUTPUT_BYTES, SCOPES, WatchPlan, encoded as encoded_items, serialized
 
 from . import apply, discovery
 
-MAX_OUTPUT_BYTES = 1024 * 1024
-
-def serialized(value: dict[str, Any]) -> bytes:
-    return (json.dumps(wire(value), ensure_ascii=True, separators=(",", ":")) + "\n").encode("utf-8")
-
 def encoded(payload: dict[str, Any]) -> bytes:
-    def document(items: list[Any], truncated: bool) -> bytes:
-        value = dict(payload)
-        value["items"] = items
-        value["count"] = len(items)
-        value["truncated"] = bool(value.get("truncated")) or truncated
-        return serialized(value)
-
-    items = payload.get("items")
-    if not isinstance(items, list):
-        data = document([], False)
+    if not isinstance(payload.get("items"), list):
+        payload = dict(payload, items=[], count=0, truncated=bool(payload.get("truncated")))
+        data = serialized(payload)
         return data if len(data) <= MAX_OUTPUT_BYTES else b'{"ok":false,"schemaVersion":1,"truncated":true,"items":[]}\n'
-    data = document(items, False)
-    if len(data) <= MAX_OUTPUT_BYTES:
-        return data
-    low, high = 0, len(items)
-    best = document([], True)
-    while low <= high:
-        middle = (low + high) // 2
-        candidate = document(items[:middle], True)
-        if len(candidate) <= MAX_OUTPUT_BYTES:
-            best = candidate
-            low = middle + 1
-        else:
-            high = middle - 1
-    return best
+    return encoded_items(payload)
 
 def encoded_results(payload: dict[str, Any]) -> bytes:
     data = serialized(payload)

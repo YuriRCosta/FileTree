@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Searching. Expectations E-09-01 .. E-09-12.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

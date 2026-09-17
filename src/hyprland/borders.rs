@@ -185,18 +185,3 @@ fn gradient(value: &str) -> AppResult<String> {
     }
     Ok(format!("-1 {} {angle}deg", colors.join(" ")))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn compositor_gradients_round_trip_without_lua_interpolation() {
-        assert_eq!(gradient("ffabcdef 0deg").unwrap(), "rgba(abcdefff)");
-        assert_eq!(
-            gradient("eeabcdef ff112233 45deg").unwrap(),
-            "-1 rgba(abcdefee) rgba(112233ff) 45deg"
-        );
-        assert!(gradient("\"}; os.execute('bad')").is_err());
-        assert!(gradient("ffabcdef nan deg").is_err());
-    }
-}

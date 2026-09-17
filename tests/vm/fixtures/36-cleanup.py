@@ -485,7 +485,7 @@ elif action == "updates":
     update_fixture()
 elif action == "unanswered":
     for name, document in (
-        ("settings.json", {"version": 1, "agentManagement": False, "fixture": "E36"}),
+        ("settings.json", {"version": 1, "fixture": "E36"}),
         ("keybindings.json", {"version": 1, "bindings": {"next": ["n"]}}),
     ):
         atomic_replace(config / name, json.dumps(document).encode(), 0o600)

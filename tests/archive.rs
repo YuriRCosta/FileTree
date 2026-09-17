@@ -15,9 +15,6 @@ fn list_and_extract_round_trip_through_bsdtar() {
     }
     let temporary = tempdir().unwrap();
     let root = temporary.path();
-    // Keep the extraction journal inside this test's temporary workspace. This
-    // both prevents tests from touching the user's state and makes the test
-    // valid in read-only-home CI sandboxes.
     unsafe { std::env::set_var("FILEBLADE_JOURNAL", root.join("journal.json")) };
     fs::create_dir_all(root.join("project/src")).unwrap();
     fs::write(root.join("project/src/main.rs"), "fn main() {}\n").unwrap();

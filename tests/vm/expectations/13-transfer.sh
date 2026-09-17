@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Copying, cutting, pasting and dragging. Expectations E-13-01 .. E-13-08.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

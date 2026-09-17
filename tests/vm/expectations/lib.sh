@@ -1,6 +1,3 @@
-# Shared helpers for the UI expectation scripts.
-# Every script sources this, then calls check helpers whose first argument is
-# the expectation id from tests/EXPECTATIONS.md.
 set -u
 OVM=${OVM:?set OVM to the ovm harness path}
 PLUGIN=data-goblin.fileblade
@@ -16,17 +13,12 @@ checks=0
 skip() { [[ -n ${ONLY:-} && ${ONLY} != "$1" ]]; }
 
 guest() { "$OVM" ssh "$1" 2>/dev/null; }
-# A guest that dies mid-run turns every later check into noise. Stop the
-# section with a clear reason instead.
 guest_alive() { "$OVM" status 2>/dev/null | grep '^ssh: ok' >/dev/null; }
 require_guest() {
   guest_alive && return 0
   fail harness "guest is available" "the guest is gone; remaining checks not run"
   summary
 }
-# ovm ssh joins its arguments and the guest shell re-splits them, so an argument
-# with edge whitespace loses it and one starting with # is swallowed as a comment.
-# Quote every argument for the remote shell instead.
 ctl() {
   if [[ $FILEBLADE_SHAPE == native ]]; then
     "${CONTROL_COMMAND[@]}" "$@" >/dev/null
@@ -60,39 +52,33 @@ field() { status | jq -r ".$1"; }
 tree_names() { "$OVM" ipc "$PLUGIN" tree "${1:-200}" 2>/dev/null | jq -r '[.entries[]?|.name]|join(",")'; }
 
 pending=0
-# An expectation the script cannot exercise yet. Recorded, never faked green.
 pending() { skip "$1" && return 0; pending=$((pending + 1)); printf 'PEND %s  %s :: %s\n' "$1" "$2" "$3"; }
 
 pass() { checks=$((checks + 1)); printf 'ok   %s  %s\n' "$1" "$2"; }
 fail() { checks=$((checks + 1)); fails=$((fails + 1)); printf 'FAIL %s  %s :: %s\n' "$1" "$2" "$3"; }
 
-# expect <id> <label> <status-field> <wanted>
 expect() {
   skip "$1" && return 0
   local got; got=$(field "$3")
   [[ $got == "$4" ]] && pass "$1" "$2" || fail "$1" "$2" "$3=$got wanted $4"
 }
 
-# expect_out <id> <label> <guest-command> <wanted-stdout>
 expect_out() {
   skip "$1" && return 0
   local got; got=$(guest "$3" | tr -d '\r')
   [[ $got == "$4" ]] && pass "$1" "$2" || fail "$1" "$2" "got [$got] wanted [$4]"
 }
 
-# expect_contains <id> <label> <text> <needle>
 expect_contains() {
   skip "$1" && return 0
   [[ $3 == *"$4"* ]] && pass "$1" "$2" || fail "$1" "$2" "[$3] does not contain [$4]"
 }
 
-# expect_missing <id> <label> <text> <needle>
 expect_missing() {
   skip "$1" && return 0
   [[ $3 != *"$4"* ]] && pass "$1" "$2" || fail "$1" "$2" "[$3] unexpectedly contains [$4]"
 }
 
-# expect_true <id> <label> <shell-condition-command>
 expect_true() {
   skip "$1" && return 0
   if eval "$3" >/dev/null 2>&1; then pass "$1" "$2"; else fail "$1" "$2" "condition failed: $3"; fi
@@ -112,7 +98,6 @@ open_left() {
   [[ $(field focusedBlade) == left ]] || { ctl focusBlade left; sleep 1; }
 }
 
-# wait_for <condition> [seconds]
 wait_for() {
   local deadline=$((SECONDS + ${2:-20}))
   until eval "$1" >/dev/null 2>&1; do
@@ -133,8 +118,6 @@ restart_shell() {
     "$OVM" restart-shell >/dev/null 2>&1
     if wait_for "[[ -n \$(field rootPath) ]]" 25; then
       sleep 2
-      # The shell that just exited may have left a crash reporter behind; it is
-      # a real window and would take the active slot from the next check.
       guest 'pkill -xf /usr/bin/quickshell' >/dev/null 2>&1
       return 0
     fi
@@ -145,7 +128,6 @@ restart_shell() {
 
 goto_root() { ctl setRoot "$1"; sleep 2; }
 
-# Row y for the nth visible row, 0 based, root row included.
 row_y() {
   local n=${1:-}
   [[ $n =~ ^[0-9]+$ ]] || { echo 152; return 1; }
@@ -154,8 +136,6 @@ row_y() {
 ROW_X=130
 
 row_index() { "$OVM" ipc "$PLUGIN" tree 300 2>/dev/null | jq -r --arg n "$1" '[.entries[]?|.name]|index($n)'; }
-# Scroll with the keyboard, then locate and click the rendered row. The
-# selected path alone cannot prove a click landed inside the tree.
 visible_row_y() {
   local shot crop width result
   shot=$("$OVM" shot "row-hit-${1//[^[:alnum:]._-]/_}" 2>/dev/null | tail -1)
@@ -249,6 +229,24 @@ double_click() {
     exit \$double_click_status"
 }
 screen_text() { "$OVM" ocr 2>/dev/null | tr -s '[:space:]' ' '; }
+click_word() {
+  local shot point crop width offset=0
+  "$OVM" mouse move 900 900
+  sleep 0.5
+  shot=$("$OVM" shot "ocr-click-$1" | tail -1)
+  width=$(field sidebarWidth)
+  if [[ ${2:-left} == right ]]; then
+    width=$(field propertiesBladeWidth)
+    offset=$(($(magick identify -format '%w' "$shot") - width))
+  fi
+  crop=$(mktemp --suffix=.png)
+  magick "$shot" -crop "${width}x1080+${offset}+0" +repage -colorspace gray -level '15%,40%' -negate -resize 300% "$crop" || { rm -f -- "$crop"; return 1; }
+  point=$(tesseract "$crop" - --psm 6 tsv 2>/dev/null | awk -F '\t' -v word="$1" -v offset="$offset" '$1 == 5 && tolower($12) == tolower(word) { x=offset+int(($7+$9/2)/3); y=int(($8+$10/2)/3) } END { if (x) print x, y }')
+  rm -f -- "$crop"
+  [[ $point =~ ^[0-9]+\ [0-9]+$ ]] || { fail harness "locate $1" "not found in $shot"; return 1; }
+  "$OVM" mouse click ${point}
+  sleep 1
+}
 ocr_crop() {
   local shot crop result
   shot=$("$OVM" shot "$1" 2>/dev/null | tail -1)
@@ -269,7 +267,6 @@ picker_text() {
   [[ $width =~ ^[0-9]+$ ]] && ((width > 20)) || return 1
   ocr_crop ocr-picker "$((width - 20))x120+10+58" 400% 6 '5%,40%'
 }
-# The trash view keeps its own model, so the tree verb never serves its rows.
 trash_names() {
   backend trash-list | jq -r '[.entries[]?|.name]|join(",")' 2>/dev/null
 }
@@ -278,9 +275,6 @@ tree_text() { ocr_crop ocr-tree 378x560+0+135 300% 11 '5%,30%'; }
 pane_text() { ocr_crop ocr-pane 378x480+0+600 300% 6; }
 
 blade_mode() { status | jq -r ".bladeModes.$1"; }
-# An undocked blade is a tiled window, not a layer: row coordinates, OCR crops
-# and the layer count all describe a different world. A section that ends
-# undocked, or a run killed inside 21, would otherwise poison every later one.
 dock_blades() {
   local edge
   for edge in left right; do
@@ -291,7 +285,6 @@ dock_blades() {
 }
 
 GUEST_PLUGIN=/home/omarchy/.config/omarchy/plugins/$PLUGIN
-# A previous run may leave extra modules that change the row coordinates.
 left_modules() { "$OVM" ipc "$PLUGIN" blades | jq -c '[.blades.left.slots[].modules[].module]'; }
 reset_modules() {
   [[ $(left_modules) == '["files","properties"]' ]] && return 0
@@ -300,9 +293,6 @@ reset_modules() {
   else
     guest "$GUEST_PLUGIN/fileblade blade set left files,properties" >/dev/null 2>&1
   fi
-  # The slots are rebuilt asynchronously and the Files module comes back with
-  # its default root; wait for the list, then let the layout settle before
-  # goto_root runs.
   wait_for "[[ \$(left_modules) == '[\"files\",\"properties\"]' ]]" 12
   sleep 3
 }
@@ -313,12 +303,7 @@ fixture() {
   [[ $(field sidebarWidth) == 380 ]] || ctl setSidebarWidth 380
   [[ $(field propertiesBladeWidth) == 360 ]] || ctl setPropertiesBladeWidth 360
   ctl setPriorityColumns type
-  # Trash carries between sections otherwise, and every count assertion drifts.
   guest "find /home/omarchy/.local/share/Trash/files -mindepth 1 -delete 2>/dev/null; find /home/omarchy/.local/share/Trash/info -mindepth 1 -delete 2>/dev/null; true" >/dev/null
-  # Earlier sections rename, move and trash fixture entries under names the
-  # harness cannot predict (a swallowed first keystroke turns made-folder into
-  # de-folder), so the quick reset keeps only the known entries and rebuilds
-  # the ones that must exist. Anything still missing means a full rebuild.
   local keep='.fixture-ok alpha.txt bravo.txt long.txt data.json .dotfile dots deep link-alpha.txt broken-link small.png huge.png link-image.png logo.svg repo empty dest'
   local prune="" name
   for name in $keep; do prune+=" ! -name $name"; done

@@ -14,46 +14,14 @@ pub(super) fn watch_mounts(
     output: &Output,
 ) {
     let result = mount_events(key, &generation, cancelled, output);
-    let frame = if deadline_exceeded.load(Ordering::Relaxed) {
-        json!({
-            "v": VERSION,
-            "type": "response",
-            "id": key.id,
-            "generation": generation,
-            "ok": false,
-            "deadline_exceeded": true,
-            "error": "subscription deadline exceeded",
-        })
-    } else if cancelled.load(Ordering::Relaxed) {
-        json!({
-            "v": VERSION,
-            "type": "response",
-            "id": key.id,
-            "generation": generation,
-            "ok": false,
-            "cancelled": true,
-            "error": "subscription cancelled",
-        })
-    } else {
-        match result {
-            Ok(()) => json!({
-                "v": VERSION,
-                "type": "response",
-                "id": key.id,
-                "generation": generation,
-                "ok": true,
-                "payload": {"topic": "mounts", "closed": true},
-            }),
-            Err(error) => json!({
-                "v": VERSION,
-                "type": "response",
-                "id": key.id,
-                "generation": generation,
-                "ok": false,
-                "error": error.to_string(),
-            }),
-        }
-    };
+    let frame = closing_frame(
+        key,
+        generation,
+        "mounts",
+        result,
+        cancelled,
+        deadline_exceeded,
+    );
     let _ = emit(output, &frame);
 }
 

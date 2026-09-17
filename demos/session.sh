@@ -1,16 +1,4 @@
 #!/usr/bin/env bash
-# Nested demo session for recording fileblade with democtl without touching the
-# real seat. Builds a throwaway home with sample files, runs a private copy of
-# the omarchy shell inside democtl's isolated Hyprland instance, and exposes
-# the environment that fileblade, omarchy-shell and democtl need to reach it.
-#
-#   demos/session.sh up [WxH]     start everything (default 1920x1080)
-#                                 FILEBLADE_DEMO_TERMINAL=herdr runs herdr in the terminal
-#   demos/session.sh env          export lines for the session
-#   demos/session.sh exec CMD...  run a command against the nested shell
-#   demos/session.sh shot NAME    screenshot the nested output to NAME.png
-#   demos/session.sh record X.toml / render X.toml / run X.toml
-#   demos/session.sh down
 set -euo pipefail
 umask 077
 
@@ -247,5 +235,8 @@ env) session_vars; env | grep -E '^(WAYLAND_DISPLAY|HYPRLAND_INSTANCE_SIGNATURE|
 exec) shift; session_vars; exec "$@" ;;
 shot) shift; session_vars; grim -o WAYLAND-1 "${1:-shot}.png" && echo "${1:-shot}.png" ;;
 record|render|run) cmd=$1; shift; session_vars; exec democtl "$cmd" "$@" --out "$OUT_DIR" ;;
-*) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+*) printf '%s\n' \
+  'Usage: demos/session.sh up [WxH] | reset | down | env | exec CMD... | shot NAME' \
+  '       demos/session.sh {record|render|run} X.toml' \
+  'The default resolution is 1920x1080; FILEBLADE_DEMO_TERMINAL=herdr selects herdr.'; exit 1 ;;
 esac

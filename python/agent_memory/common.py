@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ctypes
 import datetime as dt
 import errno
 import hashlib
@@ -8,14 +7,13 @@ import json
 import os
 import re
 import stat
-import struct
 import tomllib
 import unicodedata
 from pathlib import Path
 from typing import Any
 
 from fileblade_paths import parse_path
-from fileblade_inventory import watch_path
+from fileblade_inventory import creation_time, watch_path
 
 SCHEMA_VERSION = 1
 MAX_DESCRIPTOR_BYTES = 8 * 1024
@@ -47,22 +45,6 @@ IGNORED_DISCOVERY_DIRS = frozenset({
 })
 UNSAFE_CATEGORIES = ("Cc", "Cf", "Cs")
 REMOTE_PREFIXES = ("http://", "https://", "ftp://", "//")
-
-
-def creation_time(path: Path) -> str:
-    try:
-        statx = ctypes.CDLL(None, use_errno=True).statx
-        statx.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
-                          ctypes.c_uint, ctypes.c_void_p]
-        statx.restype = ctypes.c_int
-        result = ctypes.create_string_buffer(256)
-        if statx(-100, os.fsencode(path), 0x100, 0x800, ctypes.byref(result)) != 0:
-            return ""
-        mask = struct.unpack_from("I", result.raw, 0)[0]
-        seconds = struct.unpack_from("q", result.raw, 80)[0]
-        return dt.datetime.fromtimestamp(seconds).strftime("%Y-%m-%d %H:%M") if mask & 0x800 and seconds > 0 else ""
-    except (AttributeError, OSError, struct.error, TypeError, ValueError):
-        return ""
 
 
 def artifact_metrics(path: Path, text: str, size: int) -> dict[str, Any]:
@@ -459,9 +441,6 @@ def readable(path: Path) -> bool:
         return os.access(path, os.R_OK)
     except OSError:
         return False
-
-def missing_is_fine(error: OSError) -> bool:
-    return error.errno in (errno.ENOENT, errno.ENOTDIR, errno.EACCES, errno.ELOOP)
 
 def bounded_document(payload: dict[str, Any], budget: Budget) -> dict[str, Any]:
     payload["schemaVersion"] = SCHEMA_VERSION

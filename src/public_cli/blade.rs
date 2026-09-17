@@ -1,25 +1,20 @@
 use super::*;
+use crate::backend::value_name;
 
 pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
     let response = match action {
-        BladeCommand::Focus(value) => ipc("focusBlade", &[value.edge.as_str().to_string()])?,
-        BladeCommand::ToggleFocus(value) => {
-            ipc("toggleBladeFocus", &[value.edge.as_str().to_string()])?
-        }
-        BladeCommand::Open(value) => ipc("openBlade", &[value.edge.as_str().to_string()])?,
-        BladeCommand::Close(value) => ipc("closeBlade", &[value.edge.as_str().to_string()])?,
-        BladeCommand::Toggle(value) => ipc("toggleBlade", &[value.edge.as_str().to_string()])?,
-        BladeCommand::Settings(value) => {
-            ipc("toggleBladeSettings", &[value.edge.as_str().to_string()])?
-        }
-        BladeCommand::Undock(value) => ipc("undockBlade", &[value.edge.as_str().to_string()])?,
-        BladeCommand::Dock(value) => ipc("dockBlade", &[value.edge.as_str().to_string()])?,
-        BladeCommand::ToggleDock(value) => {
-            ipc("toggleBladeDock", &[value.edge.as_str().to_string()])?
-        }
+        BladeCommand::Focus(value) => ipc("focusBlade", &[value_name(value.edge)])?,
+        BladeCommand::ToggleFocus(value) => ipc("toggleBladeFocus", &[value_name(value.edge)])?,
+        BladeCommand::Open(value) => ipc("openBlade", &[value_name(value.edge)])?,
+        BladeCommand::Close(value) => ipc("closeBlade", &[value_name(value.edge)])?,
+        BladeCommand::Toggle(value) => ipc("toggleBlade", &[value_name(value.edge)])?,
+        BladeCommand::Settings(value) => ipc("toggleBladeSettings", &[value_name(value.edge)])?,
+        BladeCommand::Undock(value) => ipc("undockBlade", &[value_name(value.edge)])?,
+        BladeCommand::Dock(value) => ipc("dockBlade", &[value_name(value.edge)])?,
+        BladeCommand::ToggleDock(value) => ipc("toggleBladeDock", &[value_name(value.edge)])?,
         BladeCommand::Width(value) => ipc(
             "setBladeWidth",
-            &[value.edge.as_str().to_string(), value.pixels.to_string()],
+            &[value_name(value.edge), value.pixels.to_string()],
         )?,
         BladeCommand::Set(value) => {
             let modules = Value::Array(
@@ -33,17 +28,14 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
             );
             ipc(
                 "setBladeSlots",
-                &[value.edge.as_str().to_string(), encoded_document(&modules)?],
+                &[value_name(value.edge), encoded_document(&modules)?],
             )?
         }
-        BladeCommand::Add(value) => ipc(
-            "addBladeModule",
-            &[value.edge.as_str().to_string(), value.module],
-        )?,
+        BladeCommand::Add(value) => ipc("addBladeModule", &[value_name(value.edge), value.module])?,
         BladeCommand::SlotModule(value) => ipc(
             "setSlotModule",
             &[
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.index.to_string(),
                 value.module,
             ],
@@ -51,7 +43,7 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
         BladeCommand::TabSet(value) => ipc(
             "setBladeTab",
             &[
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.slot.to_string(),
                 value.tab.to_string(),
             ],
@@ -59,7 +51,7 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
         BladeCommand::TabCycle(value) => ipc(
             "cycleBladeTab",
             &[
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.slot.to_string(),
                 value.delta.to_string(),
             ],
@@ -67,7 +59,7 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
         BladeCommand::TabRemove(value) => ipc(
             "removeBladeTab",
             &[
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.slot.to_string(),
                 value.tab.to_string(),
             ],
@@ -75,9 +67,9 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
         BladeCommand::TabInto(value) => ipc(
             "tabBladeSlot",
             &[
-                value.source_edge.as_str().to_string(),
+                value_name(value.source_edge),
                 value.source_slot.to_string(),
-                value.target_edge.as_str().to_string(),
+                value_name(value.target_edge),
                 value.target_slot.to_string(),
                 value.tab.map(|tab| tab.to_string()).unwrap_or_default(),
                 value.insert_at.map(|at| at.to_string()).unwrap_or_default(),
@@ -85,12 +77,12 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
         )?,
         BladeCommand::Remove(value) => ipc(
             "removeBladeSlot",
-            &[value.edge.as_str().to_string(), value.index.to_string()],
+            &[value_name(value.edge), value.index.to_string()],
         )?,
         BladeCommand::CollapseSlot(value) => ipc(
             "setBladeSlotCollapsed",
             &[
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.index.to_string(),
                 "true".to_string(),
             ],
@@ -98,14 +90,14 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
         BladeCommand::ExpandSlot(value) => ipc(
             "setBladeSlotCollapsed",
             &[
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.index.to_string(),
                 "false".to_string(),
             ],
         )?,
         BladeCommand::ToggleSlot(value) => ipc(
             "toggleBladeSlotCollapsed",
-            &[value.edge.as_str().to_string(), value.index.to_string()],
+            &[value_name(value.edge), value.index.to_string()],
         )?,
         BladeCommand::Animations(value) => ipc(
             "setBladeAnimations",
@@ -120,16 +112,16 @@ pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
             "moveBladeModule",
             &[
                 value.module,
-                value.edge.as_str().to_string(),
+                value_name(value.edge),
                 value.index.to_string(),
             ],
         )?,
         BladeCommand::MoveSlot(value) => ipc(
             "moveBladeSlot",
             &[
-                value.source_edge.as_str().to_string(),
+                value_name(value.source_edge),
                 value.source_index.to_string(),
-                value.target_edge.as_str().to_string(),
+                value_name(value.target_edge),
                 value.index.to_string(),
             ],
         )?,

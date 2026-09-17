@@ -13,7 +13,7 @@ from .inventory import MAX_CLAUDE_BYTES, MAX_CONFIG_BYTES, Inventory
 from . import records
 from .model import CORE_AGENT_IDS, SCHEMA_VERSION, Definition, safe_label
 from .parsers import ParseFailure, parse_json, parse_toml
-from .recovery import RecoveryFull, RecoveryStore
+from fileblade_recovery import RecoveryFull, RecoveryStore
 from .safeio import atomic_write, bounded_read
 from .tomlwrite import TomlWriteFailure, append_server_block, locate_server_block, remove_server_block, render_server_table
 

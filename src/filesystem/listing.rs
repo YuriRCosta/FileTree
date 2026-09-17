@@ -17,36 +17,6 @@ pub fn children_cancellable(raw_path: &str, show_hidden: bool, cancelled: &Atomi
     )
 }
 
-pub fn children_batch(paths: &[String], show_hidden: bool) -> Value {
-    children_batch_cancellable(paths, show_hidden, &AtomicBool::new(false))
-}
-
-pub fn children_batch_cancellable(
-    paths: &[String],
-    show_hidden: bool,
-    cancelled: &AtomicBool,
-) -> Value {
-    let mut unique = Vec::new();
-    let mut seen = HashSet::new();
-    for raw_path in paths.iter().take(64) {
-        let path = match parse_path(raw_path) {
-            Ok(path) => path,
-            Err(error) => return path_error(raw_path, &error),
-        };
-        if seen.insert(path.clone()) {
-            unique.push(path_text(&path));
-        }
-    }
-    let mut cache = HashMap::new();
-    let results = unique
-        .iter()
-        .map(|path| {
-            children_with_cache(path, show_hidden, false, true, false, &mut cache, cancelled)
-        })
-        .collect::<Vec<_>>();
-    json!({"ok": true, "results": results})
-}
-
 pub struct ChildrenPage {
     pub limit: usize,
     pub sort: String,

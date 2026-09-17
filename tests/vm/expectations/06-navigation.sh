@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Going somewhere else. Expectations E-06-01 .. E-06-08.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Search syntax, columns and colors. Expectations E-24-01 .. E-24-13.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -72,7 +71,6 @@ ctl setPriorityProperty "${before_property:-modified}" >/dev/null 2>&1; sleep 2
 pending E-24-06 "dragging a column moves it without obscuring the labels" "column drag needs a frame by frame capture"
 pending E-24-08 "a column filter leaves a visible marker until cleared" "column filters are not reported in the status document"
 
-# gitStatusDetails is the list of details on show, not a flag.
 details() { status | jq -c '.gitStatusDetails'; }
 ctl setGitStatusDetails modified,new,deleted; sleep 3
 shown=$(details)
@@ -89,8 +87,6 @@ ctl setFolderColor "$ROOT_DIR/deep" "#123456"; sleep 3
 custom=$("$OVM" ipc "$PLUGIN" folderColor "$ROOT_DIR/deep" 2>/dev/null | jq -r '.color')
 expect_true E-24-11 "and a six digit custom colour applies too" "[[ '$custom' == '#123456' ]]"
 
-# The scope is settable over IPC but not reported in the status document, so
-# read it back from the state file instead.
 STATE=/home/omarchy/.local/state/omarchy/fileblade/state.json
 scope_now() { guest "cat $STATE 2>/dev/null" | jq -r '..|objects|.folderColorScope? // empty' 2>/dev/null | head -1; }
 before_scope=$(scope_now)

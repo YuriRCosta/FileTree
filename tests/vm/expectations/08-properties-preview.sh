@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Properties and previews. Expectations E-08-01 .. E-08-10.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -13,7 +12,6 @@ text=$(pane_text)
 expect E-08-01 "the pane follows the file" selectedPath "$ROOT_DIR/alpha.txt"
 expect_contains E-08-01 "and shows its path" "${text// /}" "alpha.txt"
 
-# An entry with no preview card shows the whole metadata block without scrolling.
 ctl select "$ROOT_DIR/broken-link"; sleep 3
 meta=$(pane_text)
 expect_contains E-08-01 "type is shown" "$meta" "Symbolic link"

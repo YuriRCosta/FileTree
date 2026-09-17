@@ -3,6 +3,38 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+#[test]
+fn escaped_mount_paths_resolve_the_original_native_directory() {
+    use std::os::unix::ffi::OsStrExt;
+    let root = tempfile::tempdir().unwrap();
+    for name in [b"\xff disk".as_slice(), "é disk".as_bytes()] {
+        let directory = root.path().join(std::ffi::OsStr::from_bytes(name));
+        fs::create_dir(&directory).unwrap();
+        fs::write(directory.join("item"), "fixture").unwrap();
+        let escaped = directory
+            .as_os_str()
+            .as_bytes()
+            .iter()
+            .map(|byte| {
+                if byte.is_ascii_graphic() && *byte != b'\\' {
+                    (*byte as char).to_string()
+                } else {
+                    format!("\\{byte:03o}")
+                }
+            })
+            .collect::<String>();
+        let table = MountTable::from_text(&format!("1 0 8:1 / {escaped} rw - ext4 /dev/test rw\n"));
+        let record = table.primary("8:1").unwrap();
+        assert_eq!(record.mountpoint, directory);
+        let response = fileblade::filesystem::children(
+            &fileblade::common::path_text(&record.mountpoint),
+            false,
+        );
+        assert_eq!(response["ok"], true, "{response}");
+        assert_eq!(response["entries"][0]["name"], "item");
+    }
+}
+
 fn list(location: &locations::Descriptor, path: &str) -> serde_json::Value {
     let command = fileblade::backend::parse([
         "fileblade",

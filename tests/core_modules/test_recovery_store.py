@@ -1,14 +1,8 @@
-import importlib
+import fileblade_recovery as recovery
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
-
-ROOT = Path(__file__).resolve().parents[3]
-KIND = 'hooks'
-recovery = importlib.import_module("agent_" + KIND + ".recovery")
-
 
 class RecoveryLifecycle(unittest.TestCase):
     def setUp(self):
@@ -56,17 +50,15 @@ class RecoveryLifecycle(unittest.TestCase):
 
     def test_limits_refuse_new_records_without_evicting_pending_undo(self):
         first = self.store.write({"source":"first"}, "row", {})
-        with patch.object(recovery, "MAX_RECORDS", 1):
-            with self.assertRaises(recovery.RecoveryFull):
-                self.store.write({"source":"second"}, "row", {})
+        for index in range(63):
+            self.store.write({"source":str(index)}, "row", {})
+        with self.assertRaises(recovery.RecoveryFull):
+            self.store.write({"source":"overflow"}, "row", {})
         self.assertIsNotNone(self.store.read(first))
-        with patch.object(recovery, "MAX_SCANNED_RECORDS", 1), patch.object(self.store, "_read") as reading:
-            with self.assertRaises(recovery.RecoveryFull):
-                self.store.records()
-            reading.assert_not_called()
-        with patch.object(recovery, "MAX_STORE_BYTES", 10):
-            with self.assertRaises(OSError):
-                self.store.records()
+        for index in range(512):
+            (self.store.directory / f"leftover-{index}.staged").touch(mode=0o600)
+        with self.assertRaises(recovery.RecoveryFull):
+            self.store.records()
         self.assertIsNotNone(self.store.read(first))
 
     def test_new_records_charge_existing_bytes_and_interrupted_staging(self):
@@ -74,20 +66,26 @@ class RecoveryLifecycle(unittest.TestCase):
         path = self.store.record_path(first)
         document = json.loads(path.read_bytes())
         path.write_text(json.dumps(document, indent=8))
-        staged = self.store.directory / "interrupted.staged"
-        staged.write_bytes(b"x" * 32)
-        staged.chmod(0o600)
-        with patch.object(recovery, "MAX_STORE_BYTES", path.stat().st_size + 40):
-            with self.assertRaises(recovery.RecoveryFull):
-                self.store.write({"source":"second"}, "row", {})
+        remaining = 16 * 1024 * 1024 - path.stat().st_size - 40
+        for index in range(16):
+            staged = self.store.directory / f"interrupted-{index}.staged"
+            size = min(1024 * 1024, remaining)
+            staged.write_bytes(b"x" * size)
+            staged.chmod(0o600)
+            remaining -= size
+        with self.assertRaises(recovery.RecoveryFull):
+            self.store.write({"source":"second"}, "row", {})
         self.assertIsNotNone(self.store.read(first))
 
     def test_unused_records_stay_until_explicit_discard_and_used_records_expire(self):
         first = self.store.write({"source":"first"}, "row", {})
         second = self.store.write({"source":"second"}, "row", {})
         self.store.mark_restored(second)
-        with patch.object(recovery.time, "time", return_value=recovery.time.time() + 4000 * 86400):
-            self.store.expired()
+        path = self.store.record_path(second)
+        document = json.loads(path.read_bytes())
+        document["restoredAt"] = 1
+        path.write_text(json.dumps(document))
+        self.store.expired()
         self.assertIsNotNone(self.store.read(first))
         self.assertIsNone(self.store.read(second))
         self.assertTrue(self.store.discard_payload(first)["ok"])

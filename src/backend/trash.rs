@@ -14,7 +14,7 @@ pub(super) fn trash_empty(
             output_error = Some(error);
         }
     };
-    let desktop = crate::trash::empty(cancelled, &mut callback);
+    let desktop = crate::trash::TrashContext::system().empty(cancelled, &mut callback);
     let satellites = if cancelled.load(Ordering::Relaxed) {
         json!({"ok": false, "cancelled": true, "completed": 0, "failed": 0, "error": "operation cancelled"})
     } else {
@@ -45,7 +45,7 @@ pub(super) fn trash_empty(
 }
 
 pub(super) fn trash_list(limit: usize, cancelled: &AtomicBool) -> Value {
-    let desktop = crate::trash::list(1000, cancelled);
+    let desktop = crate::trash::TrashContext::system().list(1000, cancelled);
     let satellites = if cancelled.load(Ordering::Relaxed) {
         json!({"ok": false, "entries": [], "count": 0, "modules": 0, "watch_paths": [], "errors": [], "cancelled": true})
     } else {
@@ -157,7 +157,7 @@ pub(super) fn trash_prune(
             output_error = Some(error);
         }
     };
-    let desktop = crate::trash::prune(days as u32, cancelled, &mut callback);
+    let desktop = crate::trash::TrashContext::system().prune(days as u32, cancelled, &mut callback);
     let satellites = if cancelled.load(Ordering::Relaxed) {
         json!({"ok": false, "cancelled": true, "completed": 0, "failed": 0, "error": "operation cancelled"})
     } else {

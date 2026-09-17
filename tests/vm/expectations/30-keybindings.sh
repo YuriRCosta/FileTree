@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# User-owned navigation bindings. Expectations E-30-01 .. E-30-04.
 source "$(dirname "$0")/lib.sh"
 require_guest
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# The tree draws what is on disk. Expectations E-02-01 .. E-02-07.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

@@ -16,7 +16,6 @@ QtObject {
   property var pending: ({})
 
   function retry() { upstream.retry() }
-  function startExtensionInstall() {}
 
   function request(command, argv, generation, callback, progress, deadlineMs, options) {
     var id = "chooser-" + session.handle + "-" + (++serial)

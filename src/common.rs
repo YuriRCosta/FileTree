@@ -1,4 +1,3 @@
-use crate::AppResult;
 use chrono::{DateTime, Local};
 use serde_json::{Value, json};
 use std::ffi::OsStr;
@@ -127,8 +126,4 @@ pub fn file_name(path: &Path) -> String {
     display_path(Path::new(
         path.file_name().unwrap_or_else(|| OsStr::new("/")),
     ))
-}
-
-pub fn require_utf8(data: Vec<u8>, context: &str) -> AppResult<String> {
-    String::from_utf8(data).map_err(|error| crate::AppError::invalid(format!("{context}: {error}")))
 }

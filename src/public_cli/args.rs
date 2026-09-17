@@ -1,4 +1,5 @@
 use super::*;
+pub use crate::backend::{TrashListArgs, TrashRestoreArgs};
 
 #[derive(Clone, Debug, Args)]
 pub struct WaitTenArgs {
@@ -85,22 +86,6 @@ pub struct TrashArgs {
     pub yes: bool,
     #[command(flatten)]
     pub wait: WaitThirtyArgs,
-}
-
-#[derive(Clone, Debug, Args)]
-pub struct TrashListArgs {
-    #[arg(long, default_value_t = 500, allow_hyphen_values = true)]
-    pub limit: i64,
-}
-
-#[derive(Clone, Debug, Args)]
-pub struct TrashRestoreArgs {
-    #[arg(long)]
-    pub id: String,
-    #[arg(long, default_value = "")]
-    pub destination: String,
-    #[arg(long)]
-    pub recreate_parent: bool,
 }
 
 #[derive(Clone, Debug, Args)]

@@ -7,7 +7,6 @@ pub(super) const CANCELLED: i32 = 2;
 pub(super) const FAILED: i32 = 3;
 
 unsafe extern "C" {
-    // POSIX.1-2024: unlike fork(), _Fork() does not run pthread_atfork handlers.
     fn _Fork() -> libc::pid_t;
 }
 
@@ -26,16 +25,12 @@ pub(super) fn monotonic_ms() -> i64 {
         tv_sec: 0,
         tv_nsec: 0,
     };
-    // CLOCK_MONOTONIC is supported on Linux; the pointer is valid and writable.
     unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) };
     time.tv_sec
         .saturating_mul(1000)
         .saturating_add(time.tv_nsec / 1_000_000)
 }
 
-/// Called only in Command::pre_exec, with private, open descriptors above stderr.
-/// After _Fork(), the guardian uses only stack data and async-signal-safe calls;
-/// it must never return, allocate, acquire a Rust lock or run Rust destructors.
 pub(super) unsafe fn enter(controls: Controls) -> io::Result<()> {
     unsafe {
         let mut signals: libc::sigaction = std::mem::zeroed();
@@ -74,7 +69,6 @@ pub(super) unsafe fn enter(controls: Controls) -> io::Result<()> {
             libc::close(controls.owner);
             return Ok(());
         }
-        // Either side can run first. Reserve the owned group before supervision.
         libc::setpgid(child, child);
         let setup = close_inherited(controls);
         let reason = if setup {
@@ -88,14 +82,11 @@ pub(super) unsafe fn enter(controls: Controls) -> io::Result<()> {
     }
 }
 
-// Drop stdio, the guardian's copy of Command's exec-error pipe, and every other
-// inherited descriptor. The actual command retains the normal Rust exec setup.
 fn close_inherited(controls: Controls) -> bool {
     let mut keep = [controls.cancel, controls.result, controls.owner];
     keep.sort_unstable();
     let mut first = 0_u32;
     for fd in keep {
-        // The three descriptors are distinct, valid, and at least 3.
         if first < fd as u32
             && unsafe { libc::syscall(libc::SYS_close_range, first, fd as u32 - 1, 0_u32) } < 0
         {
@@ -107,7 +98,6 @@ fn close_inherited(controls: Controls) -> bool {
 }
 
 fn await_exit(child: i32, controls: Controls) -> i32 {
-    // The unreaped direct child keeps this PID stable until clean_group finishes.
     let child_fd = unsafe { libc::syscall(libc::SYS_pidfd_open, child, 0_u32) as i32 };
     if child_fd < 0 {
         return FAILED;
@@ -122,7 +112,6 @@ fn await_exit(child: i32, controls: Controls) -> i32 {
         if remaining <= 0 {
             break TIMED_OUT;
         }
-        // fds is writable for all three pollfd entries; no borrowed Rust state.
         let ready = unsafe {
             libc::poll(
                 fds.as_mut_ptr(),
@@ -143,7 +132,6 @@ fn await_exit(child: i32, controls: Controls) -> i32 {
             break NORMAL;
         }
     };
-    // Owned only by this guardian; no descriptor has been reused.
     unsafe { libc::close(child_fd) };
     reason
 }
@@ -157,10 +145,8 @@ fn pollfd(fd: RawFd) -> libc::pollfd {
 }
 
 fn exited(pid: i32) -> bool {
-    // WNOWAIT observes death without releasing the PID/process-group identity.
     unsafe {
         let mut info: libc::siginfo_t = std::mem::zeroed();
-        // POSIX does not promise an async-signal-safe waitid libc wrapper.
         libc::syscall(
             libc::SYS_waitid,
             libc::P_PID,
@@ -174,12 +160,10 @@ fn exited(pid: i32) -> bool {
 }
 
 fn pause() {
-    // A bounded pause without allocator, threading-runtime or lock interaction.
     unsafe { libc::poll(std::ptr::null_mut(), 0, 5) };
 }
 
 fn clean_group(leader: i32) -> (i32, bool) {
-    // Keep the leader unreaped until the LAST group signal, preventing PGID reuse.
     unsafe { libc::kill(-leader, libc::SIGTERM) };
     let grace = monotonic_ms().saturating_add(150);
     while monotonic_ms() < grace {
@@ -193,7 +177,6 @@ fn clean_group(leader: i32) -> (i32, bool) {
     while monotonic_ms() < deadline {
         if exited(leader) && children(leader, true) == Some(false) {
             let mut status = 0;
-            // WNOHANG also bounds cleanup in the face of unexpected kernel errors.
             let reaped = unsafe { libc::waitpid(leader, &mut status, libc::WNOHANG) };
             return (status, reaped == leader);
         }
@@ -202,10 +185,7 @@ fn clean_group(leader: i32) -> (i32, bool) {
     (0, false)
 }
 
-// A subreaper adopts the command's orphans. Reap owned children, but do not kill
-// independent groups such as credential agents. This is ownership, not a sandbox.
 fn children(leader: i32, reap: bool) -> Option<bool> {
-    // Fixed storage keeps the post-fork path allocator-free, with bounded work.
     let mut bytes = [0_u8; 256 * 1024];
     let fd = unsafe {
         libc::open(
@@ -244,7 +224,6 @@ fn children(leader: i32, reap: bool) -> Option<bool> {
                 let owned =
                     unsafe { libc::syscall(libc::SYS_getpgid, pid) } == leader as libc::c_long;
                 if reap || !owned {
-                    // Reap independent zombies too, without touching live daemons.
                     unsafe { libc::waitpid(pid, std::ptr::null_mut(), libc::WNOHANG) };
                 }
                 pending |= owned && (reap || !exited(pid));
@@ -259,7 +238,6 @@ fn report(fd: RawFd, status: i32, reason: i32) {
     let message = [status.to_ne_bytes(), reason.to_ne_bytes()];
     let mut offset = 0;
     while offset < 8 {
-        // Eight bytes fit atomically in the private pipe; no untrusted output here.
         let written = unsafe {
             libc::write(
                 fd,

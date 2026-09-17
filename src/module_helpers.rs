@@ -290,7 +290,6 @@ pub fn run(request: &Request<'_>, cancelled: &AtomicBool) -> AppResult<Value> {
     if !document.is_object() {
         return Err(AppError::command("helper response must be a JSON object"));
     }
-    // A structured refusal may use a nonzero exit; success must not mask a crash.
     if !output.status.success() && document.get("ok") != Some(&Value::Bool(false)) {
         return Err(AppError::command(
             "helper failed after producing its response",

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Notes. Expectations E-25-01 .. E-25-08.
 source "$(dirname "$0")/lib.sh"
 
 require_guest

@@ -8,12 +8,6 @@ pub const MAX_DEFINITIONS: usize = 128;
 pub const MAX_CANDIDATES: usize = 256;
 const MAX_AGGREGATE_BYTES: usize = MAX_DEFINITION_BYTES * MAX_DEFINITIONS;
 
-pub fn module_definition(path: &Path) -> Option<Value> {
-    let data = read_regular_file(path, MAX_DEFINITION_BYTES).ok()?;
-    let value = serde_json::from_slice::<Value>(&data).ok()?;
-    value.is_object().then_some(value)
-}
-
 pub fn discover_blade_modules(builtin_root: &str, user_root: &str) -> Value {
     let mut modules = Vec::new();
     let mut candidates = 0_usize;

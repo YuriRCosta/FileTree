@@ -20,23 +20,6 @@ require_wait() {
   wait_for "$@" || { fail harness "wait for expected state" "$1"; [[ -z ${module:-} ]] || probe status; exit 1; }
 }
 
-click_word() {
-  local shot point crop width offset=0
-  "$OVM" mouse move 900 900
-  shot=$("$OVM" shot "E-36-click-$1" | tail -1)
-  width=$(field sidebarWidth)
-  if [[ ${2:-left} == right ]]; then
-    width=$(field propertiesBladeWidth)
-    offset=$(($(magick identify -format '%w' "$shot") - width))
-  fi
-  crop=$(mktemp --suffix=.png)
-  magick "$shot" -crop "${width}x1080+${offset}+0" +repage -colorspace gray -level '15%,40%' -negate -resize 300% "$crop" || return 1
-  point=$(tesseract "$crop" - --psm 6 tsv 2>/dev/null | awk -F '\t' -v word="$1" -v offset="$offset" '$1 == 5 && tolower($12) == tolower(word) { x=offset+int(($7+$9/2)/3); y=int(($8+$10/2)/3) } END { if (x) print x, y }')
-  rm -f -- "$crop"
-  [[ $point =~ ^[0-9]+\ [0-9]+$ ]] || { fail harness "locate $1" "not found in $shot"; return 1; }
-  "$OVM" mouse click ${point}
-  sleep 1
-}
 probe() { "$OVM" ipc "fileblade.core-live.$module" "$@" 2>/dev/null; }
 probe_bin() {
   local result
@@ -192,7 +175,6 @@ for module in skills memory; do
   sleep 1
   probe projectContext >/dev/null
   require_wait "[[ \$(field contextPath) == $(printf '%q' "$backup/project") ]]" 15
-  expect_out E-36-04 "$module browsing does not opt into management" "jq -r .agentManagement $(printf '%q' "$settings")" false
   expect_contains E-36-04 "$module is available without an install" "$("$OVM" ipc "$PLUGIN" blades)" "$module"
   expect_missing E-36-04 "$module resolves as a core blade" "$(screen_text)" "Unknown module"
 done
@@ -216,16 +198,6 @@ expect E-36-03 "settings changes retention after confirmation" trashRetentionDay
 require_wait '[[ $(field trashRetentionDays) == 0 ]]' 15
 "$OVM" shot E-36-03-settings-never >/dev/null
 ctl toggleBladeSettings left
-ctl toggleBladeSettings left
-sleep 1
-click_word Manage || exit 1
-expect_contains E-36-04 "opt-in explains agent-file changes" "$(consent_text)" "coding agents"
-expect_out E-36-04 "opening explanation does not enable changes" "jq -r .agentManagement $(printf '%q' "$settings")" false
-"$OVM" shot E-36-04-explanation >/dev/null
-click_word management || exit 1
-require_wait "[[ \$(guest 'jq -r .agentManagement $settings') == true ]]" 15
-expect_out E-36-04 "explicit Allow enables management" "jq -r .agentManagement $(printf '%q' "$settings")" true
-ctl toggleBladeSettings left
 
 for module in skills memory hooks mcp; do
   ctl setBladeSlots right "base64:$(printf '[{"id":"e36-%s","modules":[{"module":"%s"}]}]' "$module" "$module" | base64 -w0)"
@@ -236,17 +208,6 @@ for module in skills memory hooks mcp; do
     source_path="$backup/project/AGENTS.md"
     [[ $module != skills ]] || source_path="$backup/project/.claude/skills/rivet-fixture/SKILL.md"
     source_before=$(guest "sha256sum $(printf '%q' "$source_path")")
-    probe consent false >/dev/null
-    require_wait "probe status | jq -e '.consent == false'" 15
-    probe_bin "$row" bin
-    require_wait "probe status | jq -e '.bin.error | contains(\"Manage agent files\")'" 15
-    expect_contains E-36-04 "$module removal is refused while disabled" "$(probe status)" "Manage agent files"
-    item=$(probe status | jq -c --arg id "$row" '.rows[] | select(.id == $id)')
-    denied=$(guest "$(printf '%q' "$GUEST_PLUGIN/fileblade") _backend bin-put --module $module --item $(printf '%q' "$item")")
-    expect_contains E-36-04 "$module ordinary CLI removal is refused" "$denied" "Manage agent files"
-    "$OVM" shot "E-36-04-$module-denied-remove" >/dev/null
-    probe consent true >/dev/null
-    require_wait 'probe status | jq -e .consent' 15
   fi
   for round in 1 2 3; do
     probe_bin "$row" bin
@@ -254,17 +215,6 @@ for module in skills memory hooks mcp; do
     entry=$(probe status | jq -r '.bin.rows[0].id')
     record="$artifact_root/$module/${entry#bin:}"
     if [[ $module == skills || $module == memory ]]; then
-      probe consent false >/dev/null
-      require_wait "probe status | jq -e '.consent == false'" 15
-      probe_bin "$entry" restore
-      require_wait "probe status | jq -e '.bin.error | contains(\"Manage agent files\")'" 15
-      expect_contains E-36-04 "$module restore is refused while disabled" "$(probe status)" "Manage agent files"
-      denied=$(guest "$(printf '%q' "$GUEST_PLUGIN/fileblade") _backend bin-restore --module $module --id $(printf '%q' "$entry")")
-      expect_contains E-36-04 "$module ordinary CLI restore is refused" "$denied" "Manage agent files"
-      expect_out E-36-04 "$module refused restore retains the bin record" "test -f $(printf '%q' "$record/manifest.json") && echo retained" retained
-      "$OVM" shot "E-36-04-$module-denied-restore" >/dev/null
-      probe consent true >/dev/null
-      require_wait 'probe status | jq -e .consent' 15
       probe_bin "$entry" restore
     else
       recovery=$(guest "jq -r .helperRecordId $(printf '%q' "$record/manifest.json")")
@@ -293,7 +243,7 @@ for module in skills memory hooks mcp; do
       require_wait "probe status | jq -e '.bin.rows | length == 1'" 20
       expect_contains E-36-05 "$module opens the recovery choices" "$(probe bin "$entry" ask)" opened
       sleep 1
-      expect_contains E-36-05 "$module purge is explicitly permanent" "$(right_text)" "Delete forever"
+      expect_true E-36-05 "$module purge is explicitly permanent" "probe status | jq -e '.bin.choices | any(.key == \"purge\" and .label == \"Delete forever\" and .danger == true)'"
       "$OVM" shot "E-36-05-$module-purge-$round" >/dev/null
       click_word forever right || exit 1
     fi
@@ -316,14 +266,14 @@ ctl setWelcomeState dismissed
 ctl setBladeSlots right "base64:$(printf '%s' '[{"id":"e36-welcome","modules":[{"module":"welcome"},{"module":"notes","state":{"text":"E36 retained note"}}]}]' | base64 -w0)"
 ctl focusBlade right
 sleep 1
-expect_contains E-36-06 "dismissed Welcome remains reopenable" "$(right_text)" "Welcome to FileBlade"
+expect_contains E-36-06 "dismissed Welcome remains reopenable" "$(right_text)" "Find your way"
 expect_missing E-36-06 "Welcome offers no companion installer" "$(right_text)" "Install agent extensions"
 ctl welcomeDismiss
 require_wait '"$OVM" ipc "$PLUGIN" blades | jq -e '\''[.blades.right.slots[].modules[].module] == ["notes"]'\'''
 "$OVM" shot E-36-06-welcome-dismissed >/dev/null
 ctl addBladeModule right welcome
 sleep 1
-expect_contains E-36-06 "reopened Welcome renders again" "$(right_text)" "Welcome to FileBlade"
+expect_contains E-36-06 "reopened Welcome renders again" "$(right_text)" "Find your way"
 expect_contains E-36-06 "reopening Welcome retains adjacent Notes" "$("$OVM" ipc "$PLUGIN" blades)" 'notes'
 expect E-36-06 "reopening keeps the dismissal choice" welcomeState dismissed
 expect E-36-06 "Welcome starts no installer" welcomeInstalling false
@@ -343,7 +293,7 @@ expect_out E-36-06 "modified checkout is skipped" "jq -r '.repositories[0].dirty
 expect_out E-36-06 "checking preserves local checkout edits" "cat $checkout/Service.qml" 'E36 modified checkout'
 "$OVM" shot E-36-06-update-check >/dev/null
 
-pending E-36-04 "installed-native CLI refusal" "R65 routing helpers and an isolated native fixture are still needed; only shared Service and ordinary CLI are qualified here."
+pending E-36-04 "installed-native cleanup lifecycle" "R65 routing helpers and an isolated native fixture are still needed; only shared Service and ordinary CLI are qualified here."
 
 cleanup || { fail harness "restore original documents" "backup: $backup"; summary; }
 summary

@@ -415,7 +415,7 @@ fn stub_detection_and_search_cancellation_are_bounded() {
 
     let cancelled = AtomicBool::new(true);
     let started = Instant::now();
-    let payload = search::search_cancellable(
+    let payload = search(
         temporary.path().to_str().unwrap(),
         "missing",
         false,
@@ -445,9 +445,9 @@ fn search_honours_case_and_regex_options() {
         rows
     };
     let root = temporary.path().to_str().unwrap();
-    let relaxed = search::search(root, "alpha", false, 100, &[]);
+    let relaxed = search_default(root, "alpha", false, 100, &[]);
     assert_eq!(names(&relaxed), ["Alpha.md", "alpha.txt"]);
-    let strict = search::search_cancellable(
+    let strict = search(
         root,
         "Alpha",
         false,
@@ -460,7 +460,7 @@ fn search_honours_case_and_regex_options() {
         &AtomicBool::new(false),
     );
     assert_eq!(names(&strict), ["Alpha.md"]);
-    let pattern = search::search_cancellable(
+    let pattern = search(
         root,
         "^[ab].*\\.md$",
         false,
@@ -473,7 +473,7 @@ fn search_honours_case_and_regex_options() {
         &AtomicBool::new(false),
     );
     assert_eq!(names(&pattern), ["Alpha.md", "beta.md"]);
-    let invalid = search::search_cancellable(
+    let invalid = search(
         root,
         "(",
         false,
@@ -487,4 +487,49 @@ fn search_honours_case_and_regex_options() {
     );
     assert_eq!(invalid["ok"], false);
     assert!(invalid["error"].as_str().unwrap().contains("invalid regex"));
+}
+
+fn search_default(
+    root: &str,
+    query: &str,
+    show_hidden: bool,
+    limit: usize,
+    repository_roots: &[String],
+) -> serde_json::Value {
+    search(
+        root,
+        query,
+        show_hidden,
+        limit,
+        repository_roots,
+        search::SearchOptions::default(),
+        &AtomicBool::new(false),
+    )
+}
+
+fn search(
+    root: &str,
+    query: &str,
+    show_hidden: bool,
+    limit: usize,
+    repository_roots: &[String],
+    options: search::SearchOptions,
+    cancelled: &AtomicBool,
+) -> serde_json::Value {
+    search::search_streaming(
+        &search::SearchRequest {
+            root,
+            query,
+            show_hidden,
+            limit,
+            repository_roots,
+            options,
+            fresh: false,
+            list: None,
+            tree: false,
+            git_enabled: true,
+        },
+        cancelled,
+        &mut |_| Ok(()),
+    )
 }

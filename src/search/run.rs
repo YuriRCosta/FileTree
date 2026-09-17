@@ -13,51 +13,6 @@ pub(super) struct SearchRun<'a> {
     pub(super) git_enabled: bool,
 }
 
-pub fn search(
-    root: &str,
-    query: &str,
-    show_hidden: bool,
-    limit: usize,
-    repository_roots: &[String],
-) -> Value {
-    search_cancellable(
-        root,
-        query,
-        show_hidden,
-        limit,
-        repository_roots,
-        SearchOptions::default(),
-        &AtomicBool::new(false),
-    )
-}
-
-pub fn search_cancellable(
-    root: &str,
-    query: &str,
-    show_hidden: bool,
-    limit: usize,
-    repository_roots: &[String],
-    options: SearchOptions,
-    cancelled: &AtomicBool,
-) -> Value {
-    search_streaming(
-        &SearchRequest {
-            root,
-            query,
-            show_hidden,
-            limit,
-            repository_roots,
-            options,
-            fresh: false,
-            list: None,
-            tree: false,
-            git_enabled: true,
-        },
-        cancelled,
-        &mut |_| Ok(()),
-    )
-}
-
 pub fn search_streaming(
     request: &SearchRequest<'_>,
     cancelled: &AtomicBool,

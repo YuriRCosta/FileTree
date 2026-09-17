@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Refusals, errors and edges. Expectations E-19-01 .. E-19-06.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -40,8 +39,6 @@ click_row alpha.txt
 "$OVM" key a; sleep 2.5; "$OVM" type "$long_name"; sleep 1.5; "$OVM" key ret; sleep 3
 expect_out E-19-05 "an over-long name creates nothing" "ls $ROOT_DIR | grep -c 'xxxxxxxxxx' || true" 0
 
-# This checks listing responsiveness. Request deadlines have separate backend
-# coverage; a successful listing does not exercise a timeout.
 guest "mkdir -p $ROOT_DIR/wide && cd $ROOT_DIR/wide && seq 1 4000 | xargs -I{} touch f{}" >/dev/null
 ctl setRoot "$ROOT_DIR/wide"; sleep 3
 wait_for "[[ \$(field operationBusy) == false ]]" 40

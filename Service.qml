@@ -47,7 +47,6 @@ Item {
   readonly property string backendVersion: backendClient.backendVersion
   readonly property var backendLog: backendClient.backendLog
   function retryBackend() { backendClient.retry() }
-  function startExtensionInstall() { backendClient.startExtensionInstall() }
   readonly property var backendLimits: backendClient.limits
   readonly property string screenshotsPath: backendClient.paths && backendClient.paths.screenshots ? String(backendClient.paths.screenshots) : ""
   readonly property string backendError: backendClient.lastError
@@ -190,7 +189,6 @@ Item {
   property alias trashRetentionDays: preferencesController.trashRetentionDays
   property alias trashLastClearedAt: stateController.trashLastClearedAt
   property alias updateCheckedAt: stateController.updateCheckedAt
-  property alias favoritePathLookup: stateController.favoriteLookup
   readonly property bool canGoUp: normalizeRoot(rootPath) !== "/" && !trashMode && !recentMode && !drivesMode
   readonly property bool canGoBack: Array.isArray(rootBackStack) && rootBackStack.length > 0
   readonly property string backDestination: canGoBack ? String(rootBackStack[rootBackStack.length - 1]) : ""
@@ -308,7 +306,6 @@ Item {
   property alias applicationsLoaded: applicationController.loaded
   property alias activeApplicationsPath: applicationController.activePath
   property alias pendingApplicationsPath: applicationController.pendingPath
-  property alias pendingApplicationsMime: applicationController.pendingMime
   property alias applicationLookupCount: applicationController.lookupCount
   property alias applicationCancellationCount: applicationController.cancellationCount
   property alias applicationCacheHitCount: applicationController.cacheHitCount
@@ -324,7 +321,6 @@ Item {
   readonly property var history: operationController
   property alias activeOperationProgress: operationController.progress
   property alias operationCancelRequested: operationController.cancelRequested
-  property alias operationSerial: operationController.serial
   property alias operationResults: operationController.results
   readonly property int operationPendingCount: operationQueue.length + (operationBusy ? 1 : 0)
     + (pendingExternalPasteOperationId ? 1 : 0)
@@ -344,10 +340,6 @@ Item {
   property alias trashOperationLabel: trashController.operationLabel
   property alias trashProgress: trashController.progress
   property alias trashCount: trashController.count
-  property alias trashStores: trashController.stores
-  property alias trashEstimatedSizeText: trashController.estimatedSizeText
-  property alias trashUnknownSize: trashController.unknownSize
-  property alias trashTruncated: trashController.truncated
   property alias trashSelectedId: trashController.selectedId
   property alias trashLastClearedText: trashController.lastClearedText
   property alias trashNextCleanupText: trashController.nextCleanupText
@@ -367,7 +359,6 @@ Item {
   property alias pickerTitle: pickerController.title
   property alias pickerMultiple: pickerController.multiple
   property alias pickerExtensions: pickerController.extensions
-  property alias pickerSuggestedName: pickerController.suggestedName
   property alias pickerFileName: pickerController.fileName
   property alias pickerSaveValidationBusy: pickerController.saveValidationBusy
   property alias pickerPendingSavePath: pickerController.pendingSavePath
@@ -389,14 +380,11 @@ Item {
   property alias searchListTitle: searchController.listTitle
   property alias searchWalked: searchController.walked
   property alias searchIndexed: searchController.indexed
-  property alias searchPartial: searchController.partial
-  property alias searchTruncated: searchController.truncated
   property alias quickNavActive: searchController.quickNavActive
   property alias quickNavChannel: searchController.quickNavChannel
   property alias quickNavHome: searchController.quickNavHome
   property var channelProviders: ({})
   property alias activeSearchQuery: searchController.activeQuery
-  property alias activeSearchMode: searchController.activeMode
   property alias lastSearchExitCode: searchController.lastExitCode
   property alias lastSearchPayloadCount: searchController.lastPayloadCount
   property alias lastSearchStderr: searchController.lastStderr
@@ -452,8 +440,6 @@ Item {
   property alias activeLocationOrigin: locationController.activeOrigin
   property alias pendingLocationPath: locationController.pendingPath
   property alias pendingLocationMode: locationController.pendingMode
-  property alias activeLocationTargetScreen: locationController.activeTargetScreen
-  property alias pendingLocationTargetScreen: locationController.pendingTargetScreen
   property alias activeLocationResponse: locationController.activeResponse
   property alias locationValidationCount: locationController.validationCount
   property alias locationCancellationCount: locationController.cancellationCount

@@ -42,7 +42,6 @@ Item {
       }) : [],
       rows: rows().filter(function(row) { return row.scope === "project" }).slice(0, 30),
       bin: bin ? { rows: bin.rows, busy: bin.busy, error: bin.error, route: bin.helperRoute, choices: bin.choices } : null,
-      consent: !!subject && subject.files.agentManagementEnabled,
       completions: completions,
       response: response
     }
@@ -68,9 +67,6 @@ Item {
   IpcHandler {
     target: probe.subject && probe.subject.context ? "fileblade.core-live." + probe.subject.context.moduleId : ""
     function status(): string { return JSON.stringify(probe.snapshot()) }
-    function consent(enabled: bool): string {
-      return String(probe.subject.files.preferences.setAgentManagement(enabled))
-    }
     function projectContext(): string { return String(probe.subject.files.setProjectContext(true)) }
     function apply(id: string, agent: string, enabled: bool): string {
       var row = probe.rows().find(function(value) { return String(value.id) === id && value.scope === "project" })

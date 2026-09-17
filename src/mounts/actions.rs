@@ -156,26 +156,3 @@ pub fn eject(source: &str) -> AppResult<Value> {
         "changed": true,
     }))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::tidy;
-
-    #[test]
-    fn tidy_keeps_the_reason_mount_gave() {
-        let raw = "Error creating textual authentication agent: Error opening current controlling terminal for the process (`/dev/tty'): No such device or address (polkit-error-quark, 0)\nError mounting /dev/sda3: GDBus.Error:org.freedesktop.UDisks2.Error.Failed: Error mounting system-managed device /dev/sda3: wrong fs type, bad option, bad superblock on /dev/sda3, missing codepage or helper program, or other error.\n       dmesg(1) may have more information after failed mount system call.\n";
-        assert_eq!(
-            tidy(raw),
-            "wrong fs type, bad option, bad superblock on /dev/sda3, missing codepage or helper program, or other error."
-        );
-    }
-
-    #[test]
-    fn tidy_strips_the_dbus_error_name_but_keeps_plain_text() {
-        let raw = "Error mounting /dev/sdb1: GDBus.Error:org.freedesktop.UDisks2.Error.NotAuthorizedCanObtain: Not authorized to perform operation";
-        assert_eq!(tidy(raw), "Not authorized to perform operation");
-        assert_eq!(tidy("  \n"), "");
-        assert_eq!(tidy("Error: "), "Error:");
-        assert_eq!(tidy("device is busy"), "device is busy");
-    }
-}

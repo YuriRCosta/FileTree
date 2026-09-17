@@ -100,7 +100,7 @@ impl TrashContext {
 
     pub fn for_roots(home_trash: PathBuf, mount_tops: Vec<PathBuf>) -> Self {
         Self {
-            home_trash: normalize_absolute_or_empty(&home_trash),
+            home_trash: normalized_absolute(&home_trash).unwrap_or_default(),
             mount_tops: mount_tops
                 .into_iter()
                 .filter_map(|path| normalized_absolute(&path))
@@ -111,7 +111,7 @@ impl TrashContext {
 
     pub fn list(&self, limit: usize, cancelled: &AtomicBool) -> Value {
         let maximum = limit.clamp(1, MAX_LIST_ENTRIES);
-        let catalog = self.catalog(cancelled);
+        let catalog = build_catalog(self, cancelled);
         catalog_document(&catalog, maximum)
     }
 
@@ -128,7 +128,7 @@ impl TrashContext {
         if id.is_empty() || id.len() > MAX_ID_BYTES {
             return mutation_error("trash-restore", "Invalid Trash entry identity");
         }
-        let catalog = self.catalog(cancelled);
+        let catalog = build_catalog(self, cancelled);
         if catalog.cancelled {
             return mutation_error("trash-restore", "operation cancelled");
         }
@@ -174,37 +174,4 @@ impl TrashContext {
         let cutoff = Local::now().naive_local() - ChronoDuration::days(i64::from(days));
         prune_context(self, cutoff, cancelled, progress)
     }
-
-    fn catalog(&self, cancelled: &AtomicBool) -> Catalog {
-        build_catalog(self, cancelled)
-    }
-
-    fn stores(&self, errors: &mut Vec<String>) -> Vec<TrashStore> {
-        discover_stores(self, errors)
-    }
-}
-
-pub fn list(limit: usize, cancelled: &AtomicBool) -> Value {
-    TrashContext::system().list(limit, cancelled)
-}
-
-pub fn restore(
-    id: &str,
-    destination_directory: &str,
-    recreate_parent: bool,
-    cancelled: &AtomicBool,
-) -> Value {
-    TrashContext::system().restore(id, destination_directory, recreate_parent, cancelled)
-}
-
-pub fn delete_permanently(ids: &[String], cancelled: &AtomicBool) -> Value {
-    TrashContext::system().delete_permanently(ids, cancelled)
-}
-
-pub fn empty(cancelled: &AtomicBool, progress: &mut dyn FnMut(Value)) -> Value {
-    TrashContext::system().empty(cancelled, progress)
-}
-
-pub fn prune(days: u32, cancelled: &AtomicBool, progress: &mut dyn FnMut(Value)) -> Value {
-    TrashContext::system().prune(days, cancelled, progress)
 }

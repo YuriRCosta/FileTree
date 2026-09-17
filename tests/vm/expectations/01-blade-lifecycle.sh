@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Blades open, close and take focus. Expectations E-01-01 .. E-01-13.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -8,7 +7,6 @@ fixture >/dev/null
 open_left
 goto_root "$ROOT_DIR"
 
-# Toggle semantics, with the precondition asserted rather than assumed.
 ensure_left_open
 expect_true E-01-03 "precondition: the blade is open" "left_open"
 [[ $(field focusedBlade) == left ]] || { ctl focusBlade left; wait_for "[[ \$(field focusedBlade) == left ]]" 8; }
@@ -43,7 +41,6 @@ ctl toggleBladeFocus left
 wait_for "[[ \$(field focusedBlade) == left ]]" 12
 expect E-01-04 "the next press opens and focuses it again" focusedBlade left
 
-# Keys must reach the blade, not the window, while a window is the last active one.
 "$OVM" ssh 'pkill -x foot' >/dev/null 2>&1; sleep 1
 "$OVM" ssh 'setsid foot -e sh -c "stty -icanon -echo; cat > /tmp/keys.log" >/dev/null 2>&1 < /dev/null &' >/dev/null 2>&1
 wait_for "[[ \$("$OVM" hypr clients 2>/dev/null | jq length) -ge 1 ]]" 20
@@ -63,8 +60,6 @@ expect_true E-01-06 "keys reach the tree while a window is active" "[[ '$before'
 expect_true E-01-06 "and the terminal receives nothing" "[[ -z '$sink' ]]"
 expect_true E-01-07 "activewindow still names the window, which is correct" "[[ '$active' == foot ]]"
 
-# Park the pointer over the blade first: the hover watch, not the window list,
-# decides who holds focus when the pointer sits on bare desktop.
 "$OVM" mouse move "$ROW_X" "$(row_y 2)"; sleep 2
 ctl focusBlade left; wait_for "[[ \$(field focusedBlade) == left ]]" 10
 "$OVM" ssh 'pkill -x foot' >/dev/null 2>&1
@@ -73,6 +68,8 @@ wait_for "[[ \$(field focusedBlade) == left || \$(field focusedBlade) == right ]
 expect_true E-01-09 "closing the last window focuses a blade" "[[ \$(field focusedBlade) == left || \$(field focusedBlade) == right ]]"
 
 ensure_left_open
+ctl closeBlade right
+wait_for "[[ \$(blade_layer right) == 0 ]]" 12
 ctl toggleBladeFocus right
 wait_for "[[ \$(field focusedBlade) == right ]]" 12
 expect E-01-05 "super+shift+b focuses the right blade" focusedBlade right
@@ -96,7 +93,6 @@ before_root=$(field rootPath)
 expect_true E-01-11 "the nav bar Up button works on the first click" "[[ '$before_root' != \$(field rootPath) ]]"
 
 
-# Closing a focused blade must hand the keyboard back to a real window.
 "$OVM" ssh 'pkill -x foot' >/dev/null 2>&1; sleep 1
 "$OVM" ssh 'setsid foot >/dev/null 2>&1 < /dev/null &' >/dev/null 2>&1
 wait_for "[[ \$("$OVM" hypr clients 2>/dev/null | jq length) -ge 1 ]]" 20
@@ -111,7 +107,6 @@ expect E-01-12 "and no blade holds focus" focusedBlade ""
 "$OVM" ssh 'pkill -x foot' >/dev/null 2>&1
 ensure_left_open
 
-# Escape closes the blade from any section, not only the file tree.
 ensure_left_open
 ctl focusProperties >/dev/null; sleep 2
 "$OVM" key esc

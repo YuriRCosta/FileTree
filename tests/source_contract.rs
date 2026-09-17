@@ -116,9 +116,8 @@ fn production_runtime_is_rust_with_one_resident_qml_process() {
     assert!(backend_client.contains("Component.onDestruction: stop()"));
     assert_eq!(
         backend_client.matches("Quickshell.execDetached(").count(),
-        2
+        1
     );
-    assert!(backend_client.contains("[root.cliPath, \"_backend\", \"plugin-install\"]"));
     assert!(
         backend_client.contains("\"dim-windows\", \"--state\", \"off\", \"--after-exit\", owner")
     );
@@ -913,8 +912,6 @@ fn edge_whitespace_in_a_typed_name_reaches_the_backend() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let menu = text(&root.join("panes/FileActionsMenu.qml"));
 
-    // The backend keeps a name byte for byte, so the dialog must not trim the
-    // value it submits. A trailing space is a legal file name.
     assert!(
         menu.contains("var value = PathText.pathText(controller.actionInput)"),
         "the action dialog must submit the typed name unmodified"
@@ -923,8 +920,6 @@ fn edge_whitespace_in_a_typed_name_reaches_the_backend() {
         !menu.contains("var value = controller.actionInput.trim()"),
         "trimming the submitted name drops a legal trailing space"
     );
-    // Emptiness is still whitespace-only, both for the submit guard and for
-    // whether the confirm button is live.
     assert!(menu.contains("controller.actionInput.trim() !== \"\""));
     let path_text = text(&root.join("lib/PathText.js"));
     assert!(path_text.contains("text.trim() === \"\" ? \"\" : text"));
@@ -1311,18 +1306,10 @@ fn drop_drag_leaves_the_blade_at_the_sheet_edge_not_the_layer_edge() {
         );
     }
     let wheel = text(&root.join("ui/DropWheel.qml"));
-    // Wheel wedges are dark and everything on them is one accent tint. The outer
-    // band sits on the darkest part of the wheel and an icon's own antialiasing
-    // dilutes the tint, so application icons are lifted above the ring glyphs.
     assert!(wheel.contains("context.fillStyle = overlay.alpha(Color.popups.background, 0.94)"));
-    // A highlighted icon shows its own artwork; the rest stay tinted.
     assert!(wheel.contains("monochrome: !wedge.active"));
     assert!(wheel.contains("monochrome: !child.active"));
-    // Separators are cut at one constant width rather than left as an angular
-    // gap, which would be a hair at the hub and a chasm at the rim.
     assert!(wheel.contains("globalCompositeOperation = \"destination-out\""));
-    // The wheel is dark and lands on whatever is behind it, so each wedge
-    // carries its own edge rather than relying on the fill to separate it.
     assert!(wheel.contains("strokeStyle = overlay.alpha(Color.accent, active ? 0.85 : 0.42)"));
     assert!(!wheel.contains("wedgeGap"));
     assert!(
@@ -1331,8 +1318,6 @@ fn drop_drag_leaves_the_blade_at_the_sheet_edge_not_the_layer_edge() {
     assert!(wheel.contains("iconColor: Qt.lighter(Color.accent, child.active ? 1.75 : 1.45)"));
     assert!(!wheel.contains("iconColor: Color.popups.background"));
     assert!(!wheel.contains("fallbackColor: Color.popups.background"));
-    // The alpha mask keeps an icon's own silhouette; the luminance mask eats a
-    // flat glyph such as Neovim's mark down to a sliver.
     assert!(wheel.matches("icon_mask || \"alpha\"").count() >= 2);
     assert!(wheel.matches("trustedIconSource:").count() >= 2);
     assert!(
@@ -1675,8 +1660,6 @@ fn module_definitions_are_normalized_once_and_grouped_by_category() {
     assert!(!ipc.contains("entry: module.entryUrl"));
     let settings = text(&root.join("blades/BladeSettings.qml"));
     assert!(settings.contains("delegate: BladeModuleSection {"));
-    // The revert link sits in the footer, asks first, and defaults its
-    // selection to Cancel so a stray Enter cannot wipe the layout.
     assert!(settings.contains("text: \"Revert to default settings\""));
     assert!(settings.contains("onClicked: root.confirmRevert()"));
     assert!(settings.contains(

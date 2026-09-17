@@ -73,7 +73,7 @@ fn user_directory(key: &str) -> Option<PathBuf> {
     {
         return Some(value);
     }
-    let document = config_dir().join("user-dirs.dirs");
+    let document = xdg_home("XDG_CONFIG_HOME", "~/.config").join("user-dirs.dirs");
     let text = std::fs::read_to_string(&document).ok()?;
     if text.len() > 64 * 1024 {
         return None;

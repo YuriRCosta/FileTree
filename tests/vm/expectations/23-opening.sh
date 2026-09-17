@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Opening files, locations and recent items. Expectations E-23-01 .. E-23-12.
 source "$(dirname "$0")/lib.sh"
 
 require_guest
@@ -121,7 +120,6 @@ focus_tree
 "$OVM" key ctrl-p; sleep 3
 expect E-23-10 "Ctrl+P opens the picker" quickNavActive true
 picker=
-# Keep all three assertions on one settled card; the final word can be elided.
 wait_for 'picker=$(picker_text) && [[ $picker == *"> actions"* && $picker == *"~ recent"* && $picker == *"? cont"* ]]' 8
 expect_contains E-23-10 "and shows its action prefix" "$picker" "> actions"
 expect_contains E-23-10 "and shows its Recent prefix" "$picker" "~ recent"

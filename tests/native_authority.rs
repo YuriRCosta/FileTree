@@ -197,6 +197,7 @@ impl Resident {
         let temporary = tempdir().unwrap();
         let root = temporary.path().join("state/omarchy/fileblade");
         let mut command = isolated_command(temporary.path(), &root);
+        command.env("FILEBLADE_APP_ROOT", env!("CARGO_MANIFEST_DIR"));
         command.args(["serve", "--native-authority", "--no-recover"]);
         if isolated {
             command.arg("--native-isolated");
@@ -227,6 +228,72 @@ impl Resident {
     fn session(&self) -> Session {
         Session::open(&self.root)
     }
+}
+
+#[test]
+fn extension_discovery_records_new_sources_and_preserves_explicit_choices() {
+    let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let resident = Resident::start();
+    let config = resident.temporary.path().join("config");
+    for id in ["test.chosen", "test.new"] {
+        let root = config.join("fileblade/extensions").join(id);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("Module.qml"), "import QtQuick\nItem {}\n").unwrap();
+        fs::write(
+            root.join("manifest.json"),
+            json!({"id":id,
+                "extensions":{"data-goblin.fileblade/blade":[{"id":"fixture","entry":"Module.qml"}]}
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+    let path = config.join("omarchy/fileblade/settings.json");
+    fs::write(
+        &path,
+        json!({"version":1,"future":{"keep":true},
+        "extensions":{"test.chosen":{"enabled":false,"future":42}}})
+        .to_string(),
+    )
+    .unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    let mut view = resident.session();
+    let mut saved = Vec::new();
+    for generation in 1..=2 {
+        view.send(
+            json!({"v":1,"type":"request","id":"catalog","generation":generation,
+            "command":"plugin-catalog","arguments":[]}),
+        );
+        let response = view.receive();
+        assert_eq!(response["payload"]["activation"], "known", "{response}");
+        for provider in response["payload"]["providers"].as_array().unwrap() {
+            assert_eq!(provider["enabled"], provider["id"] == "test.new");
+        }
+        let bytes = fs::read(&path).unwrap();
+        if generation == 1 {
+            saved = bytes;
+        } else {
+            assert_eq!(bytes, saved);
+        }
+    }
+    let mut document: Value = serde_json::from_slice(&saved).unwrap();
+    assert_eq!(document["future"]["keep"], true);
+    assert_eq!(document["extensions"]["test.chosen"]["future"], 42);
+    assert_eq!(
+        document["extensions"]["test.new"]["receipt"]["source"],
+        config
+            .join("fileblade/extensions/test.new")
+            .to_str()
+            .unwrap()
+    );
+    document["extensions"]["test.chosen"]["enabled"] = json!("false");
+    fs::write(&path, document.to_string()).unwrap();
+    view.send(
+        json!({"v":1,"type":"request","id":"invalid-catalog","generation":3,
+        "command":"plugin-catalog","arguments":[]}),
+    );
+    assert_eq!(view.receive()["payload"]["activation"], "unknown");
+    assert_eq!(fs::read_to_string(path).unwrap(), document.to_string());
 }
 
 #[test]

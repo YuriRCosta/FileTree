@@ -301,6 +301,7 @@ pub fn prune_all(days: u32, cancelled: &AtomicBool, progress: &mut dyn FnMut(Val
             }
         }
         if examined >= MAX_ALL_ENTRIES {
+            truncated = true;
             break;
         }
     }

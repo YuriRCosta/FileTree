@@ -129,9 +129,9 @@ fn audit_log_records_mutations_privately_and_reads_back_filtered() {
 fn audit_log_rotates_once_at_the_cap() {
     let temporary = tempdir().unwrap();
     let path = temporary.path().join("nested/audit.jsonl");
-    audit::append(&path, "first", 16).unwrap();
-    audit::append(&path, "second-line-past-cap", 16).unwrap();
-    audit::append(&path, "third", 16).unwrap();
+    fileblade::lease::durable::append(&path, "first", 16).unwrap();
+    fileblade::lease::durable::append(&path, "second-line-past-cap", 16).unwrap();
+    fileblade::lease::durable::append(&path, "third", 16).unwrap();
     assert_eq!(fs::read_to_string(&path).unwrap(), "third\n");
     assert_eq!(
         fs::read_to_string(path.with_extension("1.jsonl")).unwrap(),
@@ -148,7 +148,7 @@ fn concurrent_appenders_publish_complete_private_records() {
             let path = &path;
             scope.spawn(move || {
                 for index in 0..100 {
-                    audit::append(
+                    fileblade::lease::durable::append(
                         path,
                         &json!({"worker": worker, "index": index}).to_string(),
                         u64::MAX,
@@ -175,5 +175,5 @@ fn concurrent_appenders_publish_complete_private_records() {
         .collect();
     assert_eq!(unique.len(), values.len());
     fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
-    assert!(audit::append(&path, "{}", u64::MAX).is_err());
+    assert!(fileblade::lease::durable::append(&path, "{}", u64::MAX).is_err());
 }

@@ -158,7 +158,7 @@ pub(super) fn delete_selected(
     if cancelled.load(Ordering::Relaxed) {
         return cancelled_mutation("trash-delete", 0, ids.len());
     }
-    let catalog = context.catalog(cancelled);
+    let catalog = build_catalog(context, cancelled);
     if catalog.cancelled {
         return cancelled_mutation("trash-delete", 0, ids.len());
     }
@@ -223,7 +223,7 @@ pub(super) fn empty_context(
     if cancelled.load(Ordering::Relaxed) {
         return cancelled_mutation("trash-empty", 0, 0);
     }
-    let catalog = context.catalog(cancelled);
+    let catalog = build_catalog(context, cancelled);
     if catalog.cancelled {
         return cancelled_mutation("trash-empty", 0, catalog.entries.len());
     }
@@ -310,7 +310,7 @@ pub(super) fn prune_context(
     if cancelled.load(Ordering::Relaxed) {
         return cancelled_mutation("trash-prune", 0, 0);
     }
-    let catalog = context.catalog(cancelled);
+    let catalog = build_catalog(context, cancelled);
     if catalog.cancelled {
         return cancelled_mutation("trash-prune", 0, catalog.entries.len());
     }
@@ -599,10 +599,4 @@ pub(super) fn cancelled_mutation(operation: &str, completed: usize, total: usize
         "partial": completed > 0,
         "error": "operation cancelled"
     })
-}
-
-pub(super) fn bounded_error(message: &str) -> String {
-    let mut errors = Vec::new();
-    push_error(&mut errors, message);
-    errors.pop().unwrap_or_default()
 }

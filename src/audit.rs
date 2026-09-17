@@ -27,7 +27,6 @@ const AUDITED: &[&str] = &[
     "bin-purge",
     "archive-extract",
     "plugin-add",
-    "plugin-install",
     "set-default",
     "drop-run",
     "action-run",
@@ -87,7 +86,7 @@ pub fn record(event: &Event<'_>) -> io::Result<()> {
         "display": std::env::var("WAYLAND_DISPLAY").unwrap_or_default(),
         "home": std::env::var("HOME").unwrap_or_default(),
     });
-    append(&path(), &entry.to_string(), AUDIT_FILE_CAP)
+    crate::lease::durable::append(&path(), &entry.to_string(), AUDIT_FILE_CAP)
 }
 
 fn audit_arguments(command: &str, arguments: &[String]) -> Vec<String> {
@@ -182,10 +181,6 @@ fn audit_excerpt(command: &str, value: &Value) -> Value {
     })
 }
 
-pub fn append(path: &Path, line: &str, cap: u64) -> io::Result<()> {
-    crate::lease::durable::append(path, line, cap)
-}
-
 pub fn read(limit: usize, since: &str, command: &str) -> Value {
     match tail(&path()) {
         Ok((lines, truncated)) => {
@@ -246,11 +241,6 @@ fn excerpt(value: &Value) -> Value {
     if text.len() <= AUDIT_EXCERPT_BYTES {
         return value.clone();
     }
-    let cut = text
-        .char_indices()
-        .map(|(index, _)| index)
-        .take_while(|index| *index <= AUDIT_EXCERPT_BYTES)
-        .last()
-        .unwrap_or(0);
+    let cut = text.floor_char_boundary(AUDIT_EXCERPT_BYTES);
     json!({"excerpt": &text[..cut], "bytes": text.len()})
 }
