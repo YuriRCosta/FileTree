@@ -327,9 +327,10 @@ fn dispatch_command(
                 options.height,
             )?
         }
-        BackendCommand::FrecencyList(options) => crate::frecency::list(
+        BackendCommand::FrecencyList(options) => crate::frecency::list_with_hidden(
             limited(options.limit, crate::frecency::FRECENCY_CAP),
             &options.query,
+            options.show_hidden,
         ),
         BackendCommand::BinPut(options) => {
             crate::artifact_bin::put(&options.module, &options.item, cancelled)

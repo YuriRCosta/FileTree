@@ -3,7 +3,6 @@ import "../lib/PathText.js" as PathText
 import "../lib/TreeOrder.js" as TreeOrder
 import "../lib/Highlight.js" as Highlight
 import "../lib/SearchQuery.js" as SearchQuery
-import Quickshell
 
 Item {
   id: root
@@ -37,6 +36,8 @@ Item {
   property bool quickNavShowHidden: false
   property string quickNavChannel: "folders"
   property string quickNavHome: "folders"
+  property int quickNavSelectionRevision: 0
+  property string quickNavPresentedQuery: ""
   property string quickNavMonitor: ""
   property var quickNavTargetScreen: null
   property string activeQuery: ""
@@ -63,6 +64,7 @@ Item {
   readonly property var spinnerFrames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
   function clearRows() {
+    quickNavPresentedQuery = ""
     model.clear()
     presented = []
     stagedRows = []
@@ -72,6 +74,11 @@ Item {
   function presentRows(rows, all) {
     stagedRows = rows
     syncRows(all ? rows : rows.slice(0, loadedLimit))
+    var selectionQuery = quickNavChannel + "\u0000" + query
+    if (quickNavActive && quickNavPresentedQuery !== selectionQuery) {
+      quickNavPresentedQuery = selectionQuery
+      quickNavSelectionRevision++
+    }
   }
 
   function loadMore() {
@@ -335,8 +342,11 @@ Item {
       if (quickNavCaseSensitive) fileArguments.push("--case-sensitive")
       return { command: "search", arguments: fileArguments }
     }
-    if (mode === "zoxide" && quickNavChannel === "recent")
-      return { command: "frecency-list", arguments: ["--query", value, "--limit", "50"] }
+    if (mode === "zoxide" && quickNavChannel === "recent") {
+      var recentArguments = ["--query", value, "--limit", "50"]
+      if (quickNavShowHidden) recentArguments.push("--show-hidden")
+      return { command: "frecency-list", arguments: recentArguments }
+    }
     if (mode === "zoxide") {
       var folderArguments = ["--root", service.home, "--query", value, "--exclude", service.rootPath, "--limit", "50"]
       if (quickNavShowHidden) folderArguments.push("--show-hidden")

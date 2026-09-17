@@ -313,6 +313,15 @@ This file was written by an agent.
 - **E-10-05** The Screenshots shortcut opens my configured pictures directory,
   including a custom path in `$XDG_CONFIG_HOME/user-dirs.dirs`. Explicit screenshot
   and pictures environment settings keep their precedence.
+- **E-10-06** With View hidden off, Quick Nav, the file tree, search and Recent
+  omit cache directories carrying a valid `CACHEDIR.TAG`, their contents, and
+  FileBlade's private configuration, state and thumbnail cache. Remembered
+  visits do not bring them back. View hidden reveals them; ordinary projects,
+  including FileBlade's source checkout, remain visible either way.
+- **E-10-07** Changing the Quick Nav query selects the first new result, even
+  when existing rows move. Arrow keys still select another result, and a
+  refresh of the same query preserves that choice. My current folder stays
+  excluded from Quick Nav.
 
 ## 11. The actions menu
 

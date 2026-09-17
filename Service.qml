@@ -383,6 +383,7 @@ Item {
   property alias quickNavActive: searchController.quickNavActive
   property alias quickNavChannel: searchController.quickNavChannel
   property alias quickNavHome: searchController.quickNavHome
+  readonly property alias quickNavSelectionRevision: searchController.quickNavSelectionRevision
   property var channelProviders: ({})
   property alias activeSearchQuery: searchController.activeQuery
   property alias lastSearchExitCode: searchController.lastExitCode

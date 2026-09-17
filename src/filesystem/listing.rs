@@ -104,6 +104,10 @@ pub(super) fn visible_rows(
     let mut rows = Vec::new();
     let mut skipped = Vec::new();
     let mut scanned = 0_usize;
+    let mut visibility = crate::visibility::Visibility::new(path, show_hidden);
+    if !visibility.path(path) {
+        return Ok((rows, false, skipped));
+    }
     for entry in fs::read_dir(path)? {
         if cancelled.load(Ordering::Relaxed) {
             break;
@@ -122,7 +126,11 @@ pub(super) fn visible_rows(
             }
             continue;
         }
-        let Some(row) = scanned_row(&entry.path(), include_created, git_enabled) else {
+        let path = entry.path();
+        if !visibility.entry(&path, path.is_dir()) {
+            continue;
+        }
+        let Some(row) = scanned_row(&path, include_created, git_enabled) else {
             continue;
         };
         rows.push(row);

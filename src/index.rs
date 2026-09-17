@@ -615,6 +615,11 @@ struct Walker {
 impl Walker {
     fn run(self) {
         let started = Instant::now();
+        let mut visibility = crate::visibility::Visibility::new(&self.root, self.show_hidden);
+        if !visibility.path(&self.root) {
+            self.progress.running.store(false, Ordering::Relaxed);
+            return;
+        }
         let mut builder = WalkBuilder::new(&self.root);
         builder
             .hidden(!self.show_hidden)
@@ -624,7 +629,7 @@ impl Walker {
         let root_error = Mutex::new(String::new());
         builder.build_parallel().run(|| {
             Box::new(|result| match result {
-                Ok(entry) => self.visit(entry, started),
+                Ok(entry) => self.visit(entry, started, &visibility),
                 Err(error) => {
                     if self.progress.walked.load(Ordering::Relaxed) == 0 {
                         let mut slot = lock(&root_error);
@@ -642,7 +647,12 @@ impl Walker {
         self.progress.running.store(false, Ordering::Relaxed);
     }
 
-    fn visit(&self, entry: ignore::DirEntry, started: Instant) -> WalkState {
+    fn visit(
+        &self,
+        entry: ignore::DirEntry,
+        started: Instant,
+        visibility: &crate::visibility::Visibility,
+    ) -> WalkState {
         if self.progress.abort.load(Ordering::Relaxed) {
             return WalkState::Quit;
         }
@@ -658,6 +668,14 @@ impl Walker {
         if over_deadline || self.progress.walked.load(Ordering::Relaxed) >= INDEX_ENTRY_CAP {
             self.progress.truncated.store(true, Ordering::Relaxed);
             return WalkState::Quit;
+        }
+        if !visibility.entry(
+            entry.path(),
+            entry
+                .file_type()
+                .is_some_and(|kind| kind.is_dir() || kind.is_symlink()),
+        ) {
+            return WalkState::Skip;
         }
         self.progress.walked.fetch_add(1, Ordering::Relaxed);
         let file_type = entry.file_type();
