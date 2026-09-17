@@ -2341,3 +2341,63 @@ fn row_density_has_five_named_stops_and_a_saved_percentage_lands_on_one() {
         "the size names are the readout now"
     );
 }
+
+#[test]
+fn every_directory_the_runtime_qml_imports_ships_in_the_native_payload() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let runtime: serde_json::Value =
+        serde_json::from_str(&text(&root.join("packaging/runtime.json"))).expect("runtime.json");
+    let roots: HashSet<String> = runtime["roots"]
+        .as_array()
+        .expect("roots")
+        .iter()
+        .map(|value| value.as_str().expect("root").to_string())
+        .collect();
+    let mut missing = Vec::new();
+    for shipped in roots.iter().filter(|name| root.join(name).is_dir()) {
+        for path in files(&root.join(shipped), &["qml", "js"]) {
+            let directory = path.parent().expect("parent");
+            for line in text(&path).lines() {
+                let Some(rest) = line.trim_start().strip_prefix("import \"") else {
+                    continue;
+                };
+                let Some(target) = rest.split('"').next() else {
+                    continue;
+                };
+                if !target.starts_with("../") {
+                    continue;
+                }
+                let resolved = directory.join(target);
+                let mut normalized = PathBuf::new();
+                for part in resolved.components() {
+                    match part {
+                        std::path::Component::ParentDir => {
+                            normalized.pop();
+                        }
+                        other => normalized.push(other),
+                    }
+                }
+                let Ok(relative) = normalized.strip_prefix(root) else {
+                    continue;
+                };
+                let top = relative
+                    .components()
+                    .next()
+                    .and_then(|part| part.as_os_str().to_str())
+                    .unwrap_or("")
+                    .to_string();
+                if !top.is_empty() && !roots.contains(&top) {
+                    missing.push(format!(
+                        "{} imports {top}",
+                        path.strip_prefix(root).unwrap().display()
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "runtime QML imports a directory packaging/runtime.json does not ship: {}",
+        missing.join(", ")
+    );
+}
