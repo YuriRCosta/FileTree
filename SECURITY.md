@@ -270,6 +270,28 @@ diagnosis.
 State safety does not replace backups. A crash, hardware failure, filesystem
 bug, or user-authorized forced/destructive action can still lose data.
 
+## Desktop roles
+
+The native app writes desktop-integration files only when the person turns a
+role on in Settings or runs `fileblade native roles enable`. Nothing is
+enabled by installation, update, packaging or first launch. The owned files
+are the application, autostart, D-Bus service and portal descriptor entries
+under `$XDG_DATA_HOME` and `$XDG_CONFIG_HOME` listed in
+`docs/agent-written/native-install.md`, plus one key in `mimeapps.list` and
+`portals.conf` and one marked line in Hyprland's `bindings.lua`. Every
+`Exec` names the stable launcher, never a versioned payload.
+
+The receipt `$XDG_CONFIG_HOME/omarchy/fileblade/desktop-roles.json` is
+written with the private atomic writer at mode 0600 and bounded at 64 KiB.
+It records prior bytes so disabling can restore them exactly; a corrupt or
+newer receipt refuses every role command and is never overwritten, and a
+missing receipt grants no ownership. External writes go through the expected-
+version path: no symlink following, regular files only, same uid, parent
+rechecked, and an entry whose content changed since FileBlade wrote it is
+left in place rather than overwritten. Enabling reveal never kills the
+current owner of `org.freedesktop.FileManager1`. `RolesSet` is a mutating
+backend command; the same shell-to-backend pipe boundary applies.
+
 ## FileBlade Trash
 
 The first-class Trash view combines the Freedesktop Trash layout with

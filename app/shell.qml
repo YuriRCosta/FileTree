@@ -8,6 +8,7 @@ ShellRoot {
 
   readonly property var loadedService: service.item
   property bool activationPending: Quickshell.env("FILEBLADE_ACTIVATE") === "1"
+  property string openPending: Quickshell.env("FILEBLADE_OPEN")
   onLoadedServiceChanged: Style.service = loadedService
   readonly property string sourceDir: Quickshell.env("FILEBLADE_SOURCE_DIR")
   property var shellConfig: ({})
@@ -72,13 +73,20 @@ ShellRoot {
   }
 
   function activateWhenReady() {
-    if (activationPending && loadedService && loadedService.stateReady && loadedService.bladeHost.layoutReady) {
+    if (!loadedService || !loadedService.stateReady || !loadedService.bladeHost.layoutReady) return
+    if (activationPending) {
       activationPending = false
       Qt.callLater(function() { root.loadedService.setOpen(true) })
+    }
+    if (openPending) {
+      var path = openPending
+      openPending = ""
+      Qt.callLater(function() { opener.open(path, Quickshell.env("FILEBLADE_SELECT"), Quickshell.env("FILEBLADE_PROPERTIES") === "1") })
     }
   }
 
   Drain { id: drain; shell: root; service: root.loadedService }
+  OpenRequest { id: opener; service: root.loadedService }
 
   Loader {
     active: service.status === Loader.Ready && Quickshell.env("FILEBLADE_QUALIFICATION") === "1"
@@ -105,6 +113,8 @@ ShellRoot {
     function drainStatus(token: string): string { return drain.status(token) }
     function drainCommit(token: string): string { return drain.commit(token) }
     function drainAbort(token: string): string { return drain.abort(token) }
+    function open(path: string, select: string): string { return opener.open(path, select, false) }
+    function openProperties(path: string, select: string): string { return opener.open(path, select, true) }
     function status(): string {
       return JSON.stringify({
         loaded: service.status === Loader.Ready,

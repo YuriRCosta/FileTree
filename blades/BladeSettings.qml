@@ -761,6 +761,25 @@ Item {
           }
         }
 
+        Column {
+          id: desktop
+          readonly property bool shown: roles.nativeApp && root.matches(roles.keywords)
+          width: parent.width
+          spacing: Style.space(5)
+          visible: shown
+
+          Divider { visible: bladesBlock.shown || general.shown }
+
+          SectionLabel { text: "DESKTOP INTEGRATION" }
+
+          BladeDesktopRoles {
+            id: roles
+            width: parent.width
+            host: root.host
+            active: root.visible && desktop.shown
+          }
+        }
+
         Repeater {
           id: moduleRepeater
           model: root.visible ? root.slotSettings() : []
@@ -769,7 +788,7 @@ Item {
 
           delegate: BladeModuleSection {
             sheet: root
-            dividerShown: bladesBlock.shown || general.shown || index > 0
+            dividerShown: bladesBlock.shown || general.shown || desktop.shown || index > 0
           }
         }
 
@@ -783,7 +802,7 @@ Item {
           spacing: Style.space(5)
           visible: shown
 
-          Divider { visible: bladesBlock.shown || general.shown || root.moduleShown > 0 }
+          Divider { visible: bladesBlock.shown || general.shown || desktop.shown || root.moduleShown > 0 }
 
           PluginUi.HintLine {
             width: parent.width
@@ -819,7 +838,7 @@ Item {
         Text {
           textFormat: Text.PlainText
           width: parent.width
-          visible: root.filtering && !bladesBlock.shown && !general.shown && root.moduleShown === 0 && !footer.shown
+          visible: root.filtering && !bladesBlock.shown && !general.shown && !desktop.shown && root.moduleShown === 0 && !footer.shown
           text: "No setting matches \"" + root.query.trim() + "\""
           color: Color.muted
           elide: Text.ElideRight

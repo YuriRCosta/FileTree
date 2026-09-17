@@ -4,6 +4,7 @@ This file was written by an agent.
 
 ## 0.2.0 (unreleased)
 
+- The native app's Settings gain a Desktop integration section with five independent switches: open folders with FileBlade, reveal in FileBlade, file chooser, Hyprland bindings and start at login. All are off after install, update and first launch; turning one off restores the previous handler when it has not changed since and keeps a newer choice otherwise, and the row says which. `fileblade native roles status|enable|disable` drives the same switches, and removal reverses every owned entry.
 - The Delete dialog on a Skills, Memory, Hooks or MCP row now reads Cancel, Delete <thing>, Deactivate, and adds Delete symlink when the row is a link, so a linked skill can lose its link without losing the files it points at. A deactivated symlink says Delete symlink forever.
 - Every blade tab puts its search field first and the tab header under it: Files, Skills, Memory, Hooks, MCP and Branches share the order. The header's Search button is gone; `/` reveals the field as before.
 - Dragging a blade edge no longer throws the pointer to the middle of the screen or leaves the blade at its maximum width. While a resize drag is in progress the pointer watch that hands focus back to the workspace stays quiet, so no Hyprland focus dispatch and no cursor warp happens mid-drag.

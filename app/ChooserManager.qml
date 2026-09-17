@@ -5,7 +5,7 @@ import qs.Commons
 Item {
   id: manager
   required property var service
-  property bool transportEnabled: Quickshell.env("FILEBLADE_QUALIFICATION") !== "1" || Quickshell.env("FILEBLADE_CHOOSER") === "1"
+  property bool transportEnabled: Quickshell.env("FILEBLADE_CHOOSER") !== "0"
   property var sessions: Object.create(null)
   property int revision: 0
   property int generation: 0

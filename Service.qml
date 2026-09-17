@@ -42,6 +42,7 @@ Item {
   readonly property string drivesResource: "drives:///"
   readonly property bool drivesMode: normalizeRoot(rootPath) === drivesResource
   readonly property bool backendReady: backendClient.ready
+  readonly property bool nativeAuthority: backendClient.nativeAuthority
   readonly property bool backendStalled: backendClient.stalled
   readonly property bool backendVersionSkew: backendClient.versionSkew
   readonly property string backendVersion: backendClient.backendVersion

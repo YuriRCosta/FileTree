@@ -208,9 +208,9 @@ including after that preflight. Unrelated transactions using the same
 database also prevent launch until their lock is released. A stale pacman lock requires pacman's normal
 recovery; FileBlade does not delete it. Qualification covers the configured
 system database, not ad-hoc `--dbpath` or `--config` overrides. The hook edits
-no user defaults. Active operations, dirty Notes and enabled-role reversal
-still need runtime implementation and live qualification. External stale role
-recovery uses runtime's opaque receipt, never the direct receipt.
+no user defaults. Removal runs `native roles disable --all --json` before
+`drain` and requires the document described under Desktop integration.
+External stale role recovery uses that command, never the receipt directly.
 
 `tests/vm/expectations/93-delivery-remove.sh PAYLOAD` checks stale activation,
 ownership preservation, busy refusal and an actual process-group kill during
@@ -222,6 +222,62 @@ explicit maintenance fixture, checks failure/result handling, the active
 launcher path, shared-lock ordering and activation identity changes, then runs
 E91/E93 with it. These are caller/transaction checks; they do not implement or
 qualify runtime draining or desktop-role reversal.
+
+## Desktop integration
+
+Installing, updating, packaging and first launch change nothing on the
+desktop. The Settings sheet of the native app has a "Desktop integration"
+section with five independent switches, all off until the person turns one
+on; the plugin has no such section. The switches and the files each one
+owns:
+
+```yaml
+Open folders with FileBlade:  $XDG_DATA_HOME/applications/fileblade.desktop and the
+                              inode/directory key of $XDG_CONFIG_HOME/mimeapps.list
+Reveal in FileBlade:          $XDG_DATA_HOME/dbus-1/services/org.freedesktop.FileManager1.service
+File chooser:                 $XDG_DATA_HOME/xdg-desktop-portal/portals/fileblade.portal,
+                              $XDG_DATA_HOME/dbus-1/services/org.freedesktop.impl.portal.desktop.fileblade.service
+                              and the FileChooser key of $XDG_CONFIG_HOME/xdg-desktop-portal/portals.conf
+Hyprland bindings:            $XDG_CONFIG_HOME/hypr/fileblade-bindings.lua and one marked dofile
+                              line in $XDG_CONFIG_HOME/hypr/bindings.lua
+Start at login:               $XDG_CONFIG_HOME/autostart/fileblade.desktop
+```
+
+Every `Exec` points at the stable launcher, `~/.local/bin/fileblade` for a
+user-local install or `/usr/bin/fileblade` for the package, never at a
+versioned payload. Enabling refuses when no stable launcher exists.
+
+The receipt `$XDG_CONFIG_HOME/omarchy/fileblade/desktop-roles.json` (mode
+0600, schema 1) records, per role, each written path, the key or marker it
+owns, the exact prior bytes or their absence, and the bytes written. A corrupt
+or newer receipt refuses every role command without being rewritten. No
+receipt means no owned entries; nothing is guessed.
+
+Turning a role off compares each owned entry with its current content. An
+unchanged entry is restored to its recorded prior state, deleting files that
+did not exist before; an entry the person changed since is left alone and
+ownership released. The row reports "restored the previous handler" or
+"kept your newer choice". Turning on "Reveal in FileBlade" while another
+application owns `org.freedesktop.FileManager1` still enables the role and
+reports who owns the name; log out and in for FileBlade to take over, nothing
+is killed. Enabling or disabling bindings runs `hyprctl reload`; chooser and
+reveal changes do not restart `xdg-desktop-portal` or the session bus.
+
+The same switches are on the command line:
+
+```
+fileblade native roles status [--json]
+fileblade native roles enable --role ROLE [--json]
+fileblade native roles disable (--role ROLE | --all) [--json]
+```
+
+Output is always the JSON document; exit 0 for complete or already-in-state,
+1 for partial or refused, 2 for usage. Removal runs `disable --all` before
+`drain` and requires `status: complete` with every role in `restored`,
+`preserved_newer` or `already_off`. `tests/vm/expectations/48-native-roles.sh`
+checks coexistence with the prior handler, folder and chooser enabling,
+byte-exact restoration, a preserved newer handler, the reveal conflict text
+and the removal document, all against temporary XDG roots.
 
 ## Installed expectation adapter
 

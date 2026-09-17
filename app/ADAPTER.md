@@ -207,10 +207,10 @@ Static imports into shared directories hit Quickshell's qs-blackhole scanner
 boundary on the qualified tuple. ChooserBrowser only overrides confirmation
 so the Rust request boundary owns Save validation and overwrite decisions.
 
-The transport consumer is opt-in through FILEBLADE_CHOOSER=1 for qualification
-until the independent Desktop integration switch is implemented. The
-qualification-only ChooserProbe supplies isolated UI fixtures; E45 explicitly
-does not claim that those fixtures complete a portal request. Parented foreign
+The transport consumer is always on; FILEBLADE_CHOOSER=0 is a development
+override that disables it, and the "File chooser" desktop role owns portal
+activation. The qualification-only ChooserProbe supplies isolated UI fixtures;
+E45 explicitly does not claim that those fixtures complete a portal request. Parented foreign
 windows and actual browser upload remain required integration checks.
 
 Opening a chooser calls the existing blade focus handoff before showing its
