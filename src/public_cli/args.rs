@@ -431,3 +431,9 @@ pub enum PropertiesCommand {
     Placement(PlacementArgs),
     Focus,
 }
+
+#[derive(Clone, Debug, Args)]
+pub struct ExecHexArgs {
+    #[arg(required = true, allow_hyphen_values = true)]
+    pub values: Vec<String>,
+}

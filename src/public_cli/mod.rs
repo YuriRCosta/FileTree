@@ -95,6 +95,8 @@ pub enum RootCommand {
     },
     #[command(hide = true)]
     Serve(ServeArgs),
+    #[command(name = "exec-hex", hide = true)]
+    ExecHex(ExecHexArgs),
     Preferences(crate::preferences::Changes),
     Status,
     Doctor,
@@ -243,6 +245,7 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Native(_)
         | RootCommand::Backend { .. }
         | RootCommand::Serve(_)
+        | RootCommand::ExecHex(_)
         | RootCommand::CompanionMutate => Err(AppError::invalid(
             "internal command routed through the public CLI",
         )),

@@ -285,9 +285,10 @@ fn configured_terminal_commands_and_pasted_paths_round_trip_native_bytes() {
     let result = desktop.run("configured", "[\"custom:bytes\"]", &json!({}), &path);
     assert_eq!(result["ok"], true, "{result}");
     let command = result["commands"][0].as_array().unwrap();
-    let start = command.iter().position(|arg| arg == "python3").unwrap();
-    let output = Command::new("/usr/bin/python3")
-        .args(command[start + 1..].iter().map(|arg| arg.as_str().unwrap()))
+    let start = command.iter().position(|arg| arg == "exec-hex").unwrap();
+    assert_eq!(command[start - 1], env!("CARGO_BIN_EXE_fileblade"));
+    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        .args(command[start..].iter().map(|arg| arg.as_str().unwrap()))
         .output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");

@@ -31,6 +31,7 @@ use editors::*;
 use entries::*;
 use herdr::*;
 use paths::*;
+pub use paths::{EXEC_HEX, exec_hex};
 use processes::*;
 pub use run::*;
 const MAX_MIME_PROBES: usize = 12;

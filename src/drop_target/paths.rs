@@ -1,4 +1,5 @@
 use super::*;
+use std::os::unix::ffi::OsStringExt;
 
 pub(super) fn command_binary(program: &OsStr) -> AppResult<PathBuf> {
     if let Some(text) = program.to_str() {
@@ -29,17 +30,14 @@ pub(super) fn quoted_paths(paths: &[String]) -> String {
 }
 
 pub(super) fn configured_launcher(command: &[OsString], cwd: &str) -> AppResult<Vec<String>> {
-    if which("python3").is_none() {
-        return Err(AppError::invalid(
-            "Configured terminal actions require python3",
-        ));
-    }
+    let binary = crate::common::own_binary()
+        .map_err(|_| AppError::invalid("Configured terminal actions need the FileBlade binary"))?;
+    let program = binary
+        .to_str()
+        .ok_or_else(|| AppError::invalid("Configured terminal actions need the FileBlade binary"))?
+        .to_string();
     let folder = parse_path(cwd)?;
-    let mut launch = vec![
-        "python3".to_string(),
-        "-c".to_string(),
-        "import os,sys; argv=[bytes.fromhex(arg) for arg in sys.argv[1:]]; os.chdir(argv[0]); os.execvp(argv[1],argv[1:])".to_string(),
-    ];
+    let mut launch = vec![program, EXEC_HEX.to_string()];
     launch.extend(
         std::iter::once(folder.as_os_str())
             .chain(command.iter().map(OsString::as_os_str))
@@ -52,6 +50,59 @@ pub(super) fn configured_launcher(command: &[OsString], cwd: &str) -> AppResult<
             }),
     );
     Ok(launch)
+}
+
+pub const EXEC_HEX: &str = "exec-hex";
+
+pub fn exec_hex(values: &[String]) -> AppResult<()> {
+    let mut decoded = Vec::with_capacity(values.len());
+    for value in values {
+        decoded.push(decode_hex(value)?);
+    }
+    let (folder, argv) = decoded
+        .split_first()
+        .ok_or_else(|| AppError::invalid("exec-hex needs a working directory and a program"))?;
+    let (program, arguments) = argv
+        .split_first()
+        .ok_or_else(|| AppError::invalid("exec-hex needs a working directory and a program"))?;
+    let folder = PathBuf::from(OsString::from_vec(folder.clone()));
+    std::env::set_current_dir(&folder).map_err(|error| {
+        AppError::invalid(format!("exec-hex cannot enter the directory: {error}"))
+    })?;
+    let error = std::os::unix::process::CommandExt::exec(
+        std::process::Command::new(OsString::from_vec(program.clone())).args(
+            arguments
+                .iter()
+                .map(|value| OsString::from_vec(value.clone())),
+        ),
+    );
+    Err(AppError::invalid(format!(
+        "exec-hex cannot run the program: {error}"
+    )))
+}
+
+fn decode_hex(value: &str) -> AppResult<Vec<u8>> {
+    let bytes = value.as_bytes();
+    if !bytes.len().is_multiple_of(2) {
+        return Err(AppError::invalid(
+            "exec-hex needs even-length hex arguments",
+        ));
+    }
+    bytes
+        .chunks(2)
+        .map(|pair| {
+            let mut byte = 0u8;
+            for digit in pair {
+                let value = match digit {
+                    b'0'..=b'9' => digit - b'0',
+                    b'a'..=b'f' => digit - b'a' + 10,
+                    _ => return Err(AppError::invalid("exec-hex needs lowercase hex arguments")),
+                };
+                byte = byte * 16 + value;
+            }
+            Ok(byte)
+        })
+        .collect()
 }
 
 fn shell_quote(value: &str) -> String {

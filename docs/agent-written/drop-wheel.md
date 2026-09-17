@@ -146,8 +146,8 @@ option syntax of arbitrary programs.
 Terminal and multiplexer transport pass a fixed launcher with byte-encoded arguments
 and working directory. That launcher decodes the payload and executes the
 argument array; the configured command never becomes shell program text.
-The fixed decoder uses `python3`, already provided by the desktop; if it is
-unavailable, FileBlade refuses the configured terminal/multiplexer launch.
+The fixed decoder is the FileBlade binary itself, invoked by absolute path as
+`fileblade exec-hex`, so no interpreter and no PATH entry is required.
 Literal file URIs, empty arguments and non-UTF-8 path bytes retain their
 meaning in every run mode. Ambiguous or stale targets are refused. Custom
 commands and custom built-in references are resolved from current settings
