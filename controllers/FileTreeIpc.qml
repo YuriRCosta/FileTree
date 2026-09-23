@@ -103,6 +103,12 @@ QtObject {
     return service.rootPath
   }
 
+  function downloads(): string {
+    if (service.downloadsPath === "") return "download directory is unknown"
+    service.setRootPath(service.downloadsPath)
+    return service.rootPath
+  }
+
   function back(): string {
     return service.goBack()
   }

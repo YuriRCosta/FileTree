@@ -324,6 +324,10 @@ This file was written by an agent.
 - **E-10-05** The Screenshots shortcut opens my configured pictures directory,
   including a custom path in `$XDG_CONFIG_HOME/user-dirs.dirs`. Explicit screenshot
   and pictures environment settings keep their precedence.
+- **E-10-05a** The Downloads button beside Home in the toolbar opens my download
+  directory, `XDG_DOWNLOAD_DIR` from the environment or `user-dirs.dirs`, and
+  `~/Downloads` otherwise. It is dimmed while I am already there, can be hidden
+  from the toolbar settings, and `fileblade downloads` does the same.
 - **E-10-06** With View hidden off, Quick Nav, the file tree, search and Recent
   omit cache directories carrying a valid `CACHEDIR.TAG`, their contents, and
   FileBlade's private configuration, state and thumbnail cache. Remembered

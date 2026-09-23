@@ -49,6 +49,7 @@ Item {
   function retryBackend() { backendClient.retry() }
   readonly property var backendLimits: backendClient.limits
   readonly property string screenshotsPath: backendClient.paths && backendClient.paths.screenshots ? String(backendClient.paths.screenshots) : ""
+  readonly property string downloadsPath: backendClient.paths && backendClient.paths.downloads ? String(backendClient.paths.downloads) : ""
   readonly property string backendError: backendClient.lastError
 
   BackendClient {

@@ -27,6 +27,10 @@ pub fn screenshots_dir() -> PathBuf {
     expanded_path("~/Pictures")
 }
 
+pub fn downloads_dir() -> PathBuf {
+    user_directory("XDG_DOWNLOAD_DIR").unwrap_or_else(|| expanded_path("~/Downloads"))
+}
+
 fn user_directory(key: &str) -> Option<PathBuf> {
     if let Some(value) = std::env::var_os(key)
         .filter(|value| !value.is_empty())

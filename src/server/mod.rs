@@ -331,6 +331,7 @@ fn handshake(
             },
             "paths": {
                 "screenshots": crate::common::path_text(&crate::paths::screenshots_dir()),
+                "downloads": crate::common::path_text(&crate::paths::downloads_dir()),
             },
             "recovered": recovered,
             "version": env!("CARGO_PKG_VERSION"),

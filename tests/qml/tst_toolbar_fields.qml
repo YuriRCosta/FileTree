@@ -5,12 +5,12 @@ import "../../lib/ToolbarFields.js" as ToolbarFields
 TestCase {
   name: "ToolbarFields"
 
-  readonly property string canonical: "back,forward,up,home,screenshots,recent,media,drives,desktop-trash"
+  readonly property string canonical: "back,forward,up,home,downloads,screenshots,recent,media,drives,desktop-trash"
 
   function test_every_button_is_shown_until_a_choice_is_stored() {
     compare(ToolbarFields.normalizeFields().join(","), canonical)
     compare(ToolbarFields.normalizeFields(null).join(","), canonical)
-    compare(ToolbarFields.choices.length, 9)
+    compare(ToolbarFields.choices.length, 10)
     for (var i = 0; i < ToolbarFields.choices.length; i++) {
       var choice = ToolbarFields.choices[i]
       verify(String(choice.key) !== "")

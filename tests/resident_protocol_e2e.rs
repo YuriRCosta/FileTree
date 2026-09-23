@@ -16,13 +16,13 @@ struct Server {
 }
 
 #[test]
-fn handshake_resolves_the_screenshot_directory_from_xdg_user_dirs() {
+fn handshake_resolves_the_screenshot_and_download_directories_from_xdg_user_dirs() {
     let root = TempDir::new().unwrap();
     let config = root.path().join("config");
     std::fs::create_dir_all(config.join("omarchy/fileblade")).unwrap();
     std::fs::write(
         config.join("user-dirs.dirs"),
-        "XDG_PICTURES_DIR=\"$HOME/Bilder\"\n",
+        "XDG_PICTURES_DIR=\"$HOME/Bilder\"\nXDG_DOWNLOAD_DIR=\"$HOME/Baixados\"\n",
     )
     .unwrap();
     std::fs::write(
@@ -36,11 +36,17 @@ fn handshake_resolves_the_screenshot_directory_from_xdg_user_dirs() {
         ("XDG_STATE_HOME", root.path()),
         ("OMARCHY_SCREENSHOT_DIR", std::path::Path::new("")),
         ("XDG_PICTURES_DIR", std::path::Path::new("")),
+        ("XDG_DOWNLOAD_DIR", std::path::Path::new("")),
     ]);
     server.send(json!({"v":1,"type":"hello"}));
+    let hello = server.receive();
     assert_eq!(
-        server.receive()["paths"]["screenshots"],
+        hello["paths"]["screenshots"],
         root.path().join("Bilder").to_str().unwrap()
+    );
+    assert_eq!(
+        hello["paths"]["downloads"],
+        root.path().join("Baixados").to_str().unwrap()
     );
     server.finish();
 }

@@ -1959,11 +1959,12 @@ fn qml_objects_do_not_bind_the_same_signal_twice() {
     assert!(offenders.is_empty(), "{}", offenders.join("\n"));
 }
 
-const TOOLBAR_KEYS: [&str; 9] = [
+const TOOLBAR_KEYS: [&str; 10] = [
     "back",
     "forward",
     "up",
     "home",
+    "downloads",
     "screenshots",
     "recent",
     "media",
