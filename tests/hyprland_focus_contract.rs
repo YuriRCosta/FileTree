@@ -143,7 +143,6 @@ fn every_external_launch_yields_blade_focus_without_restoring_the_old_window() {
     let service = source("Service.qml");
     let launcher = source("controllers/LaunchController.qml");
     let surface = source("blades/BladeSurface.qml");
-    let window = source("blades/BladeWindow.qml");
     let placement = source("src/hyprland/blades.rs");
     let navigation = source("controllers/NavigationController.qml");
     let search = source("controllers/SearchController.qml");
@@ -166,8 +165,6 @@ fn every_external_launch_yields_blade_focus_without_restoring_the_old_window() {
     assert!(host_yield.contains("focusEpoch++"));
     assert!(host_yield.contains("service.cancelBackendRequest(windowFocusRequestId"));
     assert!(host_yield.contains("windowFocusGeneration++"));
-    assert!(host_yield.contains("service.cancelBackendRequest(placementRequestId"));
-    assert!(host_yield.contains("placementGeneration++"));
     assert!(host_yield.contains("return focusController.yieldFocus()"));
     assert!(surface.contains("focusRequestTimer.stop()"));
     assert!(surface.contains("if (surface.keyboardFocusReleased) return"));
@@ -175,21 +172,11 @@ fn every_external_launch_yields_blade_focus_without_restoring_the_old_window() {
     assert!(surface.contains("sheetHover.hovered ? sheetHover.point.scenePosition.x : -1"));
     assert!(surface.contains("onSheetHoverPositionChanged: followSheetPointer()"));
     assert!(surface.contains("if (!surface.pointerRefocusRequired && !surface.bladeFocused"));
-    assert!(window.contains("placementTimer.stop()"));
-    assert!(window.contains("focusRequestTimer.stop()"));
-    assert!(window.contains("if (window.host.focusedEdge !== window.edge) return"));
-    assert!(window.contains(
-        "onTriggered: if (window.host.focusedEdge === window.edge) window.host.placeBladeWindow"
-    ));
-    assert!(window.contains(
-        "if (activeFocus && !window.host.windowAddress(window.edge)) placementTimer.restart()"
-    ));
     assert!(placement.contains("check_cancelled(cancelled)?;"));
     assert!(navigation.contains("function yieldFocus() { focusTimer.stop() }"));
     assert!(
         search.contains("function yieldFocus() { focusTimer.stop(); quickNavTargetScreen = null }")
     );
-    assert!(host.contains("if (epoch === host.focusEpoch) host.focusBlade"));
     assert!(service.contains("function yieldFocusForExternalLaunch()"));
     assert!(
         service.contains("if (dropWheelOpen) dropWheelController.keyboardFocusReleased = true")

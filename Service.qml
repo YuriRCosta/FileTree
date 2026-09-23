@@ -60,39 +60,10 @@ Item {
   }
 
   ArtifactActionController { id: artifactActions; service: service }
-  ExtensionCatalog {
-    id: extensionCatalog
-    service: service
-    watchPaths: backendClient.nativeAuthority
-      ? [bladeHost.configHome, bladeHost.configHome + "/fileblade",
-         bladeHost.configHome + "/fileblade/extensions", bladeHost.configDir]
-      : [service.home + "/.config/omarchy", service.home + "/.config/omarchy/plugins"]
-    onRefreshed: bladeHost.registry.rescan()
-  }
-
   Connections {
     target: service
-    function onBackendReadyChanged() {
-      if (!service.backendReady) return
-      extensionCatalog.refresh()
-      extensionCatalog.watch()
-    }
-    function onPluginRegistryChanged() { if (service.backendReady) extensionCatalog.refresh() }
+    function onBackendReadyChanged() { if (service.backendReady) bladeHost.registry.rescan() }
   }
-
-  Connections {
-    target: bladeHost
-    function onBladeOpened(edge) { if (service.backendReady) extensionCatalog.refreshIfStale() }
-  }
-  ExtensionProviders {
-    id: extensionProviders
-    providers: extensionCatalog.providers
-    builtinProviders: bladeHost.registry.builtinProviders
-    disclosed: service.pluginRegistry && service.pluginRegistry.installedPlugins ? service.pluginRegistry.installedPlugins : ({})
-    files: service
-    inventoryUrl: service.pluginDir ? "file://" + service.pluginDir + "/ui/ArtifactInventory.qml" : ""
-  }
-  readonly property alias extensionCatalog: extensionCatalog
   KeybindingsController { id: keybindings; service: service }
   PreferencesController { id: preferencesController; service: service }
   FileView {
@@ -131,11 +102,7 @@ Item {
 
   function moduleDirs(id, callback) { return bladeHost.dirs.ensure(id, callback) }
   readonly property var services: {
-    var map = ({ files: service, actions: actionController })
-    var supplied = extensionProviders.services
-    var ids = supplied ? Object.keys(supplied) : []
-    for (var i = 0; i < ids.length; i++) if (!map[ids[i]]) map[ids[i]] = supplied[ids[i]]
-    return map
+    return ({ files: service, actions: actionController })
   }
 
   property alias stateReady: stateController.ready
@@ -145,9 +112,9 @@ Item {
   readonly property string projectRoot: projectController.projectRoot
   readonly property string projectMarker: projectController.projectMarker
   readonly property string contextPath: projectController.contextPath
-  readonly property int sidebarWidth: bladeHost.bladeWidth("left")
+  readonly property int sidebarWidth: bladeHost.bladeWidth(bladeHost.side)
   readonly property int propertiesBladeWidth: bladeHost.bladeWidth("right")
-  readonly property string propertiesPlacement: bladeHost.propertiesPlacement()
+  readonly property string propertiesPlacement: "none"
   readonly property string monitorMode: bladeHost.monitorMode
   readonly property bool settingsOpen: bladeHost.settingsOpen
   readonly property string focusedBlade: bladeHost.focusedEdge
@@ -200,16 +167,13 @@ Item {
   BladeHost {
     id: bladeHost
     shell: service.shell
-    pluginRegistry: service.pluginRegistry
-    catalogProviders: extensionCatalog.providers
-    providerErrors: extensionProviders.errors
     pluginDir: service.pluginDir
     config: service.pluginConfig()
     services: service.services
     updates: updateController
     onAnyOpenChanged: if (anyOpen) updateController.checkIfStale()
     onLayoutApplied: {
-      if (bladeHost.pendingOpenEdges && bladeHost.pendingOpenEdges.left) navigationController.focusAfterOpen()
+      if (bladeHost.pendingOpenEdges && bladeHost.pendingOpenEdges[bladeHost.side]) navigationController.focusAfterOpen()
     }
   }
 
@@ -621,7 +585,6 @@ Item {
   ActionController {
     id: actionController
     service: service
-    catalogProviders: extensionCatalog.providers
   }
 
   ConfigController {
@@ -809,7 +772,6 @@ Item {
   function toggleOpen() { navigationController.toggleOpen() }
   function setSidebarWidth(value, screenWidth, persist) { navigationController.setSidebarWidth(value, screenWidth, persist) }
   function setPropertiesBladeWidth(value, screenWidth, persist) { navigationController.setPropertiesBladeWidth(value, screenWidth, persist) }
-  function setPropertiesPlacement(value) { navigationController.setPropertiesPlacement(value) }
   function setPriorityProperty(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityProperty(value) }
   function setPriorityColumns(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityColumns(value) }
   readonly property bool quickNavCaseSensitive: searchController.quickNavCaseSensitive
@@ -838,8 +800,6 @@ Item {
   function focusSearch(targetScreen) { return navigationController.focusSearch(targetScreen) }
   function focusLocation(targetScreen) { return navigationController.focusLocation(targetScreen) }
   function focusProperties(targetScreen) { return navigationController.focusProperties(targetScreen) }
-  function openBranches(targetScreen) { return navigationController.openBranches(targetScreen) }
-  function closeBranches() { return navigationController.closeBranches() }
   function clearLocationValidationError() { locationController.clearError() }
   function navigateToLocation(path, targetScreen, mode) { return locationController.navigate(path, targetScreen, mode) }
   function cancelLocationValidation(clearError) { locationController.cancel(clearError) }

@@ -13,8 +13,9 @@ can see. Implementation details belong in the scripts, not in the expectation.
 The expectations run in order, basic first, so an early failure explains later
 failures.
 
-This catalog covers the FileBlade host and its bundled Files, Properties, and
-Notes modules. Optional companion plugins keep their own expectations.
+This catalog covers the FileBlade host and its one Files module, shown in a
+single docked blade on the side chosen in Settings. Other modules and
+companion plugins are not loaded.
 
 Each expectation carries the script that proves it and the case label that
 script prints. Set `OVM` to your headless VM harness executable, then run a section:
@@ -50,20 +51,19 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 4. **E-01-04** If I have the left blade open but not focused, pressing `Super+B`
    hides it: one press closes an open blade wherever my focus is, and one
    press opens and focuses a hidden one.
-5. **E-01-05** If I press `Super+Shift+B`, the right blade opens and takes focus
-   without hiding the left blade.
+5. **E-01-05** There is only one blade. `Super+Shift+B` and any command that names the
+   left or right blade act on that one blade, on the side chosen in Settings.
 6. **E-01-06** After I focus a blade, my keyboard input controls the blade and
    does not type into the application behind it.
 7. **E-01-07** While I use the keyboard in a blade, the last application window
    keeps its active appearance without receiving my typing.
 8. **E-01-08** If I click an application window, keyboard focus leaves the
    blade and returns to that window.
-9. **E-01-09** If I close the last application window while a blade is open,
-   keyboard focus moves to the left blade when available, otherwise the right.
-   Where my pointer rests decides it: over bare desktop the hover watch gives
-   focus back to no one.
-10. **E-01-10** If I move focus right from the left blade, it enters the right
-    blade; moving focus left returns it to the left blade.
+9. **E-01-09** If I close the last application window while the blade is open, keyboard
+   focus moves to the blade. Where my pointer rests decides it: over bare
+   desktop the hover watch gives focus back to no one.
+10. **E-01-10** If I move focus toward the blade's side from an application window, focus
+    enters the blade; moving focus away returns it to the window on that side.
 11. **E-01-11** If I click the Up button while the blade has keyboard focus, it
     works on the first click without needing a preliminary click.
 12. **E-01-12** If I press `Super+B` while the left blade is focused and an
@@ -594,14 +594,15 @@ Automation for this section is pending.
      fullscreen hide the blades until I leave fullscreen, then restore them
      with the same widths and sections. Hidden blades do not keep keyboard
      focus. See `33-fullscreen.sh` for these cases.
-171. **E-21-02** If I press `Super+T` while a blade is focused, it becomes a
-     regular window that I can tile and move; pressing `Super+T` again docks it.
+171. **E-21-02** If I press `Super+T` while the blade is focused, nothing happens: the blade
+     always stays docked and never becomes a regular window. Outside the blade,
+     `Super+T` floats or tiles my application window as usual.
 172. **E-21-03** If I press `Super+-` or `Super+=` while a blade is focused, only
      that blade becomes narrower or wider.
 173. **E-21-04** If I drag a docked blade's inner edge, the blade follows the
      pointer without smearing or stretching its contents.
-174. **E-21-05** If I close and reopen a blade after resizing or docking it, it
-     keeps the width and docked or window mode I chose.
+174. **E-21-05** If I close and reopen the blade after resizing it, it keeps the width I
+     chose and is still docked on the same side.
 175. **E-21-06** If I press `Super+W` while a blade is focused, that blade closes;
      if no blade is focused, my active application window closes instead.
 176. **E-21-07** If I use `Super` with an arrow key, focus moves naturally among
@@ -609,8 +610,8 @@ Automation for this section is pending.
 177. **E-21-08** If I use `Super+Shift` with an arrow key while a blade section is
      focused, that section moves in the chosen direction; outside a blade, my
      normal window-swap behavior remains unchanged.
-178. **E-21-09** If I turn blade animations off, blades appear and disappear
-     without sliding; turning animations on restores the slide.
+178. **E-21-09** The blade appears and disappears instantly, without sliding. Settings has no
+     animation toggle, and the setting is not read from the layout file.
 179. **E-21-10** On a multi-monitor setup, blades appear only where the
      Monitors setting allows and interact with windows on the same screen. The
      Monitors dropdown in Settings offers Active (the default), All, and one
@@ -643,15 +644,10 @@ Automation for this section is pending.
 `tests/vm/expectations/22-module-picker.sh` covers the module picker.
 Automation for the remaining tab-management scenarios is pending.
 
-180. **E-22-01** If I click `+` in a section's tab row, I can search for a module
-     and add it as another tab in that section. Both blades also show a module
-     `+` beside the heading when a section has only one module, including Notes.
-     Notes' separate note `+` still adds a note. The module picker has an
-     "Add module" heading and close `×`; Escape closes only the picker, even
-     after I hover its rows. Picking an extension adds it to the section whose
-     `+` I clicked.
-181. **E-22-02** If I add a module from Settings, it appears as a new section in
-     the left or right blade I chose.
+180. **E-22-01** The blade has no `+` to add modules, neither in the tab row nor in the
+     section header. FileBlade is the only module the blade shows.
+181. **E-22-02** Settings has no module list: I cannot add, remove, or move sections. The
+     blade always holds exactly one FileBlade section.
 182. **E-22-03** If I click a tab, I see that module; `Ctrl+Tab`, `Ctrl+]`, and
      `Ctrl+PageDown` move to the next tab, while their reverse shortcuts move to
      the previous tab.
@@ -665,20 +661,17 @@ Automation for the remaining tab-management scenarios is pending.
      from another monitor, the question closes instead of removing a
      different tab;
      middle-clicking a tab closes it directly.
-186. **E-22-07** I cannot close the only tab in a section by mistake; I remove the
-     whole section from Settings when that is what I intend.
-187. **E-22-08** In Settings, I can move a section up or down, send it to the
-     other blade, or remove it, and I see the layout change immediately.
-188. **E-22-09** If a module is disabled, incompatible, missing, or fails to load,
-     I see a clear explanation and can choose another module instead of seeing
-     a blank section.
+186. **E-22-07** I cannot close the only FileBlade tab, by its `×`, middle-click, or the
+     command line; the blade always keeps its FileBlade section and its state.
+187. **E-22-08** Settings shows one BLADE row with its open state and width, and a Side
+     choice of Left or Right. Choosing a side moves the blade to that screen edge
+     immediately; if the blade was open it stays open and takes focus there.
+188. **E-22-09** If the FileBlade module fails to load, I see a clear explanation instead
+     of a blank section.
 189. **E-22-10** Each tab remembers its own content and choices when I switch
      tabs, close and reopen the blade, or restart the shell.
-190. **E-22-11** If I right-click a tab, the menu offers to move it to the other
-     blade with an arrow pointing that way: `→` "Move to right blade" from the
-     left blade, `←` "Move to left blade" from the right. Choosing it takes the
-     tab out of its section and places it as the top section of the other
-     blade, opening that blade if it was closed, and focus follows the tab.
+190. **E-22-11** If I right-click the FileBlade tab, the menu offers only Rename and Clear
+     name; there is no option to move the tab to another blade.
 
 ## 23. Opening files, locations and recent items
 
@@ -993,9 +986,8 @@ startup targets also have deterministic QML coverage.
 - **E-34-02** Either blade's shortcut closes that blade in one press, even
   while I work on another monitor. The next press opens and focuses it on the
   monitor I am using. A closed blade has no remembered invocation monitor.
-- **E-34-03** I can keep the left blade on one monitor and the right blade on
-  another. Their sections, tabs, notes and width preferences still belong to
-  one shared layout. Opening or closing all blades follows the same rule.
+- **E-34-03** The one blade keeps its width, side and FileBlade state in one shared
+  layout on every monitor. Opening or closing it follows the Monitors rule.
 - **E-34-04** A monitor lock makes both shortcuts act on that monitor wherever
   I am working. An unknown lock or explicit ineligible target is rejected
   without redirecting the request or changing my settings.
@@ -1028,9 +1020,8 @@ startup targets also have deterministic QML coverage.
   window on another monitor's visible workspace works too.
 - **E-34-14** Directional focus reaches a blade only on that blade's assigned
   monitor, including when the current workspace has no windows.
-- **E-34-15** Undocking starts a native window on the blade's monitor. I can
-  then move it normally; changing focus or monitor settings does not move it
-  back to its creation monitor.
+- **E-34-15** The blade is always docked on its monitor; there is no undocked native
+  window to move.
 - **E-34-16** Unplugging the source monitor during a held module or file drag
   cancels it. The layout and files stay unchanged, and no paste is dispatched.
 
@@ -1076,8 +1067,7 @@ Trash stores on other mounts.
   to the same question. It explains shared Trash, permanent deletion and where to
   change the setting. No automatic pruning runs before Confirm is saved.
   It uses FileBlade's font, with the full Trash icon beside the heading, and appears
-  once on the left blade, opening it if only
-  the right blade was open. An undocked left blade shows it in its own window.
+  once on the blade, opening it if it was closed.
 - **E-36-03** Each choice survives restarting the shell without another question;
   changing retention in settings still works. A failed save leaves the question
   present and automatic cleanup off. Config and keybindings record their schema
@@ -1277,12 +1267,11 @@ This file was written by an agent.
 1. **E-43-01** In both plugin and native FileBlade, focusing either blade lets
    me type into that blade without typing into the application behind it.
    Clicking an ordinary application returns keyboard input to that window.
-2. **E-43-02** In both shapes, opening a blade reserves its width at the
-   corresponding desktop edge. With both blades open, each reserves its own
-   side; closing them returns that space to ordinary windows.
-3. **E-43-03** If I explicitly hide the desktop bar while both blades are open,
-   the bar gives back its space and both blades extend to the top edge.
-   The native blades behave like the plugin blades.
+2. **E-43-02** In both shapes, opening the blade reserves its width at the desktop edge
+   of its side; closing it returns that space to ordinary windows.
+3. **E-43-03** If I explicitly hide the desktop bar while the blade is open, the bar
+   gives back its space and the blade extends to the top edge.
+   The native blade behaves like the plugin blade.
 
 ## 44. Native blades follow the desktop bar
 

@@ -264,37 +264,6 @@ Item {
         }
       }
     }
-
-    Rectangle {
-      id: addTab
-      visible: bar.interactive
-      height: parent ? parent.height : 0
-      width: Style.space(22)
-      color: "transparent"
-
-      Text {
-        textFormat: Text.PlainText
-        anchors.centerIn: parent
-        text: "+"
-        color: addPointer.containsMouse ? Color.accent : Color.muted
-        font.family: Style.font.family
-        font.pixelSize: Typography.body
-      }
-
-      MouseArea {
-        id: addPointer
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: bar.slot.openModulePicker(tabViewport.x + addTab.x - tabViewport.contentX)
-      }
-
-      PluginUi.HintTip {
-        visible: addPointer.containsMouse
-        title: "Add module"
-        actions: [{ button: "left", text: "Choose a module" }]
-      }
-    }
       }
     }
   }
@@ -343,17 +312,11 @@ Item {
     menuTab = index
     menuX = tabViewport.x + x - tabViewport.contentX
     var moduleId = bar.slot.host.slotModuleAt(bar.slot.edge, bar.slot.slotIndex, index)
-    var rows = moduleId === "files"
-      ? [
-          { key: "rename", glyph: "󰏫", label: "Rename…" },
-          { key: "clear", glyph: "󰅖", label: "Clear name", enabled: tabLabel(index) !== "" }
-        ]
-      : []
-    rows.push(bar.slot.edge === "right"
-      ? { key: "send", glyph: "←", label: "Move to left blade" }
-      : { key: "send", glyph: "→", label: "Move to right blade" })
-    rows.push({ key: "close", glyph: "×", label: "Close tab", enabled: bar.slot.tabs.length > 1 })
-    tabMenu.rows = rows
+    if (moduleId !== "files") return
+    tabMenu.rows = [
+      { key: "rename", glyph: "󰏫", label: "Rename…" },
+      { key: "clear", glyph: "󰅖", label: "Clear name", enabled: tabLabel(index) !== "" }
+    ]
     tabMenu.present()
   }
 
@@ -379,11 +342,6 @@ Item {
     bar.slot.forceActiveFocus()
   }
 
-  function sendTab(index) {
-    closeTabMenu()
-    bar.slot.host.sendTabAcross(bar.slot.edge, bar.slot.slotIndex, index, bar.slot.hostWindow ? bar.slot.hostWindow.screen : null)
-  }
-
   function clearLabel(index) {
     closeTabMenu()
     bar.slot.host.setTabStateValue(bar.slot.edge, bar.slot.slotIndex, index, "label", null)
@@ -399,8 +357,6 @@ Item {
       var index = bar.menuTab
       if (key === "rename") bar.beginRename(index)
       else if (key === "clear") bar.clearLabel(index)
-      else if (key === "send") bar.sendTab(index)
-      else if (key === "close") bar.slot.requestCloseTab(index)
     }
   }
 

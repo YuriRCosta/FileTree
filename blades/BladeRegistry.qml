@@ -7,9 +7,7 @@ QtObject {
 
   property string pluginDir: ""
   property string userModulesDir: ""
-  property string socketId: ""
   property int contractVersion: 1
-  property var pluginRegistry: null
   property var service: null
   property var modules: ({})
   property var disabledModules: ({})
@@ -19,27 +17,9 @@ QtObject {
   property int scanGeneration: 0
   property int revision: 0
   property var fileModules: ({})
-  property var catalogProviders: []
-  readonly property var coreModules: ["skills", "memory", "hooks", "mcp"]
-  readonly property var moduleAliases: ({
-    "data-goblin.fileblade-skills/skills": "skills",
-    "data-goblin.fileblade-memory/memory": "memory",
-    "data-goblin.fileblade-hooks/hooks": "hooks",
-    "data-goblin.fileblade-mcp/mcp": "mcp",
-    "kurt.agent-skills/skills": "skills",
-    "kurt.agent-memory/memory": "memory",
-    "kurt.agent-hooks/hooks": "hooks",
-    "kurt.agent-mcp/mcp": "mcp"
-  })
-  readonly property var builtinProviders: {
-    var rows = []
-    for (var i = 0; i < coreModules.length; i++) {
-      var found = fileModules[coreModules[i]]
-      if (found && found.source === "builtin" && found.providerState === "owned" && found.compatible)
-        rows.push({ id: found.providerId, dir: found.sourceDir, entry: found.providerEntry })
-    }
-    return rows
-  }
+  readonly property var coreModules: []
+  readonly property var builtinProviders: []
+  readonly property string onlyModule: "files"
   readonly property int maximumModules: 128
   readonly property int maximumIdLength: 128
   readonly property int maximumTextLength: 512
@@ -47,8 +27,7 @@ QtObject {
   signal registryChanged()
 
   function canonicalModule(id) {
-    var name = String(id || "").trim()
-    return moduleAliases[name] || name
+    return String(id || "").trim()
   }
 
   function isSafeRelativePath(value) {
@@ -85,8 +64,7 @@ QtObject {
       entryUrl: PathText.fileUrl(PathText.join(directory, entry)),
       sourceDir: directory,
       source: boundedText(source, "builtin", maximumTextLength),
-      providerId: source === "builtin" && !idPrefix && coreModules.indexOf(id) >= 0
-        ? "fileblade.core." + id : boundedText(idPrefix, "", maximumIdLength),
+      providerId: boundedText(idPrefix, "", maximumIdLength),
       singleton: raw.singleton === undefined ? true : !!raw.singleton,
       minHeight: Math.max(0, Math.min(4096, Number(raw.minHeight) || 0)),
       hostContract: hostContract,
@@ -119,7 +97,7 @@ QtObject {
       var definitions = packageModules(row.definition)
       for (var j = 0; j < definitions.length && accepted < maximumModules; j++) {
         var module = normalizedModule(definitions[j], row.source_dir, row.source, "")
-        if (module && !found[module.id]) {
+        if (module && module.id === onlyModule && module.source === "builtin" && !found[module.id]) {
           found[module.id] = module
           accepted++
         }
@@ -134,108 +112,12 @@ QtObject {
     }
   }
 
-  function socketContributions(manifest) {
-    if (!manifest) return null
-    var extensions = manifest.extensions
-    if (extensions && typeof extensions === "object" && !Array.isArray(extensions) && Array.isArray(extensions[socketId]))
-      return extensions[socketId]
-    return Array.isArray(manifest.bladeModules) ? manifest.bladeModules : null
-  }
-
-  function providerModules(manifest, pluginId, sourceDir) {
-    var result = ({})
-    var count = 0
-    var contributed = socketContributions(manifest)
-    if (!contributed) return result
-    var directory = sourceDir === undefined || sourceDir === null || sourceDir === "" ? manifest.__sourceDir : sourceDir
-    for (var i = 0; i < contributed.length && count < maximumModules; i++) {
-      var module = normalizedModule(contributed[i], directory, "plugin:" + pluginId, pluginId)
-      if (module && !result[module.id]) {
-        result[module.id] = module
-        count++
-      }
-    }
-    return result
-  }
-
-  function mergeProviderModules(target, other, candidates) {
-    var ids = Object.keys(candidates)
-    var count = Object.keys(target).length
-    for (var i = 0; i < ids.length && count < maximumModules; i++) {
-      var id = ids[i]
-      var canonical = canonicalModule(id)
-      if (canonical !== id && fileModules[canonical] && fileModules[canonical].source === "builtin") continue
-      if (target[id] || other[id]) continue
-      target[id] = candidates[id]
-      count++
-    }
-  }
-
-  function providerSources() {
-    var installed = pluginRegistry && pluginRegistry.installedPlugins ? pluginRegistry.installedPlugins : ({})
-    var ids = Object.keys(installed)
-    var sources = []
-    for (var i = 0; i < ids.length && sources.length < maximumModules; i++) {
-      var manifest = installed[ids[i]]
-      if (!manifest || !socketContributions(manifest) || !manifest.__sourceDir) continue
-      var providerEnabled = !pluginRegistry || typeof pluginRegistry.isEnabled !== "function" || pluginRegistry.isEnabled(ids[i])
-      if (!providerEnabled) continue
-      sources.push({ id: ids[i], dir: String(manifest.__sourceDir) })
-    }
-    var catalog = Array.isArray(catalogProviders) ? catalogProviders : []
-    for (var j = 0; j < catalog.length && sources.length < maximumModules; j++) {
-      var provider = catalog[j]
-      if (!provider || !provider.id || !provider.enabled || installed[provider.id]) continue
-      if (!provider.dir || !socketContributions(provider.manifest)) continue
-      sources.push({ id: String(provider.id), dir: String(provider.dir) })
-    }
-    return sources
-  }
-
-  function manifestModules() {
-    var result = ({})
-    var disabled = ({})
-    var installed = pluginRegistry && pluginRegistry.installedPlugins ? pluginRegistry.installedPlugins : ({})
-    var ids = Object.keys(installed)
-    for (var i = 0; i < ids.length && i < maximumModules * 2; i++) {
-      var providerEnabled = !pluginRegistry || typeof pluginRegistry.isEnabled !== "function"
-        || pluginRegistry.isEnabled(ids[i])
-      var candidates = providerModules(installed[ids[i]], ids[i])
-      if (providerEnabled) mergeProviderModules(result, disabled, candidates)
-      else mergeProviderModules(disabled, result, candidates)
-    }
-    var catalog = Array.isArray(catalogProviders) ? catalogProviders : []
-    for (var j = 0; j < catalog.length && j < maximumModules; j++) {
-      var provider = catalog[j]
-      if (!provider || !provider.id || installed[provider.id]) continue
-      var fromDisk = providerModules(provider.manifest, String(provider.id), String(provider.dir || ""))
-      var diskIds = Object.keys(fromDisk)
-      for (var k = 0; k < diskIds.length; k++) {
-        var candidate = fromDisk[diskIds[k]]
-        if (candidate.providerState === "owned" || candidate.providerState === "stateless") continue
-        candidate.needsUpdate = true
-        candidate.compatible = false
-      }
-      if (provider.enabled) mergeProviderModules(result, disabled, fromDisk)
-      else mergeProviderModules(disabled, result, fromDisk)
-    }
-    disabledModules = disabled
-    return result
-  }
-
   function rebuild() {
     var merged = ({})
     var fromFiles = fileModules
     var fileIds = Object.keys(fromFiles)
     for (var i = 0; i < fileIds.length; i++) merged[fileIds[i]] = fromFiles[fileIds[i]]
-    var fromManifests = manifestModules()
-    var manifestIds = Object.keys(fromManifests)
-    var count = fileIds.length
-    for (var j = 0; j < manifestIds.length && count < maximumModules; j++) {
-      if (merged[manifestIds[j]]) continue
-      merged[manifestIds[j]] = fromManifests[manifestIds[j]]
-      count++
-    }
+    disabledModules = ({})
     var ids = Object.keys(merged)
     ids.sort(function(left, right) {
       var byCategory = Definitions.categoryOrder(merged[left].category, merged[right].category)
@@ -306,12 +188,6 @@ QtObject {
       if (requestGeneration !== registry.scanGeneration) return
       registry.parseScanOutput(response)
     })
-  }
-
-  property Connections registryLink: Connections {
-    target: registry.pluginRegistry
-    ignoreUnknownSignals: true
-    function onPluginsChanged() { registry.rebuild() }
   }
 
   onPluginDirChanged: rescan()

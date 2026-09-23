@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell.Hyprland
-import "../lib/LayoutInventory.js" as LayoutInventory
 import "../lib/MonitorMode.js" as MonitorMode
 import Quickshell
 
@@ -16,7 +15,6 @@ Item {
   readonly property var activeSlots: host.activeSlots
   readonly property var windowAddresses: host.windowAddresses
   readonly property string monitorMode: host.monitorMode
-  readonly property bool animateBlades: host.animateBlades
   readonly property real fontScale: host.fontScale
   readonly property int maximumSlots: 64
   readonly property int maximumTabsPerSlot: 32
@@ -85,7 +83,7 @@ Item {
   onLayoutChanged: adoptInvocationScreens()
 
   function normalizeMode(value) {
-    return String(value || "").toLowerCase() === "window" ? "window" : "docked"
+    return "docked"
   }
 
   function clampNumber(value, fallback, minimum, maximum) {
@@ -98,26 +96,10 @@ Item {
     return { open: false, width: edge === "right" ? 360 : 380, mode: "docked", slots: [] }
   }
 
-  function slotIdFor(module, index, taken) {
-    var base = String(module || "slot").replace(/[^A-Za-z0-9_.-]+/g, "-").slice(0, maximumIdentifierLength - 8) || "slot"
-    var candidate = base
-    var serial = 1
-    while (taken[candidate]) {
-      serial++
-      candidate = base + "-" + serial
-    }
-    return candidate
-  }
-
-  readonly property var moduleAliases: ({
-    "kurt.notes/notes": "notes",
-    "kurt.git/git": "data-goblin.fileblade-git/git"
-  })
-
   function aliasedModule(value) {
     var name = String(value || "").trim()
     if (!name || name.length > maximumIdentifierLength || /[\u0000-\u001f\u007f]/.test(name)) return ""
-    return moduleAliases[name] || registry.canonicalModule(name)
+    return registry.canonicalModule(name)
   }
 
   function normalizeTab(raw) {
@@ -140,133 +122,33 @@ Item {
     return list
   }
 
-  function normalizeSlot(raw, index, taken) {
-    var source = raw && typeof raw === "object" ? raw : { module: raw }
-    var tabs = normalizeTabs(source)
-    if (tabs.length === 0) return null
-    var active = Math.max(0, Math.min(tabs.length - 1, Math.floor(Number(source.active) || 0)))
-    var id = String(source.id || "").trim()
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(id)) id = slotIdFor(tabs[0].module, index, taken)
-    if (taken[id]) id = slotIdFor(tabs[0].module, index, taken)
-    taken[id] = true
-    var fraction = Number(source.fraction)
-    return {
-      id: id,
-      modules: tabs,
-      active: active,
-      collapsed: source.collapsed === true,
-      fraction: isFinite(fraction) && fraction > 0 && fraction < 1 ? fraction : -1
+  function filesTab(blade) {
+    var list = blade && typeof blade === "object" && Array.isArray(blade.slots) ? blade.slots : []
+    for (var s = 0; s < list.length && s < maximumSlots; s++) {
+      var source = list[s] && typeof list[s] === "object" ? list[s] : { module: list[s] }
+      var tabs = normalizeTabs(source)
+      for (var t = 0; t < tabs.length; t++) if (tabs[t].module === "files") return tabs[t]
     }
+    return null
   }
 
-  function normalizeBlade(raw, edge) {
-    var base = emptyBlade(edge)
-    if (!raw || typeof raw !== "object") return base
-    var taken = ({})
-    var slots = []
-    var rawSlots = Array.isArray(raw.slots) ? raw.slots : []
-    for (var i = 0; i < rawSlots.length && i < maximumSlots; i++) {
-      var slot = normalizeSlot(rawSlots[i], i, taken)
-      if (slot) slots.push(slot)
-    }
-    return {
-      open: typeof raw.open === "boolean" ? raw.open : base.open,
-      width: Math.round(clampNumber(raw.width, base.width, minimumWidth, 1600)),
-      mode: normalizeMode(raw.mode),
-      slots: slots
-    }
-  }
-
-
-  function missingModules(raw, normalized) {
-    return LayoutInventory.missing(raw, normalized, aliasedModule)
+  function filesEdge(blades) {
+    return !filesTab(blades.left) && filesTab(blades.right) ? "right" : "left"
   }
 
   function normalizeLayout(raw) {
     var source = raw && typeof raw === "object" ? raw : ({})
     var blades = source.blades && typeof source.blades === "object" ? source.blades : source
-    var restored = restoreSingletons(blades)
-    var next = {
-      left: normalizeBlade(restored.left, "left"),
-      right: normalizeBlade(restored.right, "right")
+    var side = filesEdge(blades)
+    var saved = blades[side] && typeof blades[side] === "object" ? blades[side] : ({})
+    var base = emptyBlade(side)
+    var next = { left: emptyBlade("left"), right: emptyBlade("right") }
+    next[side] = {
+      open: typeof saved.open === "boolean" ? saved.open : base.open,
+      width: Math.round(clampNumber(saved.width, base.width, minimumWidth, 1600)),
+      mode: "docked",
+      slots: [{ id: "files", modules: [filesTab(saved) || { module: "files", state: {} }], active: 0, collapsed: false, fraction: -1 }]
     }
-    if (restored.singletonRecovery !== undefined) next.singletonRecovery = restored.singletonRecovery
-    return next
-  }
-
-  function singletonModule(module) {
-    if (registry.coreModules.indexOf(module) >= 0) return true
-    var definition = registry.module(module) || registry.disabledModule(module)
-    return !!(definition && definition.singleton)
-  }
-
-  function survivingActive(tabs, wanted) {
-    for (var i = 0; i < tabs.length; i++)
-      if (tabs[i].index >= wanted) return i
-    return Math.max(0, tabs.length - 1)
-  }
-
-  function restoreSingletons(blades) {
-    var next = ({})
-    var groups = []
-    var winners = ({})
-    var recovery = blades.singletonRecovery === undefined ? []
-      : (Array.isArray(blades.singletonRecovery) ? cloneLayout(blades.singletonRecovery) : [cloneLayout(blades.singletonRecovery)])
-    var edgeOrder = ["left", "right"]
-    for (var e = 0; e < edgeOrder.length; e++) {
-      var edge = edgeOrder[e]
-      var blade = blades[edge]
-      if (!blade || typeof blade !== "object" || Array.isArray(blade)) continue
-      next[edge] = cloneLayout(blade)
-      next[edge].slots = []
-      var slots = Array.isArray(blade.slots) ? blade.slots : []
-      for (var s = 0; s < slots.length && s < maximumSlots; s++) {
-        var slot = slots[s] && typeof slots[s] === "object" ? slots[s] : { module: slots[s] }
-        var rawTabs = Array.isArray(slot.modules) ? slot.modules : [slot]
-        var wanted = Math.max(0, Math.min(rawTabs.length - 1, maximumTabsPerSlot - 1, Math.floor(Number(slot.active) || 0)))
-        var tabs = []
-        for (var t = 0; t < rawTabs.length && t < maximumTabsPerSlot; t++) {
-          var normalized = normalizeTab(rawTabs[t])
-          if (normalized) tabs.push({ index: t, module: normalized.module, raw: rawTabs[t], selected: false })
-        }
-        if (!tabs.length) continue
-        tabs[survivingActive(tabs, wanted)].selected = true
-        var group = { edge: edge, index: s, slot: slot, tabs: tabs, wanted: wanted }
-        groups.push(group)
-        for (var c = 0; c < tabs.length; c++) {
-          var candidate = tabs[c]
-          if (!singletonModule(candidate.module)) continue
-          var key = "module:" + candidate.module
-          var previous = winners[key]
-          if (!previous || (candidate.selected && !previous.selected)) winners[key] = candidate
-        }
-      }
-    }
-    for (var g = 0; g < groups.length; g++) {
-      var current = groups[g]
-      var kept = []
-      for (var i = 0; i < current.tabs.length; i++) {
-        var tab = current.tabs[i]
-        var winner = winners["module:" + tab.module]
-        if (!winner || winner === tab) kept.push(tab)
-        else recovery.push({
-          version: 1,
-          module: tab.module,
-          edge: current.edge,
-          slotId: String(current.slot.id || ""),
-          slotIndex: current.index,
-          tabIndex: tab.index,
-          active: tab.selected,
-          tab: cloneLayout(tab.raw)
-        })
-      }
-      if (!kept.length) continue
-      var saved = cloneLayout(current.slot)
-      saved.modules = kept.map(function(tab) { return tab.raw })
-      saved.active = survivingActive(kept, current.wanted)
-      next[current.edge].slots.push(saved)
-    }
-    if (recovery.length || blades.singletonRecovery !== undefined) next.singletonRecovery = recovery
     return next
   }
 
@@ -320,7 +202,7 @@ Item {
   }
 
   function layoutWithinLimit(next) {
-    var text = serialized({ version: 1, monitorMode: monitorMode, monitorLock: monitorLock, animations: animateBlades, fontScale: fontScale, blades: next }, 2)
+    var text = serialized({ version: 1, monitorMode: monitorMode, monitorLock: monitorLock, fontScale: fontScale, blades: next }, 2)
     return !!text && utf8Length(text + "\n") <= maximumLayoutBytes
   }
 
@@ -358,36 +240,13 @@ Item {
   }
 
   function normalizePlacement(value) {
-    var placement = String(value || "").toLowerCase()
-    if (placement === "top") placement = "above"
-    if (placement === "bottom") placement = "below"
-    return ["above", "right", "below", "none"].indexOf(placement) >= 0 ? placement : "below"
+    return "none"
   }
 
   function legacyLayout(legacy) {
     var source = legacy && typeof legacy === "object" ? legacy : ({})
-    var placement = normalizePlacement(source.propertiesPlacement)
-    var fraction = clampNumber(source.propertiesVerticalFraction, 0.34, 0.18, 0.72)
     var open = typeof source.open === "boolean" ? source.open : false
-    var files = { id: "files", module: "files", fraction: -1, state: {} }
-    var properties = { id: "properties", module: "properties", fraction: fraction, state: {} }
-    var leftBlade = { open: open, width: Math.round(clampNumber(source.sidebarWidth, 380, minimumWidth, 1600)), slots: [] }
-    var rightBlade = { open: false, width: Math.round(clampNumber(source.propertiesBladeWidth, 360, minimumWidth, 1600)), slots: [] }
-    if (placement === "right") {
-      leftBlade.slots = [files]
-      rightBlade.slots = [properties]
-      rightBlade.open = open
-    } else if (placement === "above") {
-      leftBlade.slots = [properties, files]
-    } else if (placement === "none") {
-      leftBlade.slots = [files]
-    } else {
-      leftBlade.slots = [files, properties]
-    }
-    var notesSlot = { id: "notes", modules: host.welcomePending ? [{ module: "welcome" }, { module: "notes" }] : [{ module: "notes" }], active: 0 }
-    rightBlade.slots.unshift(notesSlot)
-    if (host.welcomePending) rightBlade.open = true
-    return normalizeLayout({ left: leftBlade, right: rightBlade })
+    return normalizeLayout({ left: { open: open, width: source.sidebarWidth, slots: [{ module: "files" }] } })
   }
 
   function defaultLayout() {
@@ -587,16 +446,11 @@ Item {
   }
 
   function propertiesPlacement() {
-    var location = findModule("properties")
-    if (!location) return "none"
-    if (location.edge === "right") return "right"
-    var filesLocation = findModule("files")
-    if (filesLocation && filesLocation.edge === "left" && filesLocation.index > location.index) return "above"
-    return "below"
+    return "none"
   }
 
   function layoutDocument() {
-    return { version: 1, monitorMode: monitorMode, monitorLock: monitorLock, animations: animateBlades, fontScale: fontScale, blades: cloneLayout(layout) }
+    return { version: 1, monitorMode: monitorMode, monitorLock: monitorLock, fontScale: fontScale, blades: cloneLayout(layout) }
   }
 
   function activeSlot(edge) {

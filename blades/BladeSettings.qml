@@ -13,12 +13,9 @@ Item {
   required property var surface
 
   readonly property string edge: surface.edge
-  readonly property var registry: host.registry
   property string query: ""
   property int moduleShown: 0
   readonly property bool filtering: query.trim() !== ""
-  property var drag: null
-  property var dropTarget: null
   property int pendingRetentionDays: 0
 
   function confirmTrashRetention(days) {
@@ -32,76 +29,6 @@ Item {
     anchors.fill: parent
     z: 1000
     onChosen: function(key) { if (key === "enable") root.host.service.setTrashRetentionDays(root.pendingRetentionDays, true) }
-  }
-
-  function beginTabDrag(edge, slotIndex, tabIndex, title, glyph, x, y, grabX, grabY, width) {
-    drag = { edge: edge, slotIndex: slotIndex, tabIndex: tabIndex, title: title, glyph: glyph, x: x, y: y, grabX: grabX, grabY: grabY, width: width }
-    dropTarget = null
-  }
-
-  function moveTabDrag(x, y) {
-    if (!drag) return
-    var next = {}
-    for (var key in drag) next[key] = drag[key]
-    next.x = x
-    next.y = y
-    drag = next
-    dropTarget = dropTargetAt(x, y)
-  }
-
-  function cancelTabDrag() {
-    drag = null
-    dropTarget = null
-  }
-
-  function finishTabDrag() {
-    var lifted = drag
-    var target = dropTarget
-    drag = null
-    dropTarget = null
-    if (!lifted || !target) return
-    if (target.newSlot) {
-      host.moveSlotTo(lifted.edge, lifted.slotIndex, target.edge, target.slotIndex, lifted.tabIndex)
-      return
-    }
-    host.moveTabInto(lifted.edge, lifted.slotIndex, lifted.tabIndex, target.edge, target.slotIndex, target.insertAt)
-  }
-
-  function dropTargetAt(x, y) {
-    var columns = [leftColumn, rightColumn]
-    for (var c = 0; c < columns.length; c++) {
-      var column = columns[c]
-      if (!column.visible) continue
-      var origin = column.mapToItem(card, 0, 0)
-      if (x < origin.x - Style.space(6) || x > origin.x + column.width + Style.space(6)) continue
-      var rows = column.rows()
-      var left = origin.x
-      var width = column.width
-      if (rows.length === 0) return { edge: column.bladeEdge, slotIndex: 0, insertAt: 0, newSlot: true, x: left, width: width, y: origin.y + column.height }
-      var previous = null
-      var previousBottom = 0
-      for (var i = 0; i < rows.length; i++) {
-        var row = rows[i]
-        var position = row.item.mapToItem(card, 0, 0)
-        var top = position.y
-        var bottom = top + row.item.height
-        if (y < top) {
-          if (previous && previous.slotIndex !== row.slotIndex)
-            return { edge: column.bladeEdge, slotIndex: row.slotIndex, insertAt: 0, newSlot: true, x: left, width: width, y: (previousBottom + top) / 2 }
-          return { edge: column.bladeEdge, slotIndex: row.slotIndex, insertAt: row.tabIndex, newSlot: false, x: left, width: width, y: top }
-        }
-        if (y <= bottom) {
-          var before = y < top + row.item.height / 2
-          return { edge: column.bladeEdge, slotIndex: row.slotIndex, insertAt: before ? row.tabIndex : row.tabIndex + 1, newSlot: false,
-                   x: left, width: width, y: before ? top : bottom }
-        }
-        previous = row
-        previousBottom = bottom
-      }
-      if (y > previousBottom + Style.space(40)) return null
-      return { edge: column.bladeEdge, slotIndex: previous.slotIndex + 1, insertAt: 0, newSlot: true, x: left, width: width, y: previousBottom + Style.space(4) }
-    }
-    return null
   }
 
   function close() {
@@ -119,46 +46,6 @@ Item {
       "Are you sure?\nThis will revert to default settings and layouts. It doesn't affect key bindings.",
       [{ key: "revert", label: "Yes", danger: true }, { key: "cancel", label: "Cancel" }])
     revertDialog.selectedIndex = 1
-  }
-
-  function edgeTitle(value) {
-    return value === "right" ? "RIGHT BLADE" : "LEFT BLADE"
-  }
-
-  function moduleLabel(moduleId) {
-    var module = registry.module(moduleId)
-    return module ? String(module.name) : String(moduleId)
-  }
-
-  function moduleGlyph(moduleId) {
-    var module = registry.module(moduleId)
-    return module && module.glyph ? String(module.glyph) : "󰏗"
-  }
-
-  function moduleIconUrl(moduleId) {
-    var module = registry.module(moduleId)
-    return module && module.iconUrl ? String(module.iconUrl) : ""
-  }
-
-  function availableModules() {
-    var revision = registry.revision
-    var groups = []
-    var current = null
-    for (var i = 0; i < registry.order.length && revision >= 0; i++) {
-      var module = registry.module(registry.order[i])
-      if (!module) continue
-      if (module.singleton && host.findModule(module.id)) continue
-      if (!current || current.category !== String(module.category)) {
-        current = { category: String(module.category), modules: [] }
-        groups.push(current)
-      }
-      current.modules.push(module)
-    }
-    return groups
-  }
-
-  function addLabel(scope, module) {
-    return scope + "add module " + String(module.category) + " " + String(module.name)
   }
 
   function slotSettings() {
@@ -207,13 +94,6 @@ Item {
     moduleShown = total
   }
 
-  function countMatching(labels) {
-    var count = 0
-    for (var i = 0; i < labels.length; i++)
-      if (matches(labels[i])) count++
-    return count
-  }
-
   onVisibleChanged: {
     if (!visible) return
     search.text = ""
@@ -244,42 +124,6 @@ Item {
     color: Util.alpha(Color.bar.text, 0.12)
   }
 
-  component IconAction: Item {
-    id: action
-    required property string glyph
-    property string tooltipText: ""
-    property string tooltipAction: ""
-    property bool danger: false
-    signal clicked()
-    width: Style.space(18)
-    height: Style.space(20)
-    opacity: enabled ? 1 : 0.3
-
-    Text {
-      textFormat: Text.PlainText
-      anchors.centerIn: parent
-      text: action.glyph
-      color: action.danger && actionPointer.containsMouse ? Color.urgent : (actionPointer.containsMouse ? Color.bar.text : Color.muted)
-      font.family: Style.font.family
-      font.pixelSize: Typography.bodySmall
-    }
-
-    MouseArea {
-      id: actionPointer
-      anchors.fill: parent
-      hoverEnabled: true
-      enabled: action.enabled
-      cursorShape: Qt.PointingHandCursor
-      onClicked: action.clicked()
-    }
-
-    PluginUi.HintTip {
-      visible: tooltipText !== "" && actionPointer.containsMouse
-      title: tooltipText
-      actions: tooltipAction !== "" ? [{ button: "left", text: tooltipAction }] : []
-    }
-  }
-
   component Link: Text {
     id: link
     signal clicked()
@@ -295,265 +139,6 @@ Item {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: link.clicked()
-    }
-  }
-
-  component BladeColumn: Column {
-    id: section
-    required property string bladeEdge
-    readonly property var bladeData: root.host.bladeFor(bladeEdge)
-    readonly property var bladeSlots: Array.isArray(bladeData.slots) ? bladeData.slots : []
-    readonly property bool windowMode: root.host.isWindowMode(bladeEdge)
-    readonly property string scope: root.edgeTitle(bladeEdge) + " " + bladeEdge + " blade "
-    readonly property bool headerShown: root.matches(scope + "open closed width " + bladeData.width + " px")
-    readonly property bool windowShown: root.matches(scope + "window docked tiled float")
-    readonly property var slotLabels: {
-      var labels = []
-      for (var i = 0; i < bladeSlots.length; i++) {
-        var tabs = root.host.slotTabs(bladeEdge, i)
-        for (var j = 0; j < tabs.length; j++)
-          labels.push(scope + "slot tab module " + root.moduleLabel(root.host.slotModuleAt(bladeEdge, i, j)))
-      }
-      return labels
-    }
-
-    function tabLabel(slotIndex, tabIndex) {
-      return scope + "slot tab module " + root.moduleLabel(root.host.slotModuleAt(bladeEdge, slotIndex, tabIndex))
-    }
-
-    function rows() {
-      var result = []
-      for (var i = 0; i < slotGroups.count; i++) {
-        var group = slotGroups.itemAt(i)
-        if (!group || !group.visible) continue
-        for (var k = 0; k < group.children.length; k++) {
-          var row = group.children[k]
-          if (row && row.moduleId !== undefined && row.visible) result.push({ item: row, edge: bladeEdge, slotIndex: i, tabIndex: row.index })
-        }
-      }
-      return result
-    }
-    readonly property var addLabels: {
-      var labels = []
-      var groups = root.availableModules()
-      for (var i = 0; i < groups.length; i++)
-        for (var j = 0; j < groups[i].modules.length; j++) labels.push(root.addLabel(scope, groups[i].modules[j]))
-      return labels
-    }
-    readonly property int slotsShown: root.countMatching(slotLabels)
-    readonly property int addsShown: root.countMatching(addLabels)
-    readonly property bool shown: headerShown || windowShown || slotsShown > 0 || addsShown > 0
-    spacing: Style.space(3)
-
-    PluginUi.ToggleRow {
-      width: parent.width
-      visible: section.headerShown
-      heading: true
-      label: root.edgeTitle(section.bladeEdge)
-      detail: section.bladeData.width + " px"
-      checked: !!section.bladeData.open
-      onToggled: root.host.toggleOpen(section.bladeEdge)
-    }
-
-    PluginUi.ToggleRow {
-      width: parent.width
-      visible: section.windowShown
-      glyph: section.windowMode ? "󰖲" : "󰁍"
-      label: "Window"
-      detail: section.windowMode ? "tiled" : "docked"
-      checked: section.windowMode
-      onToggled: root.host.toggleDock(section.bladeEdge)
-    }
-
-    Repeater {
-      id: slotGroups
-      model: section.bladeSlots.length
-
-      delegate: Column {
-        id: slotGroup
-        required property int index
-        readonly property var tabs: root.host.slotTabs(section.bladeEdge, index)
-        readonly property bool anyShown: {
-          for (var j = 0; j < tabs.length; j++)
-            if (root.matches(section.tabLabel(index, j))) return true
-          return false
-        }
-        width: parent ? parent.width : 0
-        spacing: Style.space(2)
-        visible: anyShown
-
-        Item {
-          width: parent.width
-          height: Style.space(9)
-          visible: slotGroup.index > 0
-          Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            height: 1
-            color: Util.alpha(Color.bar.text, 0.12)
-          }
-        }
-
-        Repeater {
-          id: tabRepeater
-          model: slotGroup.tabs.length
-
-          delegate: Rectangle {
-            id: tabRow
-            required property int index
-            readonly property string moduleId: root.host.slotModuleAt(section.bladeEdge, slotGroup.index, index)
-            readonly property bool lifted: !!root.drag && root.drag.edge === section.bladeEdge
-              && root.drag.slotIndex === slotGroup.index && root.drag.tabIndex === index
-            width: parent ? parent.width : 0
-            height: Style.space(28)
-            visible: root.matches(section.tabLabel(slotGroup.index, index))
-            radius: Math.min(Style.cornerRadius, Style.space(4))
-            opacity: lifted ? 0.35 : 1
-            color: rowHover.containsMouse || lifted ? Util.alpha(Color.bar.text, 0.06) : Util.alpha(Color.bar.text, 0.03)
-
-            MouseArea {
-              id: rowHover
-              anchors.fill: parent
-              hoverEnabled: true
-              acceptedButtons: Qt.NoButton
-            }
-
-            Text {
-              textFormat: Text.PlainText
-              id: handle
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(4)
-              anchors.verticalCenter: parent.verticalCenter
-              width: Style.space(14)
-              text: "󰇝"
-              color: handlePointer.containsMouse || tabRow.lifted ? Color.accent : Color.muted
-              horizontalAlignment: Text.AlignHCenter
-              font.family: Style.font.family
-              font.pixelSize: Typography.body
-
-              MouseArea {
-                id: handlePointer
-                anchors.fill: parent
-                anchors.margins: -Style.space(4)
-                hoverEnabled: true
-                preventStealing: true
-                cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                onPressed: function(mouse) {
-                  var point = handlePointer.mapToItem(card, mouse.x, mouse.y)
-                  var origin = tabRow.mapToItem(card, 0, 0)
-                  root.beginTabDrag(section.bladeEdge, slotGroup.index, tabRow.index, root.moduleLabel(tabRow.moduleId),
-                                    root.moduleGlyph(tabRow.moduleId), point.x, point.y, point.x - origin.x, point.y - origin.y, tabRow.width)
-                }
-                onPositionChanged: function(mouse) {
-                  if (!root.drag) return
-                  var point = handlePointer.mapToItem(card, mouse.x, mouse.y)
-                  root.moveTabDrag(point.x, point.y)
-                }
-                onReleased: root.finishTabDrag()
-                onCanceled: root.cancelTabDrag()
-              }
-            }
-
-            PluginUi.ModuleIcon {
-              id: tabGlyph
-              anchors.left: handle.right
-              anchors.leftMargin: Style.space(2)
-              anchors.verticalCenter: parent.verticalCenter
-              width: Style.space(18)
-              height: Style.space(18)
-              glyph: root.moduleGlyph(tabRow.moduleId)
-              iconUrl: root.moduleIconUrl(tabRow.moduleId)
-              color: Color.accent
-              size: Typography.body
-            }
-
-            Text {
-              textFormat: Text.PlainText
-              anchors.left: tabGlyph.right
-              anchors.leftMargin: Style.space(6)
-              anchors.right: rowHover.containsMouse ? tabActions.left : parent.right
-              anchors.rightMargin: Style.space(6)
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.moduleLabel(tabRow.moduleId)
-              color: Color.bar.text
-              elide: Text.ElideRight
-              font.family: Style.font.family
-              font.pixelSize: Typography.bodySmall
-            }
-
-            Row {
-              id: tabActions
-              anchors.right: parent.right
-              anchors.rightMargin: Style.space(4)
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.space(1)
-              opacity: rowHover.containsMouse && !root.drag ? 1 : 0
-
-              Behavior on opacity { NumberAnimation { duration: 90 } }
-
-              IconAction {
-                glyph: section.bladeEdge === "left" ? "" : ""
-                tooltipText: section.bladeEdge === "left" ? "To right blade" : "To left blade"
-                tooltipAction: "Move this tab across"
-                onClicked: {
-                  var other = section.bladeEdge === "left" ? "right" : "left"
-                  root.host.moveSlotTo(section.bladeEdge, slotGroup.index, other, root.host.slots(other).length, tabRow.index)
-                }
-              }
-
-              IconAction {
-                glyph: "×"
-                tooltipText: "Remove"
-                tooltipAction: "Remove this tab"
-                danger: true
-                onClicked: root.host.removeTab(section.bladeEdge, slotGroup.index, tabRow.index)
-              }
-            }
-          }
-        }
-      }
-    }
-
-    Repeater {
-      model: root.availableModules()
-
-      delegate: Column {
-        id: group
-        required property var modelData
-        readonly property var labels: {
-          var result = []
-          for (var i = 0; i < modelData.modules.length; i++) result.push(root.addLabel(section.scope, modelData.modules[i]))
-          return result
-        }
-        width: parent ? parent.width : 0
-        spacing: Style.space(2)
-        topPadding: Style.space(2)
-        visible: root.countMatching(labels) > 0
-
-        SectionLabel {
-          leftPadding: Style.space(8)
-          text: String(group.modelData.category).toUpperCase()
-        }
-
-        Flow {
-          width: parent.width
-          spacing: Style.space(12)
-          leftPadding: Style.space(8)
-
-          Repeater {
-            model: group.modelData.modules
-
-            delegate: Link {
-              required property var modelData
-              required property int index
-              visible: root.matches(group.labels[index] || "")
-              text: "+ " + String(modelData.name)
-              onClicked: root.host.addSlot(section.bladeEdge, modelData.id, -1)
-            }
-          }
-        }
-      }
     }
   }
 
@@ -674,54 +259,43 @@ Item {
         width: parent.width
         spacing: Style.space(6)
 
-        Item {
+        Column {
           id: bladesBlock
-          readonly property bool sideBySide: width >= Style.space(300)
-          readonly property real columnWidth: sideBySide ? Math.floor((width - Style.space(16)) / 2) : width
-          readonly property bool shown: leftColumn.shown || rightColumn.shown
+          readonly property var bladeData: root.host.bladeFor(root.host.side)
+          readonly property bool headerShown: root.matches("blade open closed width " + bladeData.width + " px")
+          readonly property bool sideShown: root.matches("blade side left right edge position")
+          readonly property bool shown: headerShown || sideShown
           width: parent.width
-          height: sideBySide
-            ? Math.max(leftColumn.shown ? leftColumn.implicitHeight : 0, rightColumn.shown ? rightColumn.implicitHeight : 0)
-            : (leftColumn.shown ? leftColumn.implicitHeight : 0)
-              + (leftColumn.shown && rightColumn.shown ? Style.space(6) : 0)
-              + (rightColumn.shown ? rightColumn.implicitHeight : 0)
+          spacing: Style.space(5)
           visible: shown
 
-          BladeColumn {
-            id: leftColumn
-            bladeEdge: "left"
-            x: 0
-            y: 0
-            width: bladesBlock.columnWidth
-            visible: shown
+          PluginUi.ToggleRow {
+            width: parent.width
+            visible: bladesBlock.headerShown
+            heading: true
+            label: "BLADE"
+            detail: bladesBlock.bladeData.width + " px"
+            checked: !!bladesBlock.bladeData.open
+            onToggled: root.host.toggleOpen(root.host.side)
           }
 
-          Rectangle {
-            visible: bladesBlock.sideBySide && leftColumn.shown && rightColumn.shown
-            x: bladesBlock.columnWidth + Style.space(8) - 1
-            y: 0
-            width: 1
-            height: bladesBlock.height
-            color: Util.alpha(Color.bar.text, 0.12)
-          }
-
-          BladeColumn {
-            id: rightColumn
-            bladeEdge: "right"
-            x: bladesBlock.sideBySide ? bladesBlock.width - bladesBlock.columnWidth : 0
-            y: bladesBlock.sideBySide ? 0 : (leftColumn.shown ? leftColumn.implicitHeight + Style.space(6) : 0)
-            width: bladesBlock.columnWidth
-            visible: shown
+          PluginUi.DropdownRow {
+            width: parent.width
+            visible: bladesBlock.sideShown
+            glyph: "󰞘"
+            label: "Side"
+            prompt: "Pick a side…"
+            options: [{ key: "left", label: "Left" }, { key: "right", label: "Right" }]
+            value: root.host.side
+            onChosen: function(key) { root.host.setSide(key) }
           }
         }
 
         Column {
           id: general
-          readonly property bool animateShown: root.matches("general animate blades motion")
           readonly property bool monitorsShown: root.matches("general monitors screens display active primary all")
-          readonly property bool managementShown: root.matches("general manage agent files skills memory permissions")
           readonly property bool fontScaleShown: root.matches("general font size text scale typography percent")
-          readonly property bool shown: animateShown || monitorsShown || managementShown || fontScaleShown
+          readonly property bool shown: monitorsShown || fontScaleShown
           width: parent.width
           spacing: Style.space(5)
           visible: shown
@@ -729,16 +303,6 @@ Item {
           Divider { visible: bladesBlock.shown }
 
           SectionLabel { text: "GENERAL" }
-
-
-          PluginUi.ToggleRow {
-            width: parent.width
-            visible: general.animateShown
-            glyph: "󰑮"
-            label: "Animate blades"
-            checked: root.host.animateBlades
-            onToggled: root.host.setAnimateBlades(!root.host.animateBlades)
-          }
 
           PluginUi.DropdownRow {
             width: parent.width
@@ -852,53 +416,6 @@ Item {
       anchors.fill: parent
       z: 40
       onChosen: function(key) { if (key === "revert") root.host.revertDefaults() }
-    }
-
-    Rectangle {
-      visible: !!root.dropTarget
-      x: root.dropTarget ? root.dropTarget.x : 0
-      y: root.dropTarget ? root.dropTarget.y - 1 : 0
-      width: root.dropTarget ? root.dropTarget.width : 0
-      height: 2
-      color: Color.accent
-      z: 5
-
-      Text {
-        textFormat: Text.PlainText
-        visible: !!root.dropTarget && root.dropTarget.newSlot
-        anchors.right: parent.right
-        anchors.bottom: parent.top
-        anchors.bottomMargin: Style.space(1)
-        text: "new slot"
-        color: Color.accent
-        font.family: Style.font.family
-        font.pixelSize: Typography.caption
-      }
-    }
-
-    Rectangle {
-      visible: !!root.drag
-      x: root.drag ? root.drag.x - root.drag.grabX : 0
-      y: root.drag ? root.drag.y - root.drag.grabY : 0
-      width: root.drag ? root.drag.width : 0
-      height: Style.space(28)
-      radius: Math.min(Style.cornerRadius, Style.space(4))
-      color: Color.popups.background
-      border.width: 1
-      border.color: Color.accent
-      opacity: 0.92
-      z: 6
-
-      Text {
-        textFormat: Text.PlainText
-        anchors.left: parent.left
-        anchors.leftMargin: Style.space(8)
-        anchors.verticalCenter: parent.verticalCenter
-        text: (root.drag ? root.drag.glyph + "  " + root.drag.title : "")
-        color: Color.bar.text
-        font.family: Style.font.family
-        font.pixelSize: Typography.bodySmall
-      }
     }
   }
 }

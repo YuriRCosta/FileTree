@@ -3,20 +3,16 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "../lib/PathText.js" as PathText
-import "../lib/LayoutInventory.js" as LayoutInventory
 import "../theme"
 
 Item {
   id: host
 
   property var shell: null
-  property var pluginRegistry: null
-  property var catalogProviders: []
   property var providerErrors: ({})
   property string pluginDir: ""
   property var config: ({})
   property var services: ({})
-  readonly property bool welcomePending: !!(services && services.files) && services.files.welcomePending === true
   property var updates: null
   property var legacyDefaults: ({})
 
@@ -25,6 +21,7 @@ Item {
   readonly property string configDir: configHome + "/omarchy/fileblade"
   readonly property string layoutPath: service && service.chooserSession ? "" : configDir + "/blades.json"
   readonly property var edges: ["left", "right"]
+  readonly property string side: layout && layout.right && Array.isArray(layout.right.slots) && layout.right.slots.length > 0 ? "right" : "left"
   readonly property int minimumWidth: 280
   property string pointerEdge: ""
   property real pointerSceneX: 0
@@ -73,7 +70,7 @@ Item {
   property alias layout: persisted.layout
   property alias monitorMode: persisted.monitorMode
   property alias monitorLock: persisted.monitorLock
-  property alias animateBlades: persisted.animateBlades
+  readonly property bool animateBlades: false
   property alias fontScale: persisted.fontScale
   property bool layoutReady: false
   property bool pressActive: false
@@ -86,7 +83,6 @@ Item {
   property alias settingsOpen: focusController.settingsOpen
   property alias settingsEdge: focusController.settingsEdge
   property int frameWidth: 2
-  property bool animationsExplicit: false
   readonly property string cliPath: pluginDir + "/fileblade"
   readonly property var service: services ? services.files : null
   readonly property bool nativeApp: !!service && service.nativeAuthority === true
@@ -100,16 +96,12 @@ Item {
   property var pendingOpenEdges: null
   property int layoutRevision: 0
   property var windowAddresses: ({ left: "", right: "" })
-  property string lastWindowPlacement: ""
-  property string pendingPlacementEdge: ""
   property bool layoutReadQueued: false
   property bool layoutWritable: false
   property bool layoutIncomplete: false
   property bool layoutRereadPending: false
   property alias lastFocusDirection: focusController.lastFocusDirection
   property alias focusDirectionCount: focusController.focusDirectionCount
-  property string placementRequestId: ""
-  property int placementGeneration: 0
   property string windowFocusRequestId: ""
   property int windowFocusGeneration: 0
   property int focusEpoch: 0
@@ -131,11 +123,8 @@ Item {
 
   BladeRegistry {
     id: registry
-    socketId: "data-goblin.fileblade/blade"
     pluginDir: host.pluginDir
     userModulesDir: host.configDir + "/modules"
-    pluginRegistry: host.pluginRegistry
-    catalogProviders: host.catalogProviders
     service: host.services ? host.services.files : null
     contractVersion: host.moduleContractVersion
   }
@@ -150,7 +139,6 @@ Item {
     })
     property string monitorMode: "active"
     property string monitorLock: ""
-    property bool animateBlades: true
     property real fontScale: 1.0
   }
 
@@ -233,9 +221,6 @@ Item {
   function normalizeMode(value) { return bladeLayout.normalizeMode(value) }
   function clampNumber(value, fallback, minimum, maximum) { return bladeLayout.clampNumber(value, fallback, minimum, maximum) }
   function emptyBlade(edge) { return bladeLayout.emptyBlade(edge) }
-  function slotIdFor(module, index, taken) { return bladeLayout.slotIdFor(module, index, taken) }
-  function normalizeSlot(raw, index, taken) { return bladeLayout.normalizeSlot(raw, index, taken) }
-  function normalizeBlade(raw, edge) { return bladeLayout.normalizeBlade(raw, edge) }
   function normalizeLayout(raw) { return bladeLayout.normalizeLayout(raw) }
   function cloneLayout(value) { return bladeLayout.cloneLayout(value) }
   function normalizePlacement(value) { return bladeLayout.normalizePlacement(value) }
@@ -243,7 +228,7 @@ Item {
   function defaultLayout() { return bladeLayout.defaultLayout() }
   function resetLayout() {
     fontScale = Typography.clamp(config.fontScale)
-    applyLayout(defaultLayout(), config.monitorMode, true, config.animateBlades)
+    applyLayout(defaultLayout(), config.monitorMode, true)
     return true
   }
   function revertDefaults() {
@@ -272,7 +257,6 @@ Item {
   function slotTabs(edge, index) { return bladeLayout.slotTabs(edge, index) }
   function slotActiveTab(edge, index) { return bladeLayout.slotActiveTab(edge, index) }
   function slotModuleAt(edge, index, tabIndex) { return bladeLayout.slotModuleAt(edge, index, tabIndex) }
-  function propertiesPlacement() { return bladeLayout.propertiesPlacement() }
   function layoutDocument() { return bladeLayout.layoutDocument() }
   function activeSlot(edge) { return bladeLayout.activeSlot(edge) }
   function panelActiveFor(panelScreen, edge) { return bladeLayout.panelActiveFor(panelScreen, edge) }
@@ -325,6 +309,7 @@ Item {
   function setOpen(edge, value, persist) {
     var desired = !!value
     var target = normalizeEdge(edge)
+    if (desired && slots(target).length === 0) return false
     if (isOpen(target) === desired) return desired
     if (!desired && focusedEdge === target) restoreWorkspaceFocus()
     if (desired) bladeLayout.noteOpened(target)
@@ -363,39 +348,6 @@ Item {
     return setOpen(edge, !isOpen(edge), true)
   }
 
-  function setMode(edge, value) {
-    var target = normalizeEdge(edge)
-    var desired = normalizeMode(value)
-    if (bladeMode(target) === desired) return desired
-    if (focusedEdge === target) focusedEdge = ""
-    updateBlade(target, function(blade) { blade.mode = desired }, true)
-    if (desired === "docked") setWindowAddress(target, "")
-    return desired
-  }
-
-  function undock(edge) {
-    var target = normalizeEdge(edge)
-    setMode(target, "window")
-    setOpen(target, true, true)
-    return "window"
-  }
-
-  function dock(edge) {
-    return setMode(edge, "docked")
-  }
-
-  function redock(edge, targetScreen) {
-    var target = normalizeEdge(edge)
-    var epoch = focusEpoch
-    dock(target)
-    Qt.callLater(function() { if (epoch === host.focusEpoch) host.focusBlade(target, targetScreen || null, -1, "", true) })
-    return "docked"
-  }
-
-  function toggleDock(edge) {
-    return isWindowMode(edge) ? dock(edge) : undock(edge)
-  }
-
   function setWindowAddress(edge, address) {
     var next = ({})
     var keys = Object.keys(windowAddresses)
@@ -418,6 +370,31 @@ Item {
     if (next === bladeWidth(target)) return next
     updateBlade(target, function(blade) { blade.width = next }, persist)
     return next
+  }
+
+  function setSide(edge) {
+    var target = normalizeEdge(edge)
+    var origin = side
+    if (target === origin) return target
+    var reopenSettings = settingsOpen
+    var next = cloneLayout(layout)
+    var moved = next[origin]
+    next[origin] = emptyBlade(origin)
+    next[target] = moved
+    if (focusedEdge === origin) focusedEdge = ""
+    settingsOpen = false
+    bladeLayout.noteClosed(origin)
+    if (moved.open) bladeLayout.noteOpened(target)
+    replaceLayout(next, true)
+    if (moved.open) {
+      var epoch = focusEpoch
+      Qt.callLater(function() {
+        if (epoch !== host.focusEpoch) return
+        host.focusBlade(target, host.preferredScreen(target), -1, "", true)
+        if (reopenSettings) host.setSettingsOpen(true, target)
+      })
+    }
+    return target
   }
 
   function setSlots(edge, list) {
@@ -467,30 +444,15 @@ Item {
   function removeSlot(edge, index) {
     var target = normalizeEdge(edge)
     var slotIndex = Number(index)
-    if (!validIndex(slotIndex, slots(target).length)) return false
+    if (!validIndex(slotIndex, slots(target).length) || slots(target).length <= 1) return false
     updateBlade(target, function(blade) { blade.slots.splice(slotIndex, 1) }, true)
-    return true
-  }
-
-  function moveModule(moduleId, edge, index) {
-    var location = findModule(moduleId)
-    var target = normalizeEdge(edge)
-    var next = cloneLayout(layout)
-    var slot = location
-      ? detachTab(next, location.edge, location.index, location.tab)
-      : newSlot(String(moduleId))
-    if (!registry.module(slot.modules[0].module)) return false
-    if (!next[target]) next[target] = emptyBlade(target)
-    var position = Number(index)
-    if (!isFinite(position) || Math.floor(position) !== position || position < 0 || position > next[target].slots.length) next[target].slots.push(slot)
-    else next[target].slots.splice(position, 0, slot)
-    replaceLayout(next, true)
     return true
   }
 
   function moveSlotTo(sourceEdge, sourceIndex, targetEdge, targetIndex, tabIndex) {
     var source = normalizeEdge(sourceEdge)
     var target = normalizeEdge(targetEdge)
+    if (source !== target) return false
     var from = Number(sourceIndex)
     var list = slots(source)
     if (!validIndex(from, list.length)) return false
@@ -536,75 +498,6 @@ Item {
     return bladeLayout.setTabStateValue(edge, slotIndex, tabIndex, key, value)
   }
 
-  function detachModule(next, moduleId) {
-    for (var edgeIndex = 0; edgeIndex < edges.length; edgeIndex++) {
-      var edge = edges[edgeIndex]
-      if (!next[edge]) next[edge] = emptyBlade(edge)
-      for (var slotIndex = 0; slotIndex < next[edge].slots.length; slotIndex++) {
-        var tabs = next[edge].slots[slotIndex].modules
-        for (var tabIndex = 0; tabIndex < tabs.length; tabIndex++)
-          if (String(tabs[tabIndex].module) === moduleId) return detachTab(next, edge, slotIndex, tabIndex)
-      }
-    }
-    return null
-  }
-
-  function placeClassicSlots(next, placement, filesSlot, propertiesSlot) {
-    if (placement === "right") {
-      next.left.slots.unshift(filesSlot)
-      propertiesSlot.fraction = -1
-      next.right.slots.unshift(propertiesSlot)
-      next.right.open = next.left.open
-      return
-    }
-    next.left.slots.unshift(filesSlot)
-    if (placement !== "none") next.left.slots.splice(placement === "above" ? 0 : 1, 0, propertiesSlot)
-  }
-
-  function closeEmptyBlades(next) {
-    for (var i = 0; i < edges.length; i++)
-      if (next[edges[i]].slots.length === 0) next[edges[i]].open = false
-  }
-
-  function applyPlacement(value) {
-    var placement = normalizePlacement(value)
-    var next = cloneLayout(layout)
-    var propertiesSlot = detachModule(next, "properties") || newSlot("properties", 0.34)
-    var filesSlot = detachModule(next, "files") || newSlot("files")
-    if (propertiesSlot.fraction === undefined || propertiesSlot.fraction < 0) propertiesSlot.fraction = 0.34
-    filesSlot.fraction = -1
-    placeClassicSlots(next, placement, filesSlot, propertiesSlot)
-    closeEmptyBlades(next)
-    replaceLayout(next, true)
-    return placement
-  }
-
-  function openBranches(targetScreen) {
-    if (!findModule("branches")) {
-      if (!registry.module("branches")) return false
-      var beside = findModule("properties")
-      if (beside) {
-        addTab(beside.edge, beside.index, "branches", {})
-      } else {
-        var next = cloneLayout(layout)
-        if (!next.left) next.left = emptyBlade("left")
-        next.left.slots.splice(LayoutInventory.branchesSlotIndex(next.left.slots), 0, newSlot("branches", 0.34))
-        replaceLayout(next, true)
-      }
-    }
-    var location = findModule("branches")
-    setSlotTab(location.edge, location.index, location.tab)
-    return focusBlade(location.edge, targetScreen, location.index, "", true)
-  }
-
-  function closeBranches() {
-    var next = cloneLayout(layout)
-    if (!detachModule(next, "branches")) return false
-    closeEmptyBlades(next)
-    replaceLayout(next, true)
-    return true
-  }
-
   function setMonitorMode(value, lock) {
     var mode = normalizeMonitorMode(value)
     var wanted = String(lock || "")
@@ -615,13 +508,6 @@ Item {
     monitorLock = mode === "locked" ? wanted : ""
     scheduleSave()
     return monitorMode
-  }
-
-  function setAnimateBlades(value) {
-    animateBlades = !!value
-    animationsExplicit = true
-    scheduleSave()
-    return animateBlades
   }
 
   function setFontScale(value) {
@@ -650,11 +536,6 @@ Item {
       service.cancelBackendRequest(windowFocusRequestId, windowFocusGeneration)
     windowFocusGeneration++
     windowFocusRequestId = ""
-    if (placementRequestId && service)
-      service.cancelBackendRequest(placementRequestId, placementGeneration)
-    placementGeneration++
-    placementRequestId = ""
-    pendingPlacementEdge = ""
     return focusController.yieldFocus()
   }
   function bladePointerEntered(edge) { focusController.bladePointerEntered(edge) }
@@ -672,36 +553,6 @@ Item {
   function setSettingsOpen(value, edge) { focusController.setSettingsOpen(value, edge) }
   function toggleSettings(edge) { return focusController.toggleSettings(edge) }
 
-  function placeBladeWindow(edge) {
-    var target = normalizeEdge(edge)
-    if (!pluginDir || !service) return
-    if (placementRequestId) {
-      pendingPlacementEdge = target
-      return
-    }
-    var arguments = [
-      "--title", windowTitle(target),
-      "--edge", target,
-      "--width", String(bladeWidth(target)),
-      "--timeout", "4"
-    ]
-    placementGeneration++
-    var requestGeneration = placementGeneration
-    placementRequestId = service.backendRequest("place-blade-window", arguments, requestGeneration, function(parsed) {
-      if (requestGeneration !== host.placementGeneration) return
-      host.placementRequestId = ""
-      if (parsed && parsed.ok) {
-        host.setWindowAddress(parsed.edge, parsed.address)
-        host.lastWindowPlacement = String(parsed.edge) + " " + String(parsed.address) + " at " + JSON.stringify(parsed.at) + " size " + JSON.stringify(parsed.size)
-      } else {
-        host.lastWindowPlacement = String(parsed && parsed.error || "no response")
-      }
-      var pending = host.pendingPlacementEdge
-      host.pendingPlacementEdge = ""
-      if (pending !== "") host.placeBladeWindow(pending)
-    })
-  }
-
   function focusBladeWindow(edge) {
     var target = normalizeEdge(edge)
     var address = windowAddress(target)
@@ -716,17 +567,6 @@ Item {
     return true
   }
 
-  function swapBladeEdges() {
-    var next = cloneLayout(layout)
-    var keep = next.left
-    next.left = next.right
-    next.right = keep
-    var width = next.left.width
-    next.left.width = next.right.width
-    next.right.width = width
-    replaceLayout(next, true)
-  }
-
   function windowClose() {
     if (focusedEdge !== "" && !isWindowMode(focusedEdge)) {
       setOpen(focusedEdge, false, true)
@@ -737,15 +577,7 @@ Item {
   }
 
   function windowToggle() {
-    if (focusedEdge !== "") {
-      var edge = focusedEdge
-      if (isWindowMode(edge)) {
-        redock(edge, null)
-        return "blade-docked"
-      }
-      undock(edge)
-      return "blade-undocked"
-    }
+    if (focusedEdge !== "") return "none"
     dispatchWindow(["--action", "float"])
     return "dispatched"
   }
@@ -769,16 +601,7 @@ Item {
     var raw = String(direction || "").toLowerCase().charAt(0)
     if (raw === "u" || raw === "d") return windowSwapVertical(raw)
     var side = raw === "r" ? "r" : "l"
-    if (focusedEdge !== "" && !isWindowMode(focusedEdge)) {
-      var inward = (focusedEdge === "left" && side === "r") || (focusedEdge === "right" && side === "l")
-      if (!inward) return "none"
-      var origin = focusedEdge
-      var target = origin === "left" ? "right" : "left"
-      swapBladeEdges()
-      focusBlade(target, null, -1, "", true)
-      if (!isOpen(origin) || slots(origin).length === 0) setOpen(origin, false, true)
-      return "blade-swapped"
-    }
+    if (focusedEdge !== "" && !isWindowMode(focusedEdge)) return "none"
     dispatchWindow(["--action", "swap", "--direction", side])
     return "dispatched"
   }
@@ -851,23 +674,9 @@ Item {
     requestLayoutRead()
   }
 
-  function applyLayout(next, desiredMonitorMode, persist, desiredAnimations) {
+  function applyLayout(next, desiredMonitorMode, persist) {
     var normalized = normalizeLayout(next)
-    var lost = bladeLayout.missingModules(next, normalized)
-    if (lost.length > 0) {
-      persist = false
-      layoutIncomplete = true
-      console.warn("data-goblin.fileblade: keeping the saved blade layout; these modules did not resolve: " + lost.join(", "))
-    } else {
-      layoutIncomplete = false
-    }
-    var configured = typeof desiredAnimations === "boolean"
-      ? desiredAnimations
-      : (typeof config.animateBlades === "boolean" ? config.animateBlades : null)
-    if (configured !== null) {
-      animateBlades = configured
-      animationsExplicit = true
-    }
+    layoutIncomplete = false
     var desiredOpen = ({})
     for (var i = 0; i < edges.length; i++) {
       desiredOpen[edges[i]] = !!normalized[edges[i]].open
@@ -891,14 +700,14 @@ Item {
     try { parsed = raw ? JSON.parse(raw) : null } catch (e) { parsed = null }
     if (!parsed || typeof parsed !== "object") {
       layoutWritable = !!seed
-      if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, layoutWritable, config.animateBlades)
+      if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, layoutWritable)
       return
     }
     layoutWritable = true
     if (layoutReady) return applyLiveLayout(parsed)
     if (typeof parsed.monitorLock === "string") monitorLock = parsed.monitorLock
     if (typeof parsed.fontScale === "number") fontScale = Typography.clamp(parsed.fontScale)
-    applyLayout(parsed, parsed.monitorMode || config.monitorMode, false, parsed.animations)
+    applyLayout(parsed, parsed.monitorMode || config.monitorMode, false)
   }
   function applyLayoutResponse(response) {
     if (response && response.ok) {
@@ -908,30 +717,21 @@ Item {
     layoutWritable = !!(response && response.missing)
     layoutRereadPending = !layoutWritable
     if (!layoutWritable) console.warn("data-goblin.fileblade: preserving unreadable blade layout: " + String(response && response.error || "read failed"))
-    if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, layoutWritable, config.animateBlades)
+    if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, layoutWritable)
   }
   function applyLiveLayout(parsed) {
     var incoming = normalizeLayout(parsed)
-    var lostLive = bladeLayout.missingModules(parsed, incoming)
-    if (lostLive.length > 0) {
-      layoutIncomplete = true
-      console.warn("data-goblin.fileblade: keeping the saved blade layout; these modules did not resolve: " + lostLive.join(", "))
-      return
-    }
     layoutIncomplete = false
     var desiredMonitorMode = normalizeMonitorMode(parsed.monitorMode || monitorMode)
     var desiredMonitorLock = typeof parsed.monitorLock === "string" ? parsed.monitorLock : monitorLock
-    var desiredAnimations = typeof parsed.animations === "boolean" ? parsed.animations : animateBlades
     var desiredFontScale = typeof parsed.fontScale === "number" ? Typography.clamp(parsed.fontScale) : fontScale
     var unchanged = JSON.stringify(incoming) === JSON.stringify(normalizeLayout(layout))
-      && desiredMonitorMode === monitorMode && desiredMonitorLock === monitorLock && desiredAnimations === animateBlades
+      && desiredMonitorMode === monitorMode && desiredMonitorLock === monitorLock
       && desiredFontScale === fontScale
     if (unchanged) return
     monitorMode = desiredMonitorMode
     monitorLock = desiredMonitorLock
-    animateBlades = desiredAnimations
     fontScale = desiredFontScale
-    if (typeof parsed.animations === "boolean") animationsExplicit = true
     replaceLayout(incoming, false)
     layoutApplied()
   }
@@ -973,7 +773,7 @@ Item {
   function requestLayoutRead() {
     if (service && service.chooserSession) {
       layoutWritable = false
-      if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, false, false)
+      if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, false)
       return
     }
     if (layoutReadRequestId) {
@@ -995,9 +795,6 @@ Item {
     service.backendRequest("hypr-option", ["--name", "general:border_size"], "border", function(response) {
       var value = Number(response && response["int"])
       if (isFinite(value) && value >= 0) host.frameWidth = Math.round(value)
-    })
-    service.backendRequest("hypr-option", ["--name", "animations:enabled"], "animations", function(response) {
-      if (!host.animationsExplicit && response && response["bool"] === false) host.animateBlades = false
     })
   }
   Connections {

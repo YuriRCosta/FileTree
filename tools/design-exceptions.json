@@ -27,17 +27,7 @@
     },
     {
       "path": "blades/BladeSettings.qml",
-      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
-      "path": "blades/BladeSettings.qml",
       "binding": "radius: Style.cornerRadius",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
-      "path": "blades/BladeSettings.qml",
-      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
       "reason": "not a button; the straight-corner rule covers buttons for now"
     },
     {

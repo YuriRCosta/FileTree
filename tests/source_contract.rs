@@ -223,9 +223,8 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
     let tab_bar = text(&root.join("blades/BladeTabBar.qml"));
     assert!(tab_bar.contains("id: fileActions"));
     assert!(tab_bar.contains("text: \"×\""));
-    assert!(tab_bar.contains(
-        "{ key: \"close\", glyph: \"×\", label: \"Close tab\", enabled: bar.slot.tabs.length > 1 }"
-    ));
+    assert!(!tab_bar.contains("Move to right blade"));
+    assert!(!tab_bar.contains("openModulePicker"));
     assert!(tab_bar.contains("bar.slot.requestCloseTab"));
     let slot = text(&root.join("blades/BladeSlot.qml"));
     assert!(slot.contains("pendingCloseTarget = TabIdentity.capture(tabs, index, slotId)"));
@@ -307,10 +306,7 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
         text(&root.join("panes/ScriptActionRows.qml"))
             .contains("actionKeys: strip.menu.actionKeys")
     );
-    for surface in ["BladeSurface", "BladeWindow"] {
-        let surface = text(&root.join(format!("blades/{surface}.qml")));
-        assert!(surface.contains("releaseRoot:"));
-    }
+    assert!(text(&root.join("blades/BladeSurface.qml")).contains("releaseRoot:"));
     assert!(artifact_bin.contains("actions.registerRestore(module, helperRoute)"));
     assert!(!artifact_bin.contains("removeAction"));
     assert!(!artifact_bin.contains("restoreAction"));
@@ -611,16 +607,18 @@ fn tree_refreshes_keep_surviving_rows_and_the_scroll_anchor() {
 }
 
 #[test]
-fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
+fn single_docked_blade_routes_every_edge_to_the_configured_side() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let window = text(&root.join("blades/BladeWindow.qml"));
-    assert!(window.contains("window.host.redock(window.edge, window.screen)"));
-    assert!(window.contains("anchors.left: window.isRight ? undefined : parent.left"));
-    assert!(window.contains("anchors.right: window.isRight ? parent.right : undefined"));
+    assert!(!root.join("blades/BladeWindow.qml").exists());
+    assert!(!text(&root.join("blades/BladeScreens.qml")).contains("BladeWindow"));
 
     let host = text(&root.join("blades/BladeHost.qml"));
     assert!(host.contains("function windowToggle()"));
+    assert!(host.contains("if (focusedEdge !== \"\") return \"none\""));
     assert!(host.contains("dispatchWindow([\"--action\", \"float\"])"));
+    assert!(host.contains("function setSide(edge)"));
+    assert!(!host.contains("function undock("));
+    assert!(!host.contains("function toggleDock("));
 
     let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
     for name in [
@@ -647,7 +645,7 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
     );
     assert!(layout.contains("function panelActiveFor(panelScreen, edge)"));
     assert!(layout.contains("function noteOpened(edge)"));
-    assert!(layout.contains("monitorLock: monitorLock, animations: animateBlades"));
+    assert!(layout.contains("monitorLock: monitorLock, fontScale: fontScale"));
     assert!(ipc.contains("function setMonitorMode(mode: string, monitor: string): string"));
     assert!(ipc.contains("focusedMonitor: bladeHost.focusedMonitorName,"));
     assert!(ipc.contains("bladeScreens: { left: bladeHost.bladeScreenName(\"left\"), right: bladeHost.bladeScreenName(\"right\") },"));
@@ -685,12 +683,10 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
         surface_text.contains("readonly property int bladeWidth: Math.max(host.minimumWidth, Math.min(liveWidth > 0 ? liveWidth : storedWidth, surfaceWidth))"),
         "each surface clamps its rendered width to its own screen without rewriting the stored width"
     );
-    assert!(
-        ipc.contains("return bladeHost.toggleBladeFocus(edge, bladeHost.preferredScreen(edge))")
-    );
     assert!(ipc.contains(
-        "return bladeHost.toggleBladeFocus(\"left\", bladeHost.preferredScreen(\"left\"))"
+        "return bladeHost.toggleBladeFocus(bladeHost.side, bladeHost.preferredScreen(bladeHost.side))"
     ));
+    assert!(ipc.contains("function setBladeSide(edge: string): string"));
     assert!(ipc.contains("? \"focused\" : \"no-screen\""));
     assert!(focus.contains("? \"opened\" : \"no-screen\""));
     assert!(layout.contains("onLayoutChanged: adoptInvocationScreens()"));
@@ -704,12 +700,6 @@ fn detached_blades_expose_edge_redocking_and_window_toggle_routing() {
             .matches("\"--left-monitor\", host.bladeScreenName(\"left\"),")
             .count(),
         2
-    );
-    let native_window = text(&root.join("blades/BladeWindow.qml"));
-    assert!(native_window.contains("screen: creationScreen"));
-    assert!(native_window.contains("if (windowMode) chooseCreationScreen()"));
-    assert!(
-        native_window.contains("window.host.reportFocus(window.edge, activeFocus, window.screen)")
     );
     assert!(focus.contains("if (screen) focusedScreen = screen"));
     let wheel = text(&root.join("controllers/DropWheelController.qml"));
@@ -953,11 +943,6 @@ fn notes_module_is_bundled_and_bounded() {
     assert_eq!(definition["hostContract"], 1);
     assert_eq!(definition["singleton"], true);
     assert_eq!(definition["entry"], "Module.qml");
-    let layout = text(&root.join("blades/BladeLayout.qml"));
-    assert!(
-        layout.contains("\"kurt.notes/notes\": \"notes\""),
-        "layouts saved while Notes was a satellite must resolve to the bundled module"
-    );
     let state = text(&root.join("modules/notes/NotesState.js"));
     assert!(state.contains("var CAP_BYTES = 65536"));
     assert!(state.lines().next().unwrap().contains(".pragma library"));
@@ -1027,8 +1012,6 @@ fn update_check_is_opt_out_bounded_and_manual_in_the_footer() {
     assert!(controller.contains("function onStateReadyChanged() { if (controller.service.stateReady) controller.checkIfStale() }"));
     let service = text(&root.join("Service.qml"));
     assert!(service.contains("onAnyOpenChanged: if (anyOpen) updateController.checkIfStale()"));
-    let registry = text(&root.join("blades/BladeRegistry.qml"));
-    assert!(registry.contains("function providerSources()"));
     let state = text(&root.join("controllers/StateController.qml"));
     assert!(state.contains("property double updateCheckedAt: 0"));
     assert!(state.contains("updateCheckedAt: updateCheckedAt"));
@@ -1060,67 +1043,42 @@ fn update_check_is_opt_out_bounded_and_manual_in_the_footer() {
 }
 
 #[test]
-fn contributed_blade_modules_receive_their_singleton_provider_service() {
+fn only_the_builtin_files_module_is_registered() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let registry = text(&root.join("blades/BladeRegistry.qml"));
-    assert!(
-        registry.contains(
-            "providerId: source === \"builtin\" && !idPrefix && coreModules.indexOf(id) >= 0"
-        ) && registry
-            .contains("? \"fileblade.core.\" + id : boundedText(idPrefix, \"\", maximumIdLength)"),
-        "built-in core modules take a core provider id; contributed modules keep the plugin prefix"
-    );
-    assert!(
-        registry.contains(
-            "normalizedModule(contributed[i], directory, \"plugin:\" + pluginId, pluginId)"
-        )
-    );
+    assert!(registry.contains("readonly property string onlyModule: \"files\""));
     assert!(registry.contains(
-        "var directory = sourceDir === undefined || sourceDir === null || sourceDir === \"\" ? manifest.__sourceDir : sourceDir"
+        "if (module && module.id === onlyModule && module.source === \"builtin\" && !found[module.id]) {"
     ));
-    assert!(
-        registry.contains("property var catalogProviders: []"),
-        "the registry accepts providers the shell no longer discloses"
-    );
+    for removed in [
+        "pluginRegistry",
+        "catalogProviders",
+        "function manifestModules()",
+        "function providerSources()",
+    ] {
+        assert!(!registry.contains(removed), "{removed}");
+    }
+    let service = text(&root.join("Service.qml"));
+    assert!(!root.join("controllers/ExtensionCatalog.qml").exists());
+    assert!(!root.join("controllers/ExtensionProviders.qml").exists());
+    assert!(!service.contains("extensionCatalog"));
     let host = text(&root.join("blades/BladeHost.qml"));
     assert!(
         host.contains("signal bladeOpened(string edge)")
             && host.contains("if (desired) bladeOpened(target)"),
-        "opening one blade is observable even while another blade is already open"
+        "opening the blade stays observable"
     );
-    let catalog = text(&root.join("controllers/ExtensionCatalog.qml"));
-    assert!(catalog.contains("function requestRefresh()"));
-    assert!(
-        catalog.contains("path.indexOf(\"/plugins\") >= 0 || path.indexOf(\"shell.json\") >= 0"),
-        "an enable or disable that only rewrites the shell configuration wakes the catalog"
-    );
-    let service_wiring = text(&root.join("Service.qml"));
-    assert!(
-        service_wiring.contains("function onBladeOpened(edge) { if (service.backendReady) extensionCatalog.refreshIfStale() }"),
-        "a blade opening re-reads a stale catalog"
-    );
-    assert!(
-        service_wiring.contains("service.home + \"/.config/omarchy\"")
-            && !service_wiring.contains("/.config/omarchy/shell.json\""),
-        "the catalog watches directories, which is all the subscription accepts"
-    );
-
-    let slot = text(&root.join("blades/BladeSlot.qml"));
-    assert!(slot.contains(
-        "providerId: slot.moduleInfo ? String(slot.moduleInfo.providerId || \"\") : \"\""
+    let layout = text(&root.join("blades/BladeLayout.qml"));
+    assert!(layout.contains("function normalizeLayout(raw)"));
+    assert!(layout.contains(
+        "slots: [{ id: \"files\", modules: [filesTab(saved) || { module: \"files\", state: {} }], active: 0, collapsed: false, fraction: -1 }]"
     ));
-
-    let context = text(&root.join("blades/BladeContext.qml"));
-    assert!(context.contains("readonly property var providerService: service(providerId)"));
-    assert!(context.contains("typeof shell.serviceFor === \"function\""));
-    assert!(context.contains("shell.serviceFor(key)"));
-
-    let plugins = text(&root.join("EXTENSIONS.md"));
-    assert!(plugins.contains("context.providerId"));
-    assert!(plugins.contains("context.providerService"));
-    assert!(plugins.contains("context.service(pluginId)"));
-    assert!(plugins.contains("potentially once per screen"));
-    assert!(plugins.contains("shared scanners, subprocesses, watchers, caches"));
+    assert!(!layout.contains("function missingModules("));
+    let settings = text(&root.join("blades/BladeSettings.qml"));
+    assert!(settings.contains("label: \"Side\""));
+    assert!(!settings.contains("Animate blades"));
+    assert!(!settings.contains("label: \"Window\""));
+    assert!(!settings.contains("root.host.addSlot("));
 }
 
 #[test]
@@ -1328,8 +1286,6 @@ fn drop_drag_leaves_the_blade_at_the_sheet_edge_not_the_layer_edge() {
         "readonly property int surfaceOriginY: barPosition === \"top\" ? liveBarSize : 0"
     ));
     assert!(surface.contains("host.shell.bar.barHidden ? 0"));
-    let window = text(&root.join("blades/BladeWindow.qml"));
-    assert!(window.contains("function containsScenePoint(x, y)"));
     let row = text(&root.join("panes/BrowserRow.qml"));
     let drop_target = text(&root.join("panes/BrowserDropTarget.qml"));
     assert!(drop_target.contains("drop.proposedAction === Qt.CopyAction"));
@@ -1755,12 +1711,6 @@ fn module_definitions_are_normalized_once_and_grouped_by_category() {
             .contains("favorites ="),
         "reverting settings keeps the favourites"
     );
-    assert!(settings.contains("current = { category: String(module.category), modules: [] }"));
-    assert!(settings.contains("text: String(group.modelData.category).toUpperCase()"));
-    assert!(
-        settings
-            .contains("\"add module \" + String(module.category) + \" \" + String(module.name)")
-    );
     let section = text(&root.join("blades/BladeModuleSection.qml"));
     assert!(section.contains("required property var sheet"));
     assert!(section.contains(
@@ -2142,13 +2092,7 @@ fn script_action_rows_render_plain_text_and_reach_the_controller_through_the_ser
     assert!(controller.contains("import \"../lib/ActionRows.js\" as ActionRows"));
     assert!(!controller.contains("Process"));
     let service = text(&root.join("Service.qml"));
-    assert!(service.contains("var map = ({ files: service, actions: actionController })"));
-    assert!(
-        service.contains(
-            "for (var i = 0; i < ids.length; i++) if (!map[ids[i]]) map[ids[i]] = supplied[ids[i]]"
-        ),
-        "a contributed provider reaches its module through the services map"
-    );
+    assert!(service.contains("return ({ files: service, actions: actionController })"));
     let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
     assert!(ipc.contains("function actions(): string"));
     assert!(ipc.contains("function actionResult(requestId: string): string"));

@@ -45,14 +45,4 @@ Item {
       }
     }
   }
-
-  BladeWindow {
-    host: screens.host
-    edge: "left"
-  }
-
-  BladeWindow {
-    host: screens.host
-    edge: "right"
-  }
 }

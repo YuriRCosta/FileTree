@@ -18,8 +18,7 @@ FocusScope {
   property int dialogFocusIndex: 1
   property string displayedNotice: ""
   property bool noticePresented: false
-  readonly property bool animationsEnabled: !pane.context || !pane.context.host
-    || pane.context.host.animateBlades !== false
+  readonly property bool animationsEnabled: false
   readonly property bool statusActive: controller.trashOperationBusy
     || (controller.trashBusy && controller.trashCount === 0)
     || controller.trashError !== "" || noticePresented

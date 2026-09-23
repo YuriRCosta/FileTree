@@ -21,9 +21,8 @@ Quickshell loads `Service.qml` once and keeps it loaded (`keepLoaded: true` in
 ```yaml
 Service.qml:                 plugin entry; owns the host, the IPC handlers, and shared services
 blades/BladeHost.qml:        the layout model; reads and writes blades.json, routes focus, holds the module registry
-blades/BladeRegistry.qml:    finds modules (built in, yours, other plugins); see EXTENSIONS.md
+blades/BladeRegistry.qml:    registers the one built-in Files module; other modules and plugins are ignored
 blades/BladeSurface.qml:     one docked PanelWindow per edge per enabled screen
-blades/BladeWindow.qml:      one ordinary window per undocked edge
 blades/BladeSlot.qml:        loads a module's entry QML and hands it a BladeContext
 blades/BladeModuleLoader.qml: gives each loaded module its own context through replacement and teardown
 blades/BladeContext.qml:     the API a module talks to: state, focus, services, tabs, drag
@@ -140,7 +139,9 @@ The Rust-side default-open helper follows the same rule for drop-wheel opens.
 ![Blade layout](assets/docs/blade-layout.svg)
 
 ```yaml
-blade:   one screen edge, left or right. Open or closed, docked or undocked, focused or not.
+blade:   exactly one, on the left or right edge chosen in Settings. Open or closed, always docked, focused or not.
+         The layout normalizer keeps a single Files slot on that side and empties the other edge;
+         every IPC verb that names an edge acts on the configured side.
          Rendered by one BladeSurface per screen; `monitorMode` decides which surfaces are
          eligible. `active` (default): each edge shows only on the monitor Hyprland had
          focused when that blade was opened, and stays there until closed; a shortcut
@@ -165,13 +166,12 @@ Layout is one file, `~/.config/omarchy/fileblade/blades.json`:
 version: 1
 monitorMode: active | all | locked
 monitorLock: ""  # named output when locked
-animations: true
 fontScale: 1.0
 blades:
   left:
     open: true
     width: 517
-    mode: docked | window
+    mode: docked
     slots:
       - id: files
         modules: [ { module: files, state: { root: "~" } } ]
@@ -186,13 +186,10 @@ It's written atomically and watched, so editing it by hand or through
 restart. Slots render through a Repeater over `slots.length`, not over the
 array, so a save never tears down and reloads every module.
 
-Docked blades are layer surfaces with an exclusive zone, which is why your
-tiled windows shift over. An undocked blade (Super+T while it has focus) is a
-plain Hyprland window you can tile and move like anything else. Its screen is
-chosen once when entering window mode from the edge's invocation or lock
-target. Later compositor movement is retained, and focus reports use the
-native window's actual screen. Removing an output cancels its transient
-menus, wheels, drags and keyboard ownership; the saved lock is retained.
+The blade is a layer surface with an exclusive zone, which is why your
+tiled windows shift over. It never undocks into a window and opens and closes
+without a slide animation. Removing an output cancels its transient menus,
+wheels, drags and keyboard ownership; the saved lock is retained.
 
 ### Popouts
 
@@ -244,7 +241,7 @@ An external open is also a focus boundary. `LaunchController` asks the blade
 host to yield before it starts an editor, desktop default, explicit
 application, or reveal action. Yielding closes an action menu, releases an
 open drop wheel's exclusive keyboard focus, releases every docked focus grab,
-cancels deferred focus timers and stale focus or undocked-placement requests,
+cancels deferred focus timers and stale focus requests,
 and forgets the old workspace focus instead of restoring it over the
 application being opened. The drop wheel uses
 the same boundary before file or mixed batches, direct path pastes, and every
@@ -405,16 +402,15 @@ pointerResizeBegin: compositor global shortcut fileblade:resize-blade, bound to 
 pointerResizeEnd: compositor global shortcut fileblade:resize-blade-end, the release half of the same gesture
 windowSwap:     host bind (Super+Shift+arrows)
 windowToggle:   host bind (Super+T)
-focusLeft:      host bind (Super+Left)
+focusLeft:      host bind (Super+Left); toggles the one blade on its configured side
 setScrollMarks: settings sheet toggle for Git marks on the scroll ruler; the VM expectations flip it
 setAutoHideSearch: settings sheet toggle for hiding unfocused search bars; VM section 32 checks visibility and persistence
-focusRight:     host bind (Super+Right)
+focusRight:     host bind (Super+Right); toggles the one blade on its configured side
+setBladeSide:   blade settings Side choice (left | right); moves the one FileBlade blade to that edge
 focusBladeOn:   host bind helper, focuses a blade on a named screen
 quickNav:       host bind (Super+Z)
 reloadKeybindings: explicit reread after editing the user keymap; normally handled by its file watcher
 cancelPick:     picker dialog flow, driven by the pick blade itself
-openBranches:   `fileblade branches`; also the Expand row of the Switch branch popup; opens or focuses the Branches module in the left blade
-closeBranches:  `fileblade branches close`; removes the Branches module
 confirmPick:    picker dialog flow, driven by the pick blade itself
 pickerResult:   picker dialog flow, answer from the pick blade
 select:         single-path form of selectEntries, which fileblade select uses
@@ -517,7 +513,6 @@ gitStatusPollIntervalMs:     5000       Git fallback base in ms; 6x while inotif
 dropModifier:               space      drop-wheel hold key: space, alt, ctrl, shift, or meta
 dragOut:                    paste      what a drag leaving a blade does: paste the path, or hand it to the system
 monitorMode:                active     invocation monitor; all mirrors, locked uses the saved monitorLock
-animateBlades:              true       slide blades open and closed
 checkUpdates:               true       the six-hourly ref lookup described under Checkout update checks
 blades:                     omitted    optional full first-run left/right layout; supersedes the legacy layout keys above
 ```

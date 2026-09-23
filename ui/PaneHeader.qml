@@ -32,8 +32,7 @@ Rectangle {
   readonly property int effectiveReservedRight: reservedRight
   readonly property real leadingRight: navigation.visible
     ? navigation.x + navigation.naturalWidth
-    : (moduleAdd.visible ? moduleAdd.x + moduleAdd.width
-        : (label.visible ? label.x + label.width : Style.space(7) + effectiveReservedLeft))
+    : (label.visible ? label.x + label.width : Style.space(7) + effectiveReservedLeft)
   readonly property real extrasRight: width - Style.space(7) - effectiveReservedRight
   readonly property real nonColumnExtrasWidth: extensionRow.visible
     ? extensionRow.implicitWidth + extrasRow.spacing
@@ -123,22 +122,9 @@ Rectangle {
   }
 
   PaneNavigation {
-    id: moduleAdd
+    id: navigation
     anchors.left: label.visible ? label.right : parent.left
     anchors.leftMargin: label.visible ? Style.space(8) : Style.space(7) + header.effectiveReservedLeft
-    anchors.verticalCenter: parent.verticalCenter
-    height: Style.space(24)
-    width: implicitWidth
-    visible: header.identityVisible && header.collapsible
-    actions: [{ key: "add-module", glyph: "+", title: "Add module", actions: [{ button: "left", text: "Choose a module for this section" }] }]
-    onTriggered: if (header.context) header.context.openModulePicker(moduleAdd.x)
-  }
-
-  PaneNavigation {
-    id: navigation
-    anchors.left: moduleAdd.visible ? moduleAdd.right : (label.visible ? label.right : parent.left)
-    anchors.leftMargin: moduleAdd.visible ? Style.space(2)
-      : (label.visible ? Style.space(8) : Style.space(7) + header.effectiveReservedLeft)
     anchors.verticalCenter: parent.verticalCenter
     height: Style.space(24)
     width: implicitWidth
@@ -208,8 +194,8 @@ Rectangle {
 
   Text {
     textFormat: Text.PlainText
-    anchors.left: navigation.visible ? navigation.right : (moduleAdd.visible ? moduleAdd.right : (label.visible ? label.right : parent.left))
-    anchors.leftMargin: navigation.visible || moduleAdd.visible || label.visible
+    anchors.left: navigation.visible ? navigation.right : (label.visible ? label.right : parent.left)
+    anchors.leftMargin: navigation.visible || label.visible
       ? Style.space(10)
       : Style.space(10) + header.effectiveReservedLeft
     anchors.right: extrasRow.left

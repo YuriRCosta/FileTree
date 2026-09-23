@@ -61,16 +61,12 @@ PanelWindow {
     Border.hyprlandActiveSpec(Color.accent, host.frameWidth),
     isRight ? "0 0 0 " + host.frameWidth : "0 " + host.frameWidth + " 0 0"
   )
-  readonly property bool animationsEnabled: host.animateBlades
   readonly property bool actionMenuOpen: host.services && host.services.files ? !!host.services.files.actionMenuOpen : false
   readonly property bool actionMenuHere: actionMenuOpen
     && host.services.files.actionMenuScreen === screen
     && isRight === !!host.services.files.actionMenuOpenLeft
   readonly property int actionMenuLayerWidth: host.maximumWidth(screen ? screen.width : 0)
   readonly property bool dropWheelOpen: host.services && host.services.files ? !!host.services.files.dropWheelOpen : false
-  readonly property var slideCurve: [0.32, 0.72, 0.0, 1.0, 1.0, 1.0]
-  readonly property int slideInMs: 500
-  readonly property int slideOutMs: 380
   property bool keyboardFocusReleased: true
   property bool parked: true
   property real slideOffset: 0
@@ -194,24 +190,13 @@ PanelWindow {
   }
 
   function showSheet() {
-    slideOut.stop()
-    if (parked) slideOffset = bladeWidth
     parked = false
-    if (animationsEnabled && slideOffset > 0) slideIn.restart()
-    else {
-      slideIn.stop()
-      slideOffset = 0
-    }
+    slideOffset = 0
   }
 
   function hideSheet() {
-    slideIn.stop()
-    if (animationsEnabled && slideOffset < bladeWidth) slideOut.restart()
-    else {
-      slideOut.stop()
-      slideOffset = bladeWidth
-      parked = true
-    }
+    slideOffset = bladeWidth
+    parked = true
   }
 
   onBladeOpenChanged: {
@@ -231,27 +216,6 @@ PanelWindow {
   Component.onCompleted: {
     parked = !bladeOpen
     slideOffset = bladeOpen ? 0 : bladeWidth
-  }
-
-  NumberAnimation {
-    id: slideIn
-    target: surface
-    property: "slideOffset"
-    to: 0
-    duration: surface.slideInMs
-    easing.type: Easing.BezierSpline
-    easing.bezierCurve: surface.slideCurve
-  }
-
-  NumberAnimation {
-    id: slideOut
-    target: surface
-    property: "slideOffset"
-    to: surface.bladeWidth
-    duration: surface.slideOutMs
-    easing.type: Easing.BezierSpline
-    easing.bezierCurve: surface.slideCurve
-    onFinished: if (!surface.bladeOpen) surface.parked = true
   }
 
   HyprlandFocusGrab {
@@ -497,13 +461,6 @@ PanelWindow {
           tip: "Collapse"
           tipActions: [{ button: "left", text: "Close this blade" }, { shortcut: "Super+W" }]
           onActivated: surface.host.setOpen(surface.edge, false, true)
-        }
-
-        BladeCorner {
-          glyph: "󰀿"
-          tip: "Undock"
-          tipActions: [{ button: "left", text: "Float as a window" }, { shortcut: "Super+T" }]
-          onActivated: surface.host.toggleDock(surface.edge)
         }
 
         Rectangle {

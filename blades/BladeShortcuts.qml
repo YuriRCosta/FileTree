@@ -32,9 +32,9 @@ Item {
   readonly property var hyprlandSection: ({
     title: "HYPRLAND (your bindings.lua)",
     items: [
-      { shortcut: "toggleBladeFocus l/r", text: "Focus or close a blade" },
+      { shortcut: "toggleBladeFocus", text: "Focus or close the blade" },
       { shortcut: "focusDirection l/r/u/d", text: "Focus window or blade" },
-      { shortcut: "windowToggle", text: "Float, dock or undock" },
+      { shortcut: "windowToggle", text: "Float or tile a window" },
       { shortcut: "windowSwap l/r/u/d", text: "Swap window or blade slot" },
       { shortcut: "windowClose", text: "Close window or blade" }
     ]

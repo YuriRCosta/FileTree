@@ -1470,7 +1470,7 @@ FocusScope {
           return
         }
         var names = response.branches || []
-        var entries = [{ key: "__expand", label: "Expand into Branches", glyph: "󰘬" }, { kind: "separator" }]
+        var entries = []
         for (var i = 0; i < names.length; i++)
           entries.push({ key: String(names[i]), label: String(names[i]), checked: String(names[i]) === String(response.current) })
         branchPicker.rows = entries
@@ -1479,10 +1479,6 @@ FocusScope {
     }
 
     onPicked: function(key) {
-      if (String(key) === "__expand") {
-        controller.openBranches(root.targetScreen())
-        return
-      }
       branchPicker.busy = true
       controller.backendRequest("git-switch", ["--path", branchPicker.repositoryPath, "--branch", String(key)], 0, function(response) {
         branchPicker.busy = false

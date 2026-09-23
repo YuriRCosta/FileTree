@@ -207,7 +207,7 @@ QtObject {
       settingsEdge: bladeHost.settingsEdge,
       focusedBlade: bladeHost.focusedEdge,
       frameWidth: bladeHost.frameWidth,
-      bladeAnimations: bladeHost.animateBlades,
+      bladeSide: bladeHost.side,
       fontScale: bladeHost.fontScale,
       focusRestoreAddress: bladeHost.restoreFocusAddress,
       focusRestoreClass: bladeHost.restoreFocusClass,
@@ -216,7 +216,6 @@ QtObject {
       bladeModes: { left: bladeHost.bladeMode("left"), right: bladeHost.bladeMode("right") },
       bladeWindowAddresses: bladeHost.windowAddresses,
       bladeWindowTitles: { left: bladeHost.windowTitle("left"), right: bladeHost.windowTitle("right") },
-      lastWindowPlacement: bladeHost.lastWindowPlacement,
       lastFocusDirection: bladeHost.lastFocusDirection,
       focusDirectionCount: bladeHost.focusDirectionCount,
       dragActive: bladeHost.dragActive,
@@ -696,11 +695,6 @@ QtObject {
     return "cancelled"
   }
 
-  function setPlacement(placement: string): string {
-    service.setPropertiesPlacement(placement)
-    return service.propertiesPlacement
-  }
-
   function setModeBadge(placement: string): string {
     return service.setModeBadge(placement)
   }
@@ -710,24 +704,28 @@ QtObject {
   }
 
   function focusBlade(edge: string): string {
-    return bladeHost.focusBlade(edge, bladeHost.preferredScreen(edge), -1, "", true) ? "focused" : "no-screen"
+    return bladeHost.focusBlade(bladeHost.side, bladeHost.preferredScreen(bladeHost.side), -1, "", true) ? "focused" : "no-screen"
   }
 
   function toggleBladeFocus(edge: string): string {
-    return bladeHost.toggleBladeFocus(edge, bladeHost.preferredScreen(edge))
+    return bladeHost.toggleBladeFocus(bladeHost.side, bladeHost.preferredScreen(bladeHost.side))
   }
 
   function focusLeft(): string {
-    return bladeHost.toggleBladeFocus("left", bladeHost.preferredScreen("left"))
+    return toggleBladeFocus("")
   }
 
   function focusRight(): string {
-    return bladeHost.toggleBladeFocus("right", bladeHost.preferredScreen("right"))
+    return toggleBladeFocus("")
   }
 
   function openBlade(edge: string): string {
-    bladeHost.setOpen(edge, true, true)
+    bladeHost.setOpen(bladeHost.side, true, true)
     return "open"
+  }
+
+  function setBladeSide(edge: string): string {
+    return bladeHost.setSide(edge)
   }
 
   function setWelcomeState(value: string): string {
@@ -751,18 +749,18 @@ QtObject {
   }
 
   function closeBlade(edge: string): string {
-    bladeHost.setOpen(edge, false, true)
+    bladeHost.setOpen(bladeHost.side, false, true)
     return "closed"
   }
 
   function toggleBlade(edge: string): string {
-    return bladeHost.toggleOpen(edge) ? "open" : "closed"
+    return bladeHost.toggleOpen(bladeHost.side) ? "open" : "closed"
   }
 
   function setBladeWidth(edge: string, width: string): string {
     var reference = service.referenceScreen(null)
     var screenWidth = reference ? reference.width : 0
-    return String(bladeHost.setWidth(edge, Number(width), screenWidth, true))
+    return String(bladeHost.setWidth(bladeHost.side, Number(width), screenWidth, true))
   }
 
   function blades(): string {
@@ -799,10 +797,6 @@ QtObject {
     return bladeHost.toggleSlotCollapsed(edge, Number(index)) ? "ok" : "invalid-slot"
   }
 
-  function moveBladeModule(module: string, edge: string, index: string): string {
-    return bladeHost.moveModule(module, edge, Number(index)) ? "ok" : "invalid-module"
-  }
-
   function bladeModules(): string {
     return bladeHost.registry.ipcDocument(function(id) { return bladeHost.findModule(id) })
   }
@@ -828,26 +822,8 @@ QtObject {
     return JSON.stringify(runner.runFromIpc(key, pathsJson, String(yes).toLowerCase() === "true"))
   }
 
-  function setBladeAnimations(enabled: string): string {
-    var value = String(enabled).toLowerCase()
-    if (value === "toggle") return bladeHost.setAnimateBlades(!bladeHost.animateBlades) ? "on" : "off"
-    return bladeHost.setAnimateBlades(value === "true" || value === "on" || value === "1") ? "on" : "off"
-  }
-
   function toggleBladeSettings(edge: string): string {
-    return bladeHost.toggleSettings(edge) ? "open" : "closed"
-  }
-
-  function undockBlade(edge: string): string {
-    return bladeHost.undock(edge)
-  }
-
-  function dockBlade(edge: string): string {
-    return bladeHost.dock(edge)
-  }
-
-  function toggleBladeDock(edge: string): string {
-    return bladeHost.toggleDock(edge)
+    return bladeHost.toggleSettings(bladeHost.side) ? "open" : "closed"
   }
 
   function releaseBladeFocus(): string {
@@ -889,7 +865,7 @@ QtObject {
   function focusBladeOn(edge: string, monitor: string): string {
     var screen = bladeHost.screenNamed(monitor)
     if (String(monitor || "") !== "" && !screen) return "unknown-monitor"
-    return bladeHost.focusBlade(edge, screen, -1, "", true) ? "focused" : "no-screen"
+    return bladeHost.focusBlade(bladeHost.side, screen, -1, "", true) ? "focused" : "no-screen"
   }
 
   function moveBladeSlot(sourceEdge: string, sourceIndex: string, targetEdge: string, targetIndex: string, tabIndex: string): string {
@@ -920,14 +896,6 @@ QtObject {
   function focusProperties(): string {
     service.focusProperties(null)
     return "ok"
-  }
-
-  function openBranches(): string {
-    return service.openBranches(null) ? "ok" : "no-screen"
-  }
-
-  function closeBranches(): string {
-    return service.closeBranches() ? "ok" : "absent"
   }
 
   function focusSearch(): string {
