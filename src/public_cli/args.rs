@@ -413,22 +413,8 @@ pub struct ColorScopeArgs {
     pub scope: ColorScope,
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
-pub enum Placement {
-    Above,
-    Right,
-    Below,
-}
-
-#[derive(Clone, Debug, Args)]
-pub struct PlacementArgs {
-    #[arg(value_enum)]
-    pub placement: Placement,
-}
-
 #[derive(Clone, Debug, Subcommand)]
 pub enum PropertiesCommand {
-    Placement(PlacementArgs),
     Focus,
 }
 

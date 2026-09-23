@@ -21,9 +21,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 mod args;
 mod blade;
-mod branches;
 mod doctor;
-mod extension;
 mod files;
 mod integration;
 mod ipc;
@@ -31,18 +29,14 @@ mod launch;
 mod plugins;
 mod queries;
 mod space;
-mod usage;
 pub use args::*;
 pub use blade::*;
-pub use branches::*;
 use doctor::*;
-pub use extension::*;
 use files::*;
 use ipc::*;
 use launch::*;
 pub use plugins::*;
 use queries::*;
-pub use usage::*;
 const READ_TARGET: &str = "data-goblin.fileblade";
 const CONTROL_TARGET: &str = "data-goblin.fileblade.control";
 const IPC_TIMEOUT: Duration = Duration::from_secs(5);
@@ -85,9 +79,6 @@ impl From<OutputFormat> for Format {
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum RootCommand {
-    Native(crate::native::Args),
-    #[command(name = "_companion-mutate", hide = true)]
-    CompanionMutate,
     #[command(name = "_backend", hide = true)]
     Backend {
         #[command(subcommand)]
@@ -170,7 +161,6 @@ pub enum RootCommand {
     Expand(PathValue),
     Collapse(PathValue),
     Width(PixelsArgs),
-    BladeWidth(PixelsArgs),
     Blades,
     Modules,
     /// Print how full the drive holding a folder is; defaults to the open FileBlade root.
@@ -198,16 +188,6 @@ pub enum RootCommand {
         #[command(subcommand)]
         action: BladeCommand,
     },
-    /// Open the Branches module, close it, or list branches and worktrees.
-    Branches {
-        #[command(subcommand)]
-        action: Option<BranchesCommand>,
-    },
-    /// Scaffold a FileBlade extension.
-    Extension {
-        #[command(subcommand)]
-        action: ExtensionCommand,
-    },
     /// Install FileBlade into another tool.
     Install {
         #[command(subcommand)]
@@ -216,11 +196,6 @@ pub enum RootCommand {
     /// Print the current selection as agent context. Always succeeds; prints an
     /// empty context when FileBlade is not running.
     AgentContext(integration::AgentContextArgs),
-    /// Read or forget the recorded daily skill and MCP use history.
-    Usage {
-        #[command(subcommand)]
-        action: UsageCommand,
-    },
     Focus(FocusArgs),
     Search(SearchArgs),
     ClearSearch,
@@ -242,20 +217,15 @@ pub fn run(command: RootCommand) -> AppResult<PublicResult> {
 
 fn run_command(command: RootCommand) -> AppResult<PublicResult> {
     match command {
-        RootCommand::Native(_)
-        | RootCommand::Backend { .. }
-        | RootCommand::Serve(_)
-        | RootCommand::ExecHex(_)
-        | RootCommand::CompanionMutate => Err(AppError::invalid(
-            "internal command routed through the public CLI",
-        )),
+        RootCommand::Backend { .. } | RootCommand::Serve(_) | RootCommand::ExecHex(_) => Err(
+            AppError::invalid("internal command routed through the public CLI"),
+        ),
         RootCommand::Preferences(changes) => {
-            let settings =
-                if changes.trash_retention_days.is_some() || changes.agent_management.is_some() {
-                    crate::preferences::change(&changes)?
-                } else {
-                    crate::preferences::read()?
-                };
+            let settings = if changes.trash_retention_days.is_some() {
+                crate::preferences::change(&changes)?
+            } else {
+                crate::preferences::read()?
+            };
             Ok(PublicResult::one(json!({"ok":true,"settings":settings})))
         }
         RootCommand::Status => json_ipc("status", &[]),
@@ -361,9 +331,6 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Expand(options) => expansion("expandPath", options.path),
         RootCommand::Collapse(options) => expansion("collapsePath", options.path),
         RootCommand::Width(options) => simple_ipc("setSidebarWidth", &[options.pixels.to_string()]),
-        RootCommand::BladeWidth(options) => {
-            simple_ipc("setPropertiesBladeWidth", &[options.pixels.to_string()])
-        }
         RootCommand::Blades => json_ipc("blades", &[]),
         RootCommand::Space(options) => space::space(options),
         RootCommand::Modules => modules(),
@@ -372,13 +339,10 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
         RootCommand::Actions => actions(),
         RootCommand::Action(options) => action(options),
         RootCommand::Blade { action } => blade(action),
-        RootCommand::Branches { action } => branches(action),
-        RootCommand::Extension { action } => extension(action),
         RootCommand::Install { action } => match action {
             integration::InstallCommand::Integration(options) => integration::integration(&options),
         },
         RootCommand::AgentContext(options) => integration::agent_context(&options),
-        RootCommand::Usage { action } => usage(action),
         RootCommand::Focus(options) => simple_ipc("focusDirection", &[options.direction]),
         RootCommand::Search(options) => search(options),
         RootCommand::ClearSearch => simple_ipc("clearSearch", &[]),
@@ -413,10 +377,6 @@ fn run_command(command: RootCommand) -> AppResult<PublicResult> {
             simple_ipc("toggleFavorite", &[absolute_path(&options.path)])
         }
         RootCommand::Properties { action } => match action {
-            PropertiesCommand::Placement(options) => simple_ipc(
-                "setPlacement",
-                &[format!("{:?}", options.placement).to_lowercase()],
-            ),
             PropertiesCommand::Focus => simple_ipc("focusProperties", &[]),
         },
         RootCommand::Settings => simple_ipc("toggleSettings", &[]),

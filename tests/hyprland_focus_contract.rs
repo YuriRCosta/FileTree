@@ -1,31 +1,8 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
-use std::time::Duration;
 use std::{fs, path::Path};
 
 fn source(path: &str) -> String {
     fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(path))
         .unwrap_or_else(|error| panic!("read {path}: {error}"))
-}
-
-#[test]
-fn cancelled_blade_placement_stops_before_touching_hyprland() {
-    let cancelled = Arc::new(AtomicBool::new(true));
-    let result = fileblade::hyprland::place_blade_window(
-        &fileblade::hyprland::PlaceBladeOptions {
-            title: "cancelled blade".to_string(),
-            edge: "left".to_string(),
-            width: 380,
-            timeout: Duration::from_secs(1),
-        },
-        &cancelled,
-    );
-
-    assert!(cancelled.load(Ordering::Relaxed));
-    assert_eq!(result["ok"], false);
-    assert_eq!(result["error"], "operation cancelled");
 }
 
 #[test]
@@ -143,7 +120,6 @@ fn every_external_launch_yields_blade_focus_without_restoring_the_old_window() {
     let service = source("Service.qml");
     let launcher = source("controllers/LaunchController.qml");
     let surface = source("blades/BladeSurface.qml");
-    let placement = source("src/hyprland/blades.rs");
     let navigation = source("controllers/NavigationController.qml");
     let search = source("controllers/SearchController.qml");
     let launch_external = function_body(&launcher, "launchExternal", "finish");
@@ -172,7 +148,6 @@ fn every_external_launch_yields_blade_focus_without_restoring_the_old_window() {
     assert!(surface.contains("sheetHover.hovered ? sheetHover.point.scenePosition.x : -1"));
     assert!(surface.contains("onSheetHoverPositionChanged: followSheetPointer()"));
     assert!(surface.contains("if (!surface.pointerRefocusRequired && !surface.bladeFocused"));
-    assert!(placement.contains("check_cancelled(cancelled)?;"));
     assert!(navigation.contains("function yieldFocus() { focusTimer.stop() }"));
     assert!(
         search.contains("function yieldFocus() { focusTimer.stop(); quickNavTargetScreen = null }")

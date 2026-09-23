@@ -15,13 +15,13 @@ Item {
   readonly property bool trashAnswered: ready && typeof settings.trashRetentionDays === "number"
   readonly property int trashRetentionDays: trashAnswered ? settings.trashRetentionDays : 0
   readonly property bool trashCleanupConsent: trashAnswered && trashRetentionDays > 0
-  readonly property bool agentManagement: ready && settings.agentManagement === true
 
   function showPendingConsent() {
     if (!ready || trashAnswered || !service.bladeHost || !service.bladeHost.layoutReady) return
     var host = service.bladeHost
     if (host.pendingOpenEdges) return
-    if (!host.bladeFor("left").open) host.setOpen("left", true)
+    var edge = host.side || "left"
+    if (!host.bladeFor(edge).open) host.setOpen(edge, true)
   }
   onTrashAnsweredChanged: Qt.callLater(showPendingConsent)
   onReadyChanged: Qt.callLater(showPendingConsent)
@@ -78,10 +78,6 @@ Item {
   function setTrashRetentionDays(days, consent) {
     if (!isFinite(Number(days)) || days < 0 || days > 3650 || (days > 0 && consent !== true)) return false
     return change(["--trash-retention-days", String(Math.round(days))])
-  }
-
-  function setAgentManagement(enabled) {
-    return change(["--agent-management", enabled ? "true" : "false"])
   }
 
   function refreshSoon() { debounce.restart() }

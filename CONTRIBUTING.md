@@ -62,16 +62,13 @@ Service.qml, blades/, modules/, controllers/, panes/, ui/, lib/:  QML and JS
 src/, crates/:                                                     Rust
 tests/*.rs:      cargo integration and end-to-end tests, plus the source contract tests
 tests/qml/:      QML and JavaScript regression tests
-python/:         shared support for extension companions
 tests/vm/:       scripts for a headless Omarchy VM
-examples/:       a minimal dependent plugin, also the reference for EXTENSIONS.md
-scripts/:        developer helpers the CLI embeds, such as the extension banner generator
+examples/:       sample Hyprland bindings
 demos/:          scripted tours used for screenshots and recordings
 assets/:         logos, icons, and other visual assets
 ```
 
-[ARCHITECTURE.md](ARCHITECTURE.md) describes the implementation,
-[EXTENSIONS.md](EXTENSIONS.md) the module contract, and
+[ARCHITECTURE.md](ARCHITECTURE.md) describes the implementation and
 [SECURITY.md](SECURITY.md) the trust boundaries.
 
 ## Tests
@@ -164,15 +161,11 @@ or untested scenarios. Remove your temporary captures after verification.
 ## Conventions
 
 - Keep core filesystem and command logic in Rust; QML renders and routes actions.
-  Python extension companions reuse the shared support in `python/`.
 - document implementation details in the technical docs; do not add code comments
 - modules over regions: split a large file along a seam instead of stacking sections in one
 - external commands take argument vectors, never a shell string
 - mutations report completed work and journal failures separately; see SECURITY.md for recovery limits
 - dynamic text from the filesystem is `Text.PlainText` and length-bounded before it enters a model
-- Built-in and user modules use `blade.json`; plugin modules register through
-  their manifest. Share scanners, watchers, and processes through the host
-  contract rather than duplicating them in each view; see [EXTENSIONS.md](EXTENSIONS.md).
 - commit messages start with a prefix: `Fix:`, `Feat:`, `Clean:`, `Docs:`
 
 ## Pull requests

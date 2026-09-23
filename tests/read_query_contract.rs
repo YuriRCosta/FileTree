@@ -1,4 +1,4 @@
-use fileblade::{agents, desktop, filesystem, git, modules, project, search};
+use fileblade::{desktop, filesystem, git, modules, project, search};
 use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::process::Command;
@@ -402,17 +402,8 @@ fn project_roots_ignore_shared_sticky_ancestors() {
 }
 
 #[test]
-fn stub_detection_and_search_cancellation_are_bounded() {
+fn search_cancellation_is_bounded() {
     let temporary = tempdir().unwrap();
-    let stub = temporary.path().join("agent");
-    fs::write(
-        &stub,
-        format!("#!/bin/sh\nmise exec codex\n{}", "x".repeat(4096)),
-    )
-    .unwrap();
-    fs::set_permissions(&stub, fs::Permissions::from_mode(0o755)).unwrap();
-    assert!(agents::is_stub(stub.to_str().unwrap()));
-
     let cancelled = AtomicBool::new(true);
     let started = Instant::now();
     let payload = search(

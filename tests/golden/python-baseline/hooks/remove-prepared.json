@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "schemaVersion": 1,
-  "project": "{ROOT}/hooks/work/project",
-  "message": "the source hook changed after recovery was prepared; nothing was changed",
-  "results": []
-}

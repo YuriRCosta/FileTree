@@ -162,8 +162,6 @@ Item {
     return {
       entryId: String(entry.id || ""),
       source: String(entry.source || "desktop"),
-      module: String(entry.module || ""),
-      artifactId: String(entry.artifact_id || ""),
       resource: String(entry.resource || ""),
       name: String(entry.name || ""),
       originalPath: String(entry.original_path || ""),
@@ -178,7 +176,6 @@ Item {
       canRestore: !!entry.can_restore,
       canRestoreTo: entry.can_restore_to !== false,
       canDelete: entry.can_delete !== false,
-      requiresModuleRestore: !!entry.requires_module_restore,
       emergency: !!entry.emergency,
       sourceMount: String(entry.source_mount || ""),
       store: String(entry.store || "")
@@ -232,19 +229,6 @@ Item {
   }
 
   function restore(id, destination, recreateParent) {
-    var item = entry(id)
-    if (item && item.source === "satellite") {
-      if (String(destination || "").trim() || recreateParent) {
-        error = "Satellite Trash entries restore to their original location"
-        return "unsupported"
-      }
-      var helperArguments = service.artifactActions.restoreArguments(item.module)
-      if (item.requiresModuleRestore && helperArguments.length === 0) {
-        error = "Open the “" + item.module + "” satellite to restore this item"
-        return "module-required"
-      }
-      return run("bin-restore", ["--module", item.module, "--id", item.artifactId].concat(helperArguments), "Restoring")
-    }
     var arguments = ["--id", String(id || "")]
     var target = PathText.pathText(destination)
     if (target) arguments.push("--destination", target)
@@ -253,9 +237,6 @@ Item {
   }
 
   function deletePermanently(id) {
-    var item = entry(id)
-    if (item && item.source === "satellite")
-      return run("bin-purge", ["--module", item.module, "--id", item.artifactId], "Deleting permanently")
     return run("trash-delete", ["--id", String(id || "")], "Deleting permanently")
   }
 
@@ -293,7 +274,7 @@ Item {
         var changed = Math.max(0, Number(response.completed) || 0)
         if (command === "trash-empty" || (command === "trash-prune" && changed > 0))
           service.markTrashCleared(Date.now())
-        if (command === "trash-restore" || command === "bin-restore")
+        if (command === "trash-restore")
           controller.showNotice("Restored")
         else if (!controller.retentionQuiet || changed > 0)
           controller.showNotice(controller.operationLabel + (controller.retentionQuiet ? ": " + changed + " removed" : " complete"))
@@ -312,7 +293,6 @@ Item {
 
   function cancelOperation() {
     if (!operationRequestId) return false
-    if (operationRequestId.indexOf("artifact-restore-") === 0) return false
     return service.cancelBackendRequest(operationRequestId, operationGeneration)
   }
 

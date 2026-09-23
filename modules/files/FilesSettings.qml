@@ -8,6 +8,7 @@ Column {
 
   required property var controller
   property var pane: null
+  property var filesModule: null
   signal retentionConsentRequested(int days)
 
   spacing: Style.space(3)
@@ -22,6 +23,15 @@ Column {
     visible: !!root.pane
     checked: root.pane ? root.pane.summaryInTree : false
     onToggled: root.pane.summaryInTree = !root.pane.summaryInTree
+  }
+
+  PluginUi.ToggleRow {
+    width: parent.width
+    glyph: "󰋽"
+    label: "Properties panel"
+    visible: !!root.filesModule
+    checked: root.filesModule ? root.filesModule.propertiesShown : false
+    onToggled: root.filesModule.setPropertiesShown(!root.filesModule.propertiesShown)
   }
 
   PluginUi.ToggleRow {

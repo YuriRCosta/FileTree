@@ -57,9 +57,5 @@ for suite in tests/qml/tst_*.qml; do
     exit 1
   fi
 done
-export PYTHONDONTWRITEBYTECODE=1
-for suite in tests/test_python_{paths,process,inventory,mutations,usage}.py tests/test_extension_image.py tests/core_modules/run.py tests/companion_readonly.py; do
-  python3 "$suite"
-done
 tools/bundle verify
-printf '%s\n' 'Rust, QML, companion support and bundled backend checks: ok'
+printf '%s\n' 'Rust, QML and bundled backend checks: ok'

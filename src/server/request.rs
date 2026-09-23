@@ -39,12 +39,6 @@ pub(super) fn start_request(
         frame["error_id"] = Value::String("migration-refused".into());
         return emit(output, &frame);
     }
-    let chooser_watch = matches!(
-        &request.command,
-        backend::BackendCommand::Chooser(crate::chooser::transport::ChooserArgs {
-            command: crate::chooser::transport::ChooserCommand::Watch { .. }
-        })
-    );
     let mut operation = None;
     {
         let mut requests = lock(active);
@@ -53,9 +47,6 @@ pub(super) fn start_request(
                 output,
                 &error_frame(object, "request id and generation must be unique"),
             );
-        }
-        if chooser_watch && requests.values().any(|request| request.chooser_watch) {
-            return emit(output, &error_frame(object, "chooser watch limit reached"));
         }
         if live_requests(&requests) >= max_concurrency {
             return emit(
@@ -76,14 +67,7 @@ pub(super) fn start_request(
                 deadline: Some(Arc::clone(&request.deadline)),
                 deadline_exceeded: Arc::clone(&deadline_exceeded),
                 cancel_on_deadline: !mutating,
-                standing: matches!(
-                    &request.command,
-                    backend::BackendCommand::Chooser(crate::chooser::transport::ChooserArgs {
-                        command: crate::chooser::transport::ChooserCommand::Offer { .. }
-                            | crate::chooser::transport::ChooserCommand::Watch { .. }
-                    })
-                ),
-                chooser_watch,
+                standing: false,
                 authority_owned: operation.is_some(),
             },
         );
@@ -302,28 +286,16 @@ pub(super) fn parse_request(object: &Map<String, Value>) -> AppResult<Request> {
         Some(Value::Array(_)) => return Err(AppError::invalid("request has too many arguments")),
         Some(_) => return Err(AppError::invalid("request arguments must be an array")),
     };
-    let mut cli = backend::parse_cli(
+    let cli = backend::parse_cli(
         ["fileblade _backend".to_string(), command_name.to_string()]
             .into_iter()
             .chain(arguments.iter().cloned()),
     )
     .map_err(|error| AppError::invalid(error.to_string().trim().to_string()))?;
-    if let Some(input) = object.get("input") {
-        let input = input
-            .as_str()
-            .filter(|value| value.len() <= crate::module_helpers::INPUT_LIMIT)
-            .ok_or_else(|| AppError::invalid("request input must be a string of at most 64 KiB"))?;
-        match &mut cli.command {
-            backend::BackendCommand::HelperRead(options)
-            | backend::BackendCommand::HelperWrite(options) => {
-                options.input = Some(input.to_string());
-            }
-            _ => {
-                return Err(AppError::invalid(
-                    "this request does not accept private input",
-                ));
-            }
-        }
+    if object.get("input").is_some() {
+        return Err(AppError::invalid(
+            "this request does not accept private input",
+        ));
     }
     Ok(Request {
         key,

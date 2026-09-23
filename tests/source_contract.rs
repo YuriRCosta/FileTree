@@ -3,7 +3,6 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -291,10 +290,6 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
     assert!(trash.contains("service.trashCleanupConsent"));
     assert!(state.contains("property double trashLastClearedAt: 0"));
     assert!(!state.contains("trashRetentionDays: trashRetentionDays"));
-    let artifact_bin = text(&root.join("ui/ArtifactBin.qml"));
-    assert!(artifact_bin.contains("property var context: null"));
-    assert!(artifact_bin.contains("bin.context.hostWindow.actionKeys"));
-    assert!(artifact_bin.contains("actionKeys: binKeys"));
     let action_dialog = text(&root.join("ui/ActionDialog.qml"));
     assert!(action_dialog.contains("property Item returnFocusItem: null"));
     assert!(
@@ -307,28 +302,6 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
             .contains("actionKeys: strip.menu.actionKeys")
     );
     assert!(text(&root.join("blades/BladeSurface.qml")).contains("releaseRoot:"));
-    assert!(artifact_bin.contains("actions.registerRestore(module, helperRoute)"));
-    assert!(!artifact_bin.contains("removeAction"));
-    assert!(!artifact_bin.contains("restoreAction"));
-    assert!(artifact_bin.contains("helperRoute ? \"bin-remove\" : \"bin-put\""));
-    assert!(artifact_bin.contains("--follow-symlinks"));
-    assert!(artifact_bin.contains("item.realpath = realpath"));
-    assert!(artifact_bin.contains("function mergeRows(live, cached, groupsFor)"));
-    assert!(artifact_bin.contains("entry.groups"));
-    assert!(!artifact_bin.contains("Disable keeps it listed"));
-    assert!(!artifact_bin.contains("Restore this, or delete it forever"));
-    assert!(artifact_bin.contains("ArtifactBinListing {"));
-    assert!(artifact_bin.contains("property alias rows: listing.rows"));
-    assert!(artifact_bin.contains("function refresh() {\n    listing.refresh()\n  }"));
-    let bin_listing = text(&root.join("ui/ArtifactBinListing.qml"));
-    assert!(bin_listing.contains("cancelBackendRequest(previous.id, previous.generation, true)"));
-    assert!(bin_listing.contains("Component.onDestruction: { stopping = true; suspend() }"));
-    let artifact_tree = text(&root.join("ui/ArtifactTree.qml"));
-    assert!(artifact_tree.contains("title: \"Symlink\""));
-    assert!(artifact_tree.contains("visible: row.linkHovered"));
-    assert!(artifact_tree.contains("anchorItem: row.linkAnchor"));
-    assert!(artifact_tree.contains("linkOnRight: !linked"));
-    assert!(!artifact_tree.contains("visible: rowHover.hovered && !row.isGroup && tree.isLinked"));
     let pane_row = text(&root.join("ui/PaneRow.qml"));
     assert!(pane_row.contains("linkHover.hovered ? Color.accent"));
     assert!(pane_row.contains("property bool linkOnRight: true"));
@@ -339,7 +312,6 @@ fn rust_and_qml_contracts_keep_output_and_state_boundaries_explicit() {
             .contains("function entryIcon(name, isDir, isSymlink, expanded, isGitRepo, isHome)")
     );
     assert!(file_icons.contains("if (isSymlink) return fileIcon(name, true)"));
-    assert!(artifact_tree.contains("target.slice(0, -9)"));
 }
 
 #[test]
@@ -472,18 +444,6 @@ fn scroll_indicators_are_thin_shared_and_the_trees_carry_a_marked_ruler() {
     let settings = text(&root.join("modules/files/FilesSettings.qml"));
     assert!(settings.contains("label: \"Git marks on the scroll ruler\""));
     assert!(settings.contains("root.controller.setScrollMarks(!root.controller.scrollMarks)"));
-
-    let tree = text(&root.join("ui/ArtifactTree.qml"));
-    assert!(tree.contains("MarkedScrollBar {"));
-    assert!(
-        tree.contains("property var rowMark: function(item) { return tree.defaultMark(item) }")
-    );
-    assert!(
-        tree.contains("marksEnabled ? ScrollMarks.collect(rows, ruler.slots, markStatus) : []")
-    );
-    assert!(
-        tree.contains("readonly property bool marksEnabled: !files || files.scrollMarks !== false")
-    );
 }
 
 #[test]
@@ -553,8 +513,6 @@ fn settings_rows_sit_under_muted_group_headings() {
     assert!(form.contains("visible: entry.groupLead"));
     let definitions = text(&root.join("lib/Definitions.js"));
     assert!(definitions.contains("group: textField(raw.group, \"\", MAXIMUM_LABEL_LENGTH).trim()"));
-    let extensions = text(&root.join("EXTENSIONS.md"));
-    assert!(extensions.contains("group:         max 64;"));
 }
 
 #[test]
@@ -598,12 +556,6 @@ fn tree_refreshes_keep_surviving_rows_and_the_scroll_anchor() {
         "function onSelectedPathChanged() { root.revealPending = true; root.restoreTreeCursor() }"
     ));
     assert!(!pane.contains("function onTreeStructureRevisionChanged() { root.restoreTreeCursor() }\n    function onRootPathChanged"));
-
-    let tree = text(&root.join("ui/ArtifactTree.qml"));
-    assert!(tree.contains("if (!syncingRows) Qt.callLater(showCurrent)"));
-    assert!(tree.contains("if (!kept) Qt.callLater(showCurrent)"));
-    assert!(tree.contains("ListAnchor {"));
-    assert!(tree.contains("onMovementStarted: anchor.clear()"));
 }
 
 #[test]
@@ -935,64 +887,6 @@ fn directory_emptiness_is_not_tracked_anywhere() {
 }
 
 #[test]
-fn notes_module_is_bundled_and_bounded() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let definition: serde_json::Value =
-        serde_json::from_str(&text(&root.join("modules/notes/blade.json"))).unwrap();
-    assert_eq!(definition["id"], "notes");
-    assert_eq!(definition["hostContract"], 1);
-    assert_eq!(definition["singleton"], true);
-    assert_eq!(definition["entry"], "Module.qml");
-    let state = text(&root.join("modules/notes/NotesState.js"));
-    assert!(state.contains("var CAP_BYTES = 65536"));
-    assert!(state.lines().next().unwrap().contains(".pragma library"));
-    for name in [
-        "utf8Length",
-        "clampToBytes",
-        "normalize",
-        "hydration",
-        "persistPlan",
-        "statusText",
-    ] {
-        assert!(state.contains(&format!("function {name}(")), "{name}");
-    }
-    let module = text(&root.join("modules/notes/Module.qml"));
-    assert!(module.contains("Component.onDestruction: flush()"));
-    assert!(module.contains("onActiveFocusChanged: if (!activeFocus) module.flush()"));
-    assert!(module.contains("if (!active) flush()"));
-    assert!(module.contains("context.collapsed === true"));
-    assert!(module.contains("context.bladeOpen !== false"));
-    assert!(module.contains("KeyPlan.isTabCycle(event.key, event.modifiers)"));
-    assert!(module.contains("context.state.set(\"text\", next)"));
-    assert!(module.contains("textFormat: TextEdit.PlainText"));
-    assert!(module.contains("NoteTabs {"));
-    assert!(!module.contains("Markdown"));
-    assert!(!module.contains("RichText"), "notes stay plain text");
-    for (offset, _) in module.match_indices("context.state.set(\"") {
-        let key = module[offset + "context.state.set(\"".len()..]
-            .split('"')
-            .next()
-            .unwrap_or_default();
-        assert!(
-            key == "text",
-            "Notes writes slot key {key}; only its bounded notebook document is allowed"
-        );
-    }
-    for forbidden in [
-        "FileView",
-        "Process",
-        "Quickshell.execDetached",
-        "XMLHttpRequest",
-        "Qt.openUrlExternally",
-    ] {
-        assert!(!module.contains(forbidden), "{forbidden}");
-    }
-    let plan = text(&root.join("modules/notes/KeyPlan.js"));
-    assert!(plan.contains("function isTabCycle(") && plan.contains("function editorAction("));
-    assert!(plan.contains("Qt.Key_Backtab"));
-}
-
-#[test]
 fn update_check_is_opt_out_bounded_and_manual_in_the_footer() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let controller = text(&root.join("controllers/UpdateController.qml"));
@@ -1319,17 +1213,6 @@ fn drop_drag_leaves_the_blade_at_the_sheet_edge_not_the_layer_edge() {
             .contains("var sources = Array.isArray(paths) ? paths.slice() : service.selectedPaths")
     );
     assert!(operations.contains("command(copying ? \"copy\" : \"move\", sources, destination)"));
-    for file in ["panes/BrowserRow.qml", "ui/ArtifactTree.qml"] {
-        let source = text(&root.join(file));
-        assert!(
-            source.contains("!window.containsScenePoint(scene.x, scene.y)"),
-            "{file}"
-        );
-        assert!(
-            !source.contains("scene.x > window.width"),
-            "{file} tests the layer edge, not the sheet"
-        );
-    }
     let wheel = text(&root.join("ui/DropWheel.qml"));
     assert!(wheel.contains("context.fillStyle = overlay.alpha(Color.popups.background, 0.94)"));
     assert!(wheel.contains("monochrome: !wedge.active"));
@@ -1381,66 +1264,6 @@ fn hover_exit_waits_while_the_action_menu_is_open() {
     assert!(window_focus.contains("motion-released \"\""));
     assert!(window_focus.contains("right-click-released \"\""));
     assert!(window_focus.contains("switch-right right"));
-}
-
-#[test]
-fn artifact_tree_taps_expand_without_losing_right_clicks_or_drags() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let tree = text(&root.join("ui/ArtifactTree.qml"));
-    assert!(tree.contains(
-        "MouseArea {\n        anchors.fill: parent\n        acceptedButtons: Qt.LeftButton | Qt.RightButton"
-    ));
-    assert!(!tree.contains("acceptedButtons: Qt.LeftButton | Qt.RightButton\n        z: -1"));
-    assert!(tree.contains("mouse.x <= Style.space(38) + row.indent"));
-    assert!(tree.contains("tree.openMenu(row.entry, row, mouse.x, mouse.y, \"actions\")"));
-    assert!(tree.contains("DragHandler {\n        id: rowDrag"));
-    let pane_row = text(&root.join("ui/PaneRow.qml"));
-    assert!(pane_row.contains("id: metricRow\n    z: 1"));
-    assert!(pane_row.contains("id: actionsLoader\n    z: 1"));
-}
-
-#[test]
-fn artifact_tree_inherits_navigation_without_swallowing_domain_shortcuts() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let header = text(&root.join("ui/PaneHeader.qml"));
-    assert!(
-        header.contains("property bool highlighted: !!context && context.slotFocused === true")
-    );
-    let tree = text(&root.join("ui/ArtifactTree.qml"));
-    assert!(tree.contains("KeyRouter.artifactAction(event)"));
-    assert!(tree.contains("typeof keyHandler === \"function\" && keyHandler(event, repeated)"));
-    assert!(tree.contains("property var fileActionsFor:"));
-    assert!(tree.contains("if (!item || !item.path || !fileActionsFor(item)) return null"));
-    assert!(tree.contains("return handler() !== false"));
-    assert!(tree.contains("return openMenu(item, rowItem"));
-    assert!(tree.contains("KeyRouter.ignoresAutoRepeat(action, event.key)"));
-    assert!(tree.contains("rowKey(rows[i]) === cursorKey"));
-    assert!(tree.contains("return JSON.stringify(path)"));
-    assert!(tree.contains("Qt.callLater(showCurrent)"));
-    assert!(tree.contains("ArtifactTreeFolders.expand(tree)"));
-    let edit = tree
-        .split("function editCurrent()")
-        .nth(1)
-        .unwrap()
-        .split("function touches")
-        .next()
-        .unwrap();
-    assert!(edit.contains("editPathFor(item)"));
-    assert!(!edit.contains("entryFor("));
-    assert!(edit.contains("!isBinned(item)"));
-    assert!(
-        tree.contains("path: String(isBinned(item) && item.realpath ? item.realpath : item.path)")
-    );
-    assert!(
-        !tree.contains(
-            "if (isBinned(item)) {\n      if (mode && mode !== \"actions\") return false"
-        )
-    );
-    assert!(tree.contains("enabled: !row.isGroup && !!tree.entryFor(row.entry)"));
-    let search = text(&root.join("ui/PaneSearchField.qml"));
-    assert!(search.contains("property bool showDeepOption: false"));
-    assert!(search.contains("model: field.showDeepOption ? 3 : 2"));
-    assert!(text(&root.join("panes/TreePane.qml")).contains("showDeepOption: true"));
 }
 
 #[test]
@@ -1626,7 +1449,6 @@ fn default_folder_opening_is_a_shared_fileblade_behavior() {
     let menu = text(&root.join("panes/FileActionsMenu.qml"));
     let focus = text(&root.join("blades/BladeFocusController.qml"));
     let rust_launch = text(&root.join("src/hyprland/launch.rs"));
-    let plugins = text(&root.join("EXTENSIONS.md"));
 
     assert!(service.contains("function openDefault(path, targetScreen, directoryHint)"));
     assert!(service.contains(
@@ -1640,7 +1462,6 @@ fn default_folder_opening_is_a_shared_fileblade_behavior() {
     assert!(menu.contains("root.entry ? !!root.entry.is_dir : undefined"));
     assert!(focus.contains("host.setSlotTab(location.edge, location.index, location.tab)"));
     assert!(rust_launch.contains("\"navigate\".to_string()"));
-    assert!(plugins.contains("`openDefault` is the shared open primitive for every module"));
 }
 
 #[test]
@@ -1733,27 +1554,16 @@ fn module_definitions_are_normalized_once_and_grouped_by_category() {
     assert!(cli.contains("lines.push(category.to_uppercase());"));
     assert!(cli.contains(".take(MAX_CATEGORY_CHARS)"));
     assert!(cli.contains("if module[\"placed\"].is_object()"));
-    for module in ["files", "notes", "properties"] {
-        let definition: serde_json::Value =
-            serde_json::from_str(&text(&root.join(format!("modules/{module}/blade.json"))))
-                .unwrap();
-        assert!(
-            definition.get("settings").is_none(),
-            "{module} declares no settings"
-        );
-        assert!(
-            definition.get("category").is_none(),
-            "{module} keeps the default category"
-        );
-    }
-    let plugins = text(&root.join("EXTENSIONS.md"));
+    let definition: serde_json::Value =
+        serde_json::from_str(&text(&root.join("modules/files/blade.json"))).unwrap();
     assert!(
-        plugins.contains("category:     one word or a short phrase (max 32) the picker groups by")
+        definition.get("settings").is_none(),
+        "files declares no settings"
     );
-    assert!(plugins.contains(
-        "defaults to `Module` for built-in and user modules, `Plugin` for manifest ones"
-    ));
-    assert!(plugins.contains("grouped by `category`"));
+    assert!(
+        definition.get("category").is_none(),
+        "files keeps the default category"
+    );
 }
 
 #[test]
@@ -1862,36 +1672,9 @@ fn declarative_settings_render_through_one_form_and_one_coercion_path() {
     assert!(text_row.contains("Keys.onEscapePressed"));
     let select = text(&root.join("ui/SelectRow.qml"));
     assert!(select.contains("menu.rows = Form.popupRows(control.row, control.row.value)"));
-    let manifest: serde_json::Value = serde_json::from_str(&text(
-        &root.join("examples/data-goblin.blade-example/manifest.example.json"),
-    ))
-    .unwrap();
-    let clock = &manifest["extensions"]["data-goblin.fileblade/blade"][0];
-    let schema = clock["settings"]["schema"].as_array().unwrap();
-    let keys: Vec<&str> = schema
-        .iter()
-        .map(|row| row["key"].as_str().unwrap())
-        .collect();
-    assert_eq!(keys, ["format", "caption", "scale"]);
-    assert_eq!(clock["settings"]["defaults"]["format"], "HH:mm:ss");
-    let clock_qml = text(&root.join("examples/data-goblin.blade-example/blades/Clock.qml"));
-    assert!(clock_qml.contains("context.settings && context.settings.has(key) ? context.settings.get(key) : context.state.get(key, fallback)"));
-    assert!(clock_qml.contains("context.settings.set(\"format\", next)"));
-    for module in ["files", "notes", "properties"] {
-        let definition: serde_json::Value =
-            serde_json::from_str(&text(&root.join(format!("modules/{module}/blade.json"))))
-                .unwrap();
-        assert!(definition.get("settings").is_none());
-    }
-    let plugins = text(&root.join("EXTENSIONS.md"));
-    assert!(plugins.contains("## Settings without QML"));
-    assert!(plugins.contains("context.settings.get(key)"));
-    assert!(plugins.contains("context.settings.set(key, value)"));
-    assert!(plugins.contains("context.settings.has(key)"));
-    assert!(plugins.contains("context.category"));
-    assert!(plugins.contains("settings:     optional `{ defaults, schema }`"));
-    assert!(plugins.contains("the same rows Omarchy's `barWidget.schema`"));
-    assert!(plugins.contains("A QML `settings` Component still works and renders below the"));
+    let definition: serde_json::Value =
+        serde_json::from_str(&text(&root.join("modules/files/blade.json"))).unwrap();
+    assert!(definition.get("settings").is_none());
 }
 
 #[test]
@@ -1962,10 +1745,6 @@ fn module_directories_are_created_by_the_backend_and_exposed_on_the_context() {
     assert!(!backend.contains("| BackendCommand::ModuleDirs"));
     let cli = module_text(root, "public_cli");
     assert!(cli.contains("\"module-dirs\".to_string()"));
-    let plugins = text(&root.join("EXTENSIONS.md"));
-    assert!(plugins.contains("context.stateDir"));
-    assert!(plugins.contains("moduleDirs("));
-    assert!(plugins.contains("fileblade module-dirs <id>"));
     let architecture = text(&root.join("ARCHITECTURE.md"));
     assert!(architecture.contains("~/.local/state/omarchy/fileblade/modules/<id>/:"));
     assert!(architecture.contains("~/.config/omarchy/fileblade/config/<id>/:"));
@@ -2030,23 +1809,6 @@ fn script_actions_are_normalized_once_in_rust_and_never_echo_a_command_vector() 
     assert!(architecture.contains("actions, actionResult"));
     let security = text(&root.join("SECURITY.md"));
     assert!(security.contains("Script actions"));
-    let manifest: serde_json::Value = serde_json::from_str(&text(
-        &root.join("examples/data-goblin.blade-example/manifest.example.json"),
-    ))
-    .unwrap();
-    let dump = &manifest["extensions"]["data-goblin.fileblade/action"][0];
-    assert_eq!(dump["id"], "dump");
-    assert_eq!(dump["argv"][0], "scripts/dump-env");
-    let script = root.join("examples/data-goblin.blade-example/scripts/dump-env");
-    let mode = fs::metadata(&script)
-        .expect("dump-env")
-        .permissions()
-        .mode();
-    assert!(mode & 0o100 != 0, "the example action is executable");
-    let plugins = text(&root.join("EXTENSIONS.md"));
-    assert!(plugins.contains("## Script actions"));
-    assert!(plugins.contains("data-goblin.fileblade/action"));
-    assert!(plugins.contains("fileblade action <key>"));
 }
 
 #[test]
@@ -2352,65 +2114,5 @@ fn row_density_has_five_named_stops_and_a_saved_percentage_lands_on_one() {
     assert!(
         !slider.contains("readout"),
         "the size names are the readout now"
-    );
-}
-
-#[test]
-fn every_directory_the_runtime_qml_imports_ships_in_the_native_payload() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let runtime: serde_json::Value =
-        serde_json::from_str(&text(&root.join("packaging/runtime.json"))).expect("runtime.json");
-    let roots: HashSet<String> = runtime["roots"]
-        .as_array()
-        .expect("roots")
-        .iter()
-        .map(|value| value.as_str().expect("root").to_string())
-        .collect();
-    let mut missing = Vec::new();
-    for shipped in roots.iter().filter(|name| root.join(name).is_dir()) {
-        for path in files(&root.join(shipped), &["qml", "js"]) {
-            let directory = path.parent().expect("parent");
-            for line in text(&path).lines() {
-                let Some(rest) = line.trim_start().strip_prefix("import \"") else {
-                    continue;
-                };
-                let Some(target) = rest.split('"').next() else {
-                    continue;
-                };
-                if !target.starts_with("../") {
-                    continue;
-                }
-                let resolved = directory.join(target);
-                let mut normalized = PathBuf::new();
-                for part in resolved.components() {
-                    match part {
-                        std::path::Component::ParentDir => {
-                            normalized.pop();
-                        }
-                        other => normalized.push(other),
-                    }
-                }
-                let Ok(relative) = normalized.strip_prefix(root) else {
-                    continue;
-                };
-                let top = relative
-                    .components()
-                    .next()
-                    .and_then(|part| part.as_os_str().to_str())
-                    .unwrap_or("")
-                    .to_string();
-                if !top.is_empty() && !roots.contains(&top) {
-                    missing.push(format!(
-                        "{} imports {top}",
-                        path.strip_prefix(root).unwrap().display()
-                    ));
-                }
-            }
-        }
-    }
-    assert!(
-        missing.is_empty(),
-        "runtime QML imports a directory packaging/runtime.json does not ship: {}",
-        missing.join(", ")
     );
 }

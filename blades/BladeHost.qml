@@ -85,7 +85,6 @@ Item {
   property int frameWidth: 2
   readonly property string cliPath: pluginDir + "/fileblade"
   readonly property var service: services ? services.files : null
-  readonly property bool nativeApp: !!service && service.nativeAuthority === true
   property alias restoreFocusAddress: focusController.restoreFocusAddress
   property alias restoreFocusClass: focusController.restoreFocusClass
   property alias externalFocusHandoff: focusController.externalFocusHandoff
@@ -514,14 +513,6 @@ Item {
     fontScale = Typography.clamp(value)
     scheduleSave()
     return fontScale
-  }
-
-  function rolesStatus(callback) {
-    return service ? service.backendRequest("roles-status", [], 0, callback) : ""
-  }
-
-  function setRole(role, on, callback) {
-    return service ? service.backendRequest("roles-set", ["--role", String(role), on ? "--on" : "--off"], 0, callback) : ""
   }
 
   function focusBlade(edge, targetScreen, slotIndex, part, openIfClosed) { return focusController.focusBlade(edge, targetScreen, slotIndex, part, openIfClosed) }

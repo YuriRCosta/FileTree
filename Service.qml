@@ -35,7 +35,6 @@ Item {
   readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : fallbackPluginDir
   readonly property string cliPath: pluginDir + "/fileblade"
   readonly property string trashResource: "trash:///"
-  readonly property alias artifactActions: artifactActions
   readonly property bool trashMode: normalizeRoot(rootPath) === trashResource
   readonly property string recentResource: "recent:///"
   readonly property bool recentMode: normalizeRoot(rootPath) === recentResource
@@ -59,7 +58,6 @@ Item {
     expectedVersion: service.manifest && service.manifest.version ? String(service.manifest.version) : ""
   }
 
-  ArtifactActionController { id: artifactActions; service: service }
   Connections {
     target: service
     function onBackendReadyChanged() { if (service.backendReady) bladeHost.registry.rescan() }
@@ -75,11 +73,7 @@ Item {
     onFileChanged: { reload(); preferencesController.refreshSoon() }
   }
   property alias preferences: preferencesController
-  readonly property bool agentManagementEnabled: preferencesController.agentManagement
   readonly property alias keybindings: keybindings
-  WelcomeController { id: welcomeController; service: service }
-  readonly property alias welcome: welcomeController
-  readonly property bool welcomePending: welcomeController.pending
 
   function backendRequest(name, arguments, generation, callback, progress, deadlineMs, options) {
     return backendClient.request(name, arguments, generation, callback, progress, deadlineMs, options)
@@ -108,20 +102,15 @@ Item {
   property alias stateReady: stateController.ready
   property alias bladeHost: bladeHost
   readonly property bool open: bladeHost.anyOpen
-  readonly property var installedAgents: agentsController.installedAgents
   readonly property string projectRoot: projectController.projectRoot
   readonly property string projectMarker: projectController.projectMarker
   readonly property string contextPath: projectController.contextPath
   readonly property int sidebarWidth: bladeHost.bladeWidth(bladeHost.side)
-  readonly property int propertiesBladeWidth: bladeHost.bladeWidth("right")
   readonly property string propertiesPlacement: "none"
   readonly property string monitorMode: bladeHost.monitorMode
   readonly property bool settingsOpen: bladeHost.settingsOpen
   readonly property string focusedBlade: bladeHost.focusedEdge
   property alias showHidden: stateController.showHidden
-  property alias welcomeState: stateController.welcomeState
-  property alias welcomeVersion: stateController.welcomeVersion
-  function setWelcomeState(value, version) { return stateController.setWelcomeState(value, version) }
   property alias searchCaseSensitive: stateController.searchCaseSensitive
   property alias searchRegex: stateController.searchRegex
   property alias searchTreeLayout: stateController.searchTreeLayout
@@ -464,11 +453,6 @@ Item {
 
   ListModel { id: searchModel }
 
-  AgentsController {
-    id: agentsController
-    service: service
-  }
-
   ProjectController {
     id: projectController
     service: service
@@ -771,7 +755,6 @@ Item {
   function setOpen(value) { navigationController.setOpen(value) }
   function toggleOpen() { navigationController.toggleOpen() }
   function setSidebarWidth(value, screenWidth, persist) { navigationController.setSidebarWidth(value, screenWidth, persist) }
-  function setPropertiesBladeWidth(value, screenWidth, persist) { navigationController.setPropertiesBladeWidth(value, screenWidth, persist) }
   function setPriorityProperty(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityProperty(value) }
   function setPriorityColumns(value) { stateController.markSettingChoice(["priorityProperty", "priorityColumns"]); return navigationController.setPriorityColumns(value) }
   readonly property bool quickNavCaseSensitive: searchController.quickNavCaseSensitive

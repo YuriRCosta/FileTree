@@ -30,14 +30,6 @@ pub use socket::*;
 const RESPONSE_LIMIT: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
-pub struct PlaceBladeOptions {
-    pub title: String,
-    pub edge: String,
-    pub width: i64,
-    pub timeout: Duration,
-}
-
-#[derive(Clone, Debug)]
 pub struct FocusDirectionOptions {
     pub direction: String,
     pub left_state: String,

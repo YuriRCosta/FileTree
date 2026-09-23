@@ -10,6 +10,19 @@ FocusScope {
   readonly property var controller: context.service("files")
   readonly property string title: "FileBlade"
   readonly property Component settings: filesSettings
+  readonly property bool propertiesShown: !module.context.state || module.context.state.get("propertiesShown", true) !== false
+  readonly property real propertiesFraction: {
+    var saved = Number(module.context.state ? module.context.state.get("propertiesFraction", 0.3) : 0.3)
+    return isFinite(saved) ? Math.max(0.12, Math.min(0.8, saved)) : 0.3
+  }
+  property real dragFraction: -1
+  readonly property real liveFraction: dragFraction > 0 ? dragFraction : propertiesFraction
+  readonly property int splitHandleSize: Style.space(6)
+  readonly property int propertiesHeight: Math.round(Math.max(0, height - splitHandleSize) * liveFraction)
+
+  function setPropertiesShown(value) {
+    return !!module.context.state && module.context.state.set("propertiesShown", value === true)
+  }
   function keys(action) { return controller.keybindings.label(action) }
   readonly property var shortcuts: [
     {
@@ -91,6 +104,7 @@ FocusScope {
     if (mode === "search") tree.focusSearch()
     else if (mode === "location") tree.focusLocation()
     else if (mode === "quicknav") quickNav.focusInput()
+    else if (mode === "properties" && properties.item) properties.item.forcePaneFocus()
     else tree.focusTree()
   }
 
@@ -117,12 +131,71 @@ FocusScope {
 
   TreePane {
     id: tree
-    anchors.fill: parent
-    anchors.bottomMargin: pickerBar.visible ? pickerBar.height : 0
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: module.propertiesShown ? splitHandle.top : parent.bottom
+    anchors.bottomMargin: !module.propertiesShown && pickerBar.visible ? pickerBar.height : 0
     controller: module.controller
     hostWindow: module.context.hostWindow
     context: module.context
     focusEnabled: module.context.bladeOpen
+    focusSibling: properties.item ? function() { properties.item.forcePaneFocus() } : null
+  }
+
+  Item {
+    id: splitHandle
+    visible: module.propertiesShown
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: properties.top
+    height: module.splitHandleSize
+
+    Rectangle {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      height: 1
+      color: splitPointer.containsMouse || splitPointer.pressed ? Color.accent : Util.alpha(Color.bar.text, 0.12)
+    }
+
+    MouseArea {
+      id: splitPointer
+      anchors.fill: parent
+      hoverEnabled: true
+      preventStealing: true
+      cursorShape: Qt.SizeVerCursor
+      onPositionChanged: function(mouse) {
+        if (!pressed) return
+        var y = splitHandle.mapToItem(module, 0, mouse.y).y
+        var usable = Math.max(1, module.height - module.splitHandleSize)
+        module.dragFraction = Math.max(0.12, Math.min(0.8, (module.height - y - module.splitHandleSize / 2) / usable))
+      }
+      onReleased: {
+        if (module.dragFraction > 0 && module.context.state)
+          module.context.state.set("propertiesFraction", Math.round(module.dragFraction * 1000) / 1000)
+        module.dragFraction = -1
+      }
+      onCanceled: module.dragFraction = -1
+    }
+  }
+
+  Loader {
+    id: properties
+    active: module.propertiesShown
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.bottomMargin: pickerBar.visible ? pickerBar.height : 0
+    height: module.propertiesShown ? module.propertiesHeight : 0
+
+    sourceComponent: PropertiesPane {
+      controller: module.controller
+      hostWindow: module.context.hostWindow
+      context: module.context
+      focusEnabled: module.context.bladeOpen
+      focusSibling: function() { tree.focusTree() }
+    }
   }
 
   PickerBar {
@@ -150,6 +223,7 @@ FocusScope {
     FilesSettings {
       controller: module.controller
       pane: tree
+      filesModule: module
     }
   }
 }

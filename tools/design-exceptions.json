@@ -1,26 +1,6 @@
 {
   "no-rounded-corners": [
     {
-      "path": "app/Ui/BorderSurface.qml",
-      "binding": "radius: root.radius",
-      "reason": "border geometry mirrors the radius of the surface it rings"
-    },
-    {
-      "path": "app/Ui/KeyboardPanel.qml",
-      "binding": "radius: Style.cornerRadius",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
-      "path": "app/Ui/PanelToolTip.qml",
-      "binding": "radius: Style.cornerRadius",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
-      "path": "app/Ui/TextField.qml",
-      "binding": "radius: Style.cornerRadius",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
       "path": "blades/BladeDragOverlay.qml",
       "binding": "radius: Style.cornerRadius",
       "reason": "not a button; the straight-corner rule covers buttons for now"
@@ -86,16 +66,6 @@
       "reason": "not a button; the straight-corner rule covers buttons for now"
     },
     {
-      "path": "modules/hooks/blades/Module.qml",
-      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
-      "path": "modules/mcp/blades/Module.qml",
-      "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
       "path": "panes/FileActionsMenu.qml",
       "binding": "radius: width / 2",
       "reason": "round by design: a dot, knob or handle, not a corner"
@@ -148,11 +118,6 @@
     {
       "path": "panes/TreePane.qml",
       "binding": "radius: Math.min(Style.cornerRadius, Style.space(4))",
-      "reason": "not a button; the straight-corner rule covers buttons for now"
-    },
-    {
-      "path": "src/extension_template/files/HostGuard.qml",
-      "binding": "radius: Style.cornerRadius",
       "reason": "not a button; the straight-corner rule covers buttons for now"
     },
     {

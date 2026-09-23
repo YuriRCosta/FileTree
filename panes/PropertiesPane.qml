@@ -17,6 +17,7 @@ FocusScope {
   required property var hostWindow
   property var context: null
   property bool focusEnabled: true
+  property var focusSibling: null
   PluginUi.ActionKeyGuard { id: actionKeys; active: root.activeFocus; shared: root.hostWindow ? root.hostWindow.actionKeys : null }
   PluginUi.TreeKeys { id: treeKeys; active: scroller.activeFocus; scope: "properties"; plan: controller.keybindings.plan }
   Keys.onReleased: function(event) { actionKeys.release(event) }
@@ -43,12 +44,14 @@ FocusScope {
   }
 
   function focusNext() {
-    if (context) context.focusNext()
+    if (typeof focusSibling === "function") focusSibling()
+    else if (context) context.focusNext()
     else returnToTree()
   }
 
   function focusPrevious() {
-    if (context) context.focusPrevious()
+    if (typeof focusSibling === "function") focusSibling()
+    else if (context) context.focusPrevious()
     else returnToTree()
   }
 

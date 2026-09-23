@@ -31,8 +31,6 @@ fn version_is(document: &Value, expected: u64) -> bool {
 pub struct Changes {
     #[arg(long, value_parser = clap::value_parser!(u16).range(0..=3650))]
     pub trash_retention_days: Option<u16>,
-    #[arg(long, action = clap::ArgAction::Set)]
-    pub agent_management: Option<bool>,
 }
 
 pub fn read() -> AppResult<Value> {
@@ -41,7 +39,6 @@ pub fn read() -> AppResult<Value> {
 
 fn with_defaults(mut settings: Value) -> Value {
     let fields = settings.as_object_mut().unwrap();
-    fields.entry("agentManagement").or_insert(json!(true));
     fields.entry("trashRetentionDays").or_insert(Value::Null);
     settings
 }
@@ -61,7 +58,6 @@ pub(crate) fn read_document() -> AppResult<Value> {
     let settings: Value = serde_json::from_slice(&bytes)?;
     if !settings.is_object()
         || !version_is(&settings, SETTINGS_VERSION)
-        || !matches!(settings.get("agentManagement"), None | Some(Value::Bool(_)))
         || settings
             .get("trashRetentionDays")
             .is_some_and(|days| !days.is_null() && !days.as_u64().is_some_and(|days| days <= 3650))
@@ -85,9 +81,6 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
         }
         settings["trashRetentionDays"] = json!(days);
     }
-    if let Some(enabled) = changes.agent_management {
-        settings["agentManagement"] = json!(enabled)
-    }
     settings["version"] = json!(SETTINGS_VERSION);
     settings["filebladeVersion"] = json!(BUILD_VERSION);
     let encoded = serde_json::to_vec_pretty(&settings)?;
@@ -98,10 +91,6 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
     }
     crate::lease::durable::write_private_atomic(&path, &encoded)?;
     Ok(with_defaults(settings))
-}
-
-pub fn require_agent_management() -> AppResult<()> {
-    Ok(())
 }
 
 pub fn keybindings() -> AppResult<Value> {

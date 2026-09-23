@@ -32,7 +32,6 @@ Item {
 
   function toggleOpen() { setOpen(!service.open) }
   function setSidebarWidth(value, screenWidth, persist) { service.bladeHost.setWidth(service.bladeHost.side, value, screenWidth, persist) }
-  function setPropertiesBladeWidth(value, screenWidth, persist) { service.bladeHost.setWidth(service.bladeHost.side, value, screenWidth, persist) }
 
   function setPriorityColumns(value) {
     var next = service.normalizePriorityColumns(value)
@@ -93,7 +92,7 @@ Item {
     return service.chooserSession ? service.chooserSession.focus("location") : service.bladeHost.focusModule("files", screen, "location")
   }
 
-  function focusProperties(screen) { return service.bladeHost.focusModule("properties", screen, "") }
+  function focusProperties(screen) { return service.bladeHost.focusModule("files", screen, "properties") }
 
   function setRootPath(value, rememberHistory, preserveForward) {
     var next = service.normalizeRoot(value)

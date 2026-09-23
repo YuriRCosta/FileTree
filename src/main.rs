@@ -12,9 +12,6 @@ fn main() -> ExitCode {
     match public_cli::parse(std::env::args_os()) {
         Ok(cli) => {
             let output = Arc::new(Output::new(cli.output.into(), cli.quiet));
-            if let RootCommand::Native(args) = cli.command {
-                return fileblade::native::run(args, output);
-            }
             match execute(cli.command, Arc::clone(&output)) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) if broken_pipe(&error) => ExitCode::SUCCESS,
@@ -34,9 +31,7 @@ fn execute(command: RootCommand, output: Arc<Output>) -> AppResult<()> {
     }
     if fileblade::lease::selected_root()?.is_some()
         && match &command {
-            RootCommand::Preferences(changes) => {
-                changes.trash_retention_days.is_some() || changes.agent_management.is_some()
-            }
+            RootCommand::Preferences(changes) => changes.trash_retention_days.is_some(),
             RootCommand::List(_) => true,
             _ => false,
         }
@@ -46,25 +41,6 @@ fn execute(command: RootCommand, output: Arc<Output>) -> AppResult<()> {
         ));
     }
     match command {
-        RootCommand::CompanionMutate => {
-            if fileblade::lease::selected_root()?.is_some() {
-                return Err(AppError::command(
-                    "native owner-unavailable: companion mutations must be admitted by the native authority",
-                ));
-            }
-            let started = std::time::Instant::now();
-            let result = fileblade::companion_mutations::stdin_request();
-            let _ = fileblade::audit::record(&fileblade::audit::Event {
-                via: "cli",
-                actor: "companion",
-                command: "companion-mutate",
-                arguments: &[],
-                outcome: &result,
-                started,
-            });
-            output.machine(&result?)?;
-            Ok(())
-        }
         RootCommand::Backend { command } => {
             if fileblade::lease::selected_root()?.is_some() && server::native_mutating(&command) {
                 return Err(AppError::command(

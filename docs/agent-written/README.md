@@ -7,8 +7,6 @@ is maintained separately.
 
 ## Documents
 
-- [Plugin-system design](design.md): why FileBlade extensions work the way
-  they do, what Omarchy owns, what FileBlade owns, and what is still planned
 - [Architecture](../../ARCHITECTURE.md): how the whole application is split up
   and how data moves through it
 - [Keybindings](keybindings.md): user configuration for pane navigation,
@@ -17,17 +15,6 @@ is maintained separately.
   FileBlade, which one hands the files to another application, and the setting
   that chooses between them
 - [Git status](git-status.md): status markers and repository summary preferences
-- [Agent usage history](agent-usage.md): how the Skills and MCP blades record
-  skill and MCP use, the private store, helper methods, the `fileblade usage`
-  CLI and known limits
-- [Skills usage counting](skills/usage-counting.md): what counts as a skill use,
-  the 2026-09-17 audit, the refresh policy, the heatmap tooltip and day filter
-- [MCP usage counting](mcp/usage-counting.md): what counts as an MCP call and how
-  servers are matched
-- [Hooks module](hooks/README.md): what the Hooks blade reads and changes; nothing is counted
-- [Memory module](memory/README.md): what the Memory blade reads; nothing is counted
-- [Extensions](../../EXTENSIONS.md): the public contract for blade modules and
-  other FileBlade extension points, including image galleries and bar popouts
 - [Security](../../SECURITY.md): trust boundaries, filesystem protections,
   command execution, previews, IPC, and known limits
 - [Build provenance](build-provenance.md): manual GitHub delivery builds,

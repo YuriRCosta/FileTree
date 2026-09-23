@@ -58,11 +58,6 @@ QtObject {
     return service.services && service.services.actions ? service.services.actions : null
   }
 
-  function optionalIndex(value) {
-    var parsed = Number(String(value || "").trim())
-    return isFinite(parsed) && parsed >= 0 && String(value).trim() !== "" ? Math.floor(parsed) : -1
-  }
-
   property IpcHandler handler: IpcHandler {
     target: "data-goblin.fileblade.control"
 
@@ -121,13 +116,6 @@ QtObject {
     var screenWidth = reference ? reference.width : 0
     service.setSidebarWidth(Number(width), screenWidth, true)
     return String(service.sidebarWidth)
-  }
-
-  function setPropertiesBladeWidth(width: string): string {
-    var reference = service.referenceScreen(null)
-    var screenWidth = reference ? reference.width : 0
-    service.setPropertiesBladeWidth(Number(width), screenWidth, true)
-    return String(service.propertiesBladeWidth)
   }
 
   function status(): string {
@@ -191,12 +179,7 @@ QtObject {
       lastRecoveredRoot: service.lastRecoveredRoot,
       rootRecoveryCount: service.rootRecoveryCount,
       sidebarWidth: service.sidebarWidth,
-      propertiesBladeWidth: service.propertiesBladeWidth,
       propertiesPlacement: service.propertiesPlacement,
-      welcomeState: service.welcomeState,
-      welcomeInstalling: service.welcome.installing,
-      welcomeInstalledCount: service.welcome.installed,
-      welcomeError: service.welcome.error,
       priorityProperty: service.priorityProperty,
       priorityPropertyLabel: service.priorityPropertyLabel(service.priorityProperty),
       priorityColumns: service.priorityColumns,
@@ -728,18 +711,6 @@ QtObject {
     return bladeHost.setSide(edge)
   }
 
-  function setWelcomeState(value: string): string {
-    return String(service.setWelcomeState(value))
-  }
-
-  function welcomeInstall(): string {
-    return "built-in"
-  }
-
-  function welcomeDismiss(): string {
-    return service.welcome.dismiss() ? "dismissed" : "busy"
-  }
-
   function resetBladeLayout(): string {
     return bladeHost.resetLayout() ? "reset" : "unchanged"
   }
@@ -765,36 +736,6 @@ QtObject {
 
   function blades(): string {
     return JSON.stringify(root.publicBladesDocument())
-  }
-
-  function setBladeSlots(edge: string, slots: string): string {
-    var decoded = service.decodedJsonDocument(slots)
-    if (!decoded.ok || !Array.isArray(decoded.value)) return "invalid-slots"
-    bladeHost.setSlots(edge, decoded.value)
-    return JSON.stringify(bladeHost.bladeFor(edge))
-  }
-
-  function setSlotModule(edge: string, index: string, module: string): string {
-    return bladeHost.setSlotModule(edge, Number(index), module) ? "ok" : "invalid-slot"
-  }
-
-  function addBladeModule(edge: string, module: string): string {
-    return bladeHost.addSlot(edge, module, -1) ? "ok" : "invalid-module"
-  }
-
-  function removeBladeSlot(edge: string, index: string): string {
-    return bladeHost.removeSlot(edge, Number(index)) ? "ok" : "invalid-slot"
-  }
-
-  function setBladeSlotCollapsed(edge: string, index: string, collapsed: string): string {
-    var value = String(collapsed).toLowerCase()
-    return bladeHost.setSlotCollapsed(edge, Number(index), value === "true" || value === "on" || value === "1")
-      ? "ok"
-      : "invalid-slot"
-  }
-
-  function toggleBladeSlotCollapsed(edge: string, index: string): string {
-    return bladeHost.toggleSlotCollapsed(edge, Number(index)) ? "ok" : "invalid-slot"
   }
 
   function bladeModules(): string {
@@ -866,26 +807,6 @@ QtObject {
     var screen = bladeHost.screenNamed(monitor)
     if (String(monitor || "") !== "" && !screen) return "unknown-monitor"
     return bladeHost.focusBlade(bladeHost.side, screen, -1, "", true) ? "focused" : "no-screen"
-  }
-
-  function moveBladeSlot(sourceEdge: string, sourceIndex: string, targetEdge: string, targetIndex: string, tabIndex: string): string {
-    return bladeHost.moveSlotTo(sourceEdge, Number(sourceIndex), targetEdge, Number(targetIndex), root.optionalIndex(tabIndex)) ? "ok" : "invalid-slot"
-  }
-
-  function tabBladeSlot(sourceEdge: string, sourceIndex: string, targetEdge: string, targetSlot: string, tabIndex: string, insertAt: string): string {
-    return bladeHost.moveTabInto(sourceEdge, Number(sourceIndex), root.optionalIndex(tabIndex), targetEdge, Number(targetSlot), root.optionalIndex(insertAt)) ? "ok" : "invalid-slot"
-  }
-
-  function setBladeTab(edge: string, slotIndex: string, tabIndex: string): string {
-    return bladeHost.setSlotTab(edge, Number(slotIndex), Number(tabIndex)) ? "ok" : "invalid-tab"
-  }
-
-  function cycleBladeTab(edge: string, slotIndex: string, delta: string): string {
-    return bladeHost.cycleSlotTab(edge, Number(slotIndex), Number(delta)) ? "ok" : "no-tabs"
-  }
-
-  function removeBladeTab(edge: string, slotIndex: string, tabIndex: string): string {
-    return bladeHost.removeTab(edge, Number(slotIndex), Number(tabIndex)) ? "ok" : "invalid-tab"
   }
 
   function focusTree(): string {

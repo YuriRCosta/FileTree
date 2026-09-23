@@ -40,6 +40,7 @@ FocusScope {
   }
   property var context: null
   property bool focusEnabled: true
+  property var focusSibling: null
   property bool locationEditing: false
   property bool mediaStateReady: false
   property bool mediaMode: false
@@ -375,13 +376,13 @@ FocusScope {
   }
 
   function focusNext() {
-    if (context) context.focusNext()
-    else controller.focusProperties(targetScreen())
+    if (typeof focusSibling === "function") focusSibling()
+    else if (context) context.focusNext()
   }
 
   function focusPrevious() {
-    if (context) context.focusPrevious()
-    else controller.focusProperties(targetScreen())
+    if (typeof focusSibling === "function") focusSibling()
+    else if (context) context.focusPrevious()
   }
 
   function toggleSettings() {

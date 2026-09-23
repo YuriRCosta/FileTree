@@ -20,7 +20,6 @@ rustix = "1.1.4"
 serde = "1.0.229"
 serde_json = "1.0.151"
 semver = "1.0.28"
-sha2 = "0.11.0"
 tempfile = "3.27.0"
 thiserror = "2.0.20"
 url = "2.5.8"
@@ -36,8 +35,6 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-zbus = "5.19.0"
-blocking = "1.6.2"
 base64.workspace = true
 chrono = { workspace = true, default-features = false, features = ["clock"] }
 clap = { workspace = true, features = ["derive"] }
@@ -51,7 +48,6 @@ rustix = { workspace = true, features = ["event", "fs", "process"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 semver.workspace = true
-sha2.workspace = true
 thiserror.workspace = true
 url.workspace = true
 uuid = { workspace = true, features = ["v4"] }

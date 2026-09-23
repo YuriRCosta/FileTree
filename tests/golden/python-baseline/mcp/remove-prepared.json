@@ -1,8 +1,0 @@
-{
-  "changed": false,
-  "message": "the source definition changed after recovery was prepared; nothing was changed",
-  "ok": false,
-  "project": "<project>",
-  "results": [],
-  "schemaVersion": 1
-}

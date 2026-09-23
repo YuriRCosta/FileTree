@@ -3,7 +3,6 @@ use serde_json::Value;
 use std::ffi::OsStr;
 use std::fs;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::symlink;
 use std::path::Path;
 use std::process::Command;
 
@@ -358,56 +357,6 @@ fn trash_undo_returns_only_the_selected_spelling() {
     assert_eq!(undone["ok"], true, "{undone}");
     assert_eq!(fs::read(raw).unwrap(), b"raw bytes");
     assert_eq!(fs::read(unicode).unwrap(), b"unicode spelling");
-}
-
-#[test]
-fn artifact_bin_round_trips_a_tree_with_both_spellings_and_a_byte_symlink() {
-    let temp = tempfile::tempdir().unwrap();
-    let root = temp.path().join(OsStr::from_bytes(b"tree-\xfe"));
-    fs::create_dir(&root).unwrap();
-    let raw = root.join(OsStr::from_bytes(b"\xff.txt"));
-    fs::write(&raw, "raw bytes").unwrap();
-    let long_name = [b'\xff'; 255];
-    fs::write(root.join(OsStr::from_bytes(&long_name)), "long name").unwrap();
-    fs::write(root.join("�.txt"), "unicode spelling").unwrap();
-    symlink(OsStr::from_bytes(b"\xff.txt"), root.join("link")).unwrap();
-    let item = serde_json::json!({"id": "byte-tree", "paths": [path_text(&root)]});
-    let binned = backend(
-        temp.path(),
-        &[
-            "bin-put",
-            "--module",
-            "identity",
-            "--item",
-            &item.to_string(),
-        ],
-    );
-    assert_eq!(binned["ok"], true, "{binned}");
-    assert!(!root.exists());
-    let restored = backend(
-        temp.path(),
-        &[
-            "bin-restore",
-            "--module",
-            "identity",
-            "--id",
-            binned["entry"].as_str().unwrap(),
-        ],
-    );
-    assert_eq!(restored["ok"], true, "{restored}");
-    assert_eq!(fs::read(raw).unwrap(), b"raw bytes");
-    assert_eq!(
-        fs::read(root.join(OsStr::from_bytes(&long_name))).unwrap(),
-        b"long name"
-    );
-    assert_eq!(fs::read(root.join("�.txt")).unwrap(), b"unicode spelling");
-    assert_eq!(
-        fs::read_link(root.join("link"))
-            .unwrap()
-            .as_os_str()
-            .as_bytes(),
-        b"\xff.txt"
-    );
 }
 
 fn backend(root: &Path, arguments: &[&str]) -> Value {

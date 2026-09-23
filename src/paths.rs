@@ -1,47 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::common::expanded_path;
-use crate::error::{AppError, AppResult};
 
 const CURRENT: &str = "omarchy/fileblade";
 const LEGACY: &str = "omarchy/filetree";
-const APP_ROOT_VARIABLE: &str = "FILEBLADE_APP_ROOT";
-const APP_ROOT_MARKERS: [&str; 2] = ["manifest.json", "python"];
-const APP_ROOT_SEARCH_DEPTH: usize = 4;
-
-pub fn app_root() -> AppResult<PathBuf> {
-    if let Some(value) = std::env::var_os(APP_ROOT_VARIABLE).filter(|value| !value.is_empty()) {
-        let declared = PathBuf::from(value);
-        if declared.is_absolute() && is_app_root(&declared) {
-            return Ok(declared);
-        }
-        return Err(AppError::command(format!(
-            "{APP_ROOT_VARIABLE} does not name an app root: {}",
-            declared.display()
-        )));
-    }
-    let executable = std::env::current_exe()
-        .map_err(|error| AppError::command(format!("could not locate the executable: {error}")))?;
-    let mut candidate = executable.parent();
-    for _ in 0..APP_ROOT_SEARCH_DEPTH {
-        let Some(directory) = candidate else { break };
-        if is_app_root(directory) {
-            return Ok(directory.to_path_buf());
-        }
-        candidate = directory.parent();
-    }
-    Err(AppError::command(format!(
-        "no app root above {} within {APP_ROOT_SEARCH_DEPTH} levels; set {APP_ROOT_VARIABLE}",
-        executable.display()
-    )))
-}
-
-fn is_app_root(directory: &Path) -> bool {
-    directory.is_dir()
-        && APP_ROOT_MARKERS
-            .iter()
-            .all(|marker| directory.join(marker).symlink_metadata().is_ok())
-}
 
 pub fn xdg_home(variable: &str, fallback: &str) -> PathBuf {
     std::env::var_os(variable)

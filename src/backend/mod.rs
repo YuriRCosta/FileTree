@@ -26,15 +26,12 @@ pub struct BackendCli {
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum BackendCommand {
-    Agents,
-    Chooser(crate::chooser::transport::ChooserArgs),
     Recover,
     ProjectRoot(ProjectRootArgs),
     ChildrenBatch(ChildrenArgs),
     ChildrenWindow(ChildrenWindowArgs),
     GitMetadataBatch(PathsArgs),
     GitBranches(PathArg),
-    GitPlaces(PathArg),
     GitSwitch(GitSwitchArgs),
     Search(SearchArgs),
     IndexInvalidate,
@@ -47,11 +44,6 @@ pub enum BackendCommand {
     Preview(PreviewArgs),
     Thumbnail(ThumbnailArgs),
     ThumbnailRender(ThumbnailRenderArgs),
-    BinPut(BinPutArgs),
-    BinRemove(BinRemoveArgs),
-    BinList(BinModuleArgs),
-    BinRestore(BinRestoreArgs),
-    BinPurge(BinEntryArgs),
     Clipboard(ClipboardArgs),
     ClipboardWrite(ClipboardWriteArgs),
     ClipboardText(PathsArgs),
@@ -72,8 +64,6 @@ pub enum BackendCommand {
     Applications(ApplicationsArgs),
     BladeModules(BladeModulesArgs),
     ModuleDirs(ModuleDirsArgs),
-    HelperRead(HelperArgs),
-    HelperWrite(HelperArgs),
     Mounts,
     MountVolume(SourceArgs),
     UnmountVolume(SourceArgs),
@@ -101,14 +91,10 @@ pub enum BackendCommand {
     Undo(HistoryStepArgs),
     Redo(HistoryStepArgs),
     SetDefault(SetDefaultArgs),
-    PluginCatalog,
     HyprOption(HyprOptionArgs),
-    NativeBarState,
-    FontMatch,
     UpdateCheck(UpdateArgs),
     ActiveWindow,
     FocusWindow(FocusWindowArgs),
-    PlaceBladeWindow(PlaceBladeWindowArgs),
     FocusDirection(FocusDirectionArgs),
     HoverTarget(HoverTargetArgs),
     DimWindows(DimWindowsArgs),
@@ -117,8 +103,6 @@ pub enum BackendCommand {
     DropRun(DropRunArgs),
     DropPaste(DropPasteArgs),
     Launch(LaunchArgs),
-    RolesStatus,
-    RolesSet(RolesSetArgs),
 }
 
 pub fn parse<I, T>(arguments: I) -> Result<BackendCommand, clap::Error>
@@ -155,10 +139,6 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::TrashPrune(_)
             | BackendCommand::Undo(_)
             | BackendCommand::Redo(_)
-            | BackendCommand::BinRestore(_)
-            | BackendCommand::BinPut(_)
-            | BackendCommand::BinRemove(_)
-            | BackendCommand::BinPurge(_)
             | BackendCommand::ArchiveExtract(_)
             | BackendCommand::ArchiveCreate(_)
             | BackendCommand::PermissionsSet(_)
@@ -166,7 +146,6 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::UnmountVolume(_)
             | BackendCommand::EjectVolume(_)
             | BackendCommand::ActionRun(_)
-            | BackendCommand::HelperWrite(_)
             | BackendCommand::PreferencesSet(_)
             | BackendCommand::KeybindingsPrepare
             | BackendCommand::StateWrite(_)
@@ -174,7 +153,6 @@ pub fn mutating(command: &BackendCommand) -> bool {
             | BackendCommand::FrecencyVisit(_)
             | BackendCommand::Visit(_)
             | BackendCommand::Recover
-            | BackendCommand::RolesSet(_)
     )
 }
 
@@ -218,10 +196,6 @@ fn dispatch_command(
         BackendCommand::TransferExecute(options) => {
             transfer_execute(&options, cancelled, progress)?
         }
-        BackendCommand::Agents => crate::agents::installed_agents(),
-        BackendCommand::Chooser(args) => crate::chooser::transport::run(args, cancelled),
-        BackendCommand::HelperRead(options) => options.execute(false, cancelled)?,
-        BackendCommand::HelperWrite(options) => options.execute(true, cancelled)?,
         BackendCommand::Recover => crate::recovery::sweep(),
         BackendCommand::ProjectRoot(options) => crate::project::project_root(&options.path),
         BackendCommand::ChildrenBatch(options) => crate::filesystem::children_batch_paged(
@@ -261,7 +235,6 @@ fn dispatch_command(
             cancelled,
         ),
         BackendCommand::GitBranches(options) => crate::git::git_branches(&options.path, cancelled),
-        BackendCommand::GitPlaces(options) => crate::git::git_places(&options.path, cancelled),
         BackendCommand::GitSwitch(options) => {
             crate::git::git_switch(&options.path, &options.branch, cancelled)
         }
@@ -336,26 +309,6 @@ fn dispatch_command(
             &options.query,
             options.show_hidden,
         ),
-        BackendCommand::BinPut(options) => {
-            crate::artifact_bin::put(&options.module, &options.item, cancelled)
-        }
-        BackendCommand::BinRemove(options) => crate::artifact_bin::remove_with_helper(
-            &options.item.module,
-            &options.item.item,
-            &options.helper_route,
-            &options.arguments,
-            cancelled,
-        ),
-        BackendCommand::BinList(options) => crate::artifact_bin::rows(&options.module),
-        BackendCommand::BinRestore(options) => crate::artifact_bin::restore_with_helper(
-            &options.entry.module,
-            &options.entry.id,
-            options.helper_route.as_deref(),
-            cancelled,
-        ),
-        BackendCommand::BinPurge(options) => {
-            crate::artifact_bin::purge(&options.module, &options.id)
-        }
         BackendCommand::Clipboard(options) => {
             crate::desktop::clipboard_files_cancellable(limited(options.limit, 4096), cancelled)
         }
@@ -406,10 +359,6 @@ fn dispatch_command(
             crate::filesystem::stat_path_cancellable(&options.path, cancelled)
         }
         BackendCommand::Capacity(options) => crate::capacity::probe(&options.path)?,
-        BackendCommand::RolesStatus => crate::native::roles::status_document()?,
-        BackendCommand::RolesSet(options) => {
-            crate::native::roles::set_document(&options.role, options.on)?
-        }
         BackendCommand::StatBatch(options) => {
             crate::filesystem::stat_paths(&options.path[..options.path.len().min(512)])
         }
@@ -502,7 +451,6 @@ fn dispatch_command(
         BackendCommand::Redo(options) => {
             crate::journal::redo(options.drop, options.force, cancelled)
         }
-        BackendCommand::PluginCatalog => crate::plugin_catalog::catalog()?,
         BackendCommand::SetDefault(options) => crate::operations::set_default_application(
             &options.mime,
             &options.desktop_id,
@@ -516,32 +464,8 @@ fn dispatch_command(
         BackendCommand::HyprOption(options) => {
             crate::hyprland::hypr_query(&format!("getoption {}", value_name(options.name)))?
         }
-        BackendCommand::NativeBarState => json!({
-            "ok": true,
-            "hidden": crate::common::expanded_path("~/.local/state/omarchy/toggles/bar-off").is_file()
-        }),
-        BackendCommand::FontMatch => {
-            let output = crate::command::CommandSpec::new("fc-match")
-                .args(["-f", "%{family[0]}", "monospace"])
-                .limits(4096, 4096)
-                .run_cancellable(cancelled)?;
-            json!({
-                "ok": output.status.success() && !output.stdout_truncated,
-                "family": String::from_utf8_lossy(&output.stdout).trim(),
-                "error": String::from_utf8_lossy(&output.stderr).trim()
-            })
-        }
         BackendCommand::ActiveWindow => crate::hyprland::active_window(),
         BackendCommand::FocusWindow(options) => crate::hyprland::focus_window(&options.address),
-        BackendCommand::PlaceBladeWindow(options) => crate::hyprland::place_blade_window(
-            &crate::hyprland::PlaceBladeOptions {
-                title: options.title,
-                edge: value_name(options.edge),
-                width: options.width,
-                timeout: seconds(options.timeout, 0.2, 900.0),
-            },
-            cancelled,
-        ),
         BackendCommand::FocusDirection(options) => {
             crate::hyprland::focus_direction(&crate::hyprland::FocusDirectionOptions {
                 direction: options.direction,

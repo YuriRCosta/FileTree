@@ -64,33 +64,6 @@ fn fresh_and_existing_installs_need_an_answer_and_every_offered_answer_persists(
             fs::metadata(path).unwrap().permissions().mode() & 0o777,
             0o600
         );
-        assert_eq!(
-            fixture.run(&["preferences-set", "--agent-management", "true"])["settings"]["trashRetentionDays"],
-            days
-        );
-        assert_eq!(
-            fixture.run(&["preferences-set", "--trash-retention-days", "0"])["settings"]["agentManagement"],
-            true
-        );
-    }
-}
-
-#[test]
-fn agent_file_removal_and_restore_round_trip_without_a_separate_opt_in() {
-    for module in ["skills", "memory"] {
-        let fixture = Fixture::new();
-        let source = fixture.root.path().join("agent.md");
-        fs::write(&source, "agent instructions").unwrap();
-        let item = json!({"id":"fixture", "name":"Fixture", "paths":[source]}).to_string();
-        let removed = fixture.run(&["bin-put", "--module", module, "--item", &item]);
-        assert_eq!(removed["ok"], true, "{removed}");
-        assert!(!source.exists());
-        let entry = removed["entry"].as_str().unwrap();
-        assert_eq!(
-            fixture.run(&["bin-restore", "--module", module, "--id", entry])["ok"],
-            true
-        );
-        assert_eq!(fs::read_to_string(source).unwrap(), "agent instructions");
     }
 }
 

@@ -84,14 +84,6 @@ TestCase {
     host.layoutReady = true
     tryCompare(host, "opened", true)
   }
-  function test_management_waits_for_persistent_explicit_opt_in() {
-    preferences.ready = true
-    verify(!preferences.agentManagement)
-    preferences.setAgentManagement(true)
-    verify(!preferences.agentManagement)
-    service.callback({ok:true, settings:{version:1, agentManagement:true}})
-    verify(preferences.agentManagement)
-  }
   function test_right_only_install_opens_left_for_the_question() {
     host.rightOpened = true
     host.layoutReady = true

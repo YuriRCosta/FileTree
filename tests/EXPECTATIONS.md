@@ -225,7 +225,9 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 `tests/vm/expectations/08-properties-preview.sh`
 
 57. **E-08-01** When I select a file, I can see its path, type, size, dates,
-    permissions, and owner in the properties pane. A file with a preview card
+    permissions, and owner in the properties pane below the tree. I can drag the
+    divider between them to resize it, and turn the pane off with
+    "Properties panel" in settings; both choices survive a restart. A file with a preview card
     shows the card first, so I scroll to reach the rest.
     Each Git status appears on its own line; the next row of properties moves
     down together. Worktree appears only for a linked worktree, and Branch is dimmed.
@@ -509,7 +511,7 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      end, and the choice survives a restart.
 147c. **E-17-14** Ctrl+= (or Ctrl++) makes the text in every blade one step
      larger, Ctrl+- one step smaller, and Ctrl+0 returns it to 100%, wherever
-     my focus is inside FileBlade: the tree, a search field, Notes, a picker or
+     my focus is inside FileBlade: the tree, a search field, the properties pane, a picker or
      the settings sheet. It is the same Font size as the General setting, so the
      percentage there follows and the choice survives a restart. Plain + and -
      keep changing the tree density and media tile size.
@@ -549,40 +551,6 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 157. **E-19-06** If loading or an operation takes too long, I see a timeout error
      rather than an endless spinner.
 
-## 20. Arranging blade sections and tabs
-
-Automation for this section is pending.
-
-158. **E-20-01** If I click the caret beside a section title such as Properties,
-     that section collapses to its title bar and leaves the rest of the blade
-     available; clicking the caret again expands it.
-159. **E-20-02** If I close and reopen a blade, each section keeps the expanded
-     or collapsed state I chose.
-160. **E-20-03** If I drag a section title above or below another section in the
-     same blade and release it, the section drops into that vertical position.
-161. **E-20-04** If I drag a section title to the other blade and release it, the
-     section moves to that blade.
-162. **E-20-05** If I drag a module onto another section and release it, it joins
-     that section as a tab; I can also drag its tab to a different position in
-     the tab row.
-163. **E-20-06** While I drag a section between vertical positions, I see a
-     horizontal insertion line showing exactly where it will land.
-164. **E-20-07** While I drag a module onto a section body, I see that section
-     outlined as the target for the new tab.
-165. **E-20-08** While I drag a module within a tab row, I see only a slim `|`
-     between tab titles at the exact insertion point; the existing tab titles
-     remain clear and unobscured.
-166. **E-20-09** If I release a dragged section or tab over a valid target, it
-     stays in the indicated position; if I release it over no target, its layout
-     does not change.
-167. **E-20-10** If I close and reopen a blade after arranging its sections and
-     tabs, the layout I chose is preserved.
-168. **E-20-11** Layout changes do not take over `Ctrl+Z`; it remains the undo
-     shortcut for file operations. I can reverse a layout move by dragging the
-     section or tab back, or by using the layout controls in Settings.
-169. **E-20-12** If I drag the divider between two expanded sections, they resize
-     together and reopen at the sizes I chose.
-
 ## 21. Docking, resizing and window behavior
 
 `tests/vm/expectations/21-docking-resizing.sh`
@@ -620,7 +588,7 @@ Automation for this section is pending.
      I press its shortcut while working on another monitor, the open blade
      closes, and the next press opens it on the monitor I am on. With a lock,
      blades only ever appear on that monitor and the shortcuts act there
-     wherever I am. My layout, notes and selection are the same on every
+     wherever I am. My layout and selection are the same on every
      monitor. See section 34 for the two-monitor checks.
 179b. **E-21-10b** If a monitor is unplugged, a blade that was invoked or
      locked there stays hidden until I close and reopen it or the monitor
@@ -638,40 +606,6 @@ Automation for this section is pending.
 179a. **E-21-10a** A blade width I set on a large monitor never exceeds what a
      smaller monitor can show: on that monitor the blade renders and reserves
      at most its own screen's limit, and my stored width is left alone.
-
-## 22. Adding and managing module tabs
-
-`tests/vm/expectations/22-module-picker.sh` covers the module picker.
-Automation for the remaining tab-management scenarios is pending.
-
-180. **E-22-01** The blade has no `+` to add modules, neither in the tab row nor in the
-     section header. FileBlade is the only module the blade shows.
-181. **E-22-02** Settings has no module list: I cannot add, remove, or move sections. The
-     blade always holds exactly one FileBlade section.
-182. **E-22-03** If I click a tab, I see that module; `Ctrl+Tab`, `Ctrl+]`, and
-     `Ctrl+PageDown` move to the next tab, while their reverse shortcuts move to
-     the previous tab.
-183. **E-22-04** If a section has more tabs than fit, I can scroll the tab row and
-     the active tab is brought into view.
-184. **E-22-05** If I rename a FileBlade tab, its custom name appears in the tab
-     row and remains after reopening the blade; clearing the name restores its
-     normal module title.
-185. **E-22-06** If I close a tab with its `×`, FileBlade asks for confirmation;
-     if the section's tabs change while that question is open, for example
-     from another monitor, the question closes instead of removing a
-     different tab;
-     middle-clicking a tab closes it directly.
-186. **E-22-07** I cannot close the only FileBlade tab, by its `×`, middle-click, or the
-     command line; the blade always keeps its FileBlade section and its state.
-187. **E-22-08** Settings shows one BLADE row with its open state and width, and a Side
-     choice of Left or Right. Choosing a side moves the blade to that screen edge
-     immediately; if the blade was open it stays open and takes focus there.
-188. **E-22-09** If the FileBlade module fails to load, I see a clear explanation instead
-     of a blank section.
-189. **E-22-10** Each tab remembers its own content and choices when I switch
-     tabs, close and reopen the blade, or restart the shell.
-190. **E-22-11** If I right-click the FileBlade tab, the menu offers only Rename and Clear
-     name; there is no option to move the tab to another blade.
 
 ## 23. Opening files, locations and recent items
 
@@ -702,9 +636,6 @@ Automation for the remaining tab-management scenarios is pending.
 201. **E-23-11** If I double-click a file, it opens in its default application;
      double-clicking a folder opens it as the tree root, whether it is collapsed
      or expanded. `Enter` and the disclosure arrow still expand it in place.
-202. **E-23-12** If I double-click or press `Enter` on a file listed by a companion
-     module such as Memory, Skills, Hooks, or MCP, it opens in the same default
-     application it would open in from the file tree, not in the terminal editor.
 
 ## 24. Search syntax, columns and colors
 
@@ -746,42 +677,6 @@ Automation for the remaining tab-management scenarios is pending.
      `colors.json` in FileBlade's config folder, the swatches and every coloured
      row take them without a restart; a bad value is ignored and the previous
      palette stays.
-
-## 25. Notes
-
-New notebooks begin with the supplied Lovecraft quotation. Existing notes,
-including intentionally empty notes, retain their saved contents.
-
-This file was written by an agent.
-
-The last-edit time, word count and character count use the muted theme color
-so they remain less prominent than the note text. Canonical Material Design
-glyphs from Nerd Fonts replace the labels: clock-edit-outline for last edit,
-text for words, and alphabetical for characters. Until a note has been edited,
-the last-edit field is absent, with no placeholder or empty gap. Counts remain
-visible, including zero; screen readers receive the full labels and values.
-
-`tests/vm/expectations/25-notes.sh`
-
-217. **E-25-01** If I add the Notes module, I can type a plain-text note directly
-     in the blade.
-218. **E-25-02** When I stop typing, switch modules, collapse Notes, or close the
-     blade, my note is saved without a separate Save action.
-219. **E-25-03** If I click `+` in Notes, a new named note tab appears and I can
-     keep different text in each note. Default note numbers keep increasing
-     after I close notes or restart, so deleting Note 1 does not create
-     another Note 2.
-220. **E-25-04** If I switch note tabs, each note keeps its own text and the tab I
-     chose is visibly active.
-221. **E-25-05** If I double-click a note tab or choose Rename from its menu, I
-     can rename that note.
-222. **E-25-06** If I middle-click a note tab or choose Close note, that note
-     closes; FileBlade keeps at least one note so I cannot lose the notebook
-     itself by closing the last tab.
-223. **E-25-07** If I close and reopen the blade or restart the shell, my note
-     names, text, and active note are preserved.
-224. **E-25-08** If my notes reach their storage limit, FileBlade warns me and
-     stops accepting excess text instead of silently losing saved content.
 
 ## 26. Dragging files outside a blade
 
@@ -853,14 +748,14 @@ in a blade, and a name containing a space arrives intact.
 
 `tests/vm/expectations/27-updates-recovery.sh`
 
-235. **E-27-01** If FileBlade or an enabled companion has an update available, I
-     see an Update available chip in the blade footer.
+235. **E-27-01** If FileBlade has an update available, I see an Update
+     available chip in the blade footer.
 This file was written by an agent.
 
 236. **E-27-02** The update notice names the available FileBlade version, for
-     example "Version 0.1.2 of FileBlade is now available!", followed by a
-     Companion updates heading and one bullet per extension, ordered by name.
-     The version headline, bullets and instructions stay readable at the minimum
+     example "Version 0.1.2 of FileBlade is now available!". Companion
+     plugins are not checked. The version headline and instructions stay
+     readable at the minimum
      280-pixel blade width, and both buttons remain visible. It shows no commit
      counts. If a version cannot
      be determined, it says so; changes within the same version or to an older
@@ -895,36 +790,6 @@ This file was written by an agent.
      and any partial destination is refreshed immediately so I can inspect it.
 245. **E-28-05** If an undo cannot continue safely, I see why; pressing `Shift+U`
      lets me skip that refused undo and continue to an older one.
-
-## 29. Welcome, core blades and help
-
-`tests/vm/expectations/29-welcome.sh`
-
-246. **E-29-01** On first launch, Welcome opens beside the persistent Notes
-     tab. It introduces Files, Notes, Skills, Memory, Hooks and MCP, with
-     keyboard-accessible entries and real help available offline.
-247. **E-29-02** Opening a core entry selects its existing blade or adds it
-     once. It requires no companion installation, registry or shell restart.
-     The old welcomeInstall IPC reports "built-in" and starts no installer.
-248. **E-29-03** Close Welcome records dismissal and removes only Welcome.
-     Notes and other tabs retain their contents. A read-only or unready
-     layout refuses dismissal.
-249. **E-29-04** Welcome can be reopened from the blade picker after dismissal
-     or a legacy "installed" state. Reopening preserves that saved state;
-     later state/layout hydration and restart do not prune the reopened tab.
-250. **E-29-05** Core entries and local help remain useful offline. An absent,
-     malformed, oversized or newer-schema optional catalog retains the local
-     or last-valid catalog. Its identity, source, compatibility and lifecycle
-     fields are metadata; catalog-supplied commands never execute.
-
-This file was written by an agent.
-
-**E-29-06** If I enable Memory, Skills, MCP, Hooks, or a generated extension
-before installing FileBlade, one pop-up lists the waiting extensions and shows
-the FileBlade repository address. There is no Install button, and Enter does
-nothing. Escape or the close button dismisses the pop-up. If FileBlade is already
-installed but disabled, Enable activates that local installation and restarts the
-shell. Once FileBlade is enabled, the pop-up disappears.
 
 ## 30. Configurable tree keys
 
@@ -968,8 +833,7 @@ shell. Once FileBlade is enabled, the pop-up disappears.
      drawn at half strength; marks for rows in view are drawn in full. Turning
      off "Git marks on the scroll ruler" in settings removes every mark and the
      ruler thumb stays.
-260. **E-31-06** Extension trees loaded through `ArtifactTree` show the same
-     ruler and keep their scroll position when their rows refresh.
+
 
 ## 34. Choosing a monitor
 
@@ -1025,28 +889,7 @@ startup targets also have deterministic QML coverage.
 - **E-34-16** Unplugging the source monitor during a held module or file drag
   cancels it. The layout and files stay unchanged, and no paste is dispatched.
 
-## 35. Extensions on a shell that hides plugins from each other
-
-This file was written by an agent.
-
-- **E-35-01** On Omarchy 4.0.3, where a plugin is told only about itself, my
-  installed FileBlade extensions still appear as tabs with their contents. The
-  Welcome tab, the module picker and the settings sheet list them exactly as
-  they do on 4.0.2.
-- **E-35-02** Disabling an extension with `omarchy plugin disable` removes its
-  tab within a few seconds without restarting the shell, and the extension
-  stops watching my files. Enabling it again brings the tab back the same way.
-- **E-35-03** Installing an extension while FileBlade is running makes it
-  available within a few seconds of enabling it. Closing and reopening one
-  blade also picks it up, even when my other blade stayed open the whole time.
-- **E-35-04** If the list of installed plugins cannot be read, the extensions I
-  already have keep their tabs but are shown as unavailable rather than
-  silently continuing to run.
-- **E-35-05** An extension built before this change still works on a shell that
-  discloses plugins to each other, and says it needs an update on one that does
-  not, rather than showing an empty tab.
-
-## 36. Explicit cleanup and agent-file management
+## 36. Explicit Trash cleanup
 
 This file was written by an agent.
 
@@ -1072,61 +915,6 @@ Trash stores on other mounts.
   changing retention in settings still works. A failed save leaves the question
   present and automatic cleanup off. Config and keybindings record their schema
   and FileBlade release, preserving existing keybindings.
-
-This file was written by an agent.
-
-- **E-36-04** Skills and Memory are browsable and manageable by default, with no
-  setup toggle. Removing a fixture places it in the artifact bin; restoring it
-  returns the original source bytes.
-- **E-36-05** Purging an MCP or Hooks removal deletes its private recovery too.
-  Repeating removal and purge does not fill an invisible undo quota. Core recovery
-  needs no companion activation. An unavailable helper refuses recovery or cleanup
-  while keeping its evidence recoverable.
-  If automatic cleanup reaches its scan limit, it reports an incomplete scan
-  instead of claiming that every module was checked.
-- **E-36-06** Welcome remains built in, dismissible and reopenable, without installing
-  companions or changing their existing checkouts. An update check downloads no Git objects
-  and does not invent history details when those objects are not available.
-
-## 37. Image galleries and bar popouts
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/37-image-gallery.sh`, using the Goblins companion
-(`kurt.goblin-images`) already staged in the headless VM. The script creates a
-24-image fixture from an on-disk library PNG, adds temporary read-only probes,
-and restores the guest's source and configuration on exit. The companion
-is maintained separately.
-
-- **E-37-01** A module that declares an `icon` shows that picture, tinted like
-  its text, in the module picker, the blade settings sheet, its pane header
-  and its bar icon; a module without one keeps its glyph.
-- **E-37-02** An image gallery groups pictures under month headings, newest
-  first, with undated pictures last. Clicking a tile selects it and the
-  Properties pane previews it; double-click or Enter opens it with the default
-  application; a right-click or `m` opens the same file actions menu as the
-  Files tree, naming the picture.
-- **E-37-03** `-` and `=`/`+` step the preview size through five sizes; the
-  toolbar slider shows the current step with a straight track and filled-centre
-  Omarchy mark. Dragging reaches all five stops; arrows and Home/End work while
-  focused without losing focus. The choice survives a shell restart in the blade.
-- **E-37-04** Typing in the gallery search narrows the tiles live using the
-  Files search grammar (`character:bink`, `-tag:danger`); the status shows
-  “N of M”; Escape clears the query first and closes the blade only on the
-  next press.
-- **E-37-05** The right-hand timeline omits periods with no media by default:
-  a photo from 2020 and one from 2026 do not leave six years of empty bars.
-  I can turn on “Show empty timeline periods” under Media without changing
-  which photos are shown. The viewport outline, scrubbing and detail controls
-  follow the visible periods, and the header names their real dates so the
-  gaps remain clear. A few single-photo periods sit together as selectable
-  rows, without bars or stretched gaps. Periods containing several photos
-  have bars sized by their counts. The viewport outline appears only when
-  the photo grid is taller than the visible pane.
-- **E-37-06** A bar widget that names the module opens the whole module in a
-  dropdown under its icon, with the same header, search, chips, grid and
-  timeline; Escape or an outside click closes it, and the blade copy of the
-  module is unaffected.
 
 ## 38. Configuring the drop wheel
 
@@ -1157,635 +945,6 @@ Fixture: `tests/vm/fixtures/media_icons.py` with its QML fixture.
 - **E-39-04** After an icon file fails to load, a later valid candidate for the same application is shown. Changing the application, its override or its identity clears the remembered failures and lets the new icon load. At most four failed sources are remembered per application.
 - **E-39-05** An application icon larger than the space it is drawn in is decoded no larger than 128 device pixels in each dimension, and its aspect ratio is preserved.
 - **E-39-06** A place that shows an icon without naming an application keeps its existing icon name, trusted source and fallback glyph behaviour, and looks up no application catalogue.
-
-## 40. Native launch, accepted work and safe shutdown
-
-This file was written by an agent.
-
-`tests/vm/expectations/40-native-authority.sh`
-`tests/vm/expectations/48-native-roles.sh`
-
-The first script emits E-40-01 through E-40-04. E-40-05 through E-40-11 are
-additional lifecycle expectations; their presence here does not imply that
-the section-40 script exercises them. Installed lifecycle and reboot checks
-also live in `tests/vm/expectations/95-delivery-installed.sh` and
-`tests/vm/native-reboot`. The second script emits E-40-12 through E-40-18
-against temporary XDG roots in the installed guest.
-
-1. **E-40-01** If I close FileBlade's view after a move has started, the move
-   finishes. Each moved file reaches its destination, and reopening FileBlade
-   lets me see the completed result instead of treating the work as cancelled.
-2. **E-40-02** Closing and reopening FileBlade's view reconnects to my running
-   work. It does not start a second owner of that work or lose its progress.
-3. **E-40-03** After closing and reopening the view, I can retrieve a completed
-   operation's result, including its source and destination paths. Reading the
-   result leaves it available; explicitly collecting it removes that retained
-   copy. Closing the view alone does not collect it.
-4. **E-40-04** If FileBlade's state folder is moved aside and another folder
-   takes its place during a copy, FileBlade reports that it lost ownership.
-   It preserves the source and leaves the replacement folder untouched,
-   including when I close the view. I can retrieve the failure result.
-5. **E-40-05** I can start the native app from its production launcher without
-   a development checkout, build tree or spike-home setting. Starting it again
-   while it is running opens the existing app with my saved blades and state.
-6. **E-40-06** My existing command-line scripts can use `drop-context`,
-   `drop-run`, `preferences-read` and `preferences-set` through the native
-   launcher unchanged. Multiple paths, negative screen coordinates, empty
-   arguments and JSON targets and placement routes keep their meaning.
-   `--dry-run` reports the planned action without running it, and changing a
-   preference preserves my other settings.
-7. **E-40-07** If I request shutdown with a deadline too short for an accepted
-   copy, FileBlade reports that it is busy and identifies the unfinished work.
-   The copy continues without losing files; after it finishes I can request
-   shutdown again successfully.
-8. **E-40-08** If I edit ordinary Notes and request a safe shutdown, FileBlade
-   saves the changes before exiting. Relaunching restores my edited text and
-   blade arrangement.
-9. **E-40-09** After a successful safe shutdown, FileBlade's file-chooser
-   service also exits. It does not leave an old native process running after
-   the app has released its state.
-10. **E-40-10** If I request a safe shutdown again after FileBlade has stopped,
-    it reports that it is already stopped and succeeds without opening a view.
-11. **E-40-11** If FileBlade cannot confirm that its view is ready to exit,
-    or I have temporary Notes that have no saved home, an update, removal or
-    shutdown request is refused. FileBlade does not report success or force
-    the view closed while my unsaved work remains at risk.
-12. **E-40-12** After installing, updating or first launching the native app,
-    every Desktop integration switch is off. Opening a folder from another
-    application, "reveal in file manager" and the file chooser still reach
-    the handler I had before, and FileBlade runs beside it.
-13. **E-40-13** Turning on "Open folders with FileBlade" in Settings makes
-    FileBlade the `inode/directory` handler through the stable launcher. My
-    other associations in `mimeapps.list` are left as they were.
-14. **E-40-14** Turning on "File chooser" registers FileBlade's portal
-    descriptor and service and prefers it for `FileChooser` in
-    `portals.conf`, keeping every other portal route.
-15. **E-40-15** Turning a role off when I have not changed the handler since
-    restores the previous handler byte for byte, removes the files FileBlade
-    created, and the row says "restored the previous handler".
-16. **E-40-16** Turning a role off after I chose a different handler keeps my
-    newer choice, releases FileBlade's ownership, and the row says "kept your
-    newer choice".
-17. **E-40-17** Turning on "Reveal in FileBlade" while another file manager
-    owns `org.freedesktop.FileManager1` still enables the role and the row
-    names the current owner and asks me to log out and in. Nothing is killed.
-18. **E-40-18** Removing the app runs `native roles disable --all`, which
-    reverses every FileBlade-owned entry, leaves the prior handler as it was,
-    and reports the exact document the installer requires; a second run
-    reports every role already off.
-
-## 41. Native modules and extension popouts
-
-This file was written by an agent.
-
-`tests/vm/expectations/41-native-importers.sh`
-
-1. **E-41-01** In the native app I can open Files, Properties, Notes, Welcome,
-   Skills, Memory, Hooks and MCP as blade tabs. Each draws its content without
-   an import error or an unavailable-module notice.
-2. **E-41-02** With the Goblins companion available, clicking its bar widget
-   opens the image module in a popout. Its content loads without an error
-   notice, and Escape closes the popout.
-
-## 42. Native section and tab placement
-
-This file was written by an agent.
-
-`tests/vm/expectations/42-native-layout.sh`
-
-The native app follows the same section and tab expectations as section 20.
-This script emits the existing E-20-01 through E-20-12 identifiers; it adds
-no duplicate E-42 identifiers. Appearance checks retain their screenshot
-review requirement.
-
-## 43. Native keyboard focus and desktop space
-
-This file was written by an agent.
-
-`tests/vm/expectations/43-native-parity.sh`
-
-1. **E-43-01** In both plugin and native FileBlade, focusing either blade lets
-   me type into that blade without typing into the application behind it.
-   Clicking an ordinary application returns keyboard input to that window.
-2. **E-43-02** In both shapes, opening the blade reserves its width at the desktop edge
-   of its side; closing it returns that space to ordinary windows.
-3. **E-43-03** If I explicitly hide the desktop bar while the blade is open, the bar
-   gives back its space and the blade extends to the top edge.
-   The native blade behaves like the plugin blade.
-
-## 44. Native blades follow the desktop bar
-
-This file was written by an agent.
-
-`tests/vm/expectations/44-native-bar-state.sh`
-
-1. **E-44-01** With the desktop bar at the top, bottom, left or right, both
-   native blades fit beside it. Explicitly hiding the bar extends the blades
-   into the freed space; showing it restores the fit. After twenty rapid
-   hide-and-show cycles, the final blade position and size still match the
-   visible bar state, without a stale gap or overlap.
-
-## 45. Separate chooser windows
-
-This file was written by an agent.
-
-`tests/vm/expectations/45-native-chooser.sh`
-
-1. **E-45-01** When a file chooser opens while I am using a blade, the blade
-   releases its keyboard focus so I can use the chooser.
-2. **E-45-02** If two file choosers open in different folders, each shows the
-   contents of its own folder. One request does not replace the other.
-3. **E-45-03** I can keep two chooser windows open in the same FileBlade app
-   without starting a separate FileBlade backend for each window.
-4. **E-45-04** I can click a different file in each chooser. Each window keeps
-   its own selection.
-5. **E-45-05** Navigating and selecting files in a chooser leaves my ordinary
-   blade's folder, saved state and arrangement unchanged.
-6. **E-45-06** Pressing Escape closes the active chooser. The other chooser
-   stays open with its selected file intact.
-
-## 46. Choosing files for another application
-
-This file was written by an agent.
-
-`tests/vm/expectations/46-native-chooser-resident.sh`
-
-1. **E-46-01** When an application asks for a text file, I can select a matching
-   file but cannot select a file excluded by its filter. Confirming returns
-   the selected file to that application while another application's Save
-   chooser stays open.
-2. **E-46-02** If I choose an existing filename in Save, FileBlade asks me to
-   confirm replacement. Confirming returns that destination to the requesting
-   application; the chooser itself does not overwrite the file.
-3. **E-46-03** When an application asks for a folder, I can select one and
-   return that folder to it.
-4. **E-46-04** Pressing Escape cancels the active chooser and tells the
-   requesting application that I cancelled, without returning a selection.
-5. **E-46-05** If the requesting application exits before I finish choosing,
-   its chooser closes instead of leaving an orphaned window.
-6. **E-46-06** Finishing chooser requests leaves my ordinary blade's folder,
-   saved state and arrangement unchanged.
-7. **E-46-07** When multiple selection is allowed, I can select two files with
-   Ctrl-click and return both files to the requesting application.
-8. **E-46-08** In Save I can choose a filename that does not exist yet. The
-   requesting application receives that destination; choosing it alone does
-   not create the file.
-
-## 47. Uploading through the native file chooser
-
-This file was written by an agent.
-
-`tests/vm/expectations/47-native-portal.sh`
-
-This scenario temporarily selects FileBlade for the guest's file-chooser
-portal and uses an actual Chromium upload page. It checks the installed app
-when `FILEBLADE_SHAPE=native`; desktop-role switches and cold D-Bus
-activation require their separate integration checks.
-
-1. **E-47-01** When I open a browser's upload chooser and press Escape,
-   FileBlade closes that chooser and the browser receives cancellation.
-   No file is uploaded.
-2. **E-47-02** When I select a file in FileBlade's chooser and confirm it,
-   the browser receives that file's name and size. Uploading sends the
-   selected file's exact contents.
-3. **E-47-03** Selecting FileBlade for file choosing leaves my other portal
-   routes unchanged. After the scenario, my prior chooser routing, blade
-   arrangement and ordinary Notes are restored.
-
-## 48. Agent usage history and activity heatmap
-
-This file was written by an agent.
-
-No VM script covers this section yet. The parts that run without a desktop are
-checked by `tests/qml/tst_usage_heatmap.qml` (weeks by width, colours, tooltip
-text, keyboard cursor), `tests/qml/tst_artifact_inventory.qml` (history
-requests), `tests/qml/tst_usage_modules.qml` (both modules' focus, visibility,
-errors and MCP Right/`l` expansion), `tests/qml/tst_artifact_branches.qml` (servers from one file fold
-separately), `tests/test_python_usage.py` (counting and history) and
-`tests/usage_cli_e2e.rs` (the `fileblade usage` commands). Placement under the
-search field and compositor focus still need a VM scenario at blade widths 280 and 1000, with the search
-field both shown and auto-hidden. See
-[agent usage history](../docs/agent-written/agent-usage.md) for the counting rules.
-
-1. **E-48-01** When I open a Skills or MCP tab, the search field is the first
-   row, the tab header with its columns and buttons is under it, and a grid of
-   small square cells sits between that header and the list. Each column is a
-   week, and its seven rows start on my locale's first day of the week. The
-   newest week is the rightmost column, today is its last cell, and days after
-   today are not drawn. When the search field is auto-hidden, the header moves
-   up to the top and the grid stays directly under it. The header has no
-   Search button; `/` reveals the field.
-2. **E-48-02** When I widen the blade, older weeks appear on the left; when I
-   narrow it, the oldest weeks leave from the left. Cells that stay on screen
-   keep their colour. Width too narrow for another week stays empty on the
-   left, and the grid never shows more than 160 weeks.
-3. **E-48-03** The busier a day, the stronger its cell in the accent colour, in
-   four steps set by how busy my active days are across the whole loaded
-   history. A day with no use has a faint tint. A day before FileBlade's history
-   begins has no fill at all.
-4. **E-48-04** Hovering a cell shows a tooltip such as
-   `Mon 14 Sep 2026: 6 skill uses (4 agent, 2 you, 1 failed)`, with day and
-   month names from my locale. The MCP tab says `MCP calls`, and a single use
-   reads `1 skill use` or `1 MCP call`. Parts that are zero are left out.
-   Commands a scheduled task ran appear as `N scheduled` and are not part of
-   the total. A day with no use says `no skill uses` or `no MCP calls`; a day
-   before the history begins says `no history yet`.
-5. **E-48-05** I can move keyboard focus from the search field onto the grid
-   with Tab. An accent outline marks today, and the tooltip shows for the
-   outlined day. Left and Right move the outline a week, Up and Down a day,
-   Home jumps to the first visible day and End to today; the outline never
-   leaves the visible days. A screen reader reads the same text as the tooltip.
-   Tab or Escape returns keyboard focus to the list. Shift-Tab returns to
-   search, revealing it when automatically hidden.
-6. **E-48-06** Skills and MCP tab headers have an Activity button with a
-   calendar glyph. Clicking it hides the grid and the list moves up into the
-   space; clicking it again brings the grid back. The choice belongs to that
-   tab, starts on for a new tab, and survives a shell restart. Files tabs have
-   no Activity button.
-
-   In Skills, selecting a skill with the mouse or keyboard scopes the visible
-   heatmap to that skill, including its agent and typed uses. Selecting a file
-   inside that skill retains the scope; selecting a group returns to all skills.
-   Clicking a day or pressing Enter on it filters the tree to skills used that
-   day without rescanning the skill directories. Switching days keeps the
-   current filtered rows until the next result arrives. The selected square
-   has an inset foreground-colored border, and all other squares are dimmed;
-   the border remains visible after focus returns to the tree. Clicking the
-   selected day again or pressing Escape in the tree clears the day filter,
-   border and dimming. Changing projects clears the old selection and filter.
-7. **E-48-07** When the tab's section is shorter than about 300 pixels, the grid
-   hides by itself and the list takes the space. When the section grows again,
-   the grid returns, and my Activity choice is unchanged.
-8. **E-48-08** "No history yet" and "no use" are different things. The history
-   begins at the earliest transcript record FileBlade has ever read. Deleting
-   old transcripts, by hand or through the agent's own cleanup, never moves
-   that beginning later. Before any transcript has been read, no cell is filled
-   and every day says `no history yet`.
-9. **E-48-09** Uses survive deleted transcripts. After an agent deletes an old
-   transcript, the Uses, Uses (agent) and Uses (user) columns and the grid still
-   count the uses it held. Counts only go down when I run `fileblade usage forget`.
-10. **E-48-10** Skills Uses counts an agent calling a skill and me typing
-    `/<skill>`. A plugin skill also counts calls recorded as `<plugin>:<skill>`.
-    A command run by a scheduled task is not in Uses, and a slash command that
-    is not a skill, such as `/clear`, counts for nothing. A command copied into
-    a resumed session counts once. A typed command counts the same no matter
-    which tab reads the transcript first.
-11. **E-48-11** An MCP server row counts calls under the name the agent recorded
-    for it. A Claude Code server configured as `my.server` counts its
-    `mcp__my_server__…` calls, a plugin server counts its
-    `plugin_<plugin>_<name>` calls, and a Codex server counts Codex's calls to
-    it. When two servers of one agent would be recorded under the same name,
-    such as `twin.a` and `twin_a`, both show 0 instead of a guess. Servers of
-    other agents show 0.
-12. **E-48-12** An MCP server row with recorded use has a fold marker. Expanding
-    it lists every tool, resource, resource list and prompt the agents used
-    through that server, most used first. Each child has its own glyph, its
-    count in the Uses column, and `N failed` in its detail when any call
-    failed; a resource list reads `resource list`. Children have no actions
-    and no menu. Two servers read from the same configuration file expand and
-    collapse separately. Enter or a double-click expands such a row, and `o`
-    still opens its configuration file.
-13. **E-48-13** The first time a large transcript history is read, the counts
-    and the grid can be partial, newest transcripts first; a visible grid
-    automatically fills in the rest. Skills and MCP tabs open at the same time never
-    count a use twice.
-14. **E-48-14** `fileblade usage skills` prints one `YYYY-MM-DD<TAB>uses` line
-    per local day with any skill use. Typed commands count for the skills
-    visible from the directory I run it in. `fileblade usage mcp` prints the
-    same for MCP calls. Neither prints anything when there is no use. With
-    `-o json`, both print the whole history document. Both work while the shell
-    is stopped.
-15. **E-48-15** `fileblade usage forget --before 2026-06-01` deletes the history
-    of local days before 1 June 2026 and prints `removed N`; the grid then says
-    `no history yet` before that day. `fileblade usage forget` deletes all of
-    it. Transcripts FileBlade already read are not counted again afterwards. A
-    date that is not a real zero-padded `YYYY-MM-DD`, such as `2026-6-1` or
-    `2026-02-30`, is refused with exit status 2 and nothing is deleted.
-
-This file was written by an agent.
-
-- **E-48-16** A first open with a large history fills in automatically until
-  reading finishes. The header says “Reading activity…” while more remains.
-  A failed activity request shows its error in the header and keeps the last
-  good grid. Refresh retries it.
-- **E-48-17** Hidden activity does not request daily history. Turning Activity
-  back on or growing a short section requests it again. Hiding the grid while
-  it has keyboard focus returns focus to the list.
-- **E-48-18** Right or `l` on an MCP definition with observed children expands
-  it without opening configuration; pressing again moves to its first child.
-- **E-48-19** Forgotten history stays forgotten when an old transcript is
-  replaced, shortened or copied, or an older unread transcript is found. A
-  full forget also excludes history dated through that moment; later uses
-  still count. Forget reports the number of stored events removed.
-- **E-48-20** Skill Uses count every agent FileBlade manages. A Codex `$skill`
-  mention counts as a use by me; a Codex, Antigravity or Pi read of a skill's
-  `SKILL.md` counts as one agent use per turn; an OpenCode `skill` tool call
-  counts once it completes; a Copilot CLI skill counts as mine when I invoked
-  it and as the agent's when it did. A Copilot or OpenCode MCP call counts for
-  its server row.
-- **E-48-21** While an agent is running in another window, the Uses column and
-  the heatmap of an open Skills or MCP tab climb on their own within a few
-  seconds of the agent writing its transcript, without me pressing refresh.
-  When the tab is closed nothing is read.
-- **E-48-22** A skill I disabled stays in the list, struck through, from the
-  moment the dialog closes, after a rescan, and after the shell restarts. It
-  never waits for another disable to appear.
-- **E-48-23** Right-clicking a disabled skill opens the same menu as any other
-  skill. Open, Reveal and the file actions act on the disabled copy FileBlade
-  keeps; Enter and the row's action button still offer Restore and Delete
-  forever.
-- **E-48-24** The row's Delete button asks Cancel, Delete skill, then
-  Deactivate. When the skill is a symlink, Delete symlink sits between them:
-  Delete skill trashes the folder the link points at, Delete symlink trashes
-  only the link, and Deactivate moves the link into FileBlade's bin with the
-  target untouched. Delete forever on a deactivated symlink reads Delete
-  symlink forever and never touches the target. Memory, Hooks and MCP rows use
-  their own noun in the same dialog.
-
-## 49. Branches
-
-This file was written by an agent.
-
-No VM script covers this section yet. The rows, status text, search, switch
-and worktree navigation are checked by `tests/qml/tst_branches_module.qml`
-on a fixture document; the slot position by
-`tests/qml/tst_layout_inventory.qml`; the backend document and the CLI by the
-Rust suites named in the branches contract.
-
-1. **E-49-01** When I click the branch name in the tree footer, the Switch
-   branch popup opens with a first row `Expand into Branches` above a
-   separator and the branch names. Picking it closes the popup and a
-   Branches tab appears beside Properties, in whichever blade Properties
-   sits, and becomes the active tab. Without a Properties slot it takes its
-   own pane under Files at about a third of the height. The blade opens if
-   it was closed and the pane takes focus.
-2. **E-49-02** `fileblade branches` opens or focuses the same pane;
-   `fileblade branches close` removes it and closes the blade when nothing
-   else is left in it. On first opening FileBlade, Branches is already the
-   second tab behind Properties, with Properties selected. My saved layout
-   remains authoritative: closing Branches does not make it return on restart.
-   It is also listed in Add module.
-3. **E-49-03** The pane lists a Branches group, a Remote subgroup for
-   branches that exist only on a remote, then a Worktrees group for detached
-   worktrees. The main checkout is never listed as a worktree; its branch
-   carries the check mark. A linked worktree sits nested under the branch it
-   has checked out, open by default, showing the folder name of the worktree
-   with its path as summary, a folder glyph, and a separate check mark
-   when it is the one I am in. A branch row shows the branch name, the
-   tip commit's subject as its summary, a blue theme-accent branch glyph for
-   local branches or a dim cloud glyph for a remote-only branch, and a
-   separate check mark on the checked-out branch.
-4. **E-49-04** The Status column, shown by default, uses the same layout and
-   colours as the repository summary on the tree's root row: `↑3 ↓1 M4 A1 ?2`
-   for a branch with an upstream and a checkout with changes, following the
-   Git summary fields setting. A branch checked out nowhere shows only its
-   arrows, `↑0 ↓0` when in sync; a nested worktree row shows its changes with
-   `locked` appended when locked; `clean` when nothing differs, `no upstream`
-   for a local branch without one, `gone` when the upstream was deleted, and
-   `remote` for a remote-only branch. Kind (`local`, `remote`, `both`),
-   Updated (the tip commit's date), Author and Summary are the other column
-   choices.
-5. **E-49-05** Branches come first, by most recent commit, then detached
-   worktrees. Typing in the filter field matches branch names, subjects,
-   authors, upstreams, kinds and worktree paths; `kind:remote` and
-   `remote:origin` narrow by field. The header shows the current branch and
-   its status with a Git branch glyph, or `2 of 7` while filtering. Without
-   a current branch it counts branches and linked worktrees.
-6. **E-49-06** Selecting a checked-out local branch or a worktree selects its
-   folder in the Files tree when it is already listed; otherwise Files opens
-   that folder. Mouse and keyboard selection behave alike. Selecting a
-   remote-only branch does not navigate. Enter or a double click on a branch
-   without a checkout switches the repository to it, also when it exists
-   only on a remote. A refusal such as a dirty
-   working tree shows in red in the header and nothing changes. On success the
-   list reloads, the check mark moves, and the tree's Git markers and summary
-   chip refresh. Enter on a worktree row, nested or detached, opens that
-   folder in the tree; Enter on a branch with a nested worktree folds or
-   unfolds it; `o` on a branch checked out in another worktree opens that
-   worktree instead of switching.
-7. **E-49-07** The list reloads when I open the pane, when the tree moves to
-   another repository, after the tree's own Git refresh, and on Shift+R.
-   Closely spaced refreshes run once; closing or changing context cancels
-   pending work and late replies cannot replace the current repository. It
-   never polls. Outside a repository the pane says `no repository here`.
-   Escape closes the blade, `/` opens the filter, `f` the column filter and
-   `s` cycles the sort, as in the other panes.
-
-## 90. Checking the native app before installation
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/90-delivery-payload.sh SOURCE BACKEND TARGET NOTICES`,
-run inside the assigned VM. These checks inspect the staged app; opening it and
-using its modules are separate installed-app expectations.
-
-- **E-90-01** When I check a complete native app for a supported system with its
-  required software available, the check succeeds. The app includes its runtime
-  files, notices, keyboard reference and extension reference.
-- **E-90-02-digest** If an app file has changed since the package was prepared,
-  checking it fails instead of accepting the changed copy.
-- **E-90-02-mode** If an app file's access permissions differ from those recorded
-  for it, checking the app fails.
-- **E-90-02-extra** If the app contains an unrecorded file, checking it fails.
-- **E-90-02-missing** If a recorded app file is missing, checking it fails.
-- **E-90-02-symlink** If a recorded app file has been replaced with a link to a file
-  elsewhere, checking it fails.
-- **E-90-03-duplicate** If the app's file list records the same file twice,
-  checking it fails.
-- **E-90-03-traversal** If the app's file list names a path outside its own
-  directory, checking it fails.
-- **E-90-04-architecture** If the app's recorded processor architecture does not
-  match its executable, checking it fails.
-- **E-90-04-abi** If the app's recorded Linux runtime type does not match its
-  executable, checking it fails.
-- **E-90-05-missing-dependency** If a required command is unavailable on my system,
-  checking the app fails and names the missing command.
-- **E-90-06** After I restore the app's original files, permissions and file list,
-  checking it succeeds again.
-- **E-90-07-find-verify** If checking the app cannot finish reading its directory,
-  it reports failure rather than calling a partial check successful.
-- **E-90-07-find-stage** If preparing the app cannot finish reading its directory,
-  it fails without publishing an incomplete app.
-- **E-90-07-sort-verify** If checking the app cannot finish ordering its file list,
-  it reports failure rather than accepting an incomplete list.
-- **E-90-07-sort-stage** If preparing the app cannot finish ordering its file list,
-  it fails without publishing an incomplete app.
-- **E-90-08** The installed app does not include the source repository's root
-  `AGENTS.md`, and its file list does not claim to include that file.
-
-## 91. Installing and recovering a user-local app
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/91-delivery-install.sh PAYLOAD`, run inside the
-assigned VM. The script uses temporary home directories, controlled update
-copies and process interruptions. Its settings and Notes checks cover files
-already saved on disk; they do not prove that unsaved edits survive shutdown.
-
-- **E-91-01** If an unrelated command already occupies my `fileblade` launcher
-  path, installation refuses to overwrite it and leaves its contents intact.
-- **E-91-02** I can install FileBlade in my own home, including when its path
-  contains spaces. The launcher points to the installed app, and installing the
-  same app again keeps that version active.
-- **E-91-03** Installing another version makes it active while keeping the
-  previous version recoverable. Rolling back selects that previous version.
-- **E-91-04** While the installed app is still in use, I can inspect its status,
-  but an update cannot replace the active version until it is safe to do so.
-- **E-91-05** If installation stops during copying or just before or after
-  switching versions, the selected app remains complete and agrees with its
-  installation record. I can retry the installation and roll back afterward.
-- **E-91-06** Installing, updating, retrying an interrupted installation and
-  rolling back preserve my saved settings and Notes files.
-- **E-91-07** If the installation record no longer identifies FileBlade as its
-  owner, or its owned launcher has changed, an update refuses to replace the
-  installation.
-- **E-91-08** If the installation directory is a link to an unrelated directory,
-  installation refuses and leaves that directory and its files untouched.
-- **E-91-09** An update with a different dependency contract is refused even
-  when its own dependency check succeeds. My current version stays selected,
-  and I can still roll back and return to it.
-
-## 92. Installing and removing the Arch package
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/92-delivery-package.sh SOURCE PAYLOAD`, run inside
-the assigned VM with package-management access. It uses real package
-transactions and checks the protection against starting FileBlade during them.
-
-- **E-92-01** The Arch package contains the same verified app I supplied and
-  declares its required software. Preparing it from a private directory does
-  not leave the packaged app accessible only to its owner.
-- **E-92-02** After installation, the package manager recognizes the FileBlade
-  launcher and executable as belonging to the package. The installed app matches
-  the supplied copy, and I can request help through its launcher when idle.
-- **E-92-03** If package-owned FileBlade files coexist with my user-local install,
-  the direct installer refuses to update or remove them and tells me to use
-  `pacman`. Both installations stay intact.
-- **E-92-04** Removing the Arch package prevents a new FileBlade launch during
-  removal and removes its packaged commands and app files. My separate user-local
-  installation, file-manager preference and chooser preference remain intact.
-- **E-92-05** If the packaged app is still in use, package removal refuses to
-  proceed and leaves the package installed.
-- **E-92-06** If I try to launch FileBlade after a package upgrade has checked
-  that it is idle but before the transaction finishes, the launch is refused
-  with a request to retry afterward. The upgrade preserves the verified app.
-
-## 93. Removing an owned app and recovering interruptions
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/93-delivery-remove.sh PAYLOAD`, run inside the
-assigned VM. The script changes a temporary installation and interrupts removal.
-Its personal-data checks cover saved files, not unsaved Notes or desktop-role
-restoration.
-
-- **E-93-01** If the active app's files are missing, rollback refuses to guess
-  which installation is safe. Restoring the verified files lets me roll back.
-- **E-93-02** If the record selecting my active installation is missing, another
-  install refuses to overwrite its history. Restoring that selection lets me
-  install again.
-- **E-93-03** Removal refuses to delete an installation whose launcher has changed
-  or whose app directory contains an unrecorded file. Those changes remain intact.
-- **E-93-04** Removal refuses to delete the app while it is still in use.
-- **E-93-05** If removal stops after deleting only part of the app, another install
-  refuses until removal finishes. Retrying removal completes it, removes the launcher,
-  retains the removal record and preserves my saved Notes and desktop defaults.
-  Repeating the completed removal succeeds harmlessly.
-- **E-93-06** After removing FileBlade, I can install it again and remove that
-  installation successfully.
-- **E-93-07** After I remove one installation and install another, the older
-  removal record cannot stand in for a missing current installation record.
-  Another install or removal refuses, rather than overwriting the newer app or
-  reporting that it has already been removed.
-
-## 94. Waiting for a safe update or removal
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/94-delivery-lifecycle.sh SOURCE PAYLOAD`, run inside
-the assigned VM. A temporary launcher supplies controlled maintenance responses;
-this proves how the installer handles them, not that real work or unsaved Notes
-finish safely. The script also runs sections 91 and 93 against that fixture.
-
-- **E-94-01** If removal cannot confirm that FileBlade has reversed its managed
-  desktop roles and finished its running work, it refuses to delete the app.
-  The active installation record stays unchanged and the launcher remains available.
-- **E-94-02** If the selected installation changes while an update is waiting
-  for FileBlade to stop, the update refuses to continue against a different
-  installation and explains that the selection changed.
-- **E-94-03** When I remove FileBlade, removal requests reversal of its managed
-  desktop roles before asking the app to finish its running work and stop.
-
-## 95. Using an installed app through update, rollback and removal
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/95-delivery-installed.sh PHASE PAYLOAD`, run inside
-the assigned VM. The phases are `install`, `check`, `update`, `rollback` and
-`remove`; each receives the app expected to be active afterward, or the app being
-removed. These checks use actual app payloads and their installer. Run the scoped
-UI expectations between installation and update; this script alone does not prove
-UI behavior or preservation of unsaved Notes.
-
-- **E-95-01** When I install FileBlade into a profile with no active installation,
-  the requested app becomes active, its files verify successfully and my stable
-  launcher points to that installation.
-- **E-95-02** When I check the installed app, its installation record and launcher
-  identify the expected app, and its complete file inventory verifies successfully.
-- **E-95-03** When I update FileBlade to a different app payload, that app becomes
-  active and verifies successfully. The installation record keeps the identity of
-  the app I was using before the update.
-- **E-95-04** When I roll back, the expected previous app becomes active, its files
-  verify successfully and the same launcher points to the restored installation.
-- **E-95-05** When I remove FileBlade, the active and previous app files and the
-  stable launcher are removed. The removal record preserves the installation
-  record I had before removal.
-
-## 96. Using the native VM harness without changing commands
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/96-delivery-adapter.sh ADAPTER`, run inside the
-assigned VM. A temporary recording command checks forwarding and refusals; it
-does not install an app or exercise the real desktop.
-
-- **E-96-01** If I send an SSH command through the native harness, empty values,
-  spaces, newlines, quotes and shell-looking text reach the underlying harness
-  unchanged. I receive the same success or failure status.
-- **E-96-02** Requests to ordinary desktop IPC targets keep their arguments
-  unchanged and return the underlying harness's success or failure status.
-- **E-96-03** Status, fresh start, stop and screenshot requests keep their
-  arguments and return the underlying harness's success or failure status.
-- **E-96-04** If I have not explicitly enabled pushing, a push request is refused
-  before any command reaches the VM.
-- **E-96-05** With `SKIP_PUSH=1`, a push request is refused before any command
-  reaches the VM.
-- **E-96-06** If I accidentally select the native adapter itself as its underlying
-  VM harness, the request fails promptly instead of repeating indefinitely.
-
-## 97. Controlling the installed app through the native VM harness
-
-This file was written by an agent.
-
-Script: `tests/vm/expectations/97-delivery-adapter-runtime.sh ADAPTER`, run inside
-the assigned VM. A temporary installation and controlled launcher responses
-check routing, restart ordering and refusals. Actual backend effects and safe
-shutdown still require the installed-app and UI scenarios.
-
-- **E-97-01** When I send a native IPC request, its arguments reach the selected
-  installed app unchanged, and the request uses that app's matching state location.
-- **E-97-02** When I use `drop-context`, `drop-run`, `preferences-read` or
-  `preferences-set` through the adapter, the command and all its arguments reach
-  the installed app's backend entry point unchanged.
-- **E-97-03** Both `restart` and `restart-shell` ask the app to finish its work
-  before launching it again. Restart succeeds once the installed app and its
-  bundled modules are ready, including when an additional extension is present.
-- **E-97-04** If the app reports that it is busy, returns an unrecognized shutdown
-  result, or the selected installation changes during shutdown, restart fails
-  without launching another app. A busy refusal returns status 3.
-- **E-97-05** If the installed app's executable is missing, a native status
-  request fails before attempting to launch the app.
 
 ## 98. Seeing how full the drive is
 

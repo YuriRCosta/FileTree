@@ -20,7 +20,6 @@ pub use batch::{
     git_repositories_for_markers_bounded, git_repositories_for_markers_cancellable,
 };
 pub use excludes::ignored_paths;
-pub use places::git_places;
 
 pub const MAX_GIT_STATUS_BYTES: usize = 4 * 1024 * 1024;
 const MAX_GIT_STATUS_ENTRIES: usize = 100_000;

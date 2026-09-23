@@ -270,28 +270,6 @@ diagnosis.
 State safety does not replace backups. A crash, hardware failure, filesystem
 bug, or user-authorized forced/destructive action can still lose data.
 
-## Desktop roles
-
-The native app writes desktop-integration files only when the person turns a
-role on in Settings or runs `fileblade native roles enable`. Nothing is
-enabled by installation, update, packaging or first launch. The owned files
-are the application, autostart, D-Bus service and portal descriptor entries
-under `$XDG_DATA_HOME` and `$XDG_CONFIG_HOME` listed in
-`docs/agent-written/native-install.md`, plus one key in `mimeapps.list` and
-`portals.conf` and one marked line in Hyprland's `bindings.lua`. Every
-`Exec` names the stable launcher, never a versioned payload.
-
-The receipt `$XDG_CONFIG_HOME/omarchy/fileblade/desktop-roles.json` is
-written with the private atomic writer at mode 0600 and bounded at 64 KiB.
-It records prior bytes so disabling can restore them exactly; a corrupt or
-newer receipt refuses every role command and is never overwritten, and a
-missing receipt grants no ownership. External writes go through the expected-
-version path: no symlink following, regular files only, same uid, parent
-rechecked, and an entry whose content changed since FileBlade wrote it is
-left in place rather than overwritten. Enabling reveal never kills the
-current owner of `org.freedesktop.FileManager1`. `RolesSet` is a mutating
-backend command; the same shell-to-backend pipe boundary applies.
-
 ## FileBlade Trash
 
 The first-class Trash view combines the Freedesktop Trash layout with
@@ -325,99 +303,6 @@ only entries whose parsed deletion time is at or before the requested cutoff.
 Missing, malformed, ambiguous, or changed timestamps are retained. Cleanup
 uses the same identity checks and bounded mutation paths as explicit permanent
 deletion.
-
-## Module artifact bins
-
-Shared artifact-tree rows marked `kind: "bin"` expose the bin's restore/purge
-flow, not ordinary file actions against their historical pathname. A new file
-created at that pathname is not the disabled item.
-
-Artifact bins back the satellite entries shown in FileBlade Trash. Module IDs,
-entry names, manifests, item counts, nesting, per-file bytes, total bytes,
-listing work, and responses are bounded. Stored directories are private `0700`
-and regular files `0600`; symlink targets and supported metadata are preserved
-without following the symlink as content.
-
-Restore constructs each root privately, publishes without replacement, and
-checkpoints completed roots so an interrupted exact restore can resume. An
-occupied non-identical destination is refused. Manifests are private,
-bounded, and written atomically. Logical removal saves a visible core record and
-transaction ID before the companion prepares private recovery. Preparation is a
-write operation. The complete payload and helper-input limits are checked and
-saved before source removal. Interrupted preparation can restore by its stored ID;
-it cannot disappear into an invisible helper quota. A cross-process lease excludes
-purge and retention during active mutations. Confirmed restore checkpoints completion
-before cleanup, so retry does not repeat a successful write.
-
-Purge, retention and completed restore call the companion's declared `discard`
-method before removing the visible bin entry. Each transaction has its own record;
-legacy payload matching preserves records referenced by another bin entry. A
-failed cleanup keeps the visible entry. Each helper store scans at most 512 names
-before sorting, reads through held no-follow directories and nonblocking private
-regular-file descriptors, and caps records at about 1 MiB, aggregate bytes at
-16 MiB and pending removals at 64. Pending undo does not expire independently of
-the bin; direct helper restores retain idempotent completion records for one week.
-Pre-fix payloads without a stored recovery record are not promoted into trusted
-undo. They remain listed and can be purged, but cannot be replayed safely.
-
-The first start without a recorded retention answer opens a modal on the left
-FileBlade blade, opening it if needed and using its own window when undocked:
-“Should FileBlade automatically empty the trash?” Never is selected initially.
-Never, 1 day, 7 days, 30 days and 90 days require explicit Confirm. Existing implicit
-seven-day defaults do not count as consent. Until a choice is durably saved,
-automatic cleanup is off. The choice applies to shared desktop Trash and artifact
-bins, without per-item ownership markers. It can be changed in settings.
-`settings.json` and `keybindings.json` carry schema `version` and the backend's
-`filebladeVersion`; custom keybindings survive metadata migration.
-
-Skills and Memory browsing is available without write consent. Their management
-operations through FileBlade require the saved “Manage agent files” opt-in; enabling
-it explains that links and instruction/skill files influence coding agents.
-
-Hooks/MCP configuration writes and Memory/Skills link changes share the native
-filesystem boundary. Configuration replacement compares the opened identity and
-byte-exact preimage, quarantines the old entry with a durable recovery intent,
-and publishes without overwriting an intervening entry. New files are `0600`;
-existing permission bits are retained. Exclusive link creation and
-identity-checked unlink refuse replacement entries. These protections do not
-isolate enabled code from other same-user processes, including a process that
-already holds a writable file descriptor.
-
-## Agent usage history
-
-This file was written by an agent.
-
-The Skills and MCP helpers read Claude Code and Codex transcripts and keep a
-local SQLite history at `$XDG_STATE_HOME/omarchy/fileblade/agent-usage.sqlite3`
-(normally `~/.local/state/`). The directory is created `0700`, the database and
-its lock file `0600`, and nothing leaves the machine. The file is not encrypted
-and any same-user process can read it.
-
-It holds transcript paths with their device, inode, size, modification time and
-read offset; project directories; and one row per use with a timestamp, agent,
-skill, command, MCP server, tool or prompt name, resource URI (query and
-fragment removed, at most 512 bytes), a subagent flag and a failure flag. It
-never stores tool or command arguments, results, message text or tokens.
-Failure call IDs and timestamps wait in a separate table when their original
-call has not been read yet; forgetting also removes those pending failures.
-For already-recorded future calls, forget retains only SHA-256 identity digests
-to prevent replay without blocking later uses because of a bad clock.
-Transcripts are untrusted input: they are opened read-only, records over 4 MiB
-are skipped, at most 8192 files per agent are considered, ingest commits
-bounded chunks and stops reading after about three seconds, and parsed values
-reach SQLite only as bound parameters.
-
-The history outlives the transcripts it came from and survives uninstall with
-the rest of the state directory. `fileblade usage forget --before YYYY-MM-DD`
-deletes events before that local day, and `fileblade usage forget` deletes all
-events and project paths. Both enable SQLite `secure_delete` and record a
-retention cutoff, preventing replay of forgotten history from replaced,
-truncated, copied or unread transcripts. Transcript paths and offsets stay.
-Deleting rows overwrites SQLite cells; it does not erase old reader snapshots
-in the write-ahead log, filesystem blocks or backups. Deleting the
-`agent-usage.sqlite3*` files removes everything, and history is then rebuilt
-from whatever transcripts still exist. Details are in
-[agent usage history](docs/agent-written/agent-usage.md).
 
 ## External commands
 

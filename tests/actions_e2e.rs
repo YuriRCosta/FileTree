@@ -894,36 +894,6 @@ fn hostile_provider_names_and_error_counts_stay_bounded() {
 }
 
 #[test]
-fn the_example_action_writes_private_valid_json_for_hostile_names() {
-    let state = tempfile::tempdir().unwrap();
-    let script = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples/data-goblin.blade-example/scripts/dump-env");
-    let output = Command::new(script)
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin")
-        .env("FILEBLADE_STATE_DIR", state.path())
-        .env("FILEBLADE_ACTION", "test/quote\"slash\\line\nnext")
-        .env("FILEBLADE_CONTEXT", "selection")
-        .env("FILEBLADE_ROOT", "/tmp/root")
-        .env("FILEBLADE_TARGET", "/tmp/a\nb\"c")
-        .env("FILEBLADE_SELECTION_COUNT", "1")
-        .env("FILEBLADE_SELECTION_JSON", r#"[{"path":"/tmp/a\nb\"c"}]"#)
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let path = state.path().join("last.json");
-    assert_eq!(mode(&path) & 0o777, 0o600);
-    let document: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
-    assert_eq!(document["action"], "test/quote\"slash\\line\nnext");
-    assert_eq!(document["target"], "/tmp/a\nb\"c");
-    assert_eq!(document["selection"][0]["path"], "/tmp/a\nb\"c");
-}
-
-#[test]
 fn the_cwd_rule_places_the_child_in_the_root_the_target_or_the_plugin() {
     let fixture = Fixture::new();
     let work = fs::canonicalize(fixture.work_dir()).unwrap();

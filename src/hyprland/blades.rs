@@ -49,58 +49,6 @@ pub(super) fn restore_cursor(before: (i64, i64)) -> AppResult<bool> {
     Ok(moved)
 }
 
-fn check_cancelled(cancelled: &AtomicBool) -> AppResult<()> {
-    if cancelled.load(Ordering::Relaxed) {
-        Err(AppError::Cancelled)
-    } else {
-        Ok(())
-    }
-}
-
-pub fn place_blade_window(options: &PlaceBladeOptions, cancelled: &AtomicBool) -> Value {
-    let edge = normalized_edge(&options.edge);
-    let outcome = || -> AppResult<Value> {
-        check_cancelled(cancelled)?;
-        let Some(mut client) = wait_for_blade_client(&options.title, options.timeout, cancelled)?
-        else {
-            return Ok(json!({
-                "ok": false,
-                "edge": edge,
-                "title": options.title,
-                "error": "The blade window did not map in time",
-            }));
-        };
-        let address = field_str(&client, "address");
-        let selector = window_selector(&address)?;
-        client = root_blade_column(client, &edge, cancelled)?;
-        if options.width > 0 {
-            client = resize_edge_column(&address, &edge, options.width)?;
-        }
-        check_cancelled(cancelled)?;
-        hypr_dispatch(&format!("hl.dsp.focus({{ window = \"{selector}\" }})"))?;
-        let current = clients()?;
-        let final_client = client_by_address(&current, &address).unwrap_or(&client);
-        Ok(json!({
-            "ok": true,
-            "edge": edge,
-            "title": options.title,
-            "address": address,
-            "workspace": client_workspace_id(final_client),
-            "at": final_client.get("at").cloned().unwrap_or_else(|| json!([])),
-            "size": final_client.get("size").cloned().unwrap_or_else(|| json!([])),
-            "at_edge": at_edge(final_client, &current, &edge),
-        }))
-    };
-    outcome().unwrap_or_else(|error| {
-        json!({
-            "ok": false,
-            "edge": edge,
-            "title": options.title,
-            "error": error.to_string(),
-        })
-    })
-}
-
 pub fn focus_direction(options: &FocusDirectionOptions) -> Value {
     let direction = if options.direction.to_lowercase().starts_with('r') {
         "r"
@@ -195,23 +143,6 @@ pub(super) fn at_edge(client: &Value, clients: &[Value], edge: &str) -> bool {
         })
 }
 
-pub(super) fn full_height(client: &Value, clients: &[Value]) -> bool {
-    let tiled = tiled_clients(clients, client_workspace_id(client));
-    let Some(top) = tiled.iter().map(|candidate| client_rect(candidate).1).min() else {
-        return true;
-    };
-    let bottom = tiled
-        .iter()
-        .map(|candidate| {
-            let (_, y, _, height) = client_rect(candidate);
-            y + height
-        })
-        .max()
-        .unwrap_or(top);
-    let (_, y, _, height) = client_rect(client);
-    y <= top + 8 && y + height >= bottom - 8
-}
-
 pub(super) fn has_neighbour(client: &Value, clients: &[Value], direction: &str) -> bool {
     let (x, y, width, height) = client_rect(client);
     let address = field_str(client, "address");
@@ -304,110 +235,6 @@ pub(super) fn place_window(address: &str, workspace_id: i64, edge: &str) -> AppR
         "class": field_str(&client, "class"),
         "title": field_str(&client, "title"),
     }))
-}
-
-pub(super) fn wait_for_blade_client(
-    title: &str,
-    timeout: Duration,
-    cancelled: &AtomicBool,
-) -> AppResult<Option<Value>> {
-    let deadline =
-        Instant::now() + timeout.clamp(Duration::from_millis(200), Duration::from_secs(20));
-    while Instant::now() < deadline {
-        check_cancelled(cancelled)?;
-        let chosen = clients()?
-            .into_iter()
-            .filter(|client| {
-                field_str(client, "title") == title && field_bool(client, "mapped", true)
-            })
-            .max_by_key(|client| field_str(client, "address"));
-        if chosen.is_some() {
-            return Ok(chosen);
-        }
-        thread::sleep(Duration::from_millis(50));
-    }
-    Ok(None)
-}
-
-pub(super) fn root_blade_column(
-    mut client: Value,
-    edge: &str,
-    cancelled: &AtomicBool,
-) -> AppResult<Value> {
-    let address = field_str(&client, "address");
-    let selector = window_selector(&address)?;
-    if field_bool(&client, "floating", false) {
-        hypr_dispatch(&format!(
-            "hl.dsp.window.float({{ action = \"disable\", window = \"{selector}\" }})"
-        ))?;
-        thread::sleep(Duration::from_millis(60));
-    }
-    hypr_dispatch(&format!("hl.dsp.layout(\"movetoroot {selector} stable\")"))?;
-    thread::sleep(Duration::from_millis(60));
-    let mut current = clients()?;
-    client = client_by_address(&current, &address)
-        .cloned()
-        .unwrap_or(client);
-    if !full_height(&client, &current) {
-        check_cancelled(cancelled)?;
-        hypr_dispatch(&format!("hl.dsp.focus({{ window = \"{selector}\" }})"))?;
-        thread::sleep(Duration::from_millis(40));
-        hypr_dispatch("hl.dsp.layout(\"togglesplit\")")?;
-        thread::sleep(Duration::from_millis(60));
-        current = clients()?;
-        client = client_by_address(&current, &address)
-            .cloned()
-            .unwrap_or(client);
-    }
-    if !at_edge(&client, &current, edge) {
-        check_cancelled(cancelled)?;
-        hypr_dispatch(&format!("hl.dsp.focus({{ window = \"{selector}\" }})"))?;
-        thread::sleep(Duration::from_millis(40));
-        hypr_dispatch("hl.dsp.layout(\"swapsplit\")")?;
-        thread::sleep(Duration::from_millis(60));
-        current = clients()?;
-        client = client_by_address(&current, &address)
-            .cloned()
-            .unwrap_or(client);
-    }
-    if !at_edge(&client, &current, edge) {
-        check_cancelled(cancelled)?;
-        prepare_tiled_client(&client, client_workspace_id(&client), &selector)?;
-        client = swap_client_to_edge(&address, edge, &selector, client)?;
-    }
-    Ok(client)
-}
-
-pub(super) fn resize_edge_column(address: &str, edge: &str, target_width: i64) -> AppResult<Value> {
-    let selector = window_selector(address)?;
-    let current = clients()?;
-    let mut client = client_by_address(&current, address)
-        .cloned()
-        .ok_or_else(|| {
-            AppError::command("The blade window disappeared before it could be resized")
-        })?;
-    let mut sign = if edge == "right" { -1 } else { 1 };
-    for _ in 0..2 {
-        let delta = target_width - client_rect(&client).2;
-        if delta.abs() <= 4 {
-            break;
-        }
-        hypr_dispatch(&format!(
-            "hl.dsp.window.resize({{ window = \"{selector}\", x = {}, y = 0, relative = true }})",
-            sign * delta
-        ))?;
-        thread::sleep(Duration::from_millis(120));
-        let updated = clients()?;
-        let Some(candidate) = client_by_address(&updated, address) else {
-            break;
-        };
-        client = candidate.clone();
-        if (client_rect(&client).2 - target_width).abs() <= 4 {
-            break;
-        }
-        sign = -sign;
-    }
-    Ok(client)
 }
 
 pub(super) fn focus_from_blade(
@@ -584,8 +411,4 @@ pub(super) fn direction_letter(direction: &str) -> char {
         .next()
         .filter(|value| matches!(value, 'l' | 'r' | 'u' | 'd'))
         .unwrap_or('l')
-}
-
-pub(super) fn normalized_edge(value: &str) -> String {
-    if value == "right" { "right" } else { "left" }.to_string()
 }

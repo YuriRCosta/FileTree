@@ -1,40 +1,6 @@
 use super::*;
 
 #[derive(Clone, Debug, Args)]
-pub struct HelperArgs {
-    #[arg(long)]
-    pub provider: String,
-    #[arg(long)]
-    pub plugin_dir: String,
-    #[arg(long)]
-    pub helper: String,
-    #[arg(long)]
-    pub method: String,
-    #[arg(long, default_value = "[]")]
-    pub arguments: String,
-    // Private payloads arrive in the resident protocol, never in process argv.
-    #[arg(skip)]
-    pub input: Option<String>,
-}
-
-impl HelperArgs {
-    pub(super) fn execute(&self, write: bool, cancelled: &AtomicBool) -> AppResult<Value> {
-        crate::module_helpers::run(
-            &crate::module_helpers::Request {
-                provider: &self.provider,
-                directory: &self.plugin_dir,
-                helper: &self.helper,
-                method: &self.method,
-                arguments: &self.arguments,
-                input: self.input.as_deref(),
-                write,
-            },
-            cancelled,
-        )
-    }
-}
-
-#[derive(Clone, Debug, Args)]
 pub struct ModuleDirsArgs {
     #[arg(long)]
     pub module: String,

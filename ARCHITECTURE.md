@@ -6,8 +6,8 @@ This file was written by an agent.
 
 FileBlade is an Omarchy Quattro plugin with a QML service for the blades and a
 Rust backend for core filesystem operations. Both use the user's permissions;
-the backend's lifetime follows the shell. Companion providers supply their
-domain-specific helpers through the extension contract.
+the backend's lifetime follows the shell. It shows one Files blade and loads
+no other modules or companion plugins.
 
 ![Process and data flow](assets/docs/architecture.svg)
 
@@ -27,11 +27,11 @@ blades/BladeSlot.qml:        loads a module's entry QML and hands it a BladeCont
 blades/BladeModuleLoader.qml: gives each loaded module its own context through replacement and teardown
 blades/BladeContext.qml:     the API a module talks to: state, focus, services, tabs, drag
 blades/BladeFocusController.qml: focus routing, restoration, and pointer-follow logic
-blades/BladeSettings.qml:    the per-blade slot editor (the gear in the blade, or `fileblade blade settings`)
-modules/files, properties, notes, welcome:  the bundled modules; welcome is seeded into the right blade on first launch until installed or dismissed
+blades/BladeSettings.qml:    the settings sheet: open state, side, monitors, font size and the Files settings
+modules/files:               the one module: tree, search, trash, media view, and the properties pane below the tree
 controllers/*.qml:           state machines: tree, search, selection, operations, watches, trash, config, updates
 panes/*.qml:                 the views the files module is made of (tree, trash, favorites, picker, actions menu)
-ui/*.qml:                    shared widgets; PaneHeader, HintTip, ActionDialog, ArtifactBin, ImageGrid, TimelineScrubber, and so on
+ui/*.qml:                    shared widgets; PaneHeader, HintTip, ActionDialog, ImageGrid, TimelineScrubber, and so on
 blades/BladePopout.qml:      hosts one module outside a blade, for a bar widget's dropdown
 lib/*.js:                    pure helpers: key routing, search syntax, icons, formatting, tree order
 ```
@@ -63,7 +63,7 @@ src/search/, src/grep.rs, src/frecency.rs, src/quicknav.rs: search, ranking, and
 src/visibility.rs: shared hidden, tagged-cache and private-state visibility
 src/git.rs, src/git/:                git status snapshots, batching, cache, and gitignore state
 src/journal/, src/audit.rs:          undo/redo journal and the append-only audit log
-src/trash/, src/artifact_bin/:       Freedesktop Trash and per-module bins for disabled items
+src/trash/:                          Freedesktop Trash
 src/drop_target/, src/hyprland/:     drag-and-drop to the desktop and the drop wheel
 src/actions/:                        script actions: manifest normalization, discovery, and execution
 src/updates.rs:                      the opt-out update check
@@ -111,9 +111,6 @@ prints one line or, with `-o json`, the document.
 
 This file was written by an agent.
 
-Skills, Memory, Hooks and MCP ship as built-in modules. Welcome does not acquire
-or install companion repositories.
-
 Plugin storage paths are resolved before reading manifests, so a symlinked
 plugins directory works; manifest reads remain bounded and reject symlinks.
 
@@ -155,9 +152,9 @@ blade:   exactly one, on the left or right edge chosen in Settings. Open or clos
          Explicit ineligible targets are rejected, never redirected. A mode or lock change
          that makes the owning screen ineligible drops focus ownership without touching
          application focus and cancels an unanswered trash confirmation
-slot:    a vertical section of a blade holding one module; drag the divider to resize, collapse it, reorder it
-tab:     alternate module instances inside one slot, each with its own persisted state
-module:  the QML a slot loads; found by the registry, described in EXTENSIONS.md
+slot:    the one section of the blade; it always holds the Files module
+tab:     the Files tab; its persisted state holds the root, view choices and the properties split
+module:  the QML a slot loads; the registry accepts only the built-in Files module
 ```
 
 Layout is one file, `~/.config/omarchy/fileblade/blades.json`:
@@ -341,14 +338,11 @@ Display names escape invalid bytes, control characters and literal backslashes
 so distinct names remain distinguishable. Rename dialogs preserve these escapes
 only when the original name requires them; `--name-escaped` is the corresponding
 backend option. Native command arguments, journals, Trash, search results and
-artifact-bin manifests retain the original bytes. Terminal path quoting uses
+retain the original bytes. Terminal path quoting uses
 Bash/Zsh byte escapes when needed.
 
-Companions inherit these operations through `context.paths` and the core's
-`python/fileblade_paths.py`. The Python codec marks actionable output fields
-with `NativePath`; filesystem operations still receive native strings. Display
-sanitization and output bounds must never rewrite or truncate an action path.
-`tests/run` checks the Python codec alongside the Rust and QML implementations.
+Display sanitization and output bounds must never rewrite or truncate an
+action path.
 
 This file was written by an agent.
 
@@ -367,23 +361,6 @@ the final group signal so that PID reuse cannot redirect cleanup. Private contro
 descriptors are duplicated above stderr before command stdio setup; all other
 guardian descriptors are closed. Adopted children in independent groups are only
 reaped after exit, never killed.
-
-Python companion commands share `python/fileblade_process.py`. A Linux
-supervisor drains bounded streams, enforces a deadline and stops the owned
-process group on cancellation or caller death. It retains the leader's PID
-until group cleanup and reaps adopted group children. TERM completion waits
-for cleanup; deliberately detached groups remain independent, and a bounded
-final drain prevents inherited pipes from holding a completed request open.
-This runner is for single-threaded helpers, not the native backend or detached
-desktop launches.
-
-`ui/ArtifactInventory.qml` shares provider-owned JSON discovery and mutations
-over the resident backend's `helper-read` / `helper-write` requests. The backend
-resolves a manifest-declared helper and method rather than accepting an
-executable from a row. Native supervision bounds its streams and lifetime;
-private request input is forwarded on stdin. `python/fileblade_inventory.py`
-collects source directories for the existing filesystem subscription protocol.
-Memory uses this runtime, leaving its visual module responsible for presentation.
 
 ### IPC verbs without a CLI subcommand
 
@@ -414,12 +391,9 @@ cancelPick:     picker dialog flow, driven by the pick blade itself
 confirmPick:    picker dialog flow, driven by the pick blade itself
 pickerResult:   picker dialog flow, answer from the pick blade
 select:         single-path form of selectEntries, which fileblade select uses
-setWelcomeState: Welcome tab flow; VM section 29 resets the first-launch state
 setModeBadge:   Files settings row for the Neovim mode badge (header, footer, hidden); VM section 17 flips it and reads status.modeBadge
 setDragOut:     Files settings row for what a drag leaving a blade does (paste, system); VM section 17 flips it and reads status.dragOut
-welcomeInstall: Welcome tab flow; starts the detached four-extension installer
-welcomeDismiss: Welcome tab flow; closes the tab and records the choice
-resetBladeLayout: applies the default blade layout, which seeds the Welcome tab while it is pending
+resetBladeLayout: applies the default blade layout
 revertDefaults: the settings sheet's "Revert to default settings" link after its confirmation; resets the files settings to their config defaults and applies the default blade layout, leaving favorites, folder colours, navigation history, and key bindings alone
 pin:            single-entry form of pinMany, which fileblade pin uses
 unpin:          single-path form of unpinMany, which fileblade unpin uses
@@ -467,16 +441,13 @@ whose recorded deletion time is old enough.
 
 ```yaml
 ~/.config/omarchy/fileblade/blades.json:        layout and per-tab module state
-~/.config/omarchy/fileblade/modules/:            your own modules (see EXTENSIONS.md)
 ~/.config/omarchy/fileblade/config/<id>/:        a module's own config directory (context.configDir)
-~/.config/omarchy/fileblade/actions/<id>.json:   your own script actions (see EXTENSIONS.md)
+~/.config/omarchy/fileblade/actions/<id>.json:   your own script actions
 ~/.local/state/omarchy/fileblade/state.json:     files settings, favorites, colors, columns
 ~/.local/state/omarchy/fileblade/journal.json:   undo/redo, at most 100 entries
 ~/.local/state/omarchy/fileblade/audit.jsonl:    selected mutation audit records; rotated at 32 MiB
 ~/.local/state/omarchy/fileblade/frecency.json:  the quick-nav ranking
-~/.local/state/omarchy/fileblade/agent-usage.sqlite3: skill and MCP use history (docs/agent-written/agent-usage.md)
 ~/.local/state/omarchy/fileblade/modules/<id>/:  a module's own state directory (context.stateDir)
-~/.local/share/fileblade/bin/:                   artifact bins for disabled satellite items
 ~/.local/share/Trash/:                           the normal Freedesktop Trash
 ~/.cache/fileblade/thumbnails/:                  rendered image previews
 ```
@@ -634,20 +605,11 @@ it does not claim to verify an unavailable manifest. Untagged tips and unavailab
 versions get versionless notices. SemVer precedence distinguishes newer, same and
 older versions, including prereleases and build metadata.
 
-The footer's Update available chip opens a notice naming the FileBlade version
-followed by a Companion updates heading and one version bullet per extension,
-ordered by name, without commit counts. Local work and ahead commits remain
+The footer's Update available chip opens a notice naming the FileBlade version,
+without commit counts. Only the FileBlade checkout itself is checked. Local work and ahead commits remain
 skipped; CLI history fields use existing objects only.
 The notice keeps Close and Check again, and explains that FileBlade checks only:
 stop the shell before running `omarchy plugin update`, then run
 `omarchy restart shell`. Disabling a pane does not stop the plugin watcher.
 The checkout contains the matching backend; users do not build it. A backend
 version mismatch is reported by the footer, tree status and `fileblade doctor`.
-
-# Satellites
-
-The agent-oriented blades from the README (skills, memory, hooks, MCP, git)
-aren't in this repo. Each is its own Omarchy plugin, `data-goblin.fileblade-<x>`,
-that plugs into the `data-goblin.fileblade/blade` socket. They're inert if
-FileBlade isn't installed and removable one at a time. EXTENSIONS.md explains
-the contract they use, and it's the same one you'd use for your own blade.

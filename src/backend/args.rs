@@ -478,11 +478,3 @@ pub struct LocationDisconnectArgs {
     #[arg(long)]
     pub generation: String,
 }
-
-#[derive(Clone, Debug, Args)]
-pub struct RolesSetArgs {
-    #[arg(long)]
-    pub role: String,
-    #[arg(long)]
-    pub on: bool,
-}

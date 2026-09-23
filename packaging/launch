@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-exec 9</usr/share/fileblade-native/lock || exit 1
-flock -s 9 || exit 1
-database=$(pacman-conf DBPath) || exit 1
-[[ -d $database && ! -e ${database%/}/db.lck && /proc/self/fd/9 -ef /usr/share/fileblade-native/lock ]] || { printf '%s\n' 'fileblade: package database is unavailable or busy; retry after pacman finishes' >&2; exit 1; }
-exec /usr/lib/fileblade/app/launch "$@"

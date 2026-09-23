@@ -79,9 +79,9 @@ TestCase {
     compare(controller.chipText, "")
   }
 
-  function test_specs_put_core_first_and_never_twice() {
+  function test_specs_name_only_the_core_checkout() {
     var specs = controller.repositorySpecs()
-    compare(specs, ["data-goblin.fileblade=/plugins/data-goblin.fileblade", "data-goblin.fileblade-memory=/plugins/data-goblin.fileblade-memory"])
+    compare(specs, ["data-goblin.fileblade=/plugins/data-goblin.fileblade"])
     compare(controller.specArguments(specs).slice(0, 2), ["--core", "data-goblin.fileblade"])
   }
 
@@ -118,14 +118,10 @@ TestCase {
     controller.check()
     verify(controller.available)
     verify(controller.coreUpdatable)
-    compare(controller.updatableSatellites.length, 1)
     compare(controller.chipText, "Update available")
     verify(!controller.upToDateNotice)
     compare(controller.summaryLines(), [
-      "Version 0.7.0 of FileBlade is now available!",
-      "Companion updates:",
-      "• Memory 1.0.0 (same version)",
-      "Skipped data-goblin.fileblade-git: local changes"
+      "Version 0.7.0 of FileBlade is now available!"
     ])
     compare(controller.dialogLines().slice(-2), [
       "FileBlade only checks for updates; it does not install them while running.",
@@ -139,31 +135,18 @@ TestCase {
       { id: "data-goblin.fileblade-skills", updatable: true, behind: null, upstream_version: "" }
     ] }
     compare(controller.summaryLines(), [
-      "An update for FileBlade is available; its version could not be determined.",
-      "Companion updates:",
-      "• Skills (version unknown)"
+      "An update for FileBlade is available; its version could not be determined."
     ])
   }
 
-  function test_companions_have_sorted_bullets_without_claiming_a_core_release() {
+  function test_companion_rows_never_make_an_update_available() {
     controller.report = { repositories: [
       { id: "data-goblin.fileblade", updatable: false },
-      { id: "data-goblin.fileblade-memory", updatable: true, upstream_version: "0.1.2", version_change: "newer" },
-      { id: "data-goblin.fileblade-skills", updatable: true, upstream_version: "0.1.3", version_change: "newer" },
-      { id: "data-goblin.fileblade-mcp", updatable: true, upstream_version: "0.1.2", version_change: "newer" },
-      { id: "data-goblin.fileblade-hooks", updatable: true, upstream_version: "0.1.2", version_change: "newer" }
+      { id: "data-goblin.fileblade-memory", updatable: true, upstream_version: "0.1.2", version_change: "newer" }
     ] }
-    compare(controller.summaryLines(), [
-      "Companion updates:",
-      "• Hooks 0.1.2",
-      "• MCP 0.1.2",
-      "• Memory 0.1.2",
-      "• Skills 0.1.3"
-    ])
-    compare(controller.repositories[1].id, "data-goblin.fileblade-memory")
-    verify(controller.available)
+    compare(controller.summaryLines(), [])
+    verify(!controller.available)
     verify(!controller.coreUpdatable)
-    compare(controller.dialogLines().length, 7)
   }
 
   function test_same_or_older_version_is_not_announced_as_a_new_release() {
