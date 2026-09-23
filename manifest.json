@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "author": "Kurt Buhler",
   "license": "MIT",
-  "repository": "https://github.com/data-goblin/fileblade",
+  "repository": "https://github.com/YuriRCosta/fileblade",
   "minOmarchyVersion": "4.0.2",
   "description": "Customizable IDE-like sidebars for managing files and referencing information in Omarchy.",
   "kinds": [

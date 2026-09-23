@@ -55,7 +55,7 @@ Anyone can establish that correspondence themselves, without trusting the
 publisher's checksum, because the bundle is a reproducible build:
 
 ```bash
-git clone https://github.com/data-goblin/fileblade
+git clone https://github.com/YuriRCosta/fileblade
 cd fileblade && git checkout <commit>
 tools/bundle verify
 ```

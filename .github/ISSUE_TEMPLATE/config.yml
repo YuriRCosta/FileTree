@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/data-goblin/fileblade/blob/main/SECURITY.md
+    url: https://github.com/YuriRCosta/fileblade/blob/main/SECURITY.md
     about: Report privately as described there, never in a public issue.
   - name: Contributing and testing
-    url: https://github.com/data-goblin/fileblade/blob/main/CONTRIBUTING.md
+    url: https://github.com/YuriRCosta/fileblade/blob/main/CONTRIBUTING.md
     about: How to run from a checkout, run the gate, and test the GUI.

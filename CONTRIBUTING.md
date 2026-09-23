@@ -32,7 +32,7 @@ Omarchy version. Include screenshots for visual or focus issues.
 ## Running from a checkout
 
 ```bash
-git clone https://github.com/data-goblin/fileblade
+git clone https://github.com/YuriRCosta/fileblade
 cd fileblade
 cargo build --release --locked
 FILEBLADE_BINARY="$PWD/target/release/fileblade" ./fileblade --version

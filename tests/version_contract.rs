@@ -97,7 +97,7 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
     assert_eq!(manifest["name"], "FileBlade");
     assert_eq!(
         manifest["repository"],
-        "https://github.com/data-goblin/fileblade"
+        "https://github.com/YuriRCosta/fileblade"
     );
     assert_eq!(manifest["license"], "MIT");
     assert_eq!(manifest["minOmarchyVersion"], "4.0.2");

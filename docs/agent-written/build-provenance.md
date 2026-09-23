@@ -52,7 +52,7 @@ no version hook. Other hooks must also live in `tools/hooks` while it is enabled
 
 ```bash
 candidate=$(git rev-parse HEAD)
-gh workflow run bundle-provenance.yml --repo data-goblin/fileblade \
+gh workflow run bundle-provenance.yml --repo YuriRCosta/fileblade \
   --ref main --field expected_commit="$candidate"
 ```
 
@@ -85,8 +85,8 @@ checks shown here:
 ```bash
 candidate=FULL_REVIEWED_40_CHARACTER_SHA
 gh attestation verify ./fileblade-bin \
-  --repo data-goblin/fileblade \
-  --signer-workflow data-goblin/fileblade/.github/workflows/bundle-provenance.yml \
+  --repo YuriRCosta/fileblade \
+  --signer-workflow YuriRCosta/fileblade/.github/workflows/bundle-provenance.yml \
   --source-digest "$candidate" \
   --signer-digest "$candidate" \
   --deny-self-hosted-runners
