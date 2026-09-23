@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Clone, Debug, Args)]
 pub struct SpaceArgs {
-    /// Folder to measure; omitted, the open FileBlade root is measured.
+    /// Folder to measure; omitted, the open FileTree root is measured.
     pub path: Option<PathBuf>,
 }
 
@@ -43,7 +43,7 @@ fn has_scheme(text: &str) -> bool {
 
 fn open_root() -> AppResult<String> {
     let status = object_response("status", &[])
-        .map_err(|error| AppError::command(format!("no FileBlade window; pass PATH ({error})")))?;
+        .map_err(|error| AppError::command(format!("no FileTree window; pass PATH ({error})")))?;
     let flag = |key: &str| status.get(key).and_then(Value::as_bool).unwrap_or(false);
     let root = status
         .get("rootPath")

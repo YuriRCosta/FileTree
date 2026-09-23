@@ -2,7 +2,7 @@
 
 This file was written by an agent.
 
-FileBlade reads the optional `dropWheel` member of its own `settings.json`
+FileTree reads the optional `dropWheel` member of its own `settings.json`
 each time it opens the wheel and each time it dispatches a custom command.
 The containing settings document keeps its existing version. The wheel member
 has its own `version: 1`. An absent member uses the standard wheel.
@@ -111,7 +111,7 @@ never satisfies a MIME condition.
 
 ## Commands
 
-`command` is an argument array with a literal executable first. FileBlade
+`command` is an argument array with a literal executable first. FileTree
 does not interpret it as a shell command. For example:
 
 ```json
@@ -128,11 +128,11 @@ Substitutions occupy whole arguments:
 | `{git_root}` | The common detected repository root; absence is refused |
 
 Path bytes are retained through native argument construction, including
-FileBlade's encoded representation for non-UTF-8 paths. Quotes, spaces,
+FileTree's encoded representation for non-UTF-8 paths. Quotes, spaces,
 `$()` and shell operators in substituted paths stay data. An embedded
 substitution such as `--file={path}` is rejected; use two arguments.
 Unrecognized brace expressions are rejected. Include `--` where the chosen
-program needs an end-of-options delimiter; FileBlade does not infer the
+program needs an end-of-options delimiter; FileTree does not infer the
 option syntax of arbitrary programs.
 
 `runMode` defaults to `detached`:
@@ -146,7 +146,7 @@ option syntax of arbitrary programs.
 Terminal and multiplexer transport pass a fixed launcher with byte-encoded arguments
 and working directory. That launcher decodes the payload and executes the
 argument array; the configured command never becomes shell program text.
-The fixed decoder is the FileBlade binary itself, invoked by absolute path as
+The fixed decoder is the FileTree binary itself, invoked by absolute path as
 `fileblade exec-hex`, so no interpreter and no PATH entry is required.
 Literal file URIs, empty arguments and non-UTF-8 path bytes retain their
 meaning in every run mode. Ambiguous or stale targets are refused. Custom

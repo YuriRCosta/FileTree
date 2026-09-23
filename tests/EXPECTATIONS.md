@@ -1,4 +1,4 @@
-# FileBlade UI expectations
+# FileTree UI expectations
 
 > [!NOTE]
 > The expectations are not complete. Please update them if you
@@ -8,12 +8,12 @@ The rest of this file is written by an agent.
 
 ---
 
-Every entry describes something a person does in FileBlade and the result they
+Every entry describes something a person does in FileTree and the result they
 can see. Implementation details belong in the scripts, not in the expectation.
 The expectations run in order, basic first, so an early failure explains later
 failures.
 
-This catalog covers the FileBlade host and its one Files module, shown in a
+This catalog covers the FileTree host and its one Files module, shown in a
 single docked blade on the side chosen in Settings. Other modules and
 companion plugins are not loaded.
 
@@ -82,7 +82,7 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 15. **E-02-02** When I view a directory, folders appear before files and each
     group follows my chosen sort order.
 16. **E-02-03** When I view folders, each one shows an expand control, including
-    an empty folder; FileBlade does not add an “empty” label or badge.
+    an empty folder; FileTree does not add an “empty” label or badge.
 17. **E-02-04** When I view a symbolic link, it has a distinct link icon and is
     sorted as a link rather than as its target.
 18. **E-02-05** If another application creates a file in the directory I am
@@ -169,7 +169,7 @@ Ids never get reused. When behaviour changes, edit the entry in place.
     actions menu open closes the menu and navigates.
 45. **E-06-05** If I enter a path that does not exist, I see an error and remain
     in the current directory.
-46. **E-06-06** If I enter a valid path whose name ends with spaces, FileBlade
+46. **E-06-06** If I enter a valid path whose name ends with spaces, FileTree
     opens that exact path rather than its parent.
 47. **E-06-07** If I press `Backspace` while typing in the search or location
     field, it deletes a character and does not take me back a folder.
@@ -236,7 +236,7 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 59. **E-08-03** When I select an image larger than 16 MiB, I see a clear message
     explaining that it is too large to preview.
 60. **E-08-04** When I select a symbolic link to an image, I see a clear message
-    explaining why FileBlade will not preview it.
+    explaining why FileTree will not preview it.
 61. **E-08-05** When I select a symbolic link to a text file, I see the same
     clear link explanation rather than a technical error code.
 62. **E-08-06** When I select a broken symbolic link, I can see its intended
@@ -246,7 +246,7 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 64. **E-08-08** When I select a folder, I see its folder details and no file
     preview.
 65. **E-08-09** When nothing is selected, the properties pane shows the
-    FileBlade wordmark dimmed to the muted text tone instead of an empty box.
+    FileTree wordmark dimmed to the muted text tone instead of an empty box.
 66. **E-08-10** When I select an image the shell does not decode, such as an SVG
     or a GIF, no preview box appears at all; the properties show without an empty
     card, and opening the file still uses the desktop default application.
@@ -280,7 +280,7 @@ keeps the bars visible. The choice survives a shell restart.
     height and indentation step. Deep search only adds a path line when it
     provides information beyond the filename.
 69. **E-09-03** When I clear the search, the full directory listing returns.
-70. **E-09-04** If I press `Ctrl+F`, FileBlade searches the entire current
+70. **E-09-04** If I press `Ctrl+F`, FileTree searches the entire current
     folder and shows how many results it found.
 71. **E-09-05** If I turn case sensitivity on or off, the matching results
     change accordingly.
@@ -314,7 +314,7 @@ keeps the bars visible. The choice survives a shell restart.
     own key if I rebound quick navigation.
 80. **E-10-02** When I type in quick navigation, the folder choices narrow to
     match my text.
-81. **E-10-03** If I select a folder and press `Enter`, FileBlade opens that
+81. **E-10-03** If I select a folder and press `Enter`, FileTree opens that
     folder.
 82. **E-10-04** If I press `Escape`, quick navigation closes and I remain in my
     current folder.
@@ -330,9 +330,9 @@ This file was written by an agent.
   from the toolbar settings, and `fileblade downloads` does the same.
 - **E-10-06** With View hidden off, Quick Nav, the file tree, search and Recent
   omit cache directories carrying a valid `CACHEDIR.TAG`, their contents, and
-  FileBlade's private configuration, state and thumbnail cache. Remembered
+  FileTree's private configuration, state and thumbnail cache. Remembered
   visits do not bring them back. View hidden reveals them; ordinary projects,
-  including FileBlade's source checkout, remain visible either way.
+  including FileTree's source checkout, remain visible either way.
 - **E-10-07** Changing the Quick Nav query selects the first new result, even
   when existing rows move. Arrow keys still select another result, and a
   refresh of the same query preserves that choice. My current folder stays
@@ -380,10 +380,10 @@ This file was written by an agent.
     a refusal and neither item changes.
 98. **E-12-05** If I enter a name containing `/`, I cannot confirm it and no
     item is created or renamed.
-99. **E-12-06** If I enter `.`, `..`, or `../escape` as a name, FileBlade
+99. **E-12-06** If I enter `.`, `..`, or `../escape` as a name, FileTree
     refuses it and nothing is created or renamed.
 100. **E-12-07** If I enter only whitespace as a name, I cannot confirm it.
-101. **E-12-08** If I enter an otherwise valid name ending in a space, FileBlade
+101. **E-12-08** If I enter an otherwise valid name ending in a space, FileTree
      creates the item with that exact trailing space.
 
 ## 13. Copying, cutting, pasting and dragging
@@ -396,14 +396,14 @@ This file was written by an agent.
      copied items appear in that folder.
 104. **E-13-03** If I press `x` or `Ctrl+X` and then paste into another folder,
      the items move there and disappear from their original location.
-105. **E-13-04** If I paste an item where the same name already exists, FileBlade
+105. **E-13-04** If I paste an item where the same name already exists, FileTree
      creates a separately named copy instead of overwriting either item.
 106. **E-13-05** If I drag an item onto a folder, the item moves into that
      folder.
 107. **E-13-06** If I pause over a collapsed folder while dragging, the folder
      expands so I can choose a destination inside it.
 108. **E-13-07** If I try to drop an item onto itself or into one of its own
-     descendants, FileBlade refuses the drop and leaves everything unchanged.
+     descendants, FileTree refuses the drop and leaves everything unchanged.
 109. **E-13-08** If I choose Copy path, I can paste the selected item's exact
      path into another application.
 110. **E-13-09** When I hover, single-click, or double-click an item, the mouse
@@ -411,7 +411,7 @@ This file was written by an agent.
 111. **E-13-10** While I click-drag any item, the mouse cursor is a grab hand for
      the entire drag, even when I move it outside the blade.
 112. **E-13-11** I see the same cursor behavior and appearance in the left and
-     right blades unless a FileBlade plugin deliberately supplies its own
+     right blades unless a FileTree plugin deliberately supplies its own
      cursor for its interface.
 
 ## 14. Trash
@@ -420,7 +420,7 @@ This file was written by an agent.
 
 Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 
-113. **E-14-01** If I select items and press `d` or `Delete`, FileBlade asks me
+113. **E-14-01** If I select items and press `d` or `Delete`, FileTree asks me
      to confirm before moving them to Trash. With blades on several monitors
      the confirmation appears on each of them, answering it on any one monitor
      closes it on all the others, and confirming once moves the items once. A
@@ -436,15 +436,15 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      appear while the item's other details remain readable.
 118. **E-14-06** If I choose Restore, the trashed item returns to its original
      location.
-119. **E-14-07** If I choose Delete permanently, FileBlade asks first; `Enter`
+119. **E-14-07** If I choose Delete permanently, FileTree asks first; `Enter`
      confirms and `Escape` cancels.
 120. **E-14-08** If I press `Tab` in the permanent-delete confirmation, focus
      stays inside the dialog and does not activate anything behind it.
 121. **E-14-09** If I confirm permanent deletion, the item disappears from the
      Trash view and cannot be restored from it.
-122. **E-14-10** If I choose Empty Trash, FileBlade asks first; after I confirm,
+122. **E-14-10** If I choose Empty Trash, FileTree asks first; after I confirm,
      the Trash view is empty.
-123. **E-14-11** Items I trash in FileBlade also appear in the system Trash with
+123. **E-14-11** Items I trash in FileTree also appear in the system Trash with
      their original locations, so other desktop tools can restore them.
 124. **E-14-12** In the Trash view, `j` and `k` move the selection down and up, and
      `g` or `Shift+G` jump to the first or last item.
@@ -454,17 +454,17 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 `tests/vm/expectations/15-undo-redo.sh`
 
 125. **E-15-01** If I press `u` or `Ctrl+Z`, the most recent operation is undone
-     and FileBlade names the operation I can undo.
+     and FileTree names the operation I can undo.
 126. **E-15-02** If I undo a trash action, the item returns to its original
      location.
-127. **E-15-03** If I press `Ctrl+Shift+Z` after undoing something, FileBlade
+127. **E-15-03** If I press `Ctrl+Shift+Z` after undoing something, FileTree
      performs that operation again.
 128. **E-15-04** If I undo a rename, the item's previous name returns.
 129. **E-15-05** If I undo a move, the item returns to its source folder.
 130. **E-15-06** If I press the undo shortcut when there is nothing to undo, no
      undo operation is shown and nothing changes.
 131. **E-15-07** If I undo a color change, the item returns to the color it had
-     before and FileBlade names the color operation.
+     before and FileTree names the color operation.
 
 ## 16. Favorites
 
@@ -482,14 +482,14 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 
 `tests/vm/expectations/17-settings.sh`
 
-136. **E-17-01** If I click the gear, FileBlade's settings open.
+136. **E-17-01** If I click the gear, FileTree's settings open.
 137. **E-17-02** If I resize a blade, it reopens at the width I chose.
 138. **E-17-03** If I change Show hidden files in settings, I get the same
      visible or hidden result as using the keyboard shortcut.
 139. **E-17-04** If I change where Properties appears, the properties panel
      visibly moves to the chosen place.
 140. **E-17-05** If I change Trash retention or trash confirmation, my choices
-     remain after I close and reopen FileBlade.
+     remain after I close and reopen FileTree.
 141. **E-17-06** If I choose Shortcuts in settings, I see the same shortcut
      guide that opens when I press `?`.
 142. **E-17-07** If settings are open and I press `Escape`, settings close first
@@ -515,7 +515,7 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      end, and the choice survives a restart.
 147c. **E-17-14** Ctrl+= (or Ctrl++) makes the text in every blade one step
      larger, Ctrl+- one step smaller, and Ctrl+0 returns it to 100%, wherever
-     my focus is inside FileBlade: the tree, a search field, the properties pane, a picker or
+     my focus is inside FileTree: the tree, a search field, the properties pane, a picker or
      the settings sheet. It is the same Font size as the General setting, so the
      percentage there follows and the choice survives a restart. Plain + and -
      keep changing the tree density and media tile size.
@@ -523,34 +523,34 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      to the window I drop on, so an application that takes files receives
      them instead of their typed paths. The drop wheel stays out of that drag
      unless I drag with my right button, and Shift or Ctrl keep the drag inside
-     FileBlade to paste a path. Settings have no Drag out choice.
+     FileTree to paste a path. Settings have no Drag out choice.
 
 ## 18. Persistence
 
 `tests/vm/expectations/18-persistence.sh`
 
-148. **E-18-01** When I create a file in FileBlade, it appears immediately in
-     FileBlade and in other applications that view the folder.
+148. **E-18-01** When I create a file in FileTree, it appears immediately in
+     FileTree and in other applications that view the folder.
 149. **E-18-02** If I close and reopen a blade, it returns to the same folder and
      shows files I created there.
-150. **E-18-03** After the shell restarts, FileBlade remembers my current
+150. **E-18-03** After the shell restarts, FileTree remembers my current
      folder, folder colors, favorites, and settings.
-151. **E-18-04** After I update FileBlade, my saved locations, folder colors,
+151. **E-18-04** After I update FileTree, my saved locations, folder colors,
      favorites, and settings remain intact.
 
 ## 19. Refusals, errors and edges
 
 `tests/vm/expectations/19-refusals.sh`
 
-152. **E-19-01** If FileBlade refuses an action, I see an explanation instead of
+152. **E-19-01** If FileTree refuses an action, I see an explanation instead of
      nothing happening.
 153. **E-19-02** If an operation fails, its error clears after I have had time to
      read it and does not prevent my next action.
 154. **E-19-03** If I try to open a folder I cannot read, I see a permission
      error rather than an empty folder.
-155. **E-19-04** If a file disappears while FileBlade is acting on it, I see a
+155. **E-19-04** If a file disappears while FileTree is acting on it, I see a
      message that the file is missing.
-156. **E-19-05** If I enter a name longer than the filesystem allows, FileBlade
+156. **E-19-05** If I enter a name longer than the filesystem allows, FileTree
      refuses it and explains the problem.
 157. **E-19-06** If loading or an operation takes too long, I see a timeout error
      rather than an endless spinner.
@@ -604,9 +604,9 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      width it keeps.
 179d. **E-21-12** If I hold `Super` and drag with the right mouse button anywhere
      that is not a docked blade, the gesture resizes the window underneath
-     exactly as it did before: Hyprland keeps its own binding and FileBlade
+     exactly as it did before: Hyprland keeps its own binding and FileTree
      listens beside it without consuming the press, so ordinary window resizing
-     is untouched whether FileBlade is running or not.
+     is untouched whether FileTree is running or not.
 179a. **E-21-10a** A blade width I set on a large monitor never exceeds what a
      smaller monitor can show: on that monitor the blade renders and reserves
      at most its own screen's limit, and my stored width is left alone.
@@ -678,7 +678,7 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
 216. **E-24-14** The folder colour swatches never match a Git status colour;
      the red, yellow and green swatches are visibly rose, lemon and mint next to
      the amber, green and red Git markers. If I write my own hex colours into
-     `colors.json` in FileBlade's config folder, the swatches and every coloured
+     `colors.json` in FileTree's config folder, the swatches and every coloured
      row take them without a restart; a bad value is ignored and the previous
      palette stays.
 
@@ -701,9 +701,9 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      The Herdr and tmux opening actions offer horizontal and vertical splits without an automatic
      "New pane" choice. Their icons show a full-width bottom pane and a
      full-height right pane respectively.
-231. **E-26-07** If I release the drag on a valid wheel choice, FileBlade runs the
+231. **E-26-07** If I release the drag on a valid wheel choice, FileTree runs the
      highlighted action once for all carried items.
-     If I release while the wheel's rows are still loading, FileBlade remembers
+     If I release while the wheel's rows are still loading, FileTree remembers
      the release point for at most 800 ms and runs the action there once the rows
      arrive; past that the wheel stays open for an explicit choice.
 232. **E-26-08** If I cancel the wheel or release without a valid choice, no file
@@ -740,10 +740,10 @@ shared there.
 gives them to the application I drop on, so a browser upload field receives the
 files themselves. That drag belongs to the compositor, so the drop wheel, its
 keys and the drag scroll do not take part in it; dragging the row with my right
-button keeps that gesture inside FileBlade instead and opens the wheel where I
+button keeps that gesture inside FileTree instead and opens the wheel where I
 release it outside the blade, without pressing the wheel key, and holding shift
 or control as I press keeps it inside too, so the path pastes still work. With
-the default setting every drag stays inside FileBlade, as it always has.
+the default setting every drag stays inside FileTree, as it always has.
 
 **E-26-14** I can drop files dragged from another application onto a folder row
 in a blade, and a name containing a space arrives intact.
@@ -752,12 +752,12 @@ in a blade, and a name containing a space arrives intact.
 
 `tests/vm/expectations/27-updates-recovery.sh`
 
-235. **E-27-01** If FileBlade has an update available, I see an Update
+235. **E-27-01** If FileTree has an update available, I see an Update
      available chip in the blade footer.
 This file was written by an agent.
 
-236. **E-27-02** The update notice names the available FileBlade version, for
-     example "Version 0.1.2 of FileBlade is now available!". Companion
+236. **E-27-02** The update notice names the available FileTree version, for
+     example "Version 0.1.2 of FileTree is now available!". Companion
      plugins are not checked. The version headline and instructions stay
      readable at the minimum
      280-pixel blade width, and both buttons remain visible. It shows no commit
@@ -766,17 +766,17 @@ This file was written by an agent.
      version are described accurately. A release tag names the update only when
      it is the highest valid version and resolves to the checked branch tip;
      otherwise the checker needs that tip's manifest already stored locally.
-     The notice says FileBlade only checks and does not install while running,
+     The notice says FileTree only checks and does not install while running,
      tells me to stop the shell, run `omarchy plugin update`, then run
      `omarchy restart shell`, and keeps Close and Check again.
-237. **E-27-03** If my FileBlade checkout has local work or commits that must
+237. **E-27-03** If my FileTree checkout has local work or commits that must
      not be overwritten, the update details tell me it was skipped.
-238. **E-27-04** If FileBlade's interface and native helper are out of sync after
+238. **E-27-04** If FileTree's interface and native helper are out of sync after
      an update, I see Backend update needed and instructions to update or reinstall it.
 239. **E-27-05** If update checking is disabled or the network is unavailable,
-     I can continue using FileBlade without repeated prompts or an endless busy
+     I can continue using FileTree without repeated prompts or an endless busy
      indicator.
-240. **E-27-06** If I check for updates and nothing is newer, I see "FileBlade is
+240. **E-27-06** If I check for updates and nothing is newer, I see "FileTree is
      up to date!" in the footer and it disappears by itself after ten seconds.
 
 ## 28. Archives and long operations
@@ -786,9 +786,9 @@ This file was written by an agent.
 241. **E-28-01** If I select a supported archive, Extract here is available and
      places its contents in a clearly named destination beside the archive.
 242. **E-28-02** If I extract an archive and its destination is already
-     populated, FileBlade refuses, explains the conflict, and leaves the
+     populated, FileTree refuses, explains the conflict, and leaves the
      existing files unchanged.
-243. **E-28-03** While a long file operation is running, I can see what FileBlade
+243. **E-28-03** While a long file operation is running, I can see what FileTree
      is doing and stop the operation from Properties.
 244. **E-28-04** If I stop an operation, items already completed remain visible
      and any partial destination is refreshed immediately so I can inspect it.
@@ -806,11 +806,11 @@ This file was written by an agent.
      use a custom prefix and cancel on Escape or focus loss without opening,
      copying or deleting an item.
 253. **E-30-03** Conflicting bindings preserve the last valid map and show an
-     error. An action this FileBlade does not know, or a binding it cannot
+     error. An action this FileTree does not know, or a binding it cannot
      read, is dropped and named in the error while every other binding in the
-     file still applies, so a file shared with a newer FileBlade keeps working.
+     file still applies, so a file shared with a newer FileTree keeps working.
      Fixing or removing the file clears the error and restores the
-     corresponding bindings. A `keybindings.json` written by a newer FileBlade
+     corresponding bindings. A `keybindings.json` written by a newer FileTree
      is never rewritten by an older one.
 254. **E-30-04** Artifact trees inherit the same defaults and user overrides;
      the extension shortcut guide reports the effective bindings rather than a
@@ -854,7 +854,7 @@ startup targets also have deterministic QML coverage.
 - **E-34-02** Either blade's shortcut closes that blade in one press, even
   while I work on another monitor. The next press opens and focuses it on the
   monitor I am using. A closed blade has no remembered invocation monitor.
-- **E-34-03** The one blade keeps its width, side and FileBlade state in one shared
+- **E-34-03** The one blade keeps its width, side and FileTree state in one shared
   layout on every monitor. Opening or closing it follows the Monitors rule.
 - **E-34-04** A monitor lock makes both shortcuts act on that monitor wherever
   I am working. An unknown lock or explicit ineligible target is rejected
@@ -907,18 +907,18 @@ The fixture journals originals and retained scenario data; it does not isolate
 Trash stores on other mounts.
 
 - **E-36-01** A fresh install and an existing install without a recorded answer ask
-  “Should FileBlade automatically empty the trash?” Never, 1 day, 7 days, 30 days
+  “Should FileTree automatically empty the trash?” Never, 1 day, 7 days, 30 days
   and 90 days appear as a list with Never selected. Escape does nothing; Confirm
   is the only completion action, and confirming the initial choice disables pruning.
-- **E-36-02** The question blocks FileBlade only. I can use another app and return
+- **E-36-02** The question blocks FileTree only. I can use another app and return
   to the same question. It explains shared Trash, permanent deletion and where to
   change the setting. No automatic pruning runs before Confirm is saved.
-  It uses FileBlade's font, with the full Trash icon beside the heading, and appears
+  It uses FileTree's font, with the full Trash icon beside the heading, and appears
   once on the blade, opening it if it was closed.
 - **E-36-03** Each choice survives restarting the shell without another question;
   changing retention in settings still works. A failed save leaves the question
   present and automatic cleanup off. Config and keybindings record their schema
-  and FileBlade release, preserving existing keybindings.
+  and FileTree release, preserving existing keybindings.
 
 ## 38. Configuring the drop wheel
 
@@ -927,7 +927,7 @@ This file was written by an agent.
 Script: `tests/vm/expectations/38-wheel-config.sh`.
 
 - **E-38-01** If I have no `dropWheel` settings, I get the standard available actions. Version 1 enables configuration; an unsupported version leaves the defaults usable and explains the problem.
-- **E-38-02** I can order or hide actions and their placements. Listed available entries come first, unlisted defaults remain, and hiding every built-in placement removes its containing action. I can add custom entries and references to available built-in actions without changing FileBlade source.
+- **E-38-02** I can order or hide actions and their placements. Listed available entries come first, unlisted defaults remain, and hiding every built-in placement removes its containing action. I can add custom entries and references to available built-in actions without changing FileTree source.
 - **E-38-03** I can change labels, shortcut keys, glyphs and icons at every supported level. Keys are unique within each ring. An explicit icon or glyph takes precedence over inherited imagery; a built-in reference otherwise retains its original icon and glyph.
 - **E-38-04** I can define commands as argument arrays using whole-argument `{paths}`, `{path}`, `{cwd}` and `{git_root}` substitutions. Selected path bytes survive unchanged. An embedded substitution, `{path}` with multiple selections, or an unavailable required value is refused with an explanation.
 - **E-38-05** A custom entry appears only for its configured target kinds and when every selected path satisfies its MIME/path conditions. Any pattern in each declared array may match; both arrays must hold when both are present. Unknown MIME does not match. A multiplexer command requires a supported resolved target.
@@ -935,7 +935,7 @@ Script: `tests/vm/expectations/38-wheel-config.sh`.
 - **E-38-07** An invalid custom entry is skipped and an invalid override leaves its original entry usable, with a visible footer diagnosis. Valid siblings remain usable. Configuration respects three rings, twelve entries per ring, a ninety-six custom-node budget and the documented argument/document limits.
 - **E-38-08** Saving ordinary preferences or editing the wheel preserves unknown members in the surrounding settings and within wheel definitions. Restoring the standard wheel affects only `dropWheel`.
 - **E-38-09** Custom commands run detached, in a new terminal, or in a supported herdr/tmux placement with the expected arguments and working directory. Shell-looking path and argument text stays literal; configuration is never treated as an implicit shell command.
-- **E-38-10** Before running a configured command or custom built-in reference, FileBlade rereads its settings and file facts. A removed, hidden or newly inapplicable entry cannot execute from an old wheel route.
+- **E-38-10** Before running a configured command or custom built-in reference, FileTree rereads its settings and file facts. A removed, hidden or newly inapplicable entry cannot execute from an old wheel route.
 
 ## 39. Application icons
 
@@ -975,7 +975,7 @@ never assumed.
   line with that percentage.
 - **E-98-06** `fileblade space` without a path measures the open folder, and
   refuses while Trash is open.
-- **E-98-07** Copying a 16 MiB file into the image through FileBlade raises the
+- **E-98-07** Copying a 16 MiB file into the image through FileTree raises the
   fill within ten seconds of the copy finishing.
 - **E-98-08** Turning "Drive usage under the toolbar" off in Files settings hides
   the fill at once and leaves the hairline; the choice survives a shell restart;

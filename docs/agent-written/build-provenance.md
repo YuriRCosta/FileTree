@@ -21,8 +21,8 @@ The local version hook requires Python 3.11 or newer. Enable it with
 manifest, package, lockfile, newest versioned changelog heading and bundled
 backend against one another and the release branch name. Partial commits use
 Git's temporary index; unstaged work is preserved. Missing, unresolved or
-symlinked sources are refused. Cargo must declare the FileBlade package version
-directly, and the lockfile must identify exactly one local FileBlade package.
+symlinked sources are refused. Cargo must declare the FileTree package version
+directly, and the lockfile must identify exactly one local FileTree package.
 The staged version must also be strictly above every released version, the
 `v<version>` tags and the changelog headings below the newest one that lack
 `(unreleased)`, compared as SemVer with build metadata ignored; the refusal
@@ -52,7 +52,7 @@ no version hook. Other hooks must also live in `tools/hooks` while it is enabled
 
 ```bash
 candidate=$(git rev-parse HEAD)
-gh workflow run bundle-provenance.yml --repo YuriRCosta/fileblade \
+gh workflow run bundle-provenance.yml --repo YuriRCosta/FileTree \
   --ref main --field expected_commit="$candidate"
 ```
 
@@ -85,8 +85,8 @@ checks shown here:
 ```bash
 candidate=FULL_REVIEWED_40_CHARACTER_SHA
 gh attestation verify ./fileblade-bin \
-  --repo YuriRCosta/fileblade \
-  --signer-workflow YuriRCosta/fileblade/.github/workflows/bundle-provenance.yml \
+  --repo YuriRCosta/FileTree \
+  --signer-workflow YuriRCosta/FileTree/.github/workflows/bundle-provenance.yml \
   --source-digest "$candidate" \
   --signer-digest "$candidate" \
   --deny-self-hosted-runners

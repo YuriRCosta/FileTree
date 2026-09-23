@@ -4,7 +4,7 @@ local function fileblade(method, fallback)
   return call
 end
 
-o.bind("SUPER + B", "Open or close FileBlade", fileblade("toggleFocus"))
+o.bind("SUPER + B", "Open or close FileTree", fileblade("toggleFocus"))
 
 for _, direction in ipairs({ { "LEFT", "l" }, { "RIGHT", "r" }, { "UP", "u" }, { "DOWN", "d" } }) do
   hl.unbind("SUPER + " .. direction[1])

@@ -54,7 +54,7 @@ ctl select "$ROOT_DIR/alpha.txt"
 ctl copySelection false
 ctl paste "$ROOT_DIR/dest"
 wait_for '[[ $(field operationBusy) == false ]]' 20
-guest "printf 'changed outside FileBlade\n' >> $ROOT_DIR/dest/alpha.txt"
+guest "printf 'changed outside FileTree\n' >> $ROOT_DIR/dest/alpha.txt"
 ctl focusTree
 "$OVM" key u
 sleep 2
@@ -62,7 +62,7 @@ expect_true E-28-05 "undo refuses to remove an externally changed copy" '[[ -n $
 "$OVM" key shift-u
 sleep 2
 expect_true E-28-05 "Shift+U clears the refused undo" '[[ -z $(field operationError) ]]'
-expect_out E-28-05 "and leaves the changed copy intact" "tail -1 $ROOT_DIR/dest/alpha.txt" "changed outside FileBlade"
+expect_out E-28-05 "and leaves the changed copy intact" "tail -1 $ROOT_DIR/dest/alpha.txt" "changed outside FileTree"
 
 guest "rm -rf $ROOT_DIR/heavy $ROOT_DIR/heavy-dest $ROOT_DIR/bundle $ROOT_DIR/bundle.tar.gz"
 summary

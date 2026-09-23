@@ -4,6 +4,7 @@ This file was written by an agent.
 
 ## 0.2.0 (unreleased)
 
+- The project is renamed FileTree, at https://github.com/YuriRCosta/FileTree. The interface, CLI messages and documentation say FileTree; the plugin id `data-goblin.fileblade`, the `fileblade` command and the `omarchy/fileblade` config and state directories are unchanged, so existing installs keep their layout, settings and bindings.
 - A Downloads button beside Home opens the XDG download directory; `fileblade downloads` does the same, and the button can be hidden from the toolbar settings like the others.
 - This fork keeps FileBlade as one IDE-style file manager. Only the Files module loads; the Notes, Properties, Branches, Welcome, Skills, Memory, Hooks and MCP modules, companion plugins, the extension template, artifact bins, agent usage history and the Python companion support are gone. The Properties view now sits inside the Files tab under the tree, with a draggable divider and a "Properties panel" switch in Files settings.
 - There is one docked blade. Settings choose its side (Left or Right) and `fileblade blade side left|right` does the same; every command that names an edge acts on that blade. Window mode, blade animations, the module picker and section or tab management are removed, with their CLI subcommands. A plain left-button drag always hands files to the system; the Drag out setting and its paste-path mode are gone, while Shift, Ctrl and the right button still keep a drag inside FileBlade.

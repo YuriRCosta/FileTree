@@ -130,6 +130,6 @@ fn resident_clipboard_slot_has_one_scoped_owner() {
         result
             .unwrap_err()
             .to_string()
-            .contains("resident FileBlade server")
+            .contains("resident FileTree server")
     );
 }

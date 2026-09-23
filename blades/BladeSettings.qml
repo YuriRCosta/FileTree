@@ -20,7 +20,7 @@ Item {
 
   function confirmTrashRetention(days) {
     pendingRetentionDays = days
-    retentionConsent.open("Enable automatic Trash cleanup?\nPermanently delete items older than " + days + " days from your shared desktop Trash, including items trashed by other apps, and FileBlade artifact bins. Cleanup also runs while blades are closed. This cannot be undone.",
+    retentionConsent.open("Enable automatic Trash cleanup?\nPermanently delete items older than " + days + " days from your shared desktop Trash, including items trashed by other apps, and FileTree artifact bins. Cleanup also runs while blades are closed. This cannot be undone.",
       [{ key: "cancel", label: "Cancel" }, { key: "enable", label: "Enable cleanup", danger: true }])
   }
 

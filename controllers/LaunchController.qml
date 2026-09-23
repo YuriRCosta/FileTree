@@ -73,7 +73,7 @@ Item {
     var targetScreen = activeLaunch.targetScreen
     lastPath = target
     lastAddress = ""
-    status = "Opened in FileBlade"
+    status = "Opened in FileTree"
     error = ""
     if (!service.open) service.setOpen(true)
     service.navigateToLocation(target, targetScreen, "browse")

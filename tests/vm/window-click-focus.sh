@@ -2,7 +2,7 @@
 # Live check of keyboard-versus-pointer focus arbitration under Hyprland.
 # Usage: OVM=<headless VM harness> tests/vm/window-click-focus.sh
 # Assumes two tiled foot terminals named FIRST_TITLE and SECOND_TITLE are open and
-# the shipped FileBlade bindings are loaded in the VM.
+# the shipped FileTree bindings are loaded in the VM.
 set -u
 OVM=${OVM:?set OVM to the ovm harness path}
 FIRST_TITLE=${FIRST_TITLE:-focus-target}

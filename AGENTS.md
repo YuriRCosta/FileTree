@@ -5,7 +5,7 @@ project's design intent.
 
 ## About this project
 
-- FileBlade is an IDE-style file manager sidebar for Omarchy. This fork keeps it
+- FileTree is an IDE-style file manager sidebar for Omarchy. This fork keeps it
   deliberately small: one docked blade on a configurable side (left or right),
   holding only the built-in Files module with its properties pane.
 - Do not reintroduce removed scope without the owner asking for it: extension or

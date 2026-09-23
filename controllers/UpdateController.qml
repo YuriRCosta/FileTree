@@ -25,7 +25,7 @@ Item {
   readonly property bool coreUpdatable: !!core && core.updatable === true
   readonly property bool backendStale: !!core && core.backend_stale === true
   readonly property bool available: coreUpdatable
-  readonly property string chipText: available ? "Update available" : (backendStale ? "Backend update needed" : (upToDateNotice ? "FileBlade is up to date!" : ""))
+  readonly property string chipText: available ? "Update available" : (backendStale ? "Backend update needed" : (upToDateNotice ? "FileTree is up to date!" : ""))
   readonly property bool chipVisible: available || backendStale || upToDateNotice
 
   Timer {
@@ -41,27 +41,27 @@ Item {
 
   function coreNotice() {
     var version = String(core.upstream_version || "")
-    if (!version) return "An update for FileBlade is available; its version could not be determined."
-    if (core.version_change === "same") return "FileBlade has updates available within version " + version + "."
-    if (core.version_change === "older") return "FileBlade's upstream changed to version " + version + " (installed: " + core.current_version + ")."
-    return "Version " + version + " of FileBlade is now available!"
+    if (!version) return "An update for FileTree is available; its version could not be determined."
+    if (core.version_change === "same") return "FileTree has updates available within version " + version + "."
+    if (core.version_change === "older") return "FileTree's upstream changed to version " + version + " (installed: " + core.current_version + ")."
+    return "Version " + version + " of FileTree is now available!"
   }
 
   function summaryLines() {
     var lines = []
     if (coreUpdatable) lines.push(coreNotice())
-    if (core && !coreUpdatable && (core.dirty || core.ahead > 0)) lines.push("Skipped FileBlade: " + (core.dirty ? "local changes" : "local commits ahead"))
-    if (backendStale) lines.push("Backend binary is " + String(core.backend_version || "") + ", checkout is " + String(core.current_version || "") + ": update or reinstall FileBlade")
+    if (core && !coreUpdatable && (core.dirty || core.ahead > 0)) lines.push("Skipped FileTree: " + (core.dirty ? "local changes" : "local commits ahead"))
+    if (backendStale) lines.push("Backend binary is " + String(core.backend_version || "") + ", checkout is " + String(core.current_version || "") + ": update or reinstall FileTree")
     return lines
   }
 
   function dialogLines() {
     var lines = summaryLines()
     if (available) {
-      lines.push("FileBlade only checks for updates; it does not install them while running.")
+      lines.push("FileTree only checks for updates; it does not install them while running.")
       lines.push("Stop the shell before replacing plugin files; update with omarchy plugin update, then run omarchy restart shell. The backend is included.")
     } else if (backendStale) {
-      lines.push("Update or reinstall FileBlade, then run omarchy restart shell. Check FILEBLADE_BINARY if you use a custom backend.")
+      lines.push("Update or reinstall FileTree, then run omarchy restart shell. Check FILEBLADE_BINARY if you use a custom backend.")
     }
     return lines
   }

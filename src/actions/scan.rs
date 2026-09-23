@@ -33,7 +33,7 @@ pub fn plugin_actions(plugin: &str, plugin_dir: &str) -> Result<(PathBuf, Vec<Ac
         return Err(reserved_id());
     }
     if !valid_provider_id(plugin) {
-        return Err("plugin id is not usable for a FileBlade action".to_string());
+        return Err("plugin id is not usable for a FileTree action".to_string());
     }
     let root = plugin_root(plugin_dir)?;
     let manifest = read_manifest(&root)?;
@@ -80,7 +80,7 @@ fn scan_provider(
         return record(
             errors,
             plugin,
-            "plugin id is not usable for a FileBlade action",
+            "plugin id is not usable for a FileTree action",
         );
     }
     if plugin == USER_PLUGIN_ID {

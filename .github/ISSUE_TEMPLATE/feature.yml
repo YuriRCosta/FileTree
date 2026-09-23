@@ -1,5 +1,5 @@
 name: Feature or change
-description: Suggest something FileBlade should do differently
+description: Suggest something FileTree should do differently
 labels: [enhancement]
 body:
   - type: textarea

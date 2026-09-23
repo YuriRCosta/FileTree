@@ -24,9 +24,9 @@ FocusScope {
   readonly property string title: moduleItem && moduleItem.title ? String(moduleItem.title) : (definition ? String(definition.name) : moduleId)
   readonly property string notice: {
     if (moduleId === "") return "Choose a module in the bar widget settings"
-    if (!host) return "FileBlade is not loaded"
+    if (!host) return "FileTree is not loaded"
     if (!definition) return "No module called " + moduleId
-    if (!compatible) return String(definition.name) + " needs a newer FileBlade"
+    if (!compatible) return String(definition.name) + " needs a newer FileTree"
     if (loader.status === Loader.Error) return String(definition.name) + " could not be loaded"
     return ""
   }

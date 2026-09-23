@@ -219,7 +219,7 @@ goto_root "$FIX"
 wait_ready
 before=$(field capacityUsed)
 guest "dd if=/dev/urandom of=$FIX/extra.bin bs=1M count=8 status=none" >/dev/null
-expect_true E-98-12 "a write from outside FileBlade shows within the minute" "$(wait_for "[[ \$(field capacityUsed) -gt $before ]]" 75 && echo true || echo false)"
+expect_true E-98-12 "a write from outside FileTree shows within the minute" "$(wait_for "[[ \$(field capacityUsed) -gt $before ]]" 75 && echo true || echo false)"
 
 "$OVM" sudo "umount -l $BIND; umount -l $FIX; mount $LOOP $FIX; mount --bind $FIX $BIND" >/dev/null 2>&1; sleep 3
 percent_now=$(jq -r .percent <<<"$(space_json "$FIX")")

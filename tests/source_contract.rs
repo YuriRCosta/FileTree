@@ -901,7 +901,7 @@ fn update_check_is_opt_out_bounded_and_manual_in_the_footer() {
     assert!(!controller.contains("function apply("));
     assert!(
         controller
-            .contains("FileBlade only checks for updates; it does not install them while running.")
+            .contains("FileTree only checks for updates; it does not install them while running.")
     );
     assert!(controller.contains("function onStateReadyChanged() { if (controller.service.stateReady) controller.checkIfStale() }"));
     let service = text(&root.join("Service.qml"));
@@ -1448,7 +1448,7 @@ fn default_folder_opening_is_a_shared_fileblade_behavior() {
     assert!(launcher.contains("service.backendRequest(\"stat-batch\""));
     assert!(launcher.contains("activeLaunch.mode === \"default\""));
     assert!(launcher.contains("service.navigateToLocation(target, targetScreen, \"browse\")"));
-    assert!(launcher.contains("status = \"Opened in FileBlade\""));
+    assert!(launcher.contains("status = \"Opened in FileTree\""));
     assert!(menu.contains("controller.actionMenuScreen"));
     assert!(menu.contains("root.entry ? !!root.entry.is_dir : undefined"));
     assert!(focus.contains("host.setSlotTab(location.edge, location.index, location.tab)"));

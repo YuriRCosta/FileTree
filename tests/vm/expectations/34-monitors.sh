@@ -86,10 +86,10 @@ remove_output() {
 start_sink() {
   local output=$1 label=$2 pid
   focus_output "$output"
-  guest "setsid foot --title=FileBladeMonitor-$label sh -c 'stty -icanon -echo; cat > \"\$1\"' sh $case_dir/$label.keys >/dev/null 2>&1 </dev/null &" >/dev/null
-  wait_for "\"\$OVM\" hypr clients | jq -e 'any(.[]; .initialTitle == \"FileBladeMonitor-$label\")'" 15 \
+  guest "setsid foot --title=FileTreeMonitor-$label sh -c 'stty -icanon -echo; cat > \"\$1\"' sh $case_dir/$label.keys >/dev/null 2>&1 </dev/null &" >/dev/null
+  wait_for "\"\$OVM\" hypr clients | jq -e 'any(.[]; .initialTitle == \"FileTreeMonitor-$label\")'" 15 \
     || abort "start keyboard sink" "$label absent"
-  pid=$("$OVM" hypr clients | jq -r --arg title "FileBladeMonitor-$label" '.[] | select(.initialTitle == $title) | .pid')
+  pid=$("$OVM" hypr clients | jq -r --arg title "FileTreeMonitor-$label" '.[] | select(.initialTitle == $title) | .pid')
   sink_pids+=" $pid"
   focus_output "$output"
 }
@@ -102,7 +102,7 @@ input_reaches() {
   after=$(guest "stat -c %s $case_dir/$label.keys")
   equal "$id" "typed input reaches the window on $output" "$after" "$((before + 1))"
   equal "$id" "the terminal is compositor-active on $output" \
-    "$("$OVM" hypr activewindow | jq -r .initialTitle)" "FileBladeMonitor-$label"
+    "$("$OVM" hypr activewindow | jq -r .initialTitle)" "FileTreeMonitor-$label"
 }
 cleanup() {
   local code=$? pid

@@ -72,7 +72,7 @@ TestCase {
     compare(navigations[0].screen, screen)
     compare(navigations[0].mode, "browse")
     compare(subject.lastPath, "/tmp/folder")
-    compare(subject.status, "Opened in FileBlade")
+    compare(subject.status, "Opened in FileTree")
     compare(focusYields, 0)
   }
 

@@ -34,12 +34,12 @@ escape_html() { sed -e 's/\&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"
 
 {
   printf '%s\n' '<!doctype html><html lang="en"><meta charset="utf-8">' \
-    '<title>FileBlade third-party notices</title>' \
+    '<title>FileTree third-party notices</title>' \
     '<style>body{max-width:78ch;margin:2rem auto;padding:0 1rem}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>' \
-    '<body><h1>FileBlade third-party notices</h1>'
+    '<body><h1>FileTree third-party notices</h1>'
   printf '<p>These are the upstream notices for the locked Rust dependencies selected for %s, followed by the Rust standard-library notices (including musl). Not every listed component is linked into the executable.</p>\n' "$notices_target"
   printf '%s\n' \
-    '<p>Dependency sources are unmodified. Each source link downloads the exact crate version from crates.io; Cargo.lock records its checksum. MPL-2.0 source remains available under the Mozilla Public License 2.0. FileBlade itself is covered by LICENSE.</p>'
+    '<p>Dependency sources are unmodified. Each source link downloads the exact crate version from crates.io; Cargo.lock records its checksum. MPL-2.0 source remains available under the Mozilla Public License 2.0. FileTree itself is covered by LICENSE.</p>'
   while IFS=$'\t' read -r name version license manifest; do
     directory=${manifest%/*}
     printf '<h2>%s %s</h2><p>License: %s. <a href="https://crates.io/api/v1/crates/%s/%s/download">Source archive</a></p>\n' \

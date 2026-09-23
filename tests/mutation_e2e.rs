@@ -571,7 +571,7 @@ fn clipboard_text_refuses_outside_the_resident_session() {
         payload["error"]
             .as_str()
             .unwrap_or_default()
-            .contains("resident FileBlade server"),
+            .contains("resident FileTree server"),
         "{payload}"
     );
     assert!(

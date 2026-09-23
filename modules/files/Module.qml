@@ -8,7 +8,7 @@ FocusScope {
   required property var context
 
   readonly property var controller: context.service("files")
-  readonly property string title: "FileBlade"
+  readonly property string title: "FileTree"
   readonly property Component settings: filesSettings
   readonly property bool propertiesShown: !module.context.state || module.context.state.get("propertiesShown", true) !== false
   readonly property real propertiesFraction: {
@@ -26,7 +26,7 @@ FocusScope {
   function keys(action) { return controller.keybindings.label(action) }
   readonly property var shortcuts: [
     {
-      title: "FileBlade",
+      title: "FileTree",
       items: [
         { shortcut: keys("next") + " / " + keys("previous"), text: "Move down / up" },
         { shortcut: keys("up"), text: "Parent folder" },

@@ -4,8 +4,8 @@ This document is agent-written.
 
 ---
 
-Omarchy FileBlade is a schema-v1 Omarchy Quattro plugin. Its QML and Rust
-binary run unsandboxed with the authority of the desktop user. FileBlade is a
+Omarchy FileTree is a schema-v1 Omarchy Quattro plugin. Its QML and Rust
+binary run unsandboxed with the authority of the desktop user. FileTree is a
 file manager, so that authority intentionally includes reading user-selected
 filesystem metadata and content and mutating paths after explicit actions.
 
@@ -23,8 +23,8 @@ Treat these inputs as untrusted data:
 - user blade definitions and installed plugin manifests.
 
 User or satellite QML modules are executable code, not data. Once loaded, they
-share the same Quickshell process and user authority as FileBlade. Another
-enabled schema-v1 plugin can interfere with FileBlade or inspect its in-process
+share the same Quickshell process and user authority as FileTree. Another
+enabled schema-v1 plugin can interfere with FileTree or inspect its in-process
 state. Extension review remains the user's responsibility.
 
 This file was written by an agent.
@@ -38,7 +38,7 @@ request. Version strings are valid SemVer, capped at 64 bytes. Existing local
 manifest objects take precedence; otherwise only the highest release tag resolving
 (lightweight or annotated) to the selected remote commit supplies a version.
 Tags rely on the publisher's convention that their version matches the manifest;
-without a local object, FileBlade cannot independently verify that convention.
+without a local object, FileTree cannot independently verify that convention.
 Missing or invalid versions stay unknown; same-version and older-version changes
 are distinguished. Local history comparisons use existing objects only, with
 promisor lazy fetching disabled. Automatic checks run at most once per six hours;
@@ -55,7 +55,7 @@ Anyone can establish that correspondence themselves, without trusting the
 publisher's checksum, because the bundle is a reproducible build:
 
 ```bash
-git clone https://github.com/YuriRCosta/fileblade
+git clone https://github.com/YuriRCosta/FileTree
 cd fileblade && git checkout <commit>
 tools/bundle verify
 ```
@@ -81,21 +81,21 @@ is not that evidence, and attestations are not a security audit of the code.
 
 The update checker reads branch/tag IDs and local repository state; it never merges, resets,
 validates, builds, or rescans plugins, and it never changes checked-out source.
-Updates happen outside FileBlade with the shell stopped before replacing
+Updates happen outside FileTree with the shell stopped before replacing
 watched plugin files, followed by a fresh shell start. Disabling only a pane
 does not stop Omarchy's plugin watcher.
 
 This file was written by an agent.
 
-Skills, Memory, Hooks and MCP ship with FileBlade. The backend has no companion
+Skills, Memory, Hooks and MCP ship with FileTree. The backend has no companion
 repository installation command.
 
-FileBlade sends no telemetry, uses no privilege elevation, and does not install
+FileTree sends no telemetry, uses no privilege elevation, and does not install
 system packages or modify Hyprland, systemd, sudoers, or udev configuration.
 
 ## Dependencies and previews
 
-FileBlade does not install packages or use elevated privileges. Omarchy Quattro 4.0.2 or newer
+FileTree does not install packages or use elevated privileges. Omarchy Quattro 4.0.2 or newer
 supplies its normal desktop stack: Bash, Quickshell, Hyprland/`hyprctl`, `gio`,
 `gtk-launch`, `xdg-mime`, `xdg-terminal-exec`, `omarchy-launch-editor`,
 Nautilus, and the Omarchy plugin commands. The x86-64 backend is bundled, so
@@ -106,15 +106,15 @@ Optional integrations are detected at runtime and fail closed when absent.
 `udisksctl` mounts, unmounts and ejects volumes; it is tried first with
 `--no-user-interaction` and retried without it only when udisks2 answers
 `NotAuthorizedCanObtain`, so the desktop's polkit agent is what prompts and
-FileBlade never handles the password. Volume enumeration reads
+FileTree never handles the password. Volume enumeration reads
 `/proc/self/mountinfo`, `/sys/class/block` and the udev database under
 `/run/udev/data`, all read-only and all unprivileged; a volume marked
 `UDISKS_IGNORE` is never listed. An action only accepts a device path that
 enumeration already returned.
-Directories passed to the shared default-open primitive stay inside FileBlade;
+Directories passed to the shared default-open primitive stay inside FileTree;
 Nautilus is reserved for an explicit reveal request. `uwsm-app` is used when
 available to launch that reveal through the desktop's application-session
-manager. When `zoxide` is present, FileBlade records opened directories with
+manager. When `zoxide` is present, FileTree records opened directories with
 `zoxide add`, updating zoxide's normal per-user database.
 Eligible image previews load automatically on selection and accept only regular,
 non-symlink JPEG, PNG, or WebP files up to 16 MiB. The selected file is never
@@ -151,7 +151,7 @@ It does not restore borders claimed by a replacement backend or modified by
 another application. It exits after cleanup; no background daemon remains.
 
 Anonymous pipes prevent an unrelated process from discovering and connecting
-to an ambient FileBlade backend service. They do not provide encryption or
+to an ambient FileTree backend service. They do not provide encryption or
 protection from a process already able to debug/read the same-user shell or
 child, a compromised plugin, or a compromised desktop session. The public
 `fileblade` CLI also necessarily exposes its own command-line arguments through
@@ -171,13 +171,13 @@ public CLI.
 
 These are privileged desktop-integration APIs, not a file-selection portal.
 Read responses can disclose private paths, selection, search, and history, and
-control calls alter live FileBlade state. Do not expose or proxy them to
+control calls alter live FileTree state. Do not expose or proxy them to
 untrusted applications or plugins. Use a real desktop portal for sandboxed
 file selection.
 
 ## Filesystem mutations
 
-Copy, move, rename, create, and FileBlade's own removal helpers use
+Copy, move, rename, create, and FileTree's own removal helpers use
 descriptor-relative Linux filesystem operations:
 
 - absolute paths are normalized and their parent directories are opened from
@@ -203,7 +203,7 @@ symlinks, verify the source did not change, then publish it atomically without
 replacement. Cancellation removes the private stage. Same-filesystem moves use
 no-replace rename. Cross-filesystem moves first quarantine the source under a
 random sibling name, copy and publish safely, then remove the quarantine; on a
-copy failure FileBlade attempts to restore the original source name.
+copy failure FileTree attempts to restore the original source name.
 
 These controls prevent common symlink-swap, partial-publication, and accidental
 overwrite failures. They cannot make a multi-item operation globally atomic:
@@ -270,16 +270,16 @@ diagnosis.
 State safety does not replace backups. A crash, hardware failure, filesystem
 bug, or user-authorized forced/destructive action can still lose data.
 
-## FileBlade Trash
+## FileTree Trash
 
 The first-class Trash view combines the Freedesktop Trash layout with
-FileBlade-managed satellite snapshots. It discovers the home Trash, applicable
+FileTree-managed satellite snapshots. It discovers the home Trash, applicable
 mount-local stores, and private satellite stores with bounds on mounts, stores,
 modules, candidates, metadata, response size, and errors. It parses `.trashinfo`
 and directory-size data through bounded no-follow regular-file reads.
 
 Trashing first secures the selected entry against pathname replacement. After
-the desktop trash operation, FileBlade publishes a fresh stored name with the
+the desktop trash operation, FileTree publishes a fresh stored name with the
 correct original-path metadata already written, so desktop clients cannot keep
 using cached staging-path metadata. Publication uses no-replace moves and keeps
 the current stored identity available for rollback. This follows the
@@ -294,8 +294,8 @@ explicitly requests it. Public permanent delete and empty commands require
 `--yes`; the QML view requires confirmation.
 
 Trash metadata and payloads are desktop/user data rather than secrets owned by
-FileBlade. Other desktop applications using the same Freedesktop stores can
-change them concurrently; FileBlade reports stale/refused entries rather than
+FileTree. Other desktop applications using the same Freedesktop stores can
+change them concurrently; FileTree reports stale/refused entries rather than
 assuming a prior listing is still authoritative.
 
 Retention cleanup is disabled when configured as Never and otherwise removes
@@ -321,7 +321,7 @@ Git's Python helper uses a separate supervisor to stop its owned command group
 on timeout or helper death. TERM waits for cleanup before the helper exits.
 Deliberately detached groups, such as credential agents, remain independent;
 they cannot hold the output reader indefinitely. Commit messages use bounded
-stdin instead of argv. Neither this supervisor nor FileBlade sandboxes Git
+stdin instead of argv. Neither this supervisor nor FileTree sandboxes Git
 hooks or configured credential helpers.
 
 Manifest-declared inventory helpers use the same native supervisor. Every dispatch,
@@ -337,9 +337,9 @@ arguments, output or detailed errors. Enabled plugins remain trusted session
 code; declaring a helper does not sandbox it.
 
 Intentional desktop application launches are detached and may outlive the
-request. FileBlade resolves optional programs through `PATH`, so the desktop
+request. FileTree resolves optional programs through `PATH`, so the desktop
 session's `PATH` and installed executables are part of the trusted computing
-base. Do not run FileBlade with an untrusted `PATH`.
+base. Do not run FileTree with an untrusted `PATH`.
 
 Script actions contributed by plugins run as argv vectors read from the
 manifest on disk, with `argv[0]` confined to the plugin directory, the
@@ -384,7 +384,7 @@ are regenerated inside the private cache directory.
 Those checks validate discovery data; they do not sandbox the QML referenced by
 an accepted definition. Review user modules and satellite plugins for plain
 text rendering, bounded models, process/URL sinks, teardown, and persistence
-before enabling them. FileBlade does not execute a discovered module's
+before enabling them. FileTree does not execute a discovered module's
 unrelated hooks, MCP commands, or agent configuration merely to display it.
 
 ## Reporting

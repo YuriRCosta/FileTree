@@ -79,7 +79,7 @@ FocusScope {
 
         Text {
           width: parent.width - trashIcon.implicitWidth - parent.spacing
-          text: "Should FileBlade automatically empty the trash?"
+          text: "Should FileTree automatically empty the trash?"
           textFormat: Text.PlainText
           wrapMode: Text.Wrap
           color: Color.bar.text
@@ -89,7 +89,7 @@ FocusScope {
       }
       Text {
         width: parent.width
-        text: "This permanently deletes old items from your shared desktop Trash, including items trashed by other apps, and FileBlade artifact bins."
+        text: "This permanently deletes old items from your shared desktop Trash, including items trashed by other apps, and FileTree artifact bins."
         textFormat: Text.PlainText
         wrapMode: Text.Wrap
         color: Color.bar.text

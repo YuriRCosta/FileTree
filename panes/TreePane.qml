@@ -1179,7 +1179,7 @@ FocusScope {
     text: {
       if (controller.backendStalled) return "Backend keeps exiting: " + controller.backendError
       if (!controller.backendReady && controller.backendError) return controller.backendError
-      if (controller.backendVersionSkew) return "Backend mismatch; update or reinstall FileBlade and restart the shell (binary " + controller.backendVersion + ", plugin " + (controller.manifest && controller.manifest.version ? controller.manifest.version : "") + ")"
+      if (controller.backendVersionSkew) return "Backend mismatch; update or reinstall FileTree and restart the shell (binary " + controller.backendVersion + ", plugin " + (controller.manifest && controller.manifest.version ? controller.manifest.version : "") + ")"
       if (controller.locationValidationError) return controller.locationValidationError
       if (controller.treeExpansionError) return controller.treeExpansionError
       if (controller.keybindings.error) return "Keybindings: " + controller.keybindings.error

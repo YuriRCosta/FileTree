@@ -4,7 +4,7 @@ This file was written by an agent.
 
 ---
 
-FileBlade is an Omarchy Quattro plugin with a QML service for the blades and a
+FileTree is an Omarchy Quattro plugin with a QML service for the blades and a
 Rust backend for core filesystem operations. Both use the user's permissions;
 the backend's lifetime follows the shell. It shows one Files blade and loads
 no other modules or companion plugins.
@@ -193,8 +193,8 @@ wheels, drags and keyboard ownership; the saved lock is retained.
 A module can also live under a bar icon. `blades/BladePopout.qml` builds a
 `BladeContext` with `popout` set, so the module sees `edge: "popout"`, keeps its
 state in memory for the shell session, and closes the popout instead of a blade.
-The widget belongs to the plugin that wants it; FileBlade only supplies the
-host, because a `bar-widget` kind on FileBlade itself would make Omarchy report
+The widget belongs to the plugin that wants it; FileTree only supplies the
+host, because a `bar-widget` kind on FileTree itself would make Omarchy report
 it as disabled to every satellite's host guard unless a bar entry named it.
 `src/plugin_catalog.rs` reads `shell.json` for plugins that carry `bar-widget`
 beside another kind and treats a `plugins[]` or bar-layout entry as enabled.
@@ -223,7 +223,7 @@ keyboard input in the blade while the pointer rests over an application.
 Outside clicks clear it; `BladePointerFocusWatch` also checks for real pointer
 movement over application windows. That check starts at 80 ms and backs off
 to 480 ms while the pointer stays still. Moving inside a slot can focus that
-slot. While a docked blade has focus, FileBlade sets other windows' active
+slot. While a docked blade has focus, FileTree sets other windows' active
 border color to the compositor's inactive color.
 Focus ownership includes the monitor and a request revision. Deferred work
 and cleared grabs from superseded surfaces cannot change the current owner.
@@ -253,10 +253,10 @@ ambiguous. Ambiguous targets carry `ambiguous` and `reason`, lose their mux,
 hunk-pane, nvim and pane-paste actions, and the backend refuses those actions
 with the reason. New backend
 wheel actions default to this external boundary unless the focus policy marks
-them as local. Directory-only opens stay inside FileBlade and keep blade focus;
+them as local. Directory-only opens stay inside FileTree and keep blade focus;
 in a mixed batch, folders navigate in the background and cannot reclaim focus
 from the application opened for the files. Multi-file edits use one editor
-launch; a default-open batch may map several clients, but FileBlade stays out
+launch; a default-open batch may map several clients, but FileTree stays out
 of the focus race and Hyprland leaves the last activated client active.
 
 A file drag can also run as a Wayland drag. A compositor drag owns the pointer
@@ -280,8 +280,8 @@ the compositor percent-encodes it or not, so a name with a space survives.
 
 ![Keybind flow](assets/docs/keybind-flow.svg)
 
-FileBlade does not edit your Hyprland config. The blade-aware binds in the
-README live in your own config and ask FileBlade first with a short timeout,
+FileTree does not edit your Hyprland config. The blade-aware binds in the
+README live in your own config and ask FileTree first with a short timeout,
 then fall back to Hyprland's Lua dispatcher when IPC fails. The complete block
 is [examples/fileblade-bindings.lua](examples/fileblade-bindings.lua); its
 fallback expressions are shell-quoted as single arguments. The calls suppress
@@ -382,7 +382,7 @@ setScrollMarks: settings sheet toggle for Git marks on the scroll ruler; the VM 
 setAutoHideSearch: settings sheet toggle for hiding unfocused search bars; VM section 32 checks visibility and persistence
 focusRight:     host bind (Super+Right); toggles the one blade on its configured side
 toggleBladeFocus: kept for existing bindings that name an edge; the edge is ignored and toggleFocus runs
-setBladeSide:   blade settings Side choice (left | right); moves the one FileBlade blade to that edge
+setBladeSide:   blade settings Side choice (left | right); moves the one FileTree blade to that edge
 focusBladeOn:   host bind helper, focuses a blade on a named screen
 quickNav:       host bind (Super+Z)
 reloadKeybindings: explicit reread after editing the user keymap; normally handled by its file watcher
@@ -412,7 +412,7 @@ repository-wide.
 
 Manifest-contributed modules also receive their owning plugin id as
 `context.providerId` and its singleton Omarchy service as
-`context.providerService`. `context.service(id)` resolves FileBlade-owned
+`context.providerService`. `context.service(id)` resolves FileTree-owned
 services first and then delegates to the shell service registry. A provider
 service owns shared processes, watchers, caches, and mutations; slot QML owns
 only per-instance presentation and persisted `context.state`. This prevents a
@@ -485,7 +485,7 @@ checkUpdates:               true       the six-hourly ref lookup described under
 blades:                     omitted    optional full first-run left/right layout; supersedes the legacy layout keys above
 ```
 
-Folder colours are configured separately, in a user-owned file FileBlade reads
+Folder colours are configured separately, in a user-owned file FileTree reads
 but never writes: `$XDG_CONFIG_HOME/omarchy/fileblade/colors.json`. Each entry
 replaces one swatch of the folder colour palette; omitted keys keep the theme
 colour (red, yellow and green shifted away from the Git status hues, see
@@ -509,9 +509,9 @@ Keys: `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta`, `muted`.
 
 # Git
 
-FileBlade has two independent Git integrations. The files module decorates
+FileTree has two independent Git integrations. The files module decorates
 working trees with live repository metadata, while the update checker compares
-the FileBlade and enabled satellite checkouts with their upstream branches.
+the FileTree and enabled satellite checkouts with their upstream branches.
 Both integrations are read-only. Update checks read remote branch and tag IDs
 without fetching objects, changing refs, or altering checkout files.
 
@@ -587,7 +587,7 @@ volume row may lag the bar until the next such event.
 This file was written by an agent.
 
 When a blade opens or saved state loads, and the last attempt is older than six
-hours, FileBlade checks its checkout and enabled blade providers with one
+hours, FileTree checks its checkout and enabled blade providers with one
 `git ls-remote` per repository. Each request includes the configured upstream ref
 (or origin HEAD for detached installs) and `refs/tags/v*`, with a 20-second deadline,
 64 KiB stdout, 16 KiB stderr and 512-ref caps. The attempt is saved before the
@@ -602,10 +602,10 @@ it does not claim to verify an unavailable manifest. Untagged tips and unavailab
 versions get versionless notices. SemVer precedence distinguishes newer, same and
 older versions, including prereleases and build metadata.
 
-The footer's Update available chip opens a notice naming the FileBlade version,
-without commit counts. Only the FileBlade checkout itself is checked. Local work and ahead commits remain
+The footer's Update available chip opens a notice naming the FileTree version,
+without commit counts. Only the FileTree checkout itself is checked. Local work and ahead commits remain
 skipped; CLI history fields use existing objects only.
-The notice keeps Close and Check again, and explains that FileBlade checks only:
+The notice keeps Close and Check again, and explains that FileTree checks only:
 stop the shell before running `omarchy plugin update`, then run
 `omarchy restart shell`. Disabling a pane does not stop the plugin watcher.
 The checkout contains the matching backend; users do not build it. A backend

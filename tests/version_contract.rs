@@ -94,10 +94,10 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let manifest: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(root.join("manifest.json")).unwrap()).unwrap();
-    assert_eq!(manifest["name"], "FileBlade");
+    assert_eq!(manifest["name"], "FileTree");
     assert_eq!(
         manifest["repository"],
-        "https://github.com/YuriRCosta/fileblade"
+        "https://github.com/YuriRCosta/FileTree"
     );
     assert_eq!(manifest["license"], "MIT");
     assert_eq!(manifest["minOmarchyVersion"], "4.0.2");

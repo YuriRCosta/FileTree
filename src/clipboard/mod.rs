@@ -41,7 +41,7 @@ pub fn write(mime: &str, input: Vec<u8>, cancelled: &AtomicBool) -> AppResult<()
         .lock()
         .map_err(|_| AppError::command("clipboard slot unavailable"))?;
     let slot = resident.as_mut().ok_or_else(|| {
-        AppError::command("clipboard writes require the resident FileBlade server")
+        AppError::command("clipboard writes require the resident FileTree server")
     })?;
     let program = which("wl-copy").ok_or_else(|| AppError::command("wl-copy is not installed"))?;
     let owner = CommandSpec::new(program)

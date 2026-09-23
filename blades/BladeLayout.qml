@@ -282,7 +282,7 @@ Item {
   }
 
   function windowTitle(edge) {
-    return "Omarchy FileBlade " + normalizeEdge(edge) + " blade"
+    return "Omarchy FileTree " + normalizeEdge(edge) + " blade"
   }
 
   function windowAddress(edge) {

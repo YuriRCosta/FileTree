@@ -51,7 +51,7 @@ const MAX_POLL_SECONDS: f64 = 905.0;
 #[command(
     name = "fileblade",
     version,
-    about = "Inspect and control the live Omarchy FileBlade filesystem selection."
+    about = "Inspect and control the live Omarchy FileTree filesystem selection."
 )]
 pub struct Cli {
     #[arg(short = 'o', long = "output", value_enum, default_value_t = OutputFormat::Text, global = true)]
@@ -165,7 +165,7 @@ pub enum RootCommand {
     Width(PixelsArgs),
     Blades,
     Modules,
-    /// Print how full the drive holding a folder is; defaults to the open FileBlade root.
+    /// Print how full the drive holding a folder is; defaults to the open FileTree root.
     Space(space::SpaceArgs),
     RescanModules,
     ModuleDirs(ModuleDirsArgs),
@@ -190,13 +190,13 @@ pub enum RootCommand {
         #[command(subcommand)]
         action: BladeCommand,
     },
-    /// Install FileBlade into another tool.
+    /// Install FileTree into another tool.
     Install {
         #[command(subcommand)]
         action: integration::InstallCommand,
     },
     /// Print the current selection as agent context. Always succeeds; prints an
-    /// empty context when FileBlade is not running.
+    /// empty context when FileTree is not running.
     AgentContext(integration::AgentContextArgs),
     Focus(FocusArgs),
     Search(SearchArgs),

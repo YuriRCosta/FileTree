@@ -1,19 +1,19 @@
 name: Bug
-description: Something in FileBlade is broken
+description: Something in FileTree is broken
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        FileBlade is in beta. Reproduction steps are the most useful thing you can send.
+        FileTree is in beta. Reproduction steps are the most useful thing you can send.
         For a security issue, follow SECURITY.md instead of opening an issue.
 
   - type: input
     id: versions
     attributes:
       label: Versions
-      description: FileBlade version, Omarchy version, and `hyprctl version | head -1`
-      placeholder: "e.g. FileBlade 0.1.0, Omarchy 4.2.0, Hyprland 0.52.0"
+      description: FileTree version, Omarchy version, and `hyprctl version | head -1`
+      placeholder: "e.g. FileTree 0.1.0, Omarchy 4.2.0, Hyprland 0.52.0"
     validations:
       required: true
 

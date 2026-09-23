@@ -130,7 +130,7 @@ Item {
         controller.userPaletteError = ""
       } catch (failure) {
         controller.userPaletteError = String(failure).slice(0, 300)
-        console.warn("FileBlade colors.json: " + controller.userPaletteError + "; keeping previous colours")
+        console.warn("FileTree colors.json: " + controller.userPaletteError + "; keeping previous colours")
       }
     })
   }

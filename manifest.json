@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "data-goblin.fileblade",
-  "name": "FileBlade",
+  "name": "FileTree",
   "version": "0.2.0",
   "author": "Kurt Buhler",
   "license": "MIT",
-  "repository": "https://github.com/YuriRCosta/fileblade",
+  "repository": "https://github.com/YuriRCosta/FileTree",
   "minOmarchyVersion": "4.0.2",
   "description": "Customizable IDE-like sidebars for managing files and referencing information in Omarchy.",
   "kinds": [

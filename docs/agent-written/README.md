@@ -12,7 +12,7 @@ is maintained separately.
 - [Keybindings](keybindings.md): user configuration for pane navigation,
   folding, search and help
 - [Dragging files](dragging-files.md): which mouse gesture keeps a drag inside
-  FileBlade, which one hands the files to another application, and the setting
+  FileTree, which one hands the files to another application, and the setting
   that chooses between them
 - [Git status](git-status.md): status markers and repository summary preferences
 - [Security](../../SECURITY.md): trust boundaries, filesystem protections,
@@ -33,6 +33,6 @@ is maintained separately.
 Lowercase `design.md` means **technical product design**: behavior, ownership,
 boundaries, decisions, and tradeoffs.
 
-Uppercase `DESIGN.md` is reserved for a **visual design system** if FileBlade
+Uppercase `DESIGN.md` is reserved for a **visual design system** if FileTree
 ever needs one: colors, typography, spacing, components, and writing style.
-FileBlade does not currently have that separate document.
+FileTree does not currently have that separate document.

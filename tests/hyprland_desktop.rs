@@ -508,7 +508,7 @@ fn absent_windows_offer_fileblade_navigation_and_failed_queries_keep_desktop_act
     .unwrap();
     let context = desktop.context(desktop.root.path());
     assert_eq!(context["target"]["kind"], "desktop");
-    assert_eq!(context["actions"][0]["label"], "Open in FileBlade");
+    assert_eq!(context["actions"][0]["label"], "Open in FileTree");
     let opened = desktop.run("open", "", &context["target"], desktop.root.path());
     assert_eq!(opened["ok"], true, "{opened}");
     assert!(

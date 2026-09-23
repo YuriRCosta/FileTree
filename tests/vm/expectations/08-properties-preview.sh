@@ -46,7 +46,7 @@ ctl select "$ROOT_DIR/deep"; sleep 3
 dirtext=$(pane_text)
 expect_contains E-08-08 "a directory shows directory metadata" "$dirtext" "Directory"
 
-pending E-08-09 "an empty properties pane shows the dimmed FileBlade wordmark" "the wordmark is a raster image the guest OCR cannot read"
+pending E-08-09 "an empty properties pane shows the dimmed FileTree wordmark" "the wordmark is a raster image the guest OCR cannot read"
 
 ctl select "$ROOT_DIR/logo.svg"; sleep 4
 svgtext=$(pane_text)

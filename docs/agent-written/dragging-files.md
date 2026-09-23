@@ -2,7 +2,7 @@
 
 This file was written by an agent.
 
-FileBlade carries two kinds of file drag. One stays inside FileBlade and ends in
+FileTree carries two kinds of file drag. One stays inside FileTree and ends in
 the drop wheel or a folder row. The other belongs to the compositor and hands the
 files to whatever application you drop them on. A Wayland drag owns the pointer
 and the keyboard while it lasts, so a single gesture cannot be both, and the
@@ -14,9 +14,9 @@ left-button drag is always a system drag.
 | Gesture | Result |
 |---|---|
 | Left button | the application you drop on receives the files |
-| Right button | stays inside FileBlade and opens the drop wheel where you release it outside a blade |
-| Shift + left button | stays inside FileBlade and pastes the absolute path |
-| Ctrl + left button | stays inside FileBlade and pastes the relative path |
+| Right button | stays inside FileTree and opens the drop wheel where you release it outside a blade |
+| Shift + left button | stays inside FileTree and pastes the absolute path |
+| Ctrl + left button | stays inside FileTree and pastes the relative path |
 | The drop-wheel key during an internal drag | opens the wheel, as before |
 
 Dropping on a folder row inside a blade moves or copies the files whichever
@@ -27,6 +27,6 @@ other applications.
 
 The compositor owns the pointer and the keyboard for the whole drag, so during a
 left-button drag the drop wheel does not open, its keys
-and scrolling do not reach FileBlade, and the file list does not scroll itself
+and scrolling do not reach FileTree, and the file list does not scroll itself
 when you reach its edge. Use the right button when you want the wheel, and shift
 or control when you want a path pasted.

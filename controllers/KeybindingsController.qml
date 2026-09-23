@@ -50,7 +50,7 @@ Item {
         root.error = next.problems.length ? next.problems.join("; ").slice(0, 300) : ""
       } catch (failure) {
         root.error = String(failure).slice(0, 300)
-        console.warn("FileBlade keybindings: " + root.error + "; keeping previous bindings")
+        console.warn("FileTree keybindings: " + root.error + "; keeping previous bindings")
       }
     })
   }

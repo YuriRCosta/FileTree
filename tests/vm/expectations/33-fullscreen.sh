@@ -23,7 +23,7 @@ ctl openBlade left
 ctl openBlade right
 ctl releaseBladeFocus
 browser_pid=$(guest "setsid chromium --ozone-platform=wayland --user-data-dir='$work/profile' --no-first-run --no-default-browser-check --disable-extensions --app='file://$work/video.html' > '$work/browser.log' 2>&1 < /dev/null & echo \$!")
-window() { "$OVM" hypr clients | jq -c '[.[]|select(.title=="FileBlade fullscreen regression")][0] // {}'; }
+window() { "$OVM" hypr clients | jq -c '[.[]|select(.title=="FileTree fullscreen regression")][0] // {}'; }
 mode() { window | jq -r '.fullscreen // -1'; }
 wait_for '[[ $(mode) == 0 ]]' 30
 monitor=$("$OVM" hypr monitors | jq -c '.[0]')

@@ -3,16 +3,16 @@
 Hello! Any contributions are welcome. If you contribute, I'd ask that you use
 the [PR template](.github/PULL_REQUEST_TEMPLATE.md), ensure that
 [UI expectations](tests/EXPECTATIONS.md) are updated, and honor the vision
-and design aesthetic of the original software. It's important to note that FileBlade
+and design aesthetic of the original software. It's important to note that FileTree
 does not strive to be a file explorer or traditional file manager. Rather, it envisions
 an IDE-like experience built into the OS, and attempts to cater specifically to users
 who are using coding agent CLIs in terminals as their primary interface for the computer.
-Therefore, FileBlade strives to provide quick, streamlined ways to view or find information,
+Therefore, FileTree strives to provide quick, streamlined ways to view or find information,
 which is typically files in a project, but could be other data. Hopefully, in the future,
-FileBlade can be a place like the NavBar where people can put whatever information they want,
-including other plugins. FileBlade also intentionally neglects some traditional IDE features
+FileTree can be a place like the NavBar where people can put whatever information they want,
+including other plugins. FileTree also intentionally neglects some traditional IDE features
 like a space to write commit messages for Git, for instance, under the assumption that most
-people have agents doing this for them, anyways. I expect (and hope) that FileBlade will
+people have agents doing this for them, anyways. I expect (and hope) that FileTree will
 continue to evolve and optimize in the direction of the most optimal experience for agent-
 driven computer work.
 
@@ -32,7 +32,7 @@ Omarchy version. Include screenshots for visual or focus issues.
 ## Running from a checkout
 
 ```bash
-git clone https://github.com/YuriRCosta/fileblade
+git clone https://github.com/YuriRCosta/FileTree
 cd fileblade
 cargo build --release --locked
 FILEBLADE_BINARY="$PWD/target/release/fileblade" ./fileblade --version

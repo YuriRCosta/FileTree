@@ -107,7 +107,7 @@ identity comparison. Identity loss is latched; restoring a pathname cannot
 make the same authority valid again.
 
 The native extension root supplied to core is `native_extension_root()`:
-`XDG_CONFIG_HOME/fileblade/extensions`. FileBlade settings remain at
+`XDG_CONFIG_HOME/fileblade/extensions`. FileTree settings remain at
 `native_config_root()/settings.json`. Neither root supplies Omarchy plugin
 activation. Discovery, enabled entries and first-discovery receipts remain
 core's R28 implementation.

@@ -234,10 +234,10 @@ pub(super) fn generic_actions(facts: &Value) -> Vec<Value> {
         .and_then(Value::as_array)
         .is_some_and(|directories| !directories.is_empty());
     let (open_label, open_description) = match (has_files(facts), directories) {
-        (false, true) => ("Open in FileBlade", "Browse the folder in FileBlade"),
+        (false, true) => ("Open in FileTree", "Browse the folder in FileTree"),
         (true, true) => (
             "Open in new window",
-            "Open files with their default applications and folders in FileBlade",
+            "Open files with their default applications and folders in FileTree",
         ),
         _ => (
             "Open in new window",

@@ -190,7 +190,7 @@ fn git_status_disables_repository_fsmonitor() {
             .success()
     );
     for (key, value) in [
-        ("user.name", "FileBlade Test"),
+        ("user.name", "FileTree Test"),
         ("user.email", "fileblade@example.invalid"),
     ] {
         assert!(

@@ -1,28 +1,30 @@
-<p align="center"><img src="assets/fileblade-logo.svg" alt="FileBlade" width="640"></p>
+# FileTree
 
----
-
-**FileBlade** is an IDE-style file manager sidebar for Omarchy:
+**FileTree** is an IDE-style file manager sidebar for Omarchy:
 - One docked blade on the left or right edge of the screen, opened and closed from a shortcut
 - A file tree with Git status, fuzzy search, quick navigation, favorites and folder colors
 - A properties pane under the tree with metadata and previews for the selection
 - Drag files straight into other applications, or hold space for a quick-action wheel
 - Keyboard- or mouse-first, and a `fileblade` CLI that scripts and coding agents can drive
 
-<p align="center"><img src="assets/fileblade-overview.gif" alt="FileBlade highlights" width="720"></p>
+<p align="center"><img src="assets/fileblade-overview.gif" alt="FileTree highlights" width="720"></p>
 
 > [!NOTE]
-> This is a simplified fork of [data-goblin/fileblade](https://github.com/data-goblin/fileblade)
+> FileTree started as a simplified fork of [FileBlade](https://github.com/data-goblin/fileblade)
 > by Kurt Buhler. It keeps only the file manager: no extension modules, no agent blades, no
 > native app, no second blade and no window mode.
+>
+> Under the hood it still uses FileBlade's identifiers so existing installs keep working:
+> the Omarchy plugin id `data-goblin.fileblade`, the `fileblade` CLI, and the
+> `~/.config/omarchy/fileblade` and `~/.local/state/omarchy/fileblade` directories.
 
 ## Installation
 
-FileBlade ships a bundled static x86-64 Linux backend, so no Rust toolchain is
+FileTree ships a bundled static x86-64 Linux backend, so no Rust toolchain is
 needed. It requires Omarchy 4.0.2 or later.
 
 ```bash
-OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/YuriRCosta/fileblade.git --enable
+OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/YuriRCosta/FileTree.git --enable
 omarchy restart shell
 ```
 
@@ -92,13 +94,13 @@ longer want them.
 
 <details>
 <summary><b>Drop wheel</b></summary>
-<p align="center"><img src="assets/fileblade-drop-wheel.gif" alt="Dragging a file from FileBlade onto a terminal and picking a new pane from the selection wheel" width="720"></p>
+<p align="center"><img src="assets/fileblade-drop-wheel.gif" alt="Dragging a file from FileTree onto a terminal and picking a new pane from the selection wheel" width="720"></p>
 </details>
 
 ## What it changes on your system
 
-- **Keybindings:** FileBlade never writes your Hyprland config. The example
-  bindings ask FileBlade first with a short timeout and fall back to the normal
+- **Keybindings:** FileTree never writes your Hyprland config. The example
+  bindings ask FileTree first with a short timeout and fall back to the normal
   dispatcher, so nothing breaks when the shell is down. `Super+W`, `Super+Arrows`
   and `Super+Shift+Arrows` act on the blade when it has focus.
 - **Screen space:** the open blade reserves its strip of the screen, so tiled

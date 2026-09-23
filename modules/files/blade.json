@@ -1,6 +1,6 @@
 {
   "id": "files",
-  "name": "FileBlade",
+  "name": "FileTree",
   "glyph": "󰉋",
   "description": "Filesystem tree with search syntax, favorites, Git status, quick navigation, and file operations",
   "entry": "Module.qml",

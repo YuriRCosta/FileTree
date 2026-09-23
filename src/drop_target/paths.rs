@@ -32,9 +32,7 @@ pub(super) fn configured_launcher(command: &[OsString], cwd: &str) -> AppResult<
     let program = crate::common::own_binary()
         .ok()
         .and_then(|path| path.into_os_string().into_string().ok())
-        .ok_or_else(|| {
-            AppError::invalid("Configured terminal actions need the FileBlade binary")
-        })?;
+        .ok_or_else(|| AppError::invalid("Configured terminal actions need the FileTree binary"))?;
     let folder = parse_path(cwd)?;
     let mut launch = vec![program, EXEC_HEX.to_string()];
     launch.extend(

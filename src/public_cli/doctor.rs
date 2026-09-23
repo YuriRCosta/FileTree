@@ -37,7 +37,7 @@ pub(super) fn doctor() -> AppResult<PublicResult> {
     let ok = !version_skew && shell["ok"] == true && serve["ok"] == true;
     let mut advice = Vec::new();
     if version_skew {
-        advice.push("update or reinstall FileBlade, then run omarchy restart shell".to_string());
+        advice.push("update or reinstall FileTree, then run omarchy restart shell".to_string());
     }
     if shell["ok"] != true {
         advice.push(

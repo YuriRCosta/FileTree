@@ -51,7 +51,7 @@ PanelWindow {
   function openUpdateDialog() {
     var updates = surface.host.updates
     if (!updates) return
-    var title = updates.available ? "Update available" : (updates.backendStale ? "Backend update needed" : "FileBlade is up to date")
+    var title = updates.available ? "Update available" : (updates.backendStale ? "Backend update needed" : "FileTree is up to date")
     updateDialog.open([title].concat(updates.dialogLines()).join("\n"), [
       { key: "cancel", label: "Close" },
       { key: "recheck", label: "Check again" }

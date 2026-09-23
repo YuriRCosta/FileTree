@@ -72,7 +72,7 @@ TestCase {
     controller.check()
     verify(controller.upToDateNotice)
     verify(controller.chipVisible)
-    compare(controller.chipText, "FileBlade is up to date!")
+    compare(controller.chipText, "FileTree is up to date!")
     compare(controller.upToDateNoticeMs, 10000)
     controller.upToDateNotice = false
     verify(!controller.chipVisible)
@@ -121,10 +121,10 @@ TestCase {
     compare(controller.chipText, "Update available")
     verify(!controller.upToDateNotice)
     compare(controller.summaryLines(), [
-      "Version 0.7.0 of FileBlade is now available!"
+      "Version 0.7.0 of FileTree is now available!"
     ])
     compare(controller.dialogLines().slice(-2), [
-      "FileBlade only checks for updates; it does not install them while running.",
+      "FileTree only checks for updates; it does not install them while running.",
       "Stop the shell before replacing plugin files; update with omarchy plugin update, then run omarchy restart shell. The backend is included."
     ])
   }
@@ -135,7 +135,7 @@ TestCase {
       { id: "data-goblin.fileblade-skills", updatable: true, behind: null, upstream_version: "" }
     ] }
     compare(controller.summaryLines(), [
-      "An update for FileBlade is available; its version could not be determined."
+      "An update for FileTree is available; its version could not be determined."
     ])
   }
 
@@ -153,11 +153,11 @@ TestCase {
     controller.report = { repositories: [
       { id: "data-goblin.fileblade", updatable: true, current_version: "0.1.2", upstream_version: "0.1.2", version_change: "same" }
     ] }
-    compare(controller.summaryLines(), ["FileBlade has updates available within version 0.1.2."])
+    compare(controller.summaryLines(), ["FileTree has updates available within version 0.1.2."])
     controller.report = { repositories: [
       { id: "data-goblin.fileblade", updatable: true, current_version: "0.1.2", upstream_version: "0.1.1", version_change: "older" }
     ] }
-    compare(controller.summaryLines(), ["FileBlade's upstream changed to version 0.1.1 (installed: 0.1.2)."])
+    compare(controller.summaryLines(), ["FileTree's upstream changed to version 0.1.1 (installed: 0.1.2)."])
   }
 
   function test_stale_backend_shows_reinstall_without_updates() {
@@ -168,7 +168,7 @@ TestCase {
     verify(!controller.available)
     verify(controller.backendStale)
     compare(controller.chipText, "Backend update needed")
-    compare(controller.summaryLines()[0], "Backend binary is 0.6.0, checkout is 0.7.0: update or reinstall FileBlade")
-    compare(controller.dialogLines().slice(-1), ["Update or reinstall FileBlade, then run omarchy restart shell. Check FILEBLADE_BINARY if you use a custom backend."])
+    compare(controller.summaryLines()[0], "Backend binary is 0.6.0, checkout is 0.7.0: update or reinstall FileTree")
+    compare(controller.dialogLines().slice(-1), ["Update or reinstall FileTree, then run omarchy restart shell. Check FILEBLADE_BINARY if you use a custom backend."])
   }
 }

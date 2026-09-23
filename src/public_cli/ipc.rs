@@ -117,7 +117,7 @@ fn ipc_configs() -> AppResult<Vec<PathBuf>> {
         .collect();
     if present.is_empty() {
         return Err(AppError::command(format!(
-            "no FileBlade shell config found: {}",
+            "no FileTree shell config found: {}",
             candidates
                 .iter()
                 .map(|config| config.join("shell.qml").display().to_string())
@@ -148,7 +148,7 @@ pub(super) fn ipc_on(target: &str, method: &str, arguments: &[String]) -> AppRes
         }
     }
     Err(AppError::command(format!(
-        "FileBlade is not running; no instance answered on {}",
+        "FileTree is not running; no instance answered on {}",
         configs
             .iter()
             .map(|config| config.display().to_string())
