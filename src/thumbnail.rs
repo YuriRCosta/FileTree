@@ -27,7 +27,7 @@ struct EncodedThumbnail {
 }
 
 pub fn cache_dir() -> PathBuf {
-    xdg_home("XDG_CACHE_HOME", "~/.cache").join("fileblade/thumbnails")
+    xdg_home("XDG_CACHE_HOME", "~/.cache").join("filetree/thumbnails")
 }
 
 pub fn cache_path(key: &str) -> PathBuf {
@@ -392,7 +392,7 @@ fn render_in_child(
         .rev()
         .map(str::trim)
         .find(|line| !line.is_empty())
-        .map(|line| line.trim_start_matches("fileblade: ").to_string())
+        .map(|line| line.trim_start_matches("filetree: ").to_string())
         .unwrap_or_else(|| match result.status.code() {
             Some(code) => format!("thumbnail helper exited with status {code}"),
             None => "thumbnail helper was stopped".to_string(),

@@ -265,7 +265,7 @@ Item {
       controller.watcherFailureCount = 0
       controller.watcherError = ""
       var skipped = response && Array.isArray(response.skipped) ? response.skipped : []
-      if (skipped.length > 0) console.warn("data-goblin.fileblade: not watching " + skipped.length + " path(s): " + skipped.map(function(entry) { return String(entry.path) + " (" + String(entry.error) + ")" }).join(", "))
+      if (skipped.length > 0) console.warn("yuricosta.filetree: not watching " + skipped.length + " path(s): " + skipped.map(function(entry) { return String(entry.path) + " (" + String(entry.error) + ")" }).join(", "))
     }, function(response) {
       if (requestGeneration !== controller.watcherGeneration) return
       controller.watcherRequestId = ""
@@ -274,7 +274,7 @@ Item {
       if (failed) {
         controller.watcherFailureCount++
         controller.watcherError = String(response && response.error || "filesystem watcher stopped")
-        console.warn("data-goblin.fileblade: filesystem watcher failed (" + controller.watcherFailureCount + "): " + controller.watcherError + "; retry in " + controller.watcherRestartDelay() + " ms")
+        console.warn("yuricosta.filetree: filesystem watcher failed (" + controller.watcherFailureCount + "): " + controller.watcherError + "; retry in " + controller.watcherRestartDelay() + " ms")
       }
       if (controller.watcherRestartPending && controller.open && !failed) Qt.callLater(controller.startWatcher)
       else if (controller.open) {

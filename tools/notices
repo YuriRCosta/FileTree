@@ -21,7 +21,7 @@ notices_sysroot=$(rustup run "$notices_version" rustc --print sysroot)
 notices_work=$(mktemp -d)
 trap 'rm -rf -- "$notices_work"' EXIT
 notices_args=(metadata --locked --format-version 1 --filter-platform "$notices_target")
-[[ ${FILEBLADE_OFFLINE:-0} != 1 ]] || notices_args+=(--offline)
+[[ ${FILETREE_OFFLINE:-0} != 1 ]] || notices_args+=(--offline)
 rustup run "$notices_version" cargo "${notices_args[@]}" > "$notices_work/metadata.json"
 jq -er '.resolve.nodes | length > 0' "$notices_work/metadata.json" >/dev/null
 jq -r '. as $m | [.resolve.nodes[].id] as $ids |

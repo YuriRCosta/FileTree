@@ -56,8 +56,8 @@ impl Fixture {
         let directory = Self::directory();
         let worker = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "command_worker", "--nocapture"])
-            .env("FILEBLADE_COMMAND_FIXTURE", directory.path())
-            .env("FILEBLADE_COMMAND_MODE", mode)
+            .env("FILETREE_COMMAND_FIXTURE", directory.path())
+            .env("FILETREE_COMMAND_MODE", mode)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -74,14 +74,14 @@ impl Fixture {
         let manifest = serde_json::json!({
             "id": "test.native-lifetime",
             "version": "0.1.0",
-            "extensions": {"data-goblin.fileblade/action": [{
+            "extensions": {"yuricosta.filetree/action": [{
                 "id": "owned", "title": "Owned command", "contexts": ["none"],
                 "argv": ["child.py", directory.path().join("pids"), "hold"],
                 "timeout": 30
             }]}
         });
         fs::write(directory.path().join("manifest.json"), manifest.to_string()).unwrap();
-        let worker = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let worker = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .args(["serve", "--no-recover"])
             .env("HOME", directory.path())
             .env("XDG_STATE_HOME", directory.path().join("state"))
@@ -184,11 +184,11 @@ fn wait_until(mut ready: impl FnMut() -> bool, message: &str) {
 
 #[test]
 fn command_worker() {
-    let Some(directory) = std::env::var_os("FILEBLADE_COMMAND_FIXTURE") else {
+    let Some(directory) = std::env::var_os("FILETREE_COMMAND_FIXTURE") else {
         return;
     };
     let directory = Path::new(&directory);
-    let mode = std::env::var("FILEBLADE_COMMAND_MODE").unwrap();
+    let mode = std::env::var("FILETREE_COMMAND_MODE").unwrap();
     if mode == "fds" {
         let count = || fs::read_dir("/proc/self/fd").unwrap().count();
         let before = count();

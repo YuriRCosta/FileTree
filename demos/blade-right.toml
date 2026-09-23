@@ -47,7 +47,7 @@ ms = 2600
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "focusRight"
 
 [[step]]
@@ -95,7 +95,7 @@ ms = 2200
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "focusRight"
 
 [[step]]

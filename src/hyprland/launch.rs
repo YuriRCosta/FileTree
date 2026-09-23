@@ -24,7 +24,7 @@ pub fn launch_path(options: &LaunchOptions) -> Value {
                 "mode": options.mode,
                 "placed": false,
                 "address": "",
-                "fileblade": true,
+                "filetree": true,
             }));
         }
         let active_workspace = hypr_query("activeworkspace")?;
@@ -120,7 +120,7 @@ pub fn launch_command(
     } else if path.is_dir() {
         vec![
             path_text(&own_binary().map_err(|error| {
-                AppError::command(format!("could not locate fileblade: {error}"))
+                AppError::command(format!("could not locate filetree: {error}"))
             })?),
             "navigate".to_string(),
             resolved,

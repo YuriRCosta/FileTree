@@ -25,7 +25,7 @@ def main():
     args = parser.parse_args()
     if os.environ.get('USER') != 'omarchy':
         raise SystemExit('Run inside harness B')
-    plugin = Path.home() / '.config/omarchy/plugins/data-goblin.fileblade'
+    plugin = Path.home() / '.config/omarchy/plugins/yuricosta.filetree'
     if args.action == 'prepare':
         args.root.mkdir(parents=True, exist_ok=True)
         run('magick', '-limit', 'thread', '1', '-size', '64x32', 'xc:#ff0000a0', str(args.root / 'image.png'))
@@ -58,7 +58,7 @@ def main():
         return
 
     def control(*values):
-        return run('omarchy-shell', 'data-goblin.fileblade.control', *values)
+        return run('omarchy-shell', 'yuricosta.filetree.control', *values)
 
     def state():
         return json.loads(run('omarchy-shell', 'brindle-properties', 'state'))
@@ -100,7 +100,7 @@ def main():
                 control('openWithPath', path, desktop)
                 until = time.monotonic() + 17
                 while time.monotonic() < until:
-                    launch = json.loads(run('omarchy-shell', 'data-goblin.fileblade', 'status'))
+                    launch = json.loads(run('omarchy-shell', 'yuricosta.filetree', 'status'))
                     if not launch['launchBusy'] and launch['lastLaunchedPath'] == path:
                         break
                     time.sleep(.1)

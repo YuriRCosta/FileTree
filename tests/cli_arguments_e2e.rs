@@ -5,7 +5,7 @@ use std::process::Command;
 #[test]
 fn a_non_utf8_argument_is_answered_not_panicked() {
     let hostile = OsStr::from_bytes(b"/tmp/caf\xe9.txt");
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .args(["_backend", "project-root", "--path"])
         .arg(hostile)
         .output()

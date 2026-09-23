@@ -14,11 +14,11 @@ struct Server {
 
 impl Server {
     fn new(root: &Path) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .args(["serve", "--no-recover"])
             .env("XDG_STATE_HOME", root.join("state"))
             .env("XDG_DATA_HOME", root.join("data"))
-            .env("FILEBLADE_JOURNAL", root.join("journal.json"))
+            .env("FILETREE_JOURNAL", root.join("journal.json"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

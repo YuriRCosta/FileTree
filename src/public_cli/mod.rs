@@ -37,8 +37,8 @@ use ipc::*;
 use launch::*;
 pub use plugins::*;
 use queries::*;
-const READ_TARGET: &str = "data-goblin.fileblade";
-const CONTROL_TARGET: &str = "data-goblin.fileblade.control";
+const READ_TARGET: &str = "yuricosta.filetree";
+const CONTROL_TARGET: &str = "yuricosta.filetree.control";
 const IPC_TIMEOUT: Duration = Duration::from_secs(5);
 const BACKEND_TIMEOUT: Duration = Duration::from_secs(15);
 const MUTATION_BACKEND_TIMEOUT: Duration = Duration::from_secs(300);
@@ -49,7 +49,7 @@ const MAX_POLL_SECONDS: f64 = 905.0;
 
 #[derive(Clone, Debug, Parser)]
 #[command(
-    name = "fileblade",
+    name = "filetree",
     version,
     about = "Inspect and control the live Omarchy FileTree filesystem selection."
 )]

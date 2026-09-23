@@ -87,7 +87,7 @@ ctl setFolderColor "$ROOT_DIR/deep" "#123456"; sleep 3
 custom=$("$OVM" ipc "$PLUGIN" folderColor "$ROOT_DIR/deep" 2>/dev/null | jq -r '.color')
 expect_true E-24-11 "and a six digit custom colour applies too" "[[ '$custom' == '#123456' ]]"
 
-STATE=/home/omarchy/.local/state/omarchy/fileblade/state.json
+STATE=/home/omarchy/.local/state/omarchy/filetree/state.json
 scope_now() { guest "cat $STATE 2>/dev/null" | jq -r '..|objects|.folderColorScope? // empty' 2>/dev/null | head -1; }
 before_scope=$(scope_now)
 ctl setFolderColorScope row; sleep 3

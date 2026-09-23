@@ -10,11 +10,11 @@ SECOND_TITLE=${SECOND_TITLE:-second-target}
 FIRST_X=${FIRST_X:-700}
 SECOND_X=${SECOND_X:-1500}
 WINDOW_Y=${WINDOW_Y:-600}
-FIRST_SINK=/tmp/fileblade-focus-first.log
-SECOND_SINK=/tmp/fileblade-focus-second.log
+FIRST_SINK=/tmp/filetree-focus-first.log
+SECOND_SINK=/tmp/filetree-focus-second.log
 fails=0
 
-status() { "$OVM" ipc data-goblin.fileblade status 2>/dev/null; }
+status() { "$OVM" ipc yuricosta.filetree status 2>/dev/null; }
 field() { status | jq -r ".$1"; }
 active_title() { "$OVM" hypr activewindow | jq -r '.initialTitle // .title // ""'; }
 sink_size() { "$OVM" ssh "stat -c %s $1" 2>/dev/null || printf missing; }
@@ -23,8 +23,8 @@ expect_value() {
   if [[ $got == "$want" ]]; then echo "ok   $name: $got"; else echo "FAIL $name: $got wanted $want"; fails=$((fails + 1)); fi
 }
 close_blades() {
-  "$OVM" ipc data-goblin.fileblade.control closeBlade left >/dev/null
-  "$OVM" ipc data-goblin.fileblade.control closeBlade right >/dev/null
+  "$OVM" ipc yuricosta.filetree.control closeBlade left >/dev/null
+  "$OVM" ipc yuricosta.filetree.control closeBlade right >/dev/null
   sleep 0.8
 }
 arm_sink() {
@@ -79,7 +79,7 @@ expect_value switch-first-sink-unchanged 1 "$(sink_size "$FIRST_SINK")"
 expect_value switch-second-sink-unchanged 1 "$(sink_size "$SECOND_SINK")"
 
 echo "== direct focus shortcuts get the same keyboard priority"
-"$OVM" ipc data-goblin.fileblade.control focusBlade left >/dev/null; sleep 0.8
+"$OVM" ipc yuricosta.filetree.control focusBlade left >/dev/null; sleep 0.8
 expect_value direct-left left "$(field focusedBlade)"
 "$OVM" key j; sleep 0.3
 expect_value direct-first-sink-unchanged 1 "$(sink_size "$FIRST_SINK")"

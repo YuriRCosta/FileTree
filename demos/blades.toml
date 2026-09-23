@@ -50,7 +50,7 @@ ms = 2600
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "focusLeft"
 
 [[step]]
@@ -162,7 +162,7 @@ settle_ms = 1400
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "toggleSettings"
 
 [[step]]
@@ -176,7 +176,7 @@ ms = 2400
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "focusLeft"
 
 [[step]]

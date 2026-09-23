@@ -18,7 +18,7 @@ def main():
     plugin = Path(__file__).resolve().parents[3]
     work_root = Path(os.environ.get('MEDIA_ICONS_WORK_ROOT', '/tmp'))
     work_root.mkdir(parents=True, exist_ok=True)
-    stage = Path(tempfile.mkdtemp(prefix='fileblade-media-icons-', dir=work_root))
+    stage = Path(tempfile.mkdtemp(prefix='filetree-media-icons-', dir=work_root))
     source = stage / 'probe.qml'
     commons = stage / 'Commons'
     wide_asset = stage / 'wide.svg'

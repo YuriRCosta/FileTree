@@ -42,7 +42,7 @@ ms = 1
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade.control"
+target = "yuricosta.filetree.control"
 method = "focusLeft"
 
 [[step]]

@@ -16,12 +16,12 @@ impl Drop for Process {
 
 #[test]
 fn session_request() {
-    let Some(arguments) = std::env::var_os("FILEBLADE_CLIPBOARD_TEST_ARGUMENTS") else {
+    let Some(arguments) = std::env::var_os("FILETREE_CLIPBOARD_TEST_ARGUMENTS") else {
         return;
     };
     let arguments: Vec<String> = serde_json::from_str(arguments.to_str().unwrap()).unwrap();
     let command = fileblade::backend::parse(
-        std::iter::once("fileblade").chain(arguments.iter().map(String::as_str)),
+        std::iter::once("filetree").chain(arguments.iter().map(String::as_str)),
     );
     let session = fileblade::clipboard::Session::open().unwrap();
     let response = match command {
@@ -35,7 +35,7 @@ fn session_request() {
     };
     drop(session);
     fs::write(
-        std::env::var_os("FILEBLADE_CLIPBOARD_TEST_RESPONSE").unwrap(),
+        std::env::var_os("FILETREE_CLIPBOARD_TEST_RESPONSE").unwrap(),
         serde_json::to_vec(&response).unwrap(),
     )
     .unwrap();
@@ -60,10 +60,10 @@ pub fn request(root: &Path, arguments: &[&str], tools: &Path) -> Value {
             .env("XDG_STATE_HOME", root.join("state"))
             .env("XDG_CONFIG_HOME", root.join("config"))
             .env(
-                "FILEBLADE_CLIPBOARD_TEST_ARGUMENTS",
+                "FILETREE_CLIPBOARD_TEST_ARGUMENTS",
                 serde_json::to_string(arguments).unwrap(),
             )
-            .env("FILEBLADE_CLIPBOARD_TEST_RESPONSE", &response)
+            .env("FILETREE_CLIPBOARD_TEST_RESPONSE", &response)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .spawn()

@@ -21,13 +21,10 @@ impl Visibility {
             ("XDG_STATE_HOME", "~/.local/state"),
         ] {
             let home = xdg_home(variable, fallback);
-            private_roots.extend([
-                home.join("omarchy/fileblade"),
-                home.join("omarchy/filetree"),
-            ]);
+            private_roots.extend([home.join("omarchy/filetree"), home.join("omarchy/filetree")]);
         }
-        private_roots.push(xdg_home("XDG_CACHE_HOME", "~/.cache").join("fileblade"));
-        private_roots.push(xdg_home("XDG_STATE_HOME", "~/.local/state").join("fileblade"));
+        private_roots.push(xdg_home("XDG_CACHE_HOME", "~/.cache").join("filetree"));
+        private_roots.push(xdg_home("XDG_STATE_HOME", "~/.local/state").join("filetree"));
         Self {
             root: root.to_path_buf(),
             show_hidden,

@@ -4,14 +4,14 @@ umask 077
 
 DEMOCTL_REPO=${DEMOCTL_REPO:-$HOME/git/omarchy-demo}
 SESSION=$DEMOCTL_REPO/scripts/demo-session
-BASE=${FILEBLADE_DEMO_BASE:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/fileblade-demo}}
+BASE=${FILETREE_DEMO_BASE:-${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/filetree-demo}}
 REPO=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-OUT_DIR=${FILEBLADE_DEMO_OUT:-$REPO/assets/demos}
+OUT_DIR=${FILETREE_DEMO_OUT:-$REPO/assets/demos}
 
 die() { echo "session: $*" >&2; exit 1; }
 
 validate_base() {
-  [[ -n $BASE ]] || die "XDG_RUNTIME_DIR is unset; set FILEBLADE_DEMO_BASE to a dedicated absolute directory"
+  [[ -n $BASE ]] || die "XDG_RUNTIME_DIR is unset; set FILETREE_DEMO_BASE to a dedicated absolute directory"
   [[ $BASE == /* ]] || die "demo base must be an absolute path: $BASE"
   case "${BASE%/}" in
   "" | / | "$HOME" | "${XDG_CONFIG_HOME:-$HOME/.config}" | "${XDG_STATE_HOME:-$HOME/.local/state}" | "${XDG_DATA_HOME:-$HOME/.local/share}")
@@ -31,7 +31,7 @@ SHELL_ROOT=$BASE/omarchy
 STATE_HOME=$BASE/state
 SHIM=$BASE/shim
 PIDFILE=$BASE/quickshell.pid
-TERMINAL_PROGRAM=${FILEBLADE_DEMO_TERMINAL:-shell}
+TERMINAL_PROGRAM=${FILETREE_DEMO_TERMINAL:-shell}
 
 stop_nested_herdr() {
   [[ -S $FAKE_HOME/.config/herdr/herdr.sock ]] || return 0
@@ -44,8 +44,8 @@ build_home() {
   rm -rf "$FAKE_HOME" "$STATE_HOME"
   mkdir -p "$FAKE_HOME/.config" "$FAKE_HOME/.local/share/zoxide" "$FAKE_HOME/.local/state" "$STATE_HOME"
   cp -a --no-preserve=links "$HOME/.config/omarchy" "$FAKE_HOME/.config/omarchy"
-  rm -rf "$FAKE_HOME/.config/omarchy/plugins" "$FAKE_HOME/.config/omarchy/fileblade"
-  mkdir -p "$FAKE_HOME/.config/omarchy/plugins" "$FAKE_HOME/.config/omarchy/fileblade"
+  rm -rf "$FAKE_HOME/.config/omarchy/plugins" "$FAKE_HOME/.config/omarchy/filetree"
+  mkdir -p "$FAKE_HOME/.config/omarchy/plugins" "$FAKE_HOME/.config/omarchy/filetree"
   local plugin
   for plugin in "$HOME"/.config/omarchy/plugins/*; do
     case "$(basename "$plugin")" in kurt.notifications|kurt.agents|omarchy.notifications) continue ;; esac
@@ -97,14 +97,14 @@ EOF
   for dir in "$demo/sunrise-site" "$demo/notes" "$demo/recipes" "$FAKE_HOME/Downloads" "$FAKE_HOME/Documents" "$demo/sunrise-site/docs"; do
     HOME=$FAKE_HOME _ZO_DATA_DIR=$FAKE_HOME/.local/share/zoxide zoxide add "$dir"
   done
-  cat > "$FAKE_HOME/.config/omarchy/fileblade/blades.json" <<EOF
+  cat > "$FAKE_HOME/.config/omarchy/filetree/blades.json" <<EOF
 {"version":1,"monitorMode":"all","animations":true,"blades":{
  "left":{"open":false,"width":500,"mode":"docked","slots":[
    {"id":"files","modules":[{"module":"files","state":{"root":"$demo/sunrise-site"}}],"active":0,"collapsed":false,"fraction":0.58},
    {"id":"properties","modules":[{"module":"properties","state":{}}],"active":0,"collapsed":false,"fraction":0.42}]},
  "right":{"open":false,"width":500,"mode":"docked","slots":[
-   {"id":"skills","modules":[{"module":"data-goblin.fileblade-skills/skills","state":{"metric":"tokens","sort":[{"key":"tokens","desc":true}],"columns":["tokens"]}},{"module":"data-goblin.fileblade-hooks/hooks","state":{}},{"module":"data-goblin.fileblade-mcp/mcp","state":{}}],"active":0,"collapsed":false,"fraction":0.55},
-   {"id":"memory","modules":[{"module":"data-goblin.fileblade-memory/memory","state":{"columns":["tokens"],"metric":"tokens"}},{"module":"notes","state":{"text":{"version":2,"revision":1,"activeId":"note-1","nextId":2,"items":[{"id":"note-1","label":"Today","text":"- [x] ~~Record the demos~~\n- [ ] Write the README\n- [ ] Share it"}]}}}],"active":0,"collapsed":false,"fraction":0.45}]}}}
+   {"id":"skills","modules":[{"module":"yuricosta.filetree-skills/skills","state":{"metric":"tokens","sort":[{"key":"tokens","desc":true}],"columns":["tokens"]}},{"module":"yuricosta.filetree-hooks/hooks","state":{}},{"module":"yuricosta.filetree-mcp/mcp","state":{}}],"active":0,"collapsed":false,"fraction":0.55},
+   {"id":"memory","modules":[{"module":"yuricosta.filetree-memory/memory","state":{"columns":["tokens"],"metric":"tokens"}},{"module":"notes","state":{"text":{"version":2,"revision":1,"activeId":"note-1","nextId":2,"items":[{"id":"note-1","label":"Today","text":"- [x] ~~Record the demos~~\n- [ ] Write the README\n- [ ] Share it"}]}}}],"active":0,"collapsed":false,"fraction":0.45}]}}}
 EOF
 }
 
@@ -165,7 +165,7 @@ session_vars() {
   export XDG_DATA_HOME=$FAKE_HOME/.local/share
   export _ZO_DATA_DIR=$FAKE_HOME/.local/share/zoxide
   export PATH=$SHIM:$PATH
-  export FILEBLADE_BINARY=$REPO/target/release/fileblade
+  export FILETREE_BINARY=$REPO/target/release/filetree
 }
 
 up() {
@@ -195,7 +195,7 @@ up() {
   fi
   /usr/bin/hyprctl dismissnotify >/dev/null 2>&1 || true
   echo "session up on $WAYLAND_DISPLAY; shell at $SHELL_ROOT; home $FAKE_HOME"
-  fileblade status 2>/dev/null | jq -c '{open, focusedBlade}' || true
+  filetree status 2>/dev/null | jq -c '{open, focusedBlade}' || true
 }
 
 down() {
@@ -211,32 +211,32 @@ down() {
 
 reset_state() {
   session_vars
-  fileblade blade dock left >/dev/null 2>&1 || true
-  fileblade blade dock right >/dev/null 2>&1 || true
-  fileblade blade set left files,properties >/dev/null 2>&1 || true
-  omarchy-shell data-goblin.fileblade.control setRoot "$FAKE_HOME/Projects/sunrise-site" >/dev/null 2>&1 || true
-  omarchy-shell data-goblin.fileblade.control clearSearch >/dev/null 2>&1 || true
-  omarchy-shell data-goblin.fileblade.control setSearchDeep false >/dev/null 2>&1 || true
+  filetree blade dock left >/dev/null 2>&1 || true
+  filetree blade dock right >/dev/null 2>&1 || true
+  filetree blade set left files,properties >/dev/null 2>&1 || true
+  omarchy-shell yuricosta.filetree.control setRoot "$FAKE_HOME/Projects/sunrise-site" >/dev/null 2>&1 || true
+  omarchy-shell yuricosta.filetree.control clearSearch >/dev/null 2>&1 || true
+  omarchy-shell yuricosta.filetree.control setSearchDeep false >/dev/null 2>&1 || true
   local sub
   for sub in assets docs src src/components; do
-    omarchy-shell data-goblin.fileblade.control collapsePath "$FAKE_HOME/Projects/sunrise-site/$sub" >/dev/null 2>&1 || true
+    omarchy-shell yuricosta.filetree.control collapsePath "$FAKE_HOME/Projects/sunrise-site/$sub" >/dev/null 2>&1 || true
   done
-  fileblade blade close left >/dev/null 2>&1 || true
-  fileblade blade close right >/dev/null 2>&1 || true
+  filetree blade close left >/dev/null 2>&1 || true
+  filetree blade close right >/dev/null 2>&1 || true
   sleep 1.2
-  fileblade status 2>/dev/null | jq -c '{open, focusedBlade, root: .rootPath}' || true
+  filetree status 2>/dev/null | jq -c '{open, focusedBlade, root: .rootPath}' || true
 }
 
 case "${1:-}" in
 up) shift; up "$@" ;;
 reset) reset_state ;;
 down) down ;;
-env) session_vars; env | grep -E '^(WAYLAND_DISPLAY|HYPRLAND_INSTANCE_SIGNATURE|OMARCHY_PATH|HOME|XDG_CONFIG_HOME|XDG_STATE_HOME|XDG_CACHE_HOME|PATH|FILEBLADE_BINARY)=' | sed 's/^/export /' ;;
+env) session_vars; env | grep -E '^(WAYLAND_DISPLAY|HYPRLAND_INSTANCE_SIGNATURE|OMARCHY_PATH|HOME|XDG_CONFIG_HOME|XDG_STATE_HOME|XDG_CACHE_HOME|PATH|FILETREE_BINARY)=' | sed 's/^/export /' ;;
 exec) shift; session_vars; exec "$@" ;;
 shot) shift; session_vars; grim -o WAYLAND-1 "${1:-shot}.png" && echo "${1:-shot}.png" ;;
 record|render|run) cmd=$1; shift; session_vars; exec democtl "$cmd" "$@" --out "$OUT_DIR" ;;
 *) printf '%s\n' \
   'Usage: demos/session.sh up [WxH] | reset | down | env | exec CMD... | shot NAME' \
   '       demos/session.sh {record|render|run} X.toml' \
-  'The default resolution is 1920x1080; FILEBLADE_DEMO_TERMINAL=herdr selects herdr.'; exit 1 ;;
+  'The default resolution is 1920x1080; FILETREE_DEMO_TERMINAL=herdr selects herdr.'; exit 1 ;;
 esac

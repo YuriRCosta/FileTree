@@ -28,7 +28,7 @@ expect_true E-18-03 "the folder colour survives" "[[ '$colour' == '#e0af68' ]]"
 expect_true E-18-03 "the favorite survives" "[[ \$(field favoriteCount) -ge 1 ]]"
 ctl unpin "$ROOT_DIR/dest"; ctl clearFolderColor "$ROOT_DIR/deep"; sleep 2
 
-expect_out E-18-04 "state lives under the state directory" "test -f ~/.local/state/omarchy/fileblade/state.json && echo yes || echo no" yes
+expect_out E-18-04 "state lives under the state directory" "test -f ~/.local/state/omarchy/filetree/state.json && echo yes || echo no" yes
 expect_out E-18-04 "and never in the plugin checkout" "ls ~/.config/omarchy/plugins/$PLUGIN/state.json 2>/dev/null | wc -l" 0
 
 summary

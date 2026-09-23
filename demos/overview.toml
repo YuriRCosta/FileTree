@@ -10,18 +10,18 @@
 # their saved widths 522 left and 492 right, slots at their saved fractions):
 #   hyprctl eval 'hl.monitor({ output = "DP-1", mode = "2560x1440@60", position = "auto", scale = 1 })'
 #   hyprctl dispatch "hl.dsp.focus({ workspace = \"3\" })"   (an empty workspace)
-#   omarchy-shell data-goblin.fileblade.control setRoot "$HOME/git/fileblade"
-#   omarchy-shell data-goblin.fileblade.control clearSearch && omarchy-shell data-goblin.fileblade.control setSearchDeep false
-#   omarchy-shell data-goblin.fileblade.control setBladeTab right 0 0
-#   omarchy-shell data-goblin.fileblade.control setBladeTab right 1 0
-#   omarchy-shell data-goblin.fileblade.control collapsePath "$HOME/git/fileblade/demos"
+#   omarchy-shell yuricosta.filetree.control setRoot "$HOME/git/filetree"
+#   omarchy-shell yuricosta.filetree.control clearSearch && omarchy-shell yuricosta.filetree.control setSearchDeep false
+#   omarchy-shell yuricosta.filetree.control setBladeTab right 0 0
+#   omarchy-shell yuricosta.filetree.control setBladeTab right 1 0
+#   omarchy-shell yuricosta.filetree.control collapsePath "$HOME/git/filetree/demos"
 #   clear the skills filter (it persists in blade state): search icon, Ctrl+A, BackSpace, Escape
-#   fileblade blade close left && fileblade blade close right
+#   filetree blade close left && filetree blade close right
 #   democtl doctor                     (positioning error must be 0)
 # The take disables the test-omarchy-plugin skill and colours the assets folder;
-# restore and clear afterwards (bin ids come from `fileblade _backend bin-list --module skills`):
-#   fileblade _backend bin-restore --module skills --id bin:<dir>
-#   omarchy-shell data-goblin.fileblade.control clearFolderColor "$HOME/git/fileblade/assets"
+# restore and clear afterwards (bin ids come from `filetree _backend bin-list --module skills`):
+#   filetree _backend bin-restore --module skills --id bin:<dir>
+#   omarchy-shell yuricosta.filetree.control clearFolderColor "$HOME/git/filetree/assets"
 
 [demo]
 name             = "overview"
@@ -91,7 +91,7 @@ ms = 4000
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade.control"
+target = "yuricosta.filetree.control"
 method = "focusRight"
 
 [[step]]
@@ -100,7 +100,7 @@ ms = 1600
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade.control"
+target = "yuricosta.filetree.control"
 method = "focusLeft"
 
 [[step]]
@@ -611,7 +611,7 @@ ms = 3800
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade.control"
+target = "yuricosta.filetree.control"
 method = "focusRight"
 
 [[step]]
@@ -620,7 +620,7 @@ ms = 1200
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade.control"
+target = "yuricosta.filetree.control"
 method = "focusLeft"
 
 [[step]]
@@ -629,7 +629,7 @@ ms = 500
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade.control"
+target = "yuricosta.filetree.control"
 method = "focusLeft"
 
 [[step]]

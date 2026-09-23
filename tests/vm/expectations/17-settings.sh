@@ -74,7 +74,7 @@ filtered=$(ocr_crop ocr-settings-filtered "378x900+0+60" 300% 6 '5%,40%' | tr '[
 expect_contains E-17-12 "filtering by a heading keeps its rows" "$filtered" "CONFIRM TRASH"
 expect_contains E-17-12 "and the heading" "$filtered" "TRASH AND DRIVES"
 expect_missing E-17-12 "and hides rows of other groups" "$filtered" "HIDDEN FILES"
-expect_missing E-17-12 "with their headings" "$filtered" "FILEBLADE TREE"
+expect_missing E-17-12 "with their headings" "$filtered" "FILETREE TREE"
 "$OVM" key esc; sleep 1
 [[ $(field settingsOpen) == true ]] && { "$OVM" key esc; sleep 1; }
 

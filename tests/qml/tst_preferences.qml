@@ -10,7 +10,7 @@ TestCase {
     property bool layoutReady: false
     property var pendingOpenEdges: null
     property int layoutRevision: 0
-    property string configDir: "/nonexistent/fileblade-preferences-test"
+    property string configDir: "/nonexistent/filetree-preferences-test"
     property bool opened: false
     property bool rightOpened: false
     function bladeFor(edge) { return { open: edge === "left" ? opened : rightOpened } }

@@ -48,5 +48,5 @@ body:
     id: output
     attributes:
       label: Output
-      description: Relevant lines from `omarchy-shell -q data-goblin.fileblade status`, the shell log, or a build error. Screenshots help for anything visual.
+      description: Relevant lines from `omarchy-shell -q yuricosta.filetree status`, the shell log, or a build error. Screenshots help for anything visual.
       render: shell

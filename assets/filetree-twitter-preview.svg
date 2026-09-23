@@ -4,7 +4,7 @@
 
   <rect width="1200" height="1200" fill="#000000"/>
 
-  <image x="152" y="340" width="960" height="240" xlink:href="fileblade-logo.svg"/>
+  <image x="152" y="340" width="960" height="240" xlink:href="filetree-logo.svg"/>
 
   <text x="600"
         text-anchor="middle"

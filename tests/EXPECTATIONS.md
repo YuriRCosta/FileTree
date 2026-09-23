@@ -327,7 +327,7 @@ This file was written by an agent.
 - **E-10-05a** The Downloads button beside Home in the toolbar opens my download
   directory, `XDG_DOWNLOAD_DIR` from the environment or `user-dirs.dirs`, and
   `~/Downloads` otherwise. It is dimmed while I am already there, can be hidden
-  from the toolbar settings, and `fileblade downloads` does the same.
+  from the toolbar settings, and `filetree downloads` does the same.
 - **E-10-06** With View hidden off, Quick Nav, the file tree, search and Recent
   omit cache directories carrying a valid `CACHEDIR.TAG`, their contents, and
   FileTree's private configuration, state and thumbnail cache. Remembered
@@ -970,10 +970,10 @@ never assumed.
   same folder reports the image again.
 - **E-98-04** Trash, Recent and Drives show no fill; only the plain hairline is
   left under the toolbar.
-- **E-98-05** `fileblade space PATH` reports the used, free and total bytes
+- **E-98-05** `filetree space PATH` reports the used, free and total bytes
   byte for byte as `df -B1` does, and df's percentage; the text form prints one
   line with that percentage.
-- **E-98-06** `fileblade space` without a path measures the open folder, and
+- **E-98-06** `filetree space` without a path measures the open folder, and
   refuses while Trash is open.
 - **E-98-07** Copying a 16 MiB file into the image through FileTree raises the
   fill within ten seconds of the copy finishing.

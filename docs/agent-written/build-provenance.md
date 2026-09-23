@@ -30,7 +30,7 @@ names the released version that blocks it.
 
 The hook runs the staged backend in a private temporary directory inside the
 Git directory, with a five-second deadline and a 4 KiB combined output limit.
-It requires executable mode and a successful `fileblade <version>` response;
+It requires executable mode and a successful `filetree <version>` response;
 temporary files and any remaining process group are removed afterwards. This
 checks version alignment and does not replace the full local gate or bundle
 verification. The hook's staged-commit regression tests run in `tests/run`.
@@ -57,10 +57,10 @@ gh workflow run bundle-provenance.yml --repo YuriRCosta/FileTree \
 ```
 
 4. Wait for both jobs to succeed. Download the final
-   `fileblade-backend-<SHA>-<run-attempt>` artifact, not the intermediate
-   `fileblade-build-...` artifact. The final artifact contains `fileblade-bin`,
+   `filetree-backend-<SHA>-<run-attempt>` artifact, not the intermediate
+   `filetree-build-...` artifact. The final artifact contains `filetree-bin`,
    its checksum and source fingerprint, third-party notices, `source-commit.txt`,
-   `fileblade-bin.sigstore.json` and the verification result.
+   `filetree-bin.sigstore.json` and the verification result.
 5. Verify the binary using the command below, then attach the attestation bundle
    alongside those same binary bytes to the owner-managed release. Workflow
    artifacts expire after 90 days; retain the portable attestation with the
@@ -84,7 +84,7 @@ checks shown here:
 
 ```bash
 candidate=FULL_REVIEWED_40_CHARACTER_SHA
-gh attestation verify ./fileblade-bin \
+gh attestation verify ./filetree-bin \
   --repo YuriRCosta/FileTree \
   --signer-workflow YuriRCosta/FileTree/.github/workflows/bundle-provenance.yml \
   --source-digest "$candidate" \
@@ -93,7 +93,7 @@ gh attestation verify ./fileblade-bin \
 ```
 
 To supply the downloaded attestation instead of retrieving it from the repository,
-add `--bundle ./fileblade-bin.sigstore.json` to the same command. This is portable
+add `--bundle ./filetree-bin.sigstore.json` to the same command. This is portable
 attestation evidence; fully offline verification also needs a trusted Sigstore
 root, as described in the [GitHub CLI documentation](https://cli.github.com/manual/gh_attestation_verify).
 The JSON verification result supplied with the download is convenient evidence,
@@ -106,7 +106,7 @@ default. A failed signature or identity check must not be treated as success.
 
 `tools/bundle verify` remains the independent local source-to-binary check at
 that same commit. ZIP downloads from Actions do not preserve executable modes;
-use `chmod +x fileblade-bin` before executing a downloaded backend. Changing that
+use `chmod +x filetree-bin` before executing a downloaded backend. Changing that
 mode does not change its digest.
 
 ## Build and permission boundaries

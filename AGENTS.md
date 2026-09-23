@@ -13,13 +13,14 @@ project's design intent.
   animations, the native app, or drag-out modes other than the system drag.
 - Support keyboard and mouse equally; the drop wheel favors mouse interaction.
   Keep navigation consistent, responsive, and usable without extra setup.
-- Expose workflows through the `fileblade` CLI as well as the UI.
+- Expose workflows through the `filetree` CLI as well as the UI.
 
 ## Versions
 
 - Keep `manifest.json`, `Cargo.toml`, and `Cargo.lock` versions aligned.
-- The plugin id stays `data-goblin.fileblade` so existing layouts, state and
-  bindings keep working.
+- The plugin id is `yuricosta.filetree`, the command is `filetree`, and data lives
+  in `omarchy/filetree`. `src/paths.rs` moves an existing `omarchy/fileblade`
+  directory there on first use; keep that migration.
 
 ## Testing
 
@@ -29,7 +30,7 @@ project's design intent.
   tests, the UI expectations and the VM scenarios. Do not add mocked,
   implementation-detail unit suites.
 - Any change under `src/`, `crates/`, `Cargo.toml` or `Cargo.lock` needs
-  `tools/bundle build` and the rebuilt `fileblade-bin*` in the same commit; the
+  `tools/bundle build` and the rebuilt `filetree-bin*` in the same commit; the
   plugin runs the committed binary.
 - Validate Rust and QML before live UI tests.
 - Update [UI expectations](tests/EXPECTATIONS.md) for user-visible changes,

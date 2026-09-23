@@ -59,7 +59,7 @@ QtObject {
   }
 
   property IpcHandler handler: IpcHandler {
-    target: "data-goblin.fileblade.control"
+    target: "yuricosta.filetree.control"
 
   function toggle(): string {
     service.toggleOpen()
@@ -867,7 +867,7 @@ QtObject {
   }
 
   property IpcHandler readHandler: IpcHandler {
-    target: "data-goblin.fileblade"
+    target: "yuricosta.filetree"
 
     function status(): string { return root.handler.status() }
     function tree(limit: string): string { return root.handler.tree(limit) }

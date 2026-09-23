@@ -7,7 +7,7 @@ use std::sync::atomic::AtomicBool;
 use tempfile::tempdir;
 
 fn start_server() -> Value {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("serve")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -65,7 +65,7 @@ fn active_intents_are_leased_and_doctor_never_recovers() {
     assert!(staged.exists());
     assert!(!source.exists());
     drop(quarantine);
-    let doctor = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let doctor = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("doctor")
         .env("PATH", "/nonexistent")
         .output()

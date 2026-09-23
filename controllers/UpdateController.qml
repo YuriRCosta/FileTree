@@ -7,7 +7,7 @@ Item {
   property var host: null
 
   readonly property int checkIntervalMs: 6 * 60 * 60 * 1000
-  readonly property string coreId: service && service.manifest && service.manifest.id ? String(service.manifest.id) : "data-goblin.fileblade"
+  readonly property string coreId: service && service.manifest && service.manifest.id ? String(service.manifest.id) : "yuricosta.filetree"
   readonly property bool checksEnabled: !host || !host.config || host.config.checkUpdates !== false
 
   property bool busy: false
@@ -61,7 +61,7 @@ Item {
       lines.push("FileTree only checks for updates; it does not install them while running.")
       lines.push("Stop the shell before replacing plugin files; update with omarchy plugin update, then run omarchy restart shell. The backend is included.")
     } else if (backendStale) {
-      lines.push("Update or reinstall FileTree, then run omarchy restart shell. Check FILEBLADE_BINARY if you use a custom backend.")
+      lines.push("Update or reinstall FileTree, then run omarchy restart shell. Check FILETREE_BINARY if you use a custom backend.")
     }
     return lines
   }

@@ -458,7 +458,7 @@ FocusScope {
     anchors.centerIn: scroller
     width: Math.max(Style.space(60), Math.floor(scroller.width * 0.6))
     height: Math.round(width / 4)
-    source: Qt.resolvedUrl("../assets/fileblade-logo.png")
+    source: Qt.resolvedUrl("../assets/filetree-logo.png")
     fillMode: Image.PreserveAspectFit
     smooth: true
     asynchronous: true

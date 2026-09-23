@@ -11,7 +11,7 @@ IN_LAYER_X=${IN_LAYER_X:-900}; IN_LAYER_Y=${IN_LAYER_Y:-600}
 OUT_X=${OUT_X:-1500}; OUT_Y=${OUT_Y:-600}
 fails=0
 
-status() { "$OVM" ipc data-goblin.fileblade status 2>/dev/null; }
+status() { "$OVM" ipc yuricosta.filetree status 2>/dev/null; }
 field() { status | jq -r ".$1"; }
 expect() {
   local name=$1 key=$2 want=$3 got
@@ -19,9 +19,9 @@ expect() {
   if [[ $got == "$want" ]]; then echo "ok   $name: $key=$got"; else echo "FAIL $name: $key=$got wanted $want"; fails=$((fails + 1)); fi
 }
 reset() {
-  [[ $(field actionMenuOpen) == true ]] && "$OVM" ipc data-goblin.fileblade.control hideActions >/dev/null
+  [[ $(field actionMenuOpen) == true ]] && "$OVM" ipc yuricosta.filetree.control hideActions >/dev/null
   if [[ $(field open) != true || $(field focusedBlade) != left ]]; then
-    "$OVM" ipc data-goblin.fileblade.control toggleBladeFocus left >/dev/null
+    "$OVM" ipc yuricosta.filetree.control toggleBladeFocus left >/dev/null
     sleep 1.5
   fi
   "$OVM" mouse click "$ROW_X" "$ROW_Y"; sleep 0.5
@@ -48,7 +48,7 @@ echo "== pointer: right-click, type ren, click the first row"
 expect rename-by-click actionMenuMode rename
 "$OVM" key esc; sleep 0.6
 
-"$OVM" ipc data-goblin.fileblade.control clearClipboard >/dev/null
+"$OVM" ipc yuricosta.filetree.control clearClipboard >/dev/null
 reset
 echo "== pointer: right-click, filter copy, click the Copy row"
 expect copy-starts-empty clipboardCount 0

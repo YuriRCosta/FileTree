@@ -28,11 +28,11 @@ for key, chord in [('-', 'minus'), ('+', 'shift-equal')]:
     script = (repo / 'tests/vm/image-gallery-drag.toml').read_text().replace('gallery-pointer', 'brindle-s8-wheel').replace('START_X', str(round(point['x']))).replace('START_Y', str(round(point['y']))).replace('END_X', '900').replace('END_Y', '500')
     encoded = base64.b64encode(script.encode()).decode()
     ovm('ssh', 'python3 -c ' + shlex.quote("import base64;open('/tmp/brindle-s8-wheel.toml','wb').write(base64.b64decode('" + encoded + "'))"))
-    ovm('ssh', 'setsid ~/.config/omarchy/plugins/data-goblin.fileblade/demos/hold-space-near.sh 900 500 12 3000 >/tmp/brindle-s8-space.log 2>&1 </dev/null &')
+    ovm('ssh', 'setsid ~/.config/omarchy/plugins/yuricosta.filetree/demos/hold-space-near.sh 900 500 12 3000 >/tmp/brindle-s8-space.log 2>&1 </dev/null &')
     ovm('ssh', 'setsid democtl record /tmp/brindle-s8-wheel.toml --out /tmp --force >/tmp/brindle-s8-record.log 2>&1 </dev/null &')
     deadline = time.monotonic() + 18
     while time.monotonic() < deadline:
-        wheel = json.loads(ipc('data-goblin.fileblade', 'status'))['dropWheel']
+        wheel = json.loads(ipc('yuricosta.filetree', 'status'))['dropWheel']
         if wheel['open'] and wheel['dragging'] and not wheel['loading']:
             break
         time.sleep(.1)

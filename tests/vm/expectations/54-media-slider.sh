@@ -80,7 +80,7 @@ slider = current['slider']
 ovm('mouse', 'click', round(slider['x'] + 12), round(slider['y'] + slider['height'] / 2))
 wait(lambda s: s['size'] == 3 and s['slider']['focused'])
 ovm('key', 'esc')
-status = json.loads(ipc('data-goblin.fileblade', 'status'))
+status = json.loads(ipc('yuricosta.filetree', 'status'))
 check('Escape from slider focus retains blade dismissal', not status['open'] and status['rootPath'] == '/tmp/brindle-media/library', {'open': status['open'], 'root': status['rootPath']})
 control('openBlade', 'left')
 print(f'{media_lib.checks} media slider checks passed', flush=True)

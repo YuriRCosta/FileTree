@@ -2,9 +2,9 @@
 # Prepare before recording:
 #   omarchy-theme-set ethereal
 #   hyprctl dispatch "hl.dsp.focus({ workspace = \"5\" })"   (an empty workspace)
-#   fileblade blade set left files,properties && fileblade blade set right notes
-#   fileblade blade close left && fileblade blade close right
-#   fileblade root ~
+#   filetree blade set left files,properties && filetree blade set right notes
+#   filetree blade close left && filetree blade close right
+#   filetree root ~
 # Points assume a 509 px left blade; `blade set` leaves both slots at auto
 # height, so Files and Properties split the blade evenly.
 
@@ -68,7 +68,7 @@ ms = 3900
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "focusLeft"
 
 [[step]]
@@ -195,7 +195,7 @@ ms = 1040
 
 [[step]]
 kind = "ipc"
-target = "data-goblin.fileblade"
+target = "yuricosta.filetree"
 method = "focusLeft"
 
 [[step]]

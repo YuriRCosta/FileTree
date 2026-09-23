@@ -7,7 +7,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn backend(root: &Path, arguments: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("_backend")
         .args(arguments)
         .env_clear()
@@ -15,7 +15,7 @@ fn backend(root: &Path, arguments: &[&str]) -> Value {
         .env("HOME", root.join("home"))
         .env("XDG_CONFIG_HOME", root.join("config"))
         .env("XDG_STATE_HOME", root.join("state"))
-        .env("FILEBLADE_JOURNAL", root.join("journal.json"))
+        .env("FILETREE_JOURNAL", root.join("journal.json"))
         .env("LC_ALL", "C")
         .output()
         .unwrap();

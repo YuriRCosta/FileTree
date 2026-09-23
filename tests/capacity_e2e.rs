@@ -7,11 +7,11 @@ use std::process::{Command, Output};
 use support::Resident;
 use tempfile::tempdir;
 
-fn fileblade(arguments: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_fileblade"))
+fn filetree(arguments: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_filetree"))
         .args(arguments)
         .output()
-        .expect("run fileblade")
+        .expect("run filetree")
 }
 
 fn df(path: &Path) -> (u64, u64, u64, u64) {
@@ -52,7 +52,7 @@ fn stderr(output: &Output) -> String {
 fn space_reports_the_filesystem_the_way_df_does() {
     let temporary = tempdir().unwrap();
     let path = temporary.path().to_string_lossy().into_owned();
-    let output = fileblade(&["-o", "json", "space", &path]);
+    let output = filetree(&["-o", "json", "space", &path]);
     assert!(output.status.success(), "{}", stderr(&output));
     let document = json(&output);
     let (used, available, size, percent) = df(temporary.path());
@@ -82,7 +82,7 @@ fn space_reports_the_filesystem_the_way_df_does() {
         "{document}"
     );
 
-    let output = fileblade(&["space", &path]);
+    let output = filetree(&["space", &path]);
     assert!(output.status.success(), "{}", stderr(&output));
     let line = String::from_utf8_lossy(&output.stdout);
     assert!(line.contains("% full"), "{line}");
@@ -98,7 +98,7 @@ fn space_refuses_files_missing_paths_and_remote_uris() {
     let temporary = tempdir().unwrap();
     let file = temporary.path().join("note.txt");
     std::fs::write(&file, "x").unwrap();
-    let output = fileblade(&["space", file.to_str().unwrap()]);
+    let output = filetree(&["space", file.to_str().unwrap()]);
     assert!(!output.status.success());
     assert!(
         stderr(&output).contains("is not a folder"),
@@ -107,27 +107,27 @@ fn space_refuses_files_missing_paths_and_remote_uris() {
     );
 
     let missing = temporary.path().join("nope");
-    let output = fileblade(&["space", missing.to_str().unwrap()]);
+    let output = filetree(&["space", missing.to_str().unwrap()]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains("nope"), "{}", stderr(&output));
 
-    let output = fileblade(&["space", "sftp://peer/home"]);
+    let output = filetree(&["space", "sftp://peer/home"]);
     assert!(!output.status.success());
     assert!(!stderr(&output).is_empty());
 
     let local_lookalike = temporary.path().join("sftp:").join("peer").join("home");
     std::fs::create_dir_all(&local_lookalike).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .args(["space", "sftp://peer/home"])
         .current_dir(temporary.path())
         .output()
-        .expect("run fileblade");
+        .expect("run filetree");
     assert!(
         !output.status.success(),
         "a remote URI must not resolve to a local folder"
     );
 
-    let output = fileblade(&[
+    let output = filetree(&[
         "-o",
         "json",
         "space",
@@ -144,7 +144,7 @@ fn space_resolves_a_symlink_to_the_folder_it_points_at() {
     std::fs::create_dir(&target).unwrap();
     let link = temporary.path().join("link");
     symlink(&target, &link).unwrap();
-    let output = fileblade(&["-o", "json", "space", link.to_str().unwrap()]);
+    let output = filetree(&["-o", "json", "space", link.to_str().unwrap()]);
     assert!(output.status.success(), "{}", stderr(&output));
     let document = json(&output);
     let canonical = std::fs::canonicalize(&target).unwrap();
@@ -158,13 +158,13 @@ fn space_resolves_a_symlink_to_the_folder_it_points_at() {
 #[test]
 fn space_without_a_path_needs_a_window() {
     let temporary = tempdir().unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("space")
         .env("HOME", temporary.path())
         .env("XDG_RUNTIME_DIR", temporary.path())
         .env("PATH", temporary.path())
         .output()
-        .expect("run fileblade");
+        .expect("run filetree");
     assert!(!output.status.success());
     assert!(stderr(&output).contains("pass PATH"), "{}", stderr(&output));
 }
@@ -187,7 +187,7 @@ fn one_capacity_probe_runs_at_a_time_in_a_resident_backend() {
     let temporary = tempdir().unwrap();
     let path = temporary.path().to_string_lossy().into_owned();
     let arguments = ["--path".to_string(), path];
-    let mut resident = Resident::start_with(4, &[("FILEBLADE_CAPACITY_HOLD_MS", "3000")]);
+    let mut resident = Resident::start_with(4, &[("FILETREE_CAPACITY_HOLD_MS", "3000")]);
     resident.request("hold", "capacity", &arguments, 1_000);
     std::thread::sleep(std::time::Duration::from_millis(200));
     resident.request("second", "capacity", &arguments, 10_000);

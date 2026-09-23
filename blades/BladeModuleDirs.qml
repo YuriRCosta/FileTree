@@ -16,7 +16,7 @@ QtObject {
     var value = String(Quickshell.env("XDG_STATE_HOME") || "")
     return value.charAt(0) === "/" ? value : ((host ? host.home : "") + "/.local/state")
   }
-  readonly property string stateRoot: stateHome + "/omarchy/fileblade/modules/"
+  readonly property string stateRoot: stateHome + "/omarchy/filetree/modules/"
   readonly property string configRoot: (host ? host.configDir : "") + "/config/"
 
   function settled(name) {

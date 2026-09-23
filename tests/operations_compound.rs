@@ -9,12 +9,12 @@ fn fixture() -> tempfile::TempDir {
 }
 
 fn backend(root: &Path, args: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .args(["--output", "json", "_backend"])
         .args(args)
         .env("XDG_DATA_HOME", root.join("data"))
         .env("XDG_STATE_HOME", root.join("state"))
-        .env("FILEBLADE_JOURNAL", root.join("journal.json"))
+        .env("FILETREE_JOURNAL", root.join("journal.json"))
         .output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");

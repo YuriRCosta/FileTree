@@ -95,7 +95,7 @@ pub fn create(
             inputs.push((index, resolved.name, stat));
         }
         let name = OsString::from(format!(
-            ".fileblade-partial-{}",
+            ".filetree-partial-{}",
             uuid::Uuid::new_v4().simple()
         ));
         let stage = secure::resolved_child(&target.directory, &target.path, &name)?;

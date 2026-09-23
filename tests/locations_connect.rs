@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 fn fixture() -> Option<PathBuf> {
-    if let Some(root) = std::env::var_os("FILEBLADE_CONNECT_FIXTURE") {
+    if let Some(root) = std::env::var_os("FILETREE_CONNECT_FIXTURE") {
         return Some(root.into());
     }
     let root = tempfile::tempdir().unwrap();
@@ -14,7 +14,7 @@ fn fixture() -> Option<PathBuf> {
     fs::write(&tool, r#"#!/usr/bin/python3
 import os, sys, time
 from pathlib import Path
-root = Path(os.environ['FILEBLADE_CONNECT_FIXTURE'])
+root = Path(os.environ['FILETREE_CONNECT_FIXTURE'])
 args = sys.argv[1:]
 mode = (root/'mode').read_text()
 mounted = root/'mounted'
@@ -45,7 +45,7 @@ else:
     let name = std::thread::current().name().unwrap().to_owned();
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--exact", &name, "--nocapture"])
-        .env("FILEBLADE_CONNECT_FIXTURE", root.path())
+        .env("FILETREE_CONNECT_FIXTURE", root.path())
         .env("PATH", root.path())
         .env("HOME", root.path())
         .env("XDG_CONFIG_HOME", root.path().join("config"))
@@ -100,7 +100,7 @@ fn changed_host_is_refused_after_backend_rediscovery_before_any_gio_effect() {
     fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
     mode(&root, "allowed");
     let command = fileblade::backend::parse([
-        "fileblade",
+        "filetree",
         "location-connect",
         "--location",
         &candidate().location.id,
@@ -234,7 +234,7 @@ fn remote_listing_preserves_names_and_refuses_other_authorities_or_parent_paths(
     let connected = sftp::connect(&candidate(), &saved(), &cancelled).unwrap();
     let list = |path: &str| {
         let command = fileblade::backend::parse([
-            "fileblade",
+            "filetree",
             "list",
             "--location",
             &connected.id,
@@ -335,7 +335,7 @@ fn saved_remote_locations_encode_literal_names_and_refuse_extra_authority_fields
             .canonical_uri
             .ends_with("/space%20%23percent%25/%E9%9B%AA")
     );
-    let path = root.join("config/omarchy/fileblade/locations.json");
+    let path = root.join("config/omarchy/filetree/locations.json");
     let mut document: serde_json::Value =
         serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     assert_eq!(document["entries"][0].as_object().unwrap().len(), 3);

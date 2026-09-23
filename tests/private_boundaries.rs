@@ -12,7 +12,7 @@ fn preview_rejects_fifo_without_waiting_for_a_writer() {
     let result = Command::new("timeout")
         .args([
             "2",
-            env!("CARGO_BIN_EXE_fileblade"),
+            env!("CARGO_BIN_EXE_filetree"),
             "_backend",
             "preview",
             "--path",

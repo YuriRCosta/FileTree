@@ -534,7 +534,7 @@ Rectangle {
 
   Drag.active: false
   Drag.source: row
-  Drag.keys: ["fileblade-entry"]
+  Drag.keys: ["filetree-entry"]
   Drag.hotSpot.x: dragHandler.centroid.position.x
   Drag.hotSpot.y: dragHandler.centroid.position.y
   Drag.supportedActions: Qt.CopyAction | Qt.MoveAction

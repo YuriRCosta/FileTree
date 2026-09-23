@@ -260,7 +260,7 @@ pub fn write_private_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error),
     }
-    let temporary = OsString::from(format!(".fileblade-{}.tmp", Uuid::new_v4().simple()));
+    let temporary = OsString::from(format!(".filetree-{}.tmp", Uuid::new_v4().simple()));
     let fd = openat(
         &directory,
         &temporary,

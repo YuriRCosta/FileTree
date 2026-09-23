@@ -113,7 +113,7 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
         "deliberately preserves your layout",
         "Eligible image previews load automatically on selection",
         "automatically renders a size-constrained inline preview out of process",
-        "`fileblade _backend thumbnail-render`",
+        "`filetree _backend thumbnail-render`",
         "The shell only ever hands Qt that PNG",
         "type, link, byte, and target-size gates limit exposure",
     ] {
@@ -140,7 +140,7 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
         1024
     );
     assert_eq!(u32::from_be_bytes(preview[20..24].try_into().unwrap()), 576);
-    let social = fs::read(root.join("assets/fileblade-twitter-preview.png")).unwrap();
+    let social = fs::read(root.join("assets/filetree-twitter-preview.png")).unwrap();
     assert!(social.starts_with(b"\x89PNG\r\n\x1a\n"));
     assert_eq!(u32::from_be_bytes(social[16..20].try_into().unwrap()), 1200);
     assert_eq!(
@@ -149,12 +149,12 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
         "the social preview stays a 1200x1200 PNG while the marketplace preview is the overview still"
     );
     let preview_source =
-        fs::read_to_string(root.join("assets/fileblade-twitter-preview.svg")).unwrap();
+        fs::read_to_string(root.join("assets/filetree-twitter-preview.svg")).unwrap();
     assert!(preview_source.contains("managing files in Omarchy"));
     assert!(!preview_source.contains("Omachy"));
 
-    let bindings = fs::read_to_string(root.join("examples/fileblade-bindings.lua")).unwrap();
-    assert!(bindings.contains("fileblade(\"toggleFocus\")"));
+    let bindings = fs::read_to_string(root.join("examples/filetree-bindings.lua")).unwrap();
+    assert!(bindings.contains("filetree(\"toggleFocus\")"));
     assert!(!bindings.contains("SUPER + SHIFT + B"));
     assert!(bindings.contains("|| hyprctl dispatch"));
 
@@ -170,7 +170,7 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
         );
     }
     assert!(
-        fs::read(root.join("fileblade-bin"))
+        fs::read(root.join("filetree-bin"))
             .unwrap()
             .starts_with(b"\x7fELF")
     );

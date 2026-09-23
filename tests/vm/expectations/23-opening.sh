@@ -110,7 +110,7 @@ if ! wait_for '[[ $(field launchBusy) == false ]]' 20; then
   summary
 fi
 sleep 1
-guest "rm -f /home/omarchy/.local/state/omarchy/fileblade/frecency.json /home/omarchy/.local/share/recently-used.xbel" >/dev/null 2>&1
+guest "rm -f /home/omarchy/.local/state/omarchy/filetree/frecency.json /home/omarchy/.local/share/recently-used.xbel" >/dev/null 2>&1
 ctl navigate "recent:///"; sleep 4
 expect E-23-09 "precondition: both Recent sources are empty" recentCount 0
 expect_contains E-23-09 "an empty Recent says so" "$(tree_text)" "o recent"

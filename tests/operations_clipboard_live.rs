@@ -9,14 +9,14 @@ use std::time::{Duration, Instant};
 #[ignore = "requires the D VM clipboard driver and an isolated Wayland session"]
 fn owner_offers_real_copy_and_cut_until_the_receiving_manager_pastes() {
     let root = PathBuf::from(
-        std::env::var_os("FILEBLADE_CLIPBOARD_PROBE_ROOT").expect("VM fixture root required"),
+        std::env::var_os("FILETREE_CLIPBOARD_PROBE_ROOT").expect("VM fixture root required"),
     );
     assert!(root.is_absolute());
     let _session = Session::open().unwrap();
     for mode in ["copy", "cut"] {
         let source = root.join(mode).join("source/space #percent%.txt");
         let mut args = vec![
-            "fileblade",
+            "filetree",
             "clipboard-write",
             "--path",
             source.to_str().unwrap(),

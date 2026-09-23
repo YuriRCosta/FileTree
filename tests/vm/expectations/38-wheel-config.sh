@@ -2,8 +2,8 @@
 set -euo pipefail
 : "${OVM:?set OVM to the harness executable}"
 [[ -n ${OVM_HOME:-} && -n ${OVM_SSH_PORT:-} ]]
-FILEBLADE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
-export FILEBLADE_EXPECTATIONS_LIB
+FILETREE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+export FILETREE_EXPECTATIONS_LIB
 python3 - <<'PY'
 import base64
 import copy
@@ -14,10 +14,10 @@ import subprocess
 import time
 
 ovm = os.environ['OVM']
-LIB_SH = os.environ['FILEBLADE_EXPECTATIONS_LIB']
+LIB_SH = os.environ['FILETREE_EXPECTATIONS_LIB']
 fixture = '/tmp/fb-wheel-config'
 config_path = 'Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))'
-settings_path = config_path + ' / "omarchy/fileblade/settings.json"'
+settings_path = config_path + ' / "omarchy/filetree/settings.json"'
 terminals_path = config_path + ' / "xdg-terminals.list"'
 source = fixture + "/item ' $(echo injection) #%.txt"
 receipt = fixture + '/receipt'
@@ -44,7 +44,7 @@ def guest(code):
 
 def control(*args):
     result = subprocess.run(
-        ['bash', '-c', 'source "$1" && ctl "${@:2}"', 'fileblade-ctl', LIB_SH, *map(str, args)],
+        ['bash', '-c', 'source "$1" && ctl "${@:2}"', 'filetree-ctl', LIB_SH, *map(str, args)],
         capture_output=True, text=True, timeout=45)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
@@ -52,14 +52,14 @@ def control(*args):
 
 
 def state():
-    return json.loads(call('ipc', 'data-goblin.fileblade', 'status'))['dropWheel']
+    return json.loads(call('ipc', 'yuricosta.filetree', 'status'))['dropWheel']
 
 
 def backend(*args, refused=False):
     result = subprocess.run(
-        ['bash', '-c', 'source "$1" && backend "${@:2}"', 'fileblade-backend', LIB_SH, *map(str, args)],
+        ['bash', '-c', 'source "$1" && backend "${@:2}"', 'filetree-backend', LIB_SH, *map(str, args)],
         capture_output=True, text=True, timeout=45)
-    expected_code = int(refused and os.environ.get('FILEBLADE_SHAPE') == 'native')
+    expected_code = int(refused and os.environ.get('FILETREE_SHAPE') == 'native')
     if result.returncode != expected_code:
         raise RuntimeError(result.stdout + result.stderr)
     return json.loads(result.stdout.strip())

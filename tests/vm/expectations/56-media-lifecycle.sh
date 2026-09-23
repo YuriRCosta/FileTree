@@ -9,7 +9,7 @@ import media_lib
 from media_lib import *
 
 
-ovm('ssh', 'python3 ~/.config/omarchy/plugins/data-goblin.fileblade/tests/vm/fixtures/media.py generate /tmp/brindle-media')
+ovm('ssh', 'python3 ~/.config/omarchy/plugins/yuricosta.filetree/tests/vm/fixtures/media.py generate /tmp/brindle-media')
 control('setRoot', '/tmp/brindle-media/library')
 control('openBlade', 'left')
 control('focusBlade', 'left')
@@ -34,7 +34,7 @@ probe('size', 3)
 probe('choose', 10, 'replace')
 selected = state()['selected']
 control('closeBlade', 'left')
-closed = json.loads(ipc('data-goblin.fileblade', 'status'))
+closed = json.loads(ipc('yuricosta.filetree', 'status'))
 try:
     probe('state')
     retired = False

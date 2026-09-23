@@ -81,7 +81,7 @@ pub(super) fn ipc_target(method: &str) -> &'static str {
 }
 
 fn native_config() -> Option<PathBuf> {
-    std::env::var_os("FILEBLADE_APP_ROOT")
+    std::env::var_os("FILETREE_APP_ROOT")
         .map(PathBuf::from)
         .filter(|root| root.is_absolute())
         .map(|root| root.join("app"))
@@ -99,7 +99,7 @@ fn ipc_configs() -> AppResult<Vec<PathBuf>> {
     let mut candidates = Vec::new();
     if native {
         candidates.push(native_config().ok_or_else(|| {
-            AppError::command("native IPC requires an absolute FILEBLADE_APP_ROOT")
+            AppError::command("native IPC requires an absolute FILETREE_APP_ROOT")
         })?);
     }
     if let Some(shell) = shell_config()
@@ -299,7 +299,7 @@ pub(super) fn backend_json_with_timeout(
     timeout: Duration,
 ) -> AppResult<Value> {
     let command = backend::parse(
-        ["fileblade _backend".to_string()]
+        ["filetree _backend".to_string()]
             .into_iter()
             .chain(arguments.iter().cloned()),
     )

@@ -145,7 +145,7 @@ fn thumbnail_verb_renders_in_a_child_process_and_reuses_the_cache() {
     write_png(&source, 900, 600);
     let cache = root.join("cache");
     let run = |path: &Path, key: &str| {
-        let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .env("XDG_CACHE_HOME", &cache)
             .args([
                 "_backend",
@@ -179,7 +179,7 @@ fn thumbnail_verb_renders_in_a_child_process_and_reuses_the_cache() {
     assert_eq!(first["width"], 300);
     assert_eq!(first["height"], 200);
     let rendered = Path::new(first["path"].as_str().unwrap()).to_path_buf();
-    assert!(rendered.starts_with(cache.join("fileblade/thumbnails")));
+    assert!(rendered.starts_with(cache.join("filetree/thumbnails")));
     assert_eq!(png_dimensions(&rendered), (300, 200));
     assert_eq!(first.get("cached"), None);
     let second = run(&source, "photo\nfp1\n0");

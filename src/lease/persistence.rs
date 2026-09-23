@@ -42,7 +42,7 @@ fn authority() -> io::Result<Option<Arc<Authority>>> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .upgrade();
-    if authority.is_none() && std::env::var_os("FILEBLADE_NATIVE_STATE_ROOT").is_some() {
+    if authority.is_none() && std::env::var_os("FILETREE_NATIVE_STATE_ROOT").is_some() {
         return Err(io::Error::other(
             "owner-unavailable: native persistence authority is not registered",
         ));

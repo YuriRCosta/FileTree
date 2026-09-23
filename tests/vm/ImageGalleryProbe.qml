@@ -83,7 +83,7 @@ Item {
   }
 
   IpcHandler {
-    target: probe.subject && probe.subject.context ? "fileblade.gallery-test." + (probe.subject.context.inPopout ? "popout" : "blade") : (probe.subject && probe.subject.moduleName ? "fileblade.gallery-test.bar" : "")
+    target: probe.subject && probe.subject.context ? "filetree.gallery-test." + (probe.subject.context.inPopout ? "popout" : "blade") : (probe.subject && probe.subject.moduleName ? "filetree.gallery-test.bar" : "")
     enabled: !!probe.subject && (!!probe.subject.moduleName || (!!probe.subject.context && !probe.subject.context.retired))
     function status(): string { return JSON.stringify(probe.snapshot()) }
   }

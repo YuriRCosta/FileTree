@@ -193,7 +193,7 @@ def fixtures(state):
 parser = argparse.ArgumentParser()
 parser.add_argument('action', choices=['prepare', 'generate', 'restore'])
 parser.add_argument('state', type=Path)
-parser.add_argument('--plugin', type=Path, default=Path.home() / '.config/omarchy/plugins/data-goblin.fileblade')
+parser.add_argument('--plugin', type=Path, default=Path.home() / '.config/omarchy/plugins/yuricosta.filetree')
 args = parser.parse_args()
 if args.action == 'prepare':
     prepare(args.state, args.plugin)

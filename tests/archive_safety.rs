@@ -5,11 +5,11 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn backend(root: &Path, args: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("_backend")
         .args(args)
         .env("XDG_STATE_HOME", root.join("state-home"))
-        .env("FILEBLADE_JOURNAL", root.join("journal.json"))
+        .env("FILETREE_JOURNAL", root.join("journal.json"))
         .output()
         .unwrap();
     serde_json::from_slice(&output.stdout).unwrap()
@@ -119,7 +119,7 @@ fn corrupt_archives_leave_the_destination_unchanged() {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".fileblade-partial-")
+            .starts_with(".filetree-partial-")
     }));
 }
 

@@ -147,7 +147,7 @@ fn session(
                 emit(
                     &output,
                     &json!({"v": VERSION, "type": "hello", "ok": true, "authority": true,
-                    "protocol": "fileblade", "version": env!("CARGO_PKG_VERSION"), "recovered": recovered, "write_mode": operations.write_mode(),
+                    "protocol": "filetree", "version": env!("CARGO_PKG_VERSION"), "recovered": recovered, "write_mode": operations.write_mode(),
                     "limits": {"concurrency": max_concurrency, "line_bytes": MAX_LINE_BYTES, "response_bytes": MAX_RESPONSE_BYTES,
                     "arguments": MAX_ARGUMENTS, "deadline_ms": MAX_DEADLINE_MS,
                     "identifier_bytes": MAX_IDENTIFIER_BYTES, "request_keys": RECENT_REQUEST_KEYS,

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 OVM=${OVM:?set OVM to the headless VM harness executable}
-PLUGIN=data-goblin.fileblade
+PLUGIN=yuricosta.filetree
 status() { "$OVM" ipc "$PLUGIN" status; }
 ctl() { "$OVM" ipc "$PLUGIN.control" "$@" >/dev/null; }
 expect() {
   [[ $2 == "$3" ]] || { printf 'FAIL %s: [%s], wanted [%s]\n' "$1" "$2" "$3"; exit 1; }
   printf 'ok   %s\n' "$1"
 }
-sinks() { "$OVM" ssh 'stat -c %s /tmp/fileblade-focus-first.log /tmp/fileblade-focus-second.log'; }
+sinks() { "$OVM" ssh 'stat -c %s /tmp/filetree-focus-first.log /tmp/filetree-focus-second.log'; }
 
 original_sinks=$(sinks)
 expect monitor-mode-all "$(status | jq -r .monitorMode)" all

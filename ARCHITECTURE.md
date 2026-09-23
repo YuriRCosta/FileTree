@@ -46,16 +46,16 @@ before unloading it: reads cannot switch to another tab's state, and late state
 writes or focus requests cannot affect the replacement. Provider lookup remains
 live for enable/disable changes, but never changes to a different provider.
 
-### Rust side (`fileblade`)
+### Rust side (`filetree`)
 
-The `fileblade` script launches the bundled static x86-64 `fileblade-bin`.
-`FILEBLADE_BINARY` overrides it for development or packaging; local Cargo
-artifacts and `/usr/bin/fileblade-bin` remain fallbacks. The binary is both
+The `filetree` script launches the bundled static x86-64 `filetree-bin`.
+`FILETREE_BINARY` overrides it for development or packaging; local Cargo
+artifacts and `/usr/bin/filetree-bin` remain fallbacks. The binary is both
 the public CLI and the backend:
 
 ```yaml
-src/main.rs, src/public_cli/:       the `fileblade` CLI you and your agents use
-src/server/, src/backend/:          `fileblade serve` and its shared request dispatcher
+src/main.rs, src/public_cli/:       the `filetree` CLI you and your agents use
+src/server/, src/backend/:          `filetree serve` and its shared request dispatcher
 src/command.rs, src/secure/:        running external tools safely; descriptor-relative opens
 src/filesystem/, src/operations.rs: copy, move, rename, delete with staging and no-replace publish
 src/listing.rs, src/index.rs:        directory listing and the gitignore-aware index
@@ -67,7 +67,7 @@ src/trash/:                          Freedesktop Trash
 src/drop_target/, src/hyprland/:     drag-and-drop to the desktop and the drop wheel
 src/actions/:                        script actions: manifest normalization, discovery, and execution
 src/updates.rs:                      the opt-out update check
-src/shell_init.rs:                   `fileblade shell bash|zsh` keybinding snippets
+src/shell_init.rs:                   `filetree shell bash|zsh` keybinding snippets
 crates/fileblade-output:             text and JSON output shared by every command
 ```
 
@@ -79,7 +79,7 @@ frequency scores.
 
 ## How the QML talks to Rust
 
-`BackendClient.qml` starts `fileblade serve` once, keeps it alive, and
+`BackendClient.qml` starts `filetree serve` once, keeps it alive, and
 restarts it with backoff if it dies. The protocol is newline-delimited JSON on
 stdin and stdout, version 1:
 
@@ -106,7 +106,7 @@ size, free above total, available above free, or the all-ones unknown value)
 leave `fraction` and `percent` null. One probe runs at a time: a second
 request while one is outstanding answers `busy` at once, and the flag clears
 only when the blocked probe returns, so a stalled network filesystem cannot
-pile up workers. `fileblade space [PATH]` calls the same command directly and
+pile up workers. `filetree space [PATH]` calls the same command directly and
 prints one line or, with `-o json`, the document.
 
 This file was written by an agent.
@@ -157,7 +157,7 @@ tab:     the Files tab; its persisted state holds the root, view choices and the
 module:  the QML a slot loads; the registry accepts only the built-in Files module
 ```
 
-Layout is one file, `~/.config/omarchy/fileblade/blades.json`:
+Layout is one file, `~/.config/omarchy/filetree/blades.json`:
 
 ```yaml
 version: 1
@@ -179,7 +179,7 @@ blades:
 ```
 
 It's written atomically and watched, so editing it by hand or through
-`fileblade blade set|add|remove|move-slot` updates the live UI without a
+`filetree blade set|add|remove|move-slot` updates the live UI without a
 restart. Slots render through a Repeater over `slots.length`, not over the
 array, so a save never tears down and reloads every module.
 
@@ -208,8 +208,8 @@ each edge's monitor name and rejects blades anchored elsewhere, including on
 empty workspaces. An empty home name represents mirrored All mode.
 
 Pane-navigation bindings live in the user-owned
-`$XDG_CONFIG_HOME/omarchy/fileblade/keybindings.json` (defaulting to
-`~/.config/omarchy/fileblade/keybindings.json`). See the
+`$XDG_CONFIG_HOME/omarchy/filetree/keybindings.json` (defaulting to
+`~/.config/omarchy/filetree/keybindings.json`). See the
 [keybindings reference](docs/agent-written/keybindings.md) for actions and syntax.
 `KeybindingsController` watches changes and uses the backend's bounded,
 no-follow reader; invalid edits preserve the last valid map. `TreeKeys` resolves
@@ -283,14 +283,14 @@ the compositor percent-encodes it or not, so a name with a space survives.
 FileTree does not edit your Hyprland config. The blade-aware binds in the
 README live in your own config and ask FileTree first with a short timeout,
 then fall back to Hyprland's Lua dispatcher when IPC fails. The complete block
-is [examples/fileblade-bindings.lua](examples/fileblade-bindings.lua); its
+is [examples/filetree-bindings.lua](examples/filetree-bindings.lua); its
 fallback expressions are shell-quoted as single arguments. The calls suppress
 output with redirection, not `omarchy-shell -q`, because `-q` returns success
 even when the target is unavailable and would prevent the fallback:
 
 ```lua
 local function blade(method, fallback)
-  local call = "OMARCHY_SHELL_IPC_TIMEOUT=0.4s omarchy-shell data-goblin.fileblade.control " .. method .. " >/dev/null 2>&1"
+  local call = "OMARCHY_SHELL_IPC_TIMEOUT=0.4s omarchy-shell yuricosta.filetree.control " .. method .. " >/dev/null 2>&1"
   if fallback then return call .. " || hyprctl dispatch " .. string.format("%q", fallback) end
   return call
 end
@@ -310,12 +310,12 @@ press `?` in any blade for the live cheat sheet.
 Two Quickshell IPC targets, split on purpose:
 
 ```yaml
-data-goblin.fileblade:          read only: status, tree, searchResults, selection, history, favorites,
+yuricosta.filetree:          read only: status, tree, searchResults, selection, history, favorites,
                                 blades, bladeModules, actions, actionResult
-data-goblin.fileblade.control:  mutating: everything else
+yuricosta.filetree.control:  mutating: everything else
 ```
 
-The `fileblade` CLI wraps both. Most commands go over IPC to the live plugin;
+The `filetree` CLI wraps both. Most commands go over IPC to the live plugin;
 a few (`list`, `preview`, `archive-list`, `extract`, `log`, `shell`,
 `extension template`) run the Rust code in-process and work with the shell
 down. `--output json` on
@@ -363,8 +363,8 @@ reaped after exit, never killed.
 ### IPC verbs without a CLI subcommand
 
 Every function exported by `FileTreeIpc.qml` is public API: reachable with
-`omarchy-shell -q data-goblin.fileblade.control <verb>` whether or not the
-`fileblade` binary wraps it. The contract test
+`omarchy-shell -q yuricosta.filetree.control <verb>` whether or not the
+`filetree` binary wraps it. The contract test
 `exported_ipc_verbs_have_a_cli_caller_or_a_documented_reason` fails when a new
 export appears that neither `src/public_cli/` calls nor this list names, so
 adding a verb means deciding its status here.
@@ -373,8 +373,8 @@ adding a verb means deciding its status here.
 setMonitorMode: blade settings Monitors choice (active | all | locked <monitor>); VM section 34
 windowClose:    host bind (Super+W) through bindings.lua
 windowResize:   host bind (Super+Minus, Super+Equals)
-pointerResizeBegin: compositor global shortcut fileblade:resize-blade, bound to Super and the right mouse button
-pointerResizeEnd: compositor global shortcut fileblade:resize-blade-end, the release half of the same gesture
+pointerResizeBegin: compositor global shortcut filetree:resize-blade, bound to Super and the right mouse button
+pointerResizeEnd: compositor global shortcut filetree:resize-blade-end, the release half of the same gesture
 windowSwap:     host bind (Super+Shift+arrows)
 windowToggle:   host bind (Super+T)
 focusLeft:      host bind (Super+Left); toggles the one blade on its configured side
@@ -389,12 +389,12 @@ reloadKeybindings: explicit reread after editing the user keymap; normally handl
 cancelPick:     picker dialog flow, driven by the pick blade itself
 confirmPick:    picker dialog flow, driven by the pick blade itself
 pickerResult:   picker dialog flow, answer from the pick blade
-select:         single-path form of selectEntries, which fileblade select uses
+select:         single-path form of selectEntries, which filetree select uses
 setModeBadge:   Files settings row for the Neovim mode badge (header, footer, hidden); VM section 17 flips it and reads status.modeBadge
 resetBladeLayout: applies the default blade layout
 revertDefaults: the settings sheet's "Revert to default settings" link after its confirmation; resets the files settings to their config defaults and applies the default blade layout, leaving favorites, folder colours, navigation history, and key bindings alone
-pin:            single-entry form of pinMany, which fileblade pin uses
-unpin:          single-path form of unpinMany, which fileblade unpin uses
+pin:            single-entry form of pinMany, which filetree pin uses
+unpin:          single-path form of unpinMany, which filetree unpin uses
 ```
 
 ## Selection is shared
@@ -402,7 +402,7 @@ unpin:          single-path form of unpinMany, which fileblade unpin uses
 Modules don't talk to each other directly. `context.service("files")` returns
 the files controller, and its `selectedPath` and `rootPath` are what the
 properties module and the satellite plugins watch. The same selection is what
-`fileblade selection` prints, so an agent and a module see the same thing.
+`filetree selection` prints, so an agent and a module see the same thing.
 
 Folder-scoped modules use `contextPath`: it is the selected folder, or the
 opened `rootPath` when the primary selection is a file or empty. The persisted
@@ -438,16 +438,16 @@ whose recorded deletion time is old enough.
 ## Where things live on disk
 
 ```yaml
-~/.config/omarchy/fileblade/blades.json:        layout and per-tab module state
-~/.config/omarchy/fileblade/config/<id>/:        a module's own config directory (context.configDir)
-~/.config/omarchy/fileblade/actions/<id>.json:   your own script actions
-~/.local/state/omarchy/fileblade/state.json:     files settings, favorites, colors, columns
-~/.local/state/omarchy/fileblade/journal.json:   undo/redo, at most 100 entries
-~/.local/state/omarchy/fileblade/audit.jsonl:    selected mutation audit records; rotated at 32 MiB
-~/.local/state/omarchy/fileblade/frecency.json:  the quick-nav ranking
-~/.local/state/omarchy/fileblade/modules/<id>/:  a module's own state directory (context.stateDir)
+~/.config/omarchy/filetree/blades.json:        layout and per-tab module state
+~/.config/omarchy/filetree/config/<id>/:        a module's own config directory (context.configDir)
+~/.config/omarchy/filetree/actions/<id>.json:   your own script actions
+~/.local/state/omarchy/filetree/state.json:     files settings, favorites, colors, columns
+~/.local/state/omarchy/filetree/journal.json:   undo/redo, at most 100 entries
+~/.local/state/omarchy/filetree/audit.jsonl:    selected mutation audit records; rotated at 32 MiB
+~/.local/state/omarchy/filetree/frecency.json:  the quick-nav ranking
+~/.local/state/omarchy/filetree/modules/<id>/:  a module's own state directory (context.stateDir)
 ~/.local/share/Trash/:                           the normal Freedesktop Trash
-~/.cache/fileblade/thumbnails/:                  rendered image previews
+~/.cache/filetree/thumbnails/:                  rendered image previews
 ```
 
 Private JSON state uses `0700` directories, `0600` files, and atomic writes
@@ -458,7 +458,7 @@ limits of change detection and cancellation.
 ## Configuration
 
 Every key lives under the plugin's settings object in `shell.json`
-(`omarchy plugin settings data-goblin.fileblade`, or edit the file). Saved
+(`omarchy plugin settings yuricosta.filetree`, or edit the file). Saved
 state in `state.json` wins over these once it exists; the keys are the first-run
 defaults and the values for anything the state file does not carry.
 
@@ -486,7 +486,7 @@ blades:                     omitted    optional full first-run left/right layout
 ```
 
 Folder colours are configured separately, in a user-owned file FileTree reads
-but never writes: `$XDG_CONFIG_HOME/omarchy/fileblade/colors.json`. Each entry
+but never writes: `$XDG_CONFIG_HOME/omarchy/filetree/colors.json`. Each entry
 replaces one swatch of the folder colour palette; omitted keys keep the theme
 colour (red, yellow and green shifted away from the Git status hues, see
 `lib/FolderPalette.js`). Values are six-digit hex colours; anything else is
@@ -545,7 +545,7 @@ changes, filesystem events, mutations, explicit refresh, and a five-second
 expiry invalidate the order. Metadata search filters run before candidate
 limits, and interrupted work is reported as partial.
 
-`fileblade serve` owns an in-memory, 64-repository status cache. The first read
+`filetree serve` owns an in-memory, 64-repository status cache. The first read
 of a repository runs `git status`; ordinary tree navigation, paging, and search
 reuse that snapshot instead of spawning Git again. A successful explicit
 refresh atomically replaces the snapshot. If refresh fails, the last successful
@@ -609,4 +609,4 @@ The notice keeps Close and Check again, and explains that FileTree checks only:
 stop the shell before running `omarchy plugin update`, then run
 `omarchy restart shell`. Disabling a pane does not stop the plugin watcher.
 The checkout contains the matching backend; users do not build it. A backend
-version mismatch is reported by the footer, tree status and `fileblade doctor`.
+version mismatch is reported by the footer, tree status and `filetree doctor`.

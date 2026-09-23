@@ -47,7 +47,7 @@ info=$(guest 'cat ~/.local/share/Trash/info/*.trashinfo 2>/dev/null | head -20')
 expect_contains E-14-11 "the trashinfo names the original path" "$info" "$ROOT_DIR/doomed.txt"
 gio_paths=$(guest 'gio list -a trash::orig-path trash:///')
 expect_contains E-14-11 "gio resolves the trashed item to its original path" "$gio_paths" "$ROOT_DIR/doomed.txt"
-expect_missing E-14-11 "gio does not retain an internal staging path" "$gio_paths" ".fileblade-stage-"
+expect_missing E-14-11 "gio does not retain an internal staging path" "$gio_paths" ".filetree-stage-"
 
 click_row_trash
 "$OVM" mouse click "$(( $(field sidebarWidth) - 30 ))" 152; sleep 3

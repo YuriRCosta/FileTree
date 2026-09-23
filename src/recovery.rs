@@ -120,7 +120,7 @@ fn recover_partial(record: &Value) -> std::io::Result<Outcome> {
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
-    if !name.starts_with(".fileblade-partial-") {
+    if !name.starts_with(".filetree-partial-") {
         return Ok(Outcome::Done);
     }
     match (record["dev"].as_u64(), record["ino"].as_u64()) {

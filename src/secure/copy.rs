@@ -49,7 +49,7 @@ pub(super) fn copy_from_parent_noreplace(
             ),
         ));
     }
-    let partial_name = OsString::from(format!(".fileblade-partial-{}", Uuid::new_v4().simple()));
+    let partial_name = OsString::from(format!(".filetree-partial-{}", Uuid::new_v4().simple()));
     mkdirat(
         &destination_parent.directory,
         &partial_name,

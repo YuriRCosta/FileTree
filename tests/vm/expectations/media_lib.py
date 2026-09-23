@@ -23,7 +23,7 @@ def ipc(target, *args):
 
 
 def control(*args):
-    return ipc('data-goblin.fileblade.control', *args)
+    return ipc('yuricosta.filetree.control', *args)
 
 
 def probe(*args):

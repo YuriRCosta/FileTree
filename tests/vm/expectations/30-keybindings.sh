@@ -7,8 +7,8 @@ open_left
 goto_root "$ROOT_DIR"
 focus_tree
 keymap=$(field keybindingsPath)
-[[ $keymap == /home/omarchy/.config/omarchy/fileblade/keybindings.json ]] || { fail harness "keymap path" "$keymap"; summary; }
-backup=$(guest "mktemp -d /home/omarchy/.config/omarchy/fileblade/.keybindings-test.XXXXXX") || { fail harness "keymap backup" "could not create backup directory"; summary; }
+[[ $keymap == /home/omarchy/.config/omarchy/filetree/keybindings.json ]] || { fail harness "keymap path" "$keymap"; summary; }
+backup=$(guest "mktemp -d /home/omarchy/.config/omarchy/filetree/.keybindings-test.XXXXXX") || { fail harness "keymap backup" "could not create backup directory"; summary; }
 guest "if test -e '$keymap'; then cp -- '$keymap' '$backup/original'; fi"
 restore_keymap() {
   guest "if test -f '$backup/original'; then cp -- '$backup/original' '$keymap'; else rm -f -- '$keymap'; fi"
@@ -60,12 +60,12 @@ write_keys '{}'
 expect E-30-03 "fixing the config clears the error" keybindingsError ""
 write_keys "$custom"
 for module in git memory skills hooks mcp; do
-  extension="data-goblin.fileblade-$module"
+  extension="yuricosta.filetree-$module"
   if ! guest "test -f /home/omarchy/.config/omarchy/plugins/$extension/manifest.json"; then
     pending E-30-04 "$module inherits tree keys" "extension not installed in this guest"
     continue
   fi
-  guest "$GUEST_PLUGIN/fileblade blade set right $extension/$module" >/dev/null
+  guest "$GUEST_PLUGIN/filetree blade set right $extension/$module" >/dev/null
   ctl openBlade right
   ctl focusBlade right
   sleep 3
@@ -74,7 +74,7 @@ for module in git memory skills hooks mcp; do
   expect_contains E-30-04 "$module inherits the remapped help key and open binding" "$guide" "F3"
   "$OVM" key esc; sleep 1
 done
-guest "$GUEST_PLUGIN/fileblade blade set right notes" >/dev/null
+guest "$GUEST_PLUGIN/filetree blade set right notes" >/dev/null
 ctl focusBlade left
 focus_tree
 guest "rm -- '$keymap'"; sleep 2

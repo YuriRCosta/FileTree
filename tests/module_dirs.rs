@@ -32,7 +32,7 @@ impl Homes {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let root = std::env::temp_dir().join(format!(
-            "fileblade-module-dirs-{name}-{}",
+            "filetree-module-dirs-{name}-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&root);
@@ -49,11 +49,11 @@ impl Homes {
     }
 
     fn state(&self, name: &str) -> PathBuf {
-        self.root.join("state/omarchy/fileblade/modules").join(name)
+        self.root.join("state/omarchy/filetree/modules").join(name)
     }
 
     fn config(&self, name: &str) -> PathBuf {
-        self.root.join("config/omarchy/fileblade/config").join(name)
+        self.root.join("config/omarchy/filetree/config").join(name)
     }
 }
 
@@ -110,7 +110,7 @@ fn ensure_creates_both_private_directories_and_is_idempotent() {
     assert_eq!(mode(&homes.state(name)), 0o700);
     assert_eq!(mode(&homes.config(name)), 0o700);
     assert!(
-        !homes.root.join("config/omarchy/fileblade/modules").exists(),
+        !homes.root.join("config/omarchy/filetree/modules").exists(),
         "config never lands in the user-module scan root"
     );
     let second = fileblade::module_dirs::ensure("data-goblin.blade-example/clock").unwrap();

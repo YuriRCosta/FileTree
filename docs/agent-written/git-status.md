@@ -21,9 +21,9 @@ Choices persist across restarts. Disabling every field restores the normal colum
 The same selection is available from the CLI:
 
 ```sh
-fileblade git-summary branch worktree ahead behind modified added untracked deleted renamed copied type_changed conflicted
-fileblade git-summary branch modified untracked
-fileblade git-summary
+filetree git-summary branch worktree ahead behind modified added untracked deleted renamed copied type_changed conflicted
+filetree git-summary branch modified untracked
+filetree git-summary
 ```
 
 The last command hides the summary. Changing display preferences does not
@@ -34,8 +34,8 @@ change Git data, sorting, staging, or repository contents.
 The Switch branch popup on the footer branch name starts with `Expand into
 Branches`, which opens the Branches module as a tab beside Properties, wherever
 Properties sits; without a Properties slot it takes its own slot under Files at
-about a third of the height. `fileblade branches` opens or focuses it, `fileblade branches close`
-removes it, and `fileblade branches list [-o json]` prints the same document
+about a third of the height. `filetree branches` opens or focuses it, `filetree branches close`
+removes it, and `filetree branches list [-o json]` prints the same document
 in the terminal. First-use layouts include Branches as the second tab behind
 Properties, with Properties active. Saved layouts are preserved, including
 when Branches has been dismissed. It also appears in Add module.

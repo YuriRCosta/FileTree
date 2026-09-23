@@ -7,7 +7,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn thumbnail(path: &Path, cache: &Path) -> Value {
-    let result = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let result = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .env("XDG_CACHE_HOME", cache)
         .args([
             "_backend",

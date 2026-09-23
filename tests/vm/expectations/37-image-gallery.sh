@@ -2,11 +2,11 @@
 source "$(dirname "$0")/lib.sh"
 
 require_guest
-GALLERY_STATE=${GALLERY_STATE:-$(guest 'mktemp -d "$XDG_RUNTIME_DIR/fileblade-gallery.XXXXXX"')}
+GALLERY_STATE=${GALLERY_STATE:-$(guest 'mktemp -d "$XDG_RUNTIME_DIR/filetree-gallery.XXXXXX"')}
 GALLERY_KEEP=${GALLERY_KEEP:-0}
-PROBE=fileblade.gallery-test
+PROBE=filetree.gallery-test
 sequence=0
-gallery_log_dir=${GALLERY_LOG_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/fileblade-gallery-log.XXXXXX")}
+gallery_log_dir=${GALLERY_LOG_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/filetree-gallery-log.XXXXXX")}
 
 gallery() { "$OVM" ipc "$PROBE.${1:-blade}" status 2>/dev/null; }
 gallery_restart() {
@@ -51,7 +51,7 @@ click_tile() {
 drag_gallery() {
   local start_x=$1 start_y=$2 end_x=$3 end_y=$4 name=$5
   guest "sed 's/START_X/$start_x/g; s/START_Y/$start_y/g; s/END_X/$end_x/g; s/END_Y/$end_y/g' $GUEST_PLUGIN/tests/vm/image-gallery-drag.toml > $(printf '%q' "$GALLERY_STATE")/drag.toml"
-  guest "democtl record $(printf '%q' "$GALLERY_STATE")/drag.toml --out $(printf '%q' "$GALLERY_STATE")/$name" > "$gallery_log_dir/fileblade-gallery-$name.log" 2>&1 &
+  guest "democtl record $(printf '%q' "$GALLERY_STATE")/drag.toml --out $(printf '%q' "$GALLERY_STATE")/$name" > "$gallery_log_dir/filetree-gallery-$name.log" 2>&1 &
   drag_pid=$!
 }
 key_gallery() { "$OVM" key "$1"; sleep 0.8; }
@@ -145,7 +145,7 @@ rail_end=$(gallery | jq -r '.rail.y + .rail.height - 10 | floor')
 drag_gallery "$rail_x" "$rail_y" "$rail_x" "$rail_end" timeline
 sleep 3
 observe E-37-05 'drag timeline' 'month pill remains engaged while scrolling' '.rail.engaged and .rail.pill != "" and .scroll > 0'
-wait "$drag_pid" || fail harness "virtual pointer recorder" "see fileblade-gallery recorder log"
+wait "$drag_pid" || fail harness "virtual pointer recorder" "see filetree-gallery recorder log"
 observe E-37-05 'release timeline at bottom' 'thumb reaches the bottom of its track' '(.rail.thumbY + .rail.thumbLength - .rail.trackHeight - 8 | fabs) < 12'
 ctl focusBlade left
 key_gallery home
@@ -158,7 +158,7 @@ expect E-37-02 'virtual pointer image drag reaches the wheel controller' dropWhe
 "$OVM" shot flint-E-37-02-drag >/dev/null
 "$OVM" key esc
 "$OVM" release spc
-wait "$drag_pid" || fail harness "virtual pointer recorder" "see fileblade-gallery recorder log"
+wait "$drag_pid" || fail harness "virtual pointer recorder" "see filetree-gallery recorder log"
 expect E-37-02 'cancel drag clears the wheel' dropWheel.dragging false
 read -r bar_x bar_y < <(gallery bar | jq -r '.point | "\(.x) \(.y)"')
 "$OVM" mouse click "$bar_x" "$bar_y"

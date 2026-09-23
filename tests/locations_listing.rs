@@ -21,7 +21,7 @@ fn descriptor(path: &Path, id: &str) -> locations::Descriptor {
 fn request(id: &str, generation: &str, arguments: &[&str]) -> Value {
     let command = backend::parse(
         [
-            "fileblade",
+            "filetree",
             "list",
             "--location",
             id,

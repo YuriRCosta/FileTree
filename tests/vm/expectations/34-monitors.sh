@@ -5,7 +5,7 @@ require_guest
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)
 EVIDENCE=$REPO/.claude/monitor-acceptance
 mkdir -p "$EVIDENCE"
-secondary=FILEBLADE-TEST
+secondary=FILETREE-TEST
 primary=$("$OVM" hypr monitors | jq -r '.[0].name')
 case_dir=""
 created_output=0
@@ -23,13 +23,13 @@ blades() { "$OVM" ipc "$PLUGIN" blades; }
 owner() { status | jq -r --arg edge "$1" '.bladeScreens[$edge]'; }
 focused_monitor() { "$OVM" hypr monitors | jq -r '.[] | select(.focused) | .name'; }
 layers_on() {
-  "$OVM" hypr layers | jq --arg screen "$1" --arg ns "omarchy-fileblade-$2" \
+  "$OVM" hypr layers | jq --arg screen "$1" --arg ns "omarchy-filetree-$2" \
     '[.[$screen] | .. | objects | select(.namespace? == $ns)] | length'
 }
 layer_shape() {
   "$OVM" hypr layers | jq -c --arg a "$primary" --arg b "$secondary" \
     '[[$a,$b][] as $screen | ["left","right"][] as $edge |
-      [.[$screen] | .. | objects | select(.namespace? == ("omarchy-fileblade-" + $edge))] | length]'
+      [.[$screen] | .. | objects | select(.namespace? == ("omarchy-filetree-" + $edge))] | length]'
 }
 zones() {
   "$OVM" hypr monitors | jq -c --arg a "$primary" --arg b "$secondary" \
@@ -133,10 +133,10 @@ trap 'exit 130' INT TERM
 [[ $("$OVM" hypr monitors | jq length) == 1 ]] || abort "isolated setup" "start with exactly one output"
 status | jq -e 'has("bladeScreens") and has("monitorLock")' >/dev/null \
   || abort "candidate IPC" "invocation-mode status fields missing"
-case_dir=$(guest 'mktemp -d /tmp/fileblade-monitors.XXXXXX')
-[[ $case_dir == /tmp/fileblade-monitors.* ]] || abort "temporary directory" "invalid path"
+case_dir=$(guest 'mktemp -d /tmp/filetree-monitors.XXXXXX')
+[[ $case_dir == /tmp/filetree-monitors.* ]] || abort "temporary directory" "invalid path"
 guest "cp ~/.config/hypr/bindings.lua $case_dir/bindings.lua; cp $(printf '%q' "$layout_path") $case_dir/blades.json"
-guest "cat $GUEST_PLUGIN/examples/fileblade-bindings.lua >> ~/.config/hypr/bindings.lua; hyprctl reload" >/dev/null
+guest "cat $GUEST_PLUGIN/examples/filetree-bindings.lua >> ~/.config/hypr/bindings.lua; hyprctl reload" >/dev/null
 equal harness "guest bindings parse cleanly" "$(guest 'hyprctl configerrors')" ""
 dock_blades
 close_edges
@@ -205,9 +205,9 @@ await_shape E-34-04 "locked left opens on B when invoked from A" '[0,0,1,0]'
 input_reaches E-34-04 "$primary" a
 "$OVM" key shift-meta_l-b
 await_shape E-34-04 "locked right also opens on B" '[0,0,1,1]'
-equal E-34-04 "an unknown lock is rejected" "$(reply setMonitorMode locked FILEBLADE-MISSING)" unknown-monitor
+equal E-34-04 "an unknown lock is rejected" "$(reply setMonitorMode locked FILETREE-MISSING)" unknown-monitor
 equal E-34-04 "invalid lock preserves the chosen output" "$(field monitorLock)" "$secondary"
-equal E-34-04 "unknown explicit focus does not fall back" "$(reply focusBladeOn left FILEBLADE-MISSING)" unknown-monitor
+equal E-34-04 "unknown explicit focus does not fall back" "$(reply focusBladeOn left FILETREE-MISSING)" unknown-monitor
 equal E-34-04 "ineligible explicit focus is rejected" "$(reply focusBladeOn left "$primary")" no-screen
 capture locked-b
 close_edges

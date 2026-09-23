@@ -1,6 +1,6 @@
 use super::*;
 
-pub const SOCKET_KEY: &str = "data-goblin.fileblade/action";
+pub const SOCKET_KEY: &str = "yuricosta.filetree/action";
 pub const MAX_ACTIONS_PER_SOURCE: usize = 16;
 pub const MAX_ARGV: usize = 32;
 pub const MAX_TIMEOUT_SECONDS: u64 = 900;

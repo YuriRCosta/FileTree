@@ -213,7 +213,7 @@ fn detached_reaper() -> AppResult<mpsc::SyncSender<Child>> {
     }
     let (sender, receiver) = mpsc::sync_channel(MAX_DETACHED_CHILDREN);
     thread::Builder::new()
-        .name("fileblade-child-reaper".to_string())
+        .name("filetree-child-reaper".to_string())
         .spawn(move || reap_detached(receiver))
         .map_err(|error| AppError::command(format!("could not start child reaper: {error}")))?;
     *reaper = Some(sender.clone());

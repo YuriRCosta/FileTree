@@ -8,8 +8,8 @@ The containing settings document keeps its existing version. The wheel member
 has its own `version: 1`. An absent member uses the standard wheel.
 
 The current plugin profile stores this document at
-`$XDG_CONFIG_HOME/omarchy/fileblade/settings.json` (normally
-`~/.config/omarchy/fileblade/settings.json`). The native profile uses the
+`$XDG_CONFIG_HOME/omarchy/filetree/settings.json` (normally
+`~/.config/omarchy/filetree/settings.json`). The native profile uses the
 preferences path selected by the native runtime. Edit the existing document,
 preserving its other members. Ordinary preference saves preserve unknown
 members, including unknown fields inside `dropWheel`.
@@ -147,7 +147,7 @@ Terminal and multiplexer transport pass a fixed launcher with byte-encoded argum
 and working directory. That launcher decodes the payload and executes the
 argument array; the configured command never becomes shell program text.
 The fixed decoder is the FileTree binary itself, invoked by absolute path as
-`fileblade exec-hex`, so no interpreter and no PATH entry is required.
+`filetree exec-hex`, so no interpreter and no PATH entry is required.
 Literal file URIs, empty arguments and non-UTF-8 path bytes retain their
 meaning in every run mode. Ambiguous or stale targets are refused. Custom
 commands and custom built-in references are resolved from current settings
@@ -301,7 +301,7 @@ screenshots carry expectation numbers; a screenshot does not turn a pending
 assertion into a pass.
 
 For installed-native qualification, delivery owns `tests/vm/native-ovm`
-(R64). Set `OVM` to that executable, `FILEBLADE_SHAPE=native`, and `SKIP_PUSH=1`
+(R64). Set `OVM` to that executable, `FILETREE_SHAPE=native`, and `SKIP_PUSH=1`
 against the prepared installation. Shared `lib.sh` helpers select the
 control/backend route (R65); the adapter forwards the published commands.
 The individual scenarios contain no native routing branch. Native

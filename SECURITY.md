@@ -56,7 +56,7 @@ publisher's checksum, because the bundle is a reproducible build:
 
 ```bash
 git clone https://github.com/YuriRCosta/FileTree
-cd fileblade && git checkout <commit>
+cd filetree && git checkout <commit>
 tools/bundle verify
 ```
 
@@ -64,7 +64,7 @@ That rebuilds the backend with the toolchain pinned in `rust-toolchain.toml`
 against `x86_64-unknown-linux-musl`, with locked dependencies, static linking,
 no stripping, and the checkout, cargo home and target directories remapped out
 of the binary, then compares the result byte for byte with the committed
-`fileblade-bin` and fails if they differ. The build does not depend on where
+`filetree-bin` and fails if they differ. The build does not depend on where
 the repository sits or which machine runs it, so a matching rebuild shows the
 shipped bytes are that commit's source. What a user installs is the binary
 inside the cloned commit; the release asset is a copy of the same bytes.
@@ -118,22 +118,22 @@ manager. When `zoxide` is present, FileTree records opened directories with
 `zoxide add`, updating zoxide's normal per-user database.
 Eligible image previews load automatically on selection and accept only regular,
 non-symlink JPEG, PNG, or WebP files up to 16 MiB. The selected file is never
-decoded by the shell: a short-lived `fileblade` child process renders a bounded
-PNG thumbnail into `~/.cache/fileblade/thumbnails/`, and the shell displays
+decoded by the shell: a short-lived `filetree` child process renders a bounded
+PNG thumbnail into `~/.cache/filetree/thumbnails/`, and the shell displays
 that. Other images can still be opened in their normal external app.
 
 Removal deletes the plugin checkout but deliberately preserves your layout,
 settings, history, audit log, and disabled-module bins under
-`~/.config/omarchy/fileblade/`, `~/.local/state/omarchy/fileblade/`, and
-`~/.local/share/fileblade/`. Delete those directories manually only if you also
+`~/.config/omarchy/filetree/`, `~/.local/state/omarchy/filetree/`, and
+`~/.local/share/filetree/`. Delete those directories manually only if you also
 want to erase that data. Companions also retain private recovery under
-`$XDG_STATE_HOME/fileblade/mcp-recovery` and `hooks-recovery` (normally beneath
+`$XDG_STATE_HOME/filetree/mcp-recovery` and `hooks-recovery` (normally beneath
 `~/.local/state/`). Uninstall preserves these copies too. Files in the normal Freedesktop Trash are not
 owned by the plugin and are never removed during uninstall.
 
 ## Resident backend boundary
 
-The QML service creates one child process, `fileblade serve`, with anonymous
+The QML service creates one child process, `filetree serve`, with anonymous
 stdin and stdout pipes. The version-1 protocol is newline-delimited JSON. It
 does not bind a Unix/TCP socket, create a FIFO, write a protocol log, or publish
 a shared endpoint. Payloads sent by QML, including artifact documents, travel
@@ -154,7 +154,7 @@ Anonymous pipes prevent an unrelated process from discovering and connecting
 to an ambient FileTree backend service. They do not provide encryption or
 protection from a process already able to debug/read the same-user shell or
 child, a compromised plugin, or a compromised desktop session. The public
-`fileblade` CLI also necessarily exposes its own command-line arguments through
+`filetree` CLI also necessarily exposes its own command-line arguments through
 ordinary process metadata.
 
 Live public commands use bounded Quickshell IPC. Local backend-backed public
@@ -163,8 +163,8 @@ output budgets; they do not place a second backend payload in a spawned argv.
 The hidden `_backend` compatibility surface is not a security boundary or a
 stable public API.
 
-Quickshell IPC is split between the read-only `data-goblin.fileblade` target and the
-mutating `data-goblin.fileblade.control` target. Neither status surface serializes
+Quickshell IPC is split between the read-only `yuricosta.filetree` target and the
+mutating `yuricosta.filetree.control` target. Neither status surface serializes
 complete blade module state. The control target accepts file operations directly;
 permanent Trash deletion still requires an explicit `--yes` argument through the
 public CLI.
@@ -254,7 +254,7 @@ completed work. A failure response is not a general promise that nothing changed
 Recovery sweeps private operation intents at backend startup. Each operation
 holds a kernel lock on its published intent; recovery skips locked intents
 and holds the same lock while recovering abandoned work. Quarantine refuses
-to move a source if it cannot publish its intent. `fileblade doctor` uses a
+to move a source if it cannot publish its intent. `filetree doctor` uses a
 `serve --no-recover` handshake and does not recover or audit operations.
 
 Undo of a copy or create checks the destination's device and inode, file type,
@@ -348,7 +348,7 @@ concurrency cap, and an audit line. They are unsandboxed, like the plugin's
 QML, but they run outside the shell process. The backend re-reads the manifest
 at run time, so neither the UI nor an IPC caller can supply a command vector.
 Actions that declare `confirm` need an explicit approval, in the menu or with
-`--yes`. Your own actions under `~/.config/omarchy/fileblade/actions/` may name
+`--yes`. Your own actions under `~/.config/omarchy/filetree/actions/` may name
 a program on `PATH`; a plugin's may not.
 
 ## QML and extensions
@@ -362,12 +362,12 @@ provider is enabled.
 Selecting a regular, non-symlink JPEG, PNG, or WebP file no larger than 16 MiB
 automatically renders a size-constrained inline preview out of process. Other
 images open through an external application. The resident backend spawns a
-one-shot `fileblade _backend thumbnail-render` child for each new file; the
+one-shot `filetree _backend thumbnail-render` child for each new file; the
 child caps its own address space at 512 MiB, reads the file without following
 links, refuses anything whose bytes are not PNG, JPEG, or WebP, rejects sources
 wider or taller than 16384 pixels or above 64 megapixels, decodes under the
 image crate's allocation limits, and writes a PNG of at most 1024 pixels per
-edge to `~/.cache/fileblade/thumbnails/` keyed by path, stat fingerprint, and
+edge to `~/.cache/filetree/thumbnails/` keyed by path, stat fingerprint, and
 size. The shell only ever hands Qt that PNG. A crash, timeout, or decoder error
 in the child ends that one render and shows "Preview unavailable"; the shell
 and the resident backend are not affected. Before the child is even started,

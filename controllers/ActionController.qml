@@ -15,7 +15,7 @@ Item {
   property string listError: ""
   property int generation: 0
   property int serial: 0
-  readonly property string socketKey: "data-goblin.fileblade/action"
+  readonly property string socketKey: "yuricosta.filetree/action"
   readonly property int maximumProviders: 128
   readonly property int maximumResults: 32
   readonly property int maximumLiveRuns: 4

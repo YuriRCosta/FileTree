@@ -26,7 +26,7 @@ fi
 
 source_id() {
   {
-    printf '%s\0' Cargo.toml Cargo.lock rust-toolchain.toml tools/bundle tools/notices assets/fileblade-logo.png
+    printf '%s\0' Cargo.toml Cargo.lock rust-toolchain.toml tools/bundle tools/notices assets/filetree-logo.png
     find src crates -type f -print0
   } | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1
 }
@@ -35,9 +35,9 @@ fail() { printf 'bundle: %s\n' "$*" >&2; exit 1; }
 
 bundle_source=$(source_id)
 if [[ $bundle_mode == verify ]]; then
-  [[ -x $bundle_output/fileblade-bin && -f $bundle_output/fileblade-bin.sha256 && -f $bundle_output/fileblade-bin.source ]] || fail 'missing bundle; run tools/bundle build'
-  (cd -- "$bundle_output" && sha256sum --strict --check fileblade-bin.sha256) || fail 'bundled binary checksum differs'
-  [[ $(<"$bundle_output/fileblade-bin.source") == "$bundle_source" ]] || fail 'native source changed; run tools/bundle build'
+  [[ -x $bundle_output/filetree-bin && -f $bundle_output/filetree-bin.sha256 && -f $bundle_output/filetree-bin.source ]] || fail 'missing bundle; run tools/bundle build'
+  (cd -- "$bundle_output" && sha256sum --strict --check filetree-bin.sha256) || fail 'bundled binary checksum differs'
+  [[ $(<"$bundle_output/filetree-bin.source") == "$bundle_source" ]] || fail 'native source changed; run tools/bundle build'
 fi
 
 command -v rustup >/dev/null || fail 'maintainer builds require rustup and the pinned rust-toolchain.toml toolchain'
@@ -47,12 +47,12 @@ bundle_host=$(rustup run "$bundle_version" rustc -vV | sed -n 's/^host: //p')
 [[ -d $bundle_sysroot/lib/rustlib/$bundle_target/lib ]] || fail "the pinned toolchain lacks target $bundle_target; provision it before building"
 bundle_linker="$bundle_sysroot/lib/rustlib/$bundle_host/bin/rust-lld"
 [[ -x $bundle_linker ]] || fail 'the pinned toolchain has no rust-lld linker'
-bundle_work=$(mktemp -d "${FILEBLADE_BUNDLE_TMPDIR:-${TMPDIR:-/tmp}}/fileblade-bundle.XXXXXX")
+bundle_work=$(mktemp -d "${FILETREE_BUNDLE_TMPDIR:-${TMPDIR:-/tmp}}/filetree-bundle.XXXXXX")
 bundle_staged=""
 trap 'rm -rf -- "$bundle_work"; [[ -z $bundle_staged ]] || rm -f -- "$bundle_staged"' EXIT
 bundle_cargo_home=${CARGO_HOME:-${HOME}/.cargo}
 bundle_flags=(
-  "--remap-path-prefix=$bundle_root=fileblade"
+  "--remap-path-prefix=$bundle_root=filetree"
   "--remap-path-prefix=$bundle_cargo_home=cargo"
   "--remap-path-prefix=$bundle_work=target"
   '-Ctarget-feature=+crt-static'
@@ -61,35 +61,35 @@ bundle_flags=(
 bundle_encoded=$(IFS=$'\x1f'; printf '%s' "${bundle_flags[*]}")
 bundle_linker_key=CARGO_TARGET_${bundle_target^^}_LINKER
 bundle_linker_key=${bundle_linker_key//-/_}
-bundle_args=(build --release --locked --target "$bundle_target" --bin fileblade)
-[[ ${FILEBLADE_OFFLINE:-0} != 1 ]] || bundle_args+=(--offline)
+bundle_args=(build --release --locked --target "$bundle_target" --bin filetree)
+[[ ${FILETREE_OFFLINE:-0} != 1 ]] || bundle_args+=(--offline)
 env -u RUSTFLAGS -u RUSTC -u RUSTC_WRAPPER -u RUSTC_WORKSPACE_WRAPPER \
   CARGO_TARGET_DIR="$bundle_work" CARGO_ENCODED_RUSTFLAGS="$bundle_encoded" \
   "$bundle_linker_key=$bundle_linker" \
   CARGO_PROFILE_RELEASE_STRIP=none \
   rustup run "$bundle_version" cargo "${bundle_args[@]}"
-bundle_binary="$bundle_work/$bundle_target/release/fileblade"
+bundle_binary="$bundle_work/$bundle_target/release/filetree"
 [[ $(source_id) == "$bundle_source" ]] || fail 'source changed during the build; retry after edits finish'
 readelf -h "$bundle_binary" | grep -Fq "$bundle_machine" || fail "not a $bundle_target ELF"
 if readelf -l "$bundle_binary" | grep -q INTERP || readelf -d "$bundle_binary" | grep -q NEEDED; then
   fail 'bundle is dynamically linked'
 fi
 if [[ ${bundle_host%%-*} == ${bundle_target%%-*} ]]; then
-  [[ $("$bundle_binary" --version) == "fileblade $(jq -r .version manifest.json)" ]] || fail 'backend and manifest versions differ'
+  [[ $("$bundle_binary" --version) == "filetree $(jq -r .version manifest.json)" ]] || fail 'backend and manifest versions differ'
 else
   printf 'Cross-built %s; execution and backend version require qualification on that architecture\n' "$bundle_target"
 fi
 tools/notices "$bundle_mode" "$bundle_target" "$bundle_output/THIRD_PARTY_NOTICES.html"
 
 if [[ $bundle_mode == verify ]]; then
-  cmp -- "$bundle_binary" "$bundle_output/fileblade-bin" || fail 'bundle is not byte-for-byte reproducible; rebuild with the pinned toolchain'
+  cmp -- "$bundle_binary" "$bundle_output/filetree-bin" || fail 'bundle is not byte-for-byte reproducible; rebuild with the pinned toolchain'
   printf '%s\n' 'Bundled backend: source, checksum, static linkage and reproducible build verified'
 else
-  bundle_staged=$(mktemp "$bundle_output/.fileblade-bin.XXXXXX")
+  bundle_staged=$(mktemp "$bundle_output/.filetree-bin.XXXXXX")
   install -m 755 -- "$bundle_binary" "$bundle_staged"
-  mv -f -- "$bundle_staged" "$bundle_output/fileblade-bin"
+  mv -f -- "$bundle_staged" "$bundle_output/filetree-bin"
   bundle_staged=""
-  (cd -- "$bundle_output" && sha256sum fileblade-bin > fileblade-bin.sha256)
-  printf '%s\n' "$bundle_source" > "$bundle_output/fileblade-bin.source"
-  printf '%s\n' 'Bundled backend rebuilt; include fileblade-bin, fileblade-bin.sha256 and fileblade-bin.source with the source change'
+  (cd -- "$bundle_output" && sha256sum filetree-bin > filetree-bin.sha256)
+  printf '%s\n' "$bundle_source" > "$bundle_output/filetree-bin.source"
+  printf '%s\n' 'Bundled backend rebuilt; include filetree-bin, filetree-bin.sha256 and filetree-bin.source with the source change'
 fi

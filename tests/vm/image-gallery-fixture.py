@@ -8,7 +8,7 @@ consumer = Path.home() / '.config/omarchy/plugins/kurt.goblin-images'
 state = Path(sys.argv[2])
 module = consumer / 'blades/Module.qml'
 config = Path.home() / '.config/omarchy/shell.json'
-layout = Path.home() / '.config/omarchy/fileblade/blades.json'
+layout = Path.home() / '.config/omarchy/filetree/blades.json'
 
 if sys.argv[1] == 'prepare':
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -16,7 +16,7 @@ if sys.argv[1] == 'prepare':
         shutil.copy2(path, state / name)
     manifest_path = consumer / 'manifest.json'
     manifest = json.loads(manifest_path.read_text())
-    icons = manifest['extensions']['data-goblin.fileblade/blade']
+    icons = manifest['extensions']['yuricosta.filetree/blade']
     icon = dict(icons[0], id='gallery-icon-test', name='Gallery icon test')
     icons.append(icon)
     manifest_path.write_text(json.dumps(manifest))
@@ -30,7 +30,7 @@ if sys.argv[1] == 'prepare':
     module.write_text(source[:source.rfind('}')] + fragment + '}\n')
     widget = consumer / 'GoblinBarWidget.qml'
     source = widget.read_text()
-    fragment = '\n  Loader { source: Qt.resolvedUrl("../data-goblin.fileblade/tests/vm/ImageGalleryProbe.qml"); onLoaded: item.subject = widget }\n'
+    fragment = '\n  Loader { source: Qt.resolvedUrl("../yuricosta.filetree/tests/vm/ImageGalleryProbe.qml"); onLoaded: item.subject = widget }\n'
     widget.write_text(source[:source.rfind('}')] + fragment + '}\n')
     root = Path.home() / '.claude/skills/goblin-images'
     sample = next(root.glob('images/**/*.png'))

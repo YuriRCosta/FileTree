@@ -179,7 +179,7 @@ pub fn quarantine_path(path: &Path) -> io::Result<QuarantinedEntry> {
 }
 
 pub fn quarantine_resolved(parent: ResolvedParent) -> io::Result<QuarantinedEntry> {
-    let staging_name = OsString::from(format!(".fileblade-stage-{}", Uuid::new_v4().simple()));
+    let staging_name = OsString::from(format!(".filetree-stage-{}", Uuid::new_v4().simple()));
     mkdirat(
         &parent.directory,
         &staging_name,

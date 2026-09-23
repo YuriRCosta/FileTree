@@ -279,7 +279,7 @@ ShellRoot {
   }
 
   IpcHandler {
-    target: "fileblade.wheel-icon-probe"
+    target: "filetree.wheel-icon-probe"
     function highlight(index: int): void { controller.highlighted = index }
   }
 }
@@ -347,7 +347,7 @@ fi
 
 capture_shot() {
   local index=$1 name=$2 path
-  guest "qs ipc -n -p '$PROBE_PATH' call -- fileblade.wheel-icon-probe highlight $index" >/dev/null
+  guest "qs ipc -n -p '$PROBE_PATH' call -- filetree.wheel-icon-probe highlight $index" >/dev/null
   sleep .6
   path=$("$OVM" shot "$name" 2>/dev/null | tail -n 1 || true)
   if [[ -n $path ]]; then

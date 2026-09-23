@@ -7,7 +7,7 @@ TestCase {
   name: "OperationsCollisions"
   QtObject {
     id: service
-    property string cliPath: "/fileblade"
+    property string cliPath: "/filetree"
     property var calls: []
     function backendCommand(kind) { return [cliPath, "_backend", kind] }
     function backendRequest(kind, arguments, generation, callback) {

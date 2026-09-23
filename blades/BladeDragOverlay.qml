@@ -39,7 +39,7 @@ PanelWindow {
     right: true
   }
 
-  WlrLayershell.namespace: "omarchy-fileblade-drag"
+  WlrLayershell.namespace: "omarchy-filetree-drag"
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 

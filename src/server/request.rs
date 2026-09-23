@@ -287,7 +287,7 @@ pub(super) fn parse_request(object: &Map<String, Value>) -> AppResult<Request> {
         Some(_) => return Err(AppError::invalid("request arguments must be an array")),
     };
     let cli = backend::parse_cli(
-        ["fileblade _backend".to_string(), command_name.to_string()]
+        ["filetree _backend".to_string(), command_name.to_string()]
             .into_iter()
             .chain(arguments.iter().cloned()),
     )

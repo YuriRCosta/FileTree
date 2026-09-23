@@ -898,7 +898,7 @@ FocusScope {
     anchors.top: parent.top
     preferredHeight: header.integrated ? 0 : Style.space(34)
     context: root.context
-    title: "FILEBLADE"
+    title: "FILETREE"
     reservedLeft: root.context ? root.context.cornerReserveLeft : 0
     reservedRight: root.context ? root.context.cornerReserveRight : 0
     status: treeKeys.hint !== "" ? treeKeys.hint : (controller.modeBadge === "header" ? root.editorMode : "")

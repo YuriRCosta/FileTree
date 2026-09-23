@@ -71,7 +71,7 @@ Item {
 
   PersistentProperties {
     id: persisted
-    reloadableId: service.chooserSession ? "fileblade-chooser-state-" + service.chooserSession.handle : "kurt-filetree-layout"
+    reloadableId: service.chooserSession ? "filetree-chooser-state-" + service.chooserSession.handle : "kurt-filetree-layout"
     property bool hydrated: false
     property var retainedFields: ({})
     property bool showHidden: true
@@ -687,7 +687,7 @@ Item {
     catch (e) { state = null }
     if (!state || typeof state !== "object" || Array.isArray(state)) {
       stateDegraded = true
-      console.warn("fileblade: the state document exists but could not be read;"
+      console.warn("filetree: the state document exists but could not be read;"
         + " settings stay in memory for this session and are not written over it")
       return ({})
     }
@@ -815,7 +815,7 @@ Item {
   function receiveStateRead(response) {
     if (ready && !stateRereadPending) return
     var plan = StateDocument.hydrationPlan(response)
-    if (plan.warning) console.warn("data-goblin.fileblade: " + plan.warning)
+    if (plan.warning) console.warn("yuricosta.filetree: " + plan.warning)
     stateWritable = plan.writable
     stateRereadPending = !plan.apply && plan.retry
     if (plan.apply) {

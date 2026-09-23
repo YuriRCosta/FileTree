@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source "$(dirname "$0")/lib.sh"
 
-if [[ ${FILEBLADE_SHAPE:-plugin} == native ]]; then
+if [[ ${FILETREE_SHAPE:-plugin} == native ]]; then
   fail harness "native fixture contract" "R65 needs integrated native routing and an isolated fixture strategy; this script only instruments staged plugin sources"
   summary
 fi
@@ -9,7 +9,7 @@ require_guest
 layout=$(field bladeLayoutPath)
 [[ $layout == /*/blades.json ]] || { fail E-36-01 "layout namespace" "$layout"; summary; }
 config=${layout%/*}
-backup=$(guest 'mktemp -d /tmp/fileblade-e36.XXXXXX') || exit 1
+backup=$(guest 'mktemp -d /tmp/filetree-e36.XXXXXX') || exit 1
 settings=$config/settings.json
 fixture_py=$(cat "$(dirname "$0")/../fixtures/36-cleanup.py")
 fixture_state() {
@@ -20,7 +20,7 @@ require_wait() {
   wait_for "$@" || { fail harness "wait for expected state" "$1"; [[ -z ${module:-} ]] || probe status; exit 1; }
 }
 
-probe() { "$OVM" ipc "fileblade.core-live.$module" "$@" 2>/dev/null; }
+probe() { "$OVM" ipc "filetree.core-live.$module" "$@" 2>/dev/null; }
 probe_bin() {
   local result
   result=$(probe bin "$@")
@@ -111,9 +111,9 @@ expect_missing E-36-03 "confirmed consent disappears" "$(screen_text)" "automati
 restart_checked never || exit 1
 expect E-36-03 "Never survives restart" trashRetentionDays 0
 expect_missing E-36-03 "saved answer is not asked again" "$(screen_text)" "automatically empty"
-expect_out E-36-03 "preferences retain schema and release metadata" "jq -r '(.version == 1) and (.filebladeVersion | type == \"string\")' $(printf '%q' "$settings")" true
-guest "$(printf '%q' "$GUEST_PLUGIN/fileblade") _backend keybindings-prepare" >/dev/null || exit 1
-expect_out E-36-03 "binding preparation records schema and release metadata" "jq -r '(.version == 1) and (.filebladeVersion | type == \"string\")' $(printf '%q' "$config/keybindings.json")" true
+expect_out E-36-03 "preferences retain schema and release metadata" "jq -r '(.version == 1) and (.filetreeVersion | type == \"string\")' $(printf '%q' "$settings")" true
+guest "$(printf '%q' "$GUEST_PLUGIN/filetree") _backend keybindings-prepare" >/dev/null || exit 1
+expect_out E-36-03 "binding preparation records schema and release metadata" "jq -r '(.version == 1) and (.filetreeVersion | type == \"string\")' $(printf '%q' "$config/keybindings.json")" true
 expect_out E-36-03 "custom keybindings are preserved" "jq -c .bindings $(printf '%q' "$config/keybindings.json")" '{"next":["n"]}'
 
 "$OVM" shot E-36-03-never >/dev/null
@@ -283,12 +283,12 @@ fixture_state updates || exit 1
 checkout="$backup/update-checkout"
 remote_head=$(guest "jq -r .source_head $backup/updates.json")
 objects_before=$(guest "git -C $checkout count-objects -v")
-guest "$(printf '%q' "$GUEST_PLUGIN/fileblade") _backend update-check --core t.plugin --repository t.plugin=$checkout > $backup/updates-clean.json" || exit 1
+guest "$(printf '%q' "$GUEST_PLUGIN/filetree") _backend update-check --core t.plugin --repository t.plugin=$checkout > $backup/updates-clean.json" || exit 1
 expect_out E-36-06 "update comparison stays unknown without upstream objects" "jq -r '.available and (.repositories[0].comparison_known == false) and (.repositories[0].behind == null) and (.repositories[0].subjects == [])' $backup/updates-clean.json" true
 expect_out E-36-06 "update check downloads no Git objects" "git -C $checkout count-objects -v" "$objects_before"
 expect_out E-36-06 "upstream commit remains absent locally" "git -C $checkout cat-file -e $remote_head 2>/dev/null || echo absent" absent
 guest "printf 'E36 modified checkout\n' > $checkout/Service.qml"
-guest "$(printf '%q' "$GUEST_PLUGIN/fileblade") _backend update-check --core t.plugin --repository t.plugin=$checkout > $backup/updates-dirty.json" || exit 1
+guest "$(printf '%q' "$GUEST_PLUGIN/filetree") _backend update-check --core t.plugin --repository t.plugin=$checkout > $backup/updates-dirty.json" || exit 1
 expect_out E-36-06 "modified checkout is skipped" "jq -r '.repositories[0].dirty and (.repositories[0].updatable == false)' $backup/updates-dirty.json" true
 expect_out E-36-06 "checking preserves local checkout edits" "cat $checkout/Service.qml" 'E36 modified checkout'
 "$OVM" shot E-36-06-update-check >/dev/null

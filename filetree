@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+launcher=$(readlink -f -- "${BASH_SOURCE[0]}")
+launcher_dir=$(cd -- "$(dirname -- "$launcher")" && pwd -P)
+
+candidates=()
+if [[ -n ${FILETREE_BINARY:-} ]]; then
+  candidates+=("$FILETREE_BINARY")
+fi
+if [[ $(uname -m) == x86_64 ]]; then
+  candidates+=("$launcher_dir/filetree-bin")
+fi
+candidates+=(
+  "$launcher_dir/bin/filetree"
+  "$launcher_dir/target/release/filetree"
+  "$launcher_dir/target/debug/filetree"
+  /usr/bin/filetree-bin
+)
+
+for candidate in "${candidates[@]}"; do
+  if [[ -f $candidate && -x $candidate && ! $candidate -ef $launcher ]]; then
+    exec -- "$candidate" "$@"
+  fi
+done
+
+printf '%s\n' 'filetree: no compatible backend found; reinstall the plugin, set FILETREE_BINARY, or install a package providing /usr/bin/filetree-bin' >&2
+exit 127

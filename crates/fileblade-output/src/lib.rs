@@ -73,7 +73,7 @@ impl Output {
 
     pub fn error(&self, message: &str) -> io::Result<()> {
         match self.format {
-            Format::Text => self.write_stderr(&format!("fileblade: {message}")),
+            Format::Text => self.write_stderr(&format!("filetree: {message}")),
             Format::Json => {
                 let encoded = serde_json::to_string(&serde_json::json!({
                     "ok": false,

@@ -9,7 +9,7 @@ mod isolated;
 
 fn request(arguments: &[&str]) -> Value {
     let command =
-        backend::parse(std::iter::once("fileblade").chain(arguments.iter().copied())).unwrap();
+        backend::parse(std::iter::once("filetree").chain(arguments.iter().copied())).unwrap();
     assert!(backend::mutating(&command));
     backend::dispatch(command, &AtomicBool::new(false), &mut |_| Ok(())).unwrap()
 }

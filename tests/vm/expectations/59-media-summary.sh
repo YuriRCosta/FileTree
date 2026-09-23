@@ -25,7 +25,7 @@ def probe(*args):
 
 
 def control(*args):
-    return ipc('data-goblin.fileblade.control', *args)
+    return ipc('yuricosta.filetree.control', *args)
 
 
 def state():
@@ -88,10 +88,10 @@ s = wait(lambda s: folder not in s['selected'])
 check('pointer range excludes its hidden root anchor at the local input boundary', len(s['selected']) == 1, s)
 probe('ordinaryChoose', 1)
 probe('treeAction', 'expand')
-wait(lambda s: any(r.get('depth') == 2 for r in json.loads(ipc('data-goblin.fileblade', 'tree', '20'))['entries']))
+wait(lambda s: any(r.get('depth') == 2 for r in json.loads(ipc('yuricosta.filetree', 'tree', '20'))['entries']))
 probe('treeAction', 'collapse-all')
 s = wait(lambda s: s['expanded'])
-tree = json.loads(ipc('data-goblin.fileblade', 'tree', '20'))['entries']
+tree = json.loads(ipc('yuricosta.filetree', 'tree', '20'))['entries']
 check('collapse-all retains the root and collapses child folders', s['expanded'] and not any(r.get('depth', 0) > 1 for r in tree) and any(r['path'].endswith('/nested') and not r['expanded'] for r in tree), tree)
 shot('repository')
 control('setBladeWidth', 'left', 280)

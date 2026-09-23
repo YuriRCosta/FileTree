@@ -263,7 +263,7 @@ FocusScope {
     asynchronous: false
     onStatusChanged: {
       if (status === Loader.Error)
-        console.warn("data-goblin.fileblade: blade module " + slot.moduleId + " failed to load")
+        console.warn("yuricosta.filetree: blade module " + slot.moduleId + " failed to load")
     }
   }
 

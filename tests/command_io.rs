@@ -79,11 +79,11 @@ fn rust_still_reports_exec_failure_and_preserves_native_command_setup() {
     let result = CommandSpec::new("sh")
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
-        .env("FILEBLADE_NATIVE_TEST", raw)
+        .env("FILETREE_NATIVE_TEST", raw)
         .cwd(directory.path())
         .args([
             std::ffi::OsStr::new("-c"),
-            std::ffi::OsStr::new("printf '%s\n%s\n%s' \"$PWD\" \"$FILEBLADE_NATIVE_TEST\" \"$1\""),
+            std::ffi::OsStr::new("printf '%s\n%s\n%s' \"$PWD\" \"$FILETREE_NATIVE_TEST\" \"$1\""),
             std::ffi::OsStr::new("sh"),
             raw,
         ])

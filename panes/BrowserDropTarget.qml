@@ -8,7 +8,7 @@ DropArea {
   required property var controller
   required property var rowItem
 
-  keys: ["fileblade-entry", "text/uri-list"]
+  keys: ["filetree-entry", "text/uri-list"]
   enabled: rowItem.dropAllowed
 
   function droppedPaths(drop) {

@@ -14,15 +14,15 @@ pub mod persistence;
 pub mod transport;
 
 pub fn native_config_root() -> PathBuf {
-    crate::paths::xdg_home("XDG_CONFIG_HOME", "~/.config").join("omarchy/fileblade")
+    crate::paths::xdg_home("XDG_CONFIG_HOME", "~/.config").join("omarchy/filetree")
 }
 
 pub fn native_recovery_root() -> PathBuf {
-    crate::paths::xdg_home("XDG_STATE_HOME", "~/.local/state").join("fileblade")
+    crate::paths::xdg_home("XDG_STATE_HOME", "~/.local/state").join("filetree")
 }
 
 pub fn native_extension_root() -> PathBuf {
-    crate::paths::xdg_home("XDG_CONFIG_HOME", "~/.config").join("fileblade/extensions")
+    crate::paths::xdg_home("XDG_CONFIG_HOME", "~/.config").join("filetree/extensions")
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -43,12 +43,12 @@ pub enum LeaseError {
 }
 
 pub fn selected_root() -> crate::AppResult<Option<PathBuf>> {
-    let Some(root) = std::env::var_os("FILEBLADE_NATIVE_STATE_ROOT") else {
+    let Some(root) = std::env::var_os("FILETREE_NATIVE_STATE_ROOT") else {
         return Ok(None);
     };
     let root = PathBuf::from(root);
     let expected =
-        crate::paths::xdg_home("XDG_STATE_HOME", "~/.local/state").join("omarchy/fileblade");
+        crate::paths::xdg_home("XDG_STATE_HOME", "~/.local/state").join("omarchy/filetree");
     let same = root == expected
         || fs::canonicalize(&root)
             .ok()

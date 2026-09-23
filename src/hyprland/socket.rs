@@ -117,7 +117,7 @@ pub(super) fn hypr_request(request: &str) -> AppResult<Vec<u8>> {
 }
 
 pub(super) fn command_socket() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("FILEBLADE_HYPR_SOCKET") {
+    if let Some(path) = std::env::var_os("FILETREE_HYPR_SOCKET") {
         let path = PathBuf::from(path);
         return path.is_absolute().then_some(path);
     }

@@ -51,12 +51,12 @@ fn native_arguments_and_replaced_environments_keep_exact_bytes() {
     let output = fileblade::command::CommandSpec::new("/bin/sh")
         .args([
             "-c",
-            "printf '%s\\0%s\\0' \"$1\" \"$FILEBLADE_PATH\"",
+            "printf '%s\\0%s\\0' \"$1\" \"$FILETREE_PATH\"",
             "path-test",
         ])
         .args([raw])
         .env_clear()
-        .env("FILEBLADE_PATH", raw)
+        .env("FILETREE_PATH", raw)
         .run()
         .unwrap();
     assert!(output.status.success());
@@ -360,12 +360,12 @@ fn trash_undo_returns_only_the_selected_spelling() {
 }
 
 fn backend(root: &Path, arguments: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("_backend")
         .args(arguments)
         .env("XDG_STATE_HOME", root.join("state"))
         .env("XDG_DATA_HOME", root.join("data"))
-        .env("FILEBLADE_JOURNAL", root.join("state/journal.json"))
+        .env("FILETREE_JOURNAL", root.join("state/journal.json"))
         .output()
         .unwrap();
     assert!(

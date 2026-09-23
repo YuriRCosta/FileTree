@@ -276,7 +276,7 @@ impl Slot {
             progress: Arc::clone(&progress),
         };
         if thread::Builder::new()
-            .name("fileblade-index".to_string())
+            .name("filetree-index".to_string())
             .spawn(move || walker.run())
             .is_err()
         {

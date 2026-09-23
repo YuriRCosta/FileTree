@@ -78,7 +78,7 @@ pub fn write_config_expected(
             "updated configuration exceeds its byte limit",
         ));
     }
-    let partial_name = OsString::from(format!(".fileblade-partial-{}", Uuid::new_v4().simple()));
+    let partial_name = OsString::from(format!(".filetree-partial-{}", Uuid::new_v4().simple()));
     mkdirat(
         &target.directory,
         &partial_name,

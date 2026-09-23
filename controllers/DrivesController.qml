@@ -278,7 +278,7 @@ Item {
       if (!failed) return
       controller.failureCount++
       controller.error = String(response && response.error || "drive watcher stopped")
-      console.warn("data-goblin.fileblade: drive watcher failed (" + controller.failureCount + "): " + controller.error)
+      console.warn("yuricosta.filetree: drive watcher failed (" + controller.failureCount + "): " + controller.error)
       restartTimer.interval = controller.restartDelay()
       restartTimer.restart()
     })

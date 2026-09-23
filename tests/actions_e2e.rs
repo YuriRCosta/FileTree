@@ -12,17 +12,17 @@ use std::time::{Duration, Instant};
 static ENVIRONMENT: Mutex<()> = Mutex::new(());
 
 const ECHO_ENV: &str = r#"#!/bin/sh
-env | grep '^FILEBLADE_' | sort
-if [ -n "$FILEBLADE_SELECTION_FILE" ]; then
-  echo "SELECTION_MODE=$(stat -c %a "$FILEBLADE_SELECTION_FILE")"
-  echo "SELECTION_BYTES=$(wc -c < "$FILEBLADE_SELECTION_FILE")"
+env | grep '^FILETREE_' | sort
+if [ -n "$FILETREE_SELECTION_FILE" ]; then
+  echo "SELECTION_MODE=$(stat -c %a "$FILETREE_SELECTION_FILE")"
+  echo "SELECTION_BYTES=$(wc -c < "$FILETREE_SELECTION_FILE")"
 fi
 echo "ARGS=$*"
 echo "CWD=$(pwd)"
 "#;
 
 const SLEEPER: &str = r#"#!/bin/sh
-echo $$ > "$FILEBLADE_STATE_DIR/sleeper.pid"
+echo $$ > "$FILETREE_STATE_DIR/sleeper.pid"
 sleep 30
 "#;
 
@@ -74,11 +74,11 @@ impl Fixture {
     }
 
     fn module_state(&self, module: &str) -> PathBuf {
-        self.path("state/omarchy/fileblade/modules").join(module)
+        self.path("state/omarchy/filetree/modules").join(module)
     }
 
     fn audit_path(&self) -> PathBuf {
-        self.path("state/omarchy/fileblade/audit.jsonl")
+        self.path("state/omarchy/filetree/audit.jsonl")
     }
 
     fn build(&self) {
@@ -114,7 +114,7 @@ impl Fixture {
     }
 
     fn backend(&self, arguments: &[String]) -> Value {
-        let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .arg("_backend")
             .args(arguments)
             .env("HOME", self.home.path())
@@ -173,7 +173,7 @@ fn manifest(id: &str) -> Value {
         json!({
             "id": "dump",
             "title": "Dump the environment",
-            "description": "Prints every FILEBLADE_ variable",
+            "description": "Prints every FILETREE_ variable",
             "contexts": ["file", "dir", "selection", "root", "none"],
             "argv": ["scripts/echo-env"],
         }),
@@ -251,9 +251,9 @@ fn manifest(id: &str) -> Value {
         "id": id,
         "name": "Tools",
         "version": "1.0.0",
-        "kinds": ["fileblade-blade"],
+        "kinds": ["filetree-blade"],
         "entryPoints": {},
-        "extensions": {"data-goblin.fileblade/action": actions},
+        "extensions": {"yuricosta.filetree/action": actions},
     })
 }
 
@@ -343,7 +343,7 @@ fn action_discovery_bounds_invalid_entries_and_preserves_valid_siblings() {
         fs::write(
             fixture.plugin_dir().join("manifest.json"),
             json!({
-                "id":"kurt.tools", "extensions":{"data-goblin.fileblade/action":entries}
+                "id":"kurt.tools", "extensions":{"yuricosta.filetree/action":entries}
             })
             .to_string(),
         )
@@ -487,27 +487,27 @@ fn a_selection_run_carries_the_targets_the_private_dirs_and_the_plugin_cwd() {
     assert_eq!(response["stdout_truncated"], false);
     assert_eq!(response["key"], "kurt.tools/dump");
     let seen = reported(&response);
-    assert_eq!(seen["FILEBLADE_ACTION"], "kurt.tools/dump");
-    assert_eq!(seen["FILEBLADE_SOURCE"], "plugin");
-    assert_eq!(seen["FILEBLADE_PLUGIN_ID"], "kurt.tools");
-    assert_eq!(seen["FILEBLADE_CONTEXT"], "selection");
-    assert_eq!(seen["FILEBLADE_SELECTION_COUNT"], "2");
-    assert_eq!(seen["FILEBLADE_TARGET"], text(&first));
-    assert_eq!(seen["FILEBLADE_ROOT"], text(&fixture.work_dir()));
-    assert_eq!(seen["FILEBLADE_SCREEN"], "DP-1");
+    assert_eq!(seen["FILETREE_ACTION"], "kurt.tools/dump");
+    assert_eq!(seen["FILETREE_SOURCE"], "plugin");
+    assert_eq!(seen["FILETREE_PLUGIN_ID"], "kurt.tools");
+    assert_eq!(seen["FILETREE_CONTEXT"], "selection");
+    assert_eq!(seen["FILETREE_SELECTION_COUNT"], "2");
+    assert_eq!(seen["FILETREE_TARGET"], text(&first));
+    assert_eq!(seen["FILETREE_ROOT"], text(&fixture.work_dir()));
+    assert_eq!(seen["FILETREE_SCREEN"], "DP-1");
     assert_eq!(seen["ARGS"], "");
-    assert_eq!(seen["FILEBLADE_SELECTION_FILE"], "");
-    assert!(seen["FILEBLADE_CLI"].ends_with("fileblade"));
-    assert!(!seen["FILEBLADE_HOST_VERSION"].is_empty());
+    assert_eq!(seen["FILETREE_SELECTION_FILE"], "");
+    assert!(seen["FILETREE_CLI"].ends_with("filetree"));
+    assert!(!seen["FILETREE_HOST_VERSION"].is_empty());
     assert_eq!(
         seen["CWD"],
         text(&fs::canonicalize(fixture.plugin_dir()).unwrap())
     );
     assert_eq!(
-        seen["FILEBLADE_PLUGIN_ROOT"],
+        seen["FILETREE_PLUGIN_ROOT"],
         text(&fs::canonicalize(fixture.plugin_dir()).unwrap())
     );
-    let selection: Value = serde_json::from_str(&seen["FILEBLADE_SELECTION_JSON"]).unwrap();
+    let selection: Value = serde_json::from_str(&seen["FILETREE_SELECTION_JSON"]).unwrap();
     let rows = selection.as_array().unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0]["path"], text(&first));
@@ -516,8 +516,8 @@ fn a_selection_run_carries_the_targets_the_private_dirs_and_the_plugin_cwd() {
     assert_eq!(rows[0]["symlink"], false);
     assert_eq!(rows[0]["size"], 3);
     assert!(rows[0]["mime"].is_string());
-    let state = PathBuf::from(&seen["FILEBLADE_STATE_DIR"]);
-    let config = PathBuf::from(&seen["FILEBLADE_CONFIG_DIR"]);
+    let state = PathBuf::from(&seen["FILETREE_STATE_DIR"]);
+    let config = PathBuf::from(&seen["FILETREE_CONFIG_DIR"]);
     assert_eq!(state, fixture.module_state("kurt.tools"));
     assert!(state.is_dir() && config.is_dir());
     assert_eq!(mode(&state), 0o700);
@@ -550,10 +550,10 @@ fn a_selection_past_the_environment_cap_moves_to_a_private_file_that_the_run_rem
     assert_eq!(response["ok"], true, "{response}");
     assert_eq!(response["targets"], 200);
     let seen = reported(&response);
-    assert_eq!(seen["FILEBLADE_SELECTION_JSON"], "", "{seen:?}");
+    assert_eq!(seen["FILETREE_SELECTION_JSON"], "", "{seen:?}");
     assert_eq!(seen["SELECTION_MODE"], "600");
     assert!(seen["SELECTION_BYTES"].trim().parse::<usize>().unwrap() > 65536);
-    let file = PathBuf::from(&seen["FILEBLADE_SELECTION_FILE"]);
+    let file = PathBuf::from(&seen["FILETREE_SELECTION_FILE"]);
     assert!(file.starts_with(fixture.module_state("kurt.tools")));
     assert!(!file.exists(), "the selection file survives the run");
     let leftovers = fs::read_dir(fixture.module_state("kurt.tools"))
@@ -721,10 +721,7 @@ fn every_run_lands_one_audit_line_that_holds_no_output_text() {
         assert_eq!(result["timed_out"], false);
         assert!(result.get("stdout_tail").is_none(), "{result}");
         let serialized = entry.to_string();
-        assert!(
-            !serialized.contains("FILEBLADE_PLUGIN_ROOT"),
-            "{serialized}"
-        );
+        assert!(!serialized.contains("FILETREE_PLUGIN_ROOT"), "{serialized}");
         assert!(!serialized.contains("0000000000"), "{serialized}");
     }
     assert_eq!(entries[0]["result"]["targets"], 1);

@@ -62,7 +62,7 @@ pub(super) fn doctor() -> AppResult<PublicResult> {
             "inflight": inflight,
             "advice": advice,
         }),
-        "fileblade is not healthy",
+        "filetree is not healthy",
     ))
 }
 

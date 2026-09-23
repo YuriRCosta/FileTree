@@ -19,7 +19,7 @@ TestCase {
 
   QtObject {
     id: fakeBladeHost
-    property string configDir: "/tmp/fileblade-test"
+    property string configDir: "/tmp/filetree-test"
     property var registry: fakeBladeRegistry
   }
 

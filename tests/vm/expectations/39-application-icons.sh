@@ -11,8 +11,8 @@ FIXTURE=$GUEST_PLUGIN/tests/vm/fixtures/media_icons.py
   summary
 }
 
-RUN_DIR=$(guest 'mktemp -d /tmp/fileblade-icons-39.XXXXXX' | tr -d '\r')
-[[ $RUN_DIR =~ ^/tmp/fileblade-icons-39\.[[:alnum:]]+$ ]] || {
+RUN_DIR=$(guest 'mktemp -d /tmp/filetree-icons-39.XXXXXX' | tr -d '\r')
+[[ $RUN_DIR =~ ^/tmp/filetree-icons-39\.[[:alnum:]]+$ ]] || {
   fail harness "create the disposable icon evidence directory" "invalid guest path: $RUN_DIR"
   summary
 }
@@ -104,7 +104,7 @@ capture_case() {
     return 1
   fi
   printf 'evidence %02d action %s observed %s\n' "$number" "$id" "$observed"
-  shot_path=$("$OVM" shot "fileblade-media-icons-$id" 2>/dev/null | tail -n 1 | tr -d '\r' || true)
+  shot_path=$("$OVM" shot "filetree-media-icons-$id" 2>/dev/null | tail -n 1 | tr -d '\r' || true)
   if [[ ! -f $shot_path ]]; then
     fail "$id" "capture OVM screenshot" "shot returned [$shot_path]"
     return 1
@@ -186,7 +186,7 @@ for attempt in {1..10}; do
   [[ $DISPLAY_TEXT == *"icon integration fixture"* ]] && break
   sleep 0.5
 done
-printf 'evidence 01 application screenshot %s\n' "$("$OVM" shot fileblade-media-icons-E-39-01-opened)"
+printf 'evidence 01 application screenshot %s\n' "$("$OVM" shot filetree-media-icons-E-39-01-opened)"
 printf 'evidence 01 launch notice %s\n' "$(field launchError)"
 if [[ $VIEWER_PID =~ ^[0-9]+$ && $DISPLAY_TEXT == *"icon integration fixture"* ]] && jq -e 'length>0' >/dev/null <<<"$WINDOWS"; then
   printf 'evidence 01 application pid %s path %s windows %s\n' "$VIEWER_PID" "$APPFILE" "$WINDOWS"

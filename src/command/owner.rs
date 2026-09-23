@@ -137,7 +137,7 @@ impl CommandSpec {
         }
         let (monitor, stop) = io::pipe()?;
         let worker = thread::Builder::new()
-            .name("fileblade-clipboard".into())
+            .name("filetree-clipboard".into())
             .spawn(move || {
                 loop {
                     let mut descriptors = [

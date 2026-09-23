@@ -5,8 +5,8 @@ dock_blades
 reset_modules
 ctl setSidebarWidth 380
 ctl setPriorityColumns type
-case_root=$(guest 'mktemp -d /home/omarchy/fileblade-byte-path.XXXXXX')
-[[ $case_root == /home/omarchy/fileblade-byte-path.* ]] || exit 2
+case_root=$(guest 'mktemp -d /home/omarchy/filetree-byte-path.XXXXXX')
+[[ $case_root == /home/omarchy/filetree-byte-path.* ]] || exit 2
 raw_uri="file://$case_root/%FF.txt"
 unicode_path="$case_root/�.txt"
 guest "printf 'raw bytes' > '$case_root/'\$'\\377.txt'

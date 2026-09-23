@@ -84,7 +84,7 @@ ovm('key', 'end')
 check('timeline End seeks last nonempty period without changing selected file', state()['selected'] == selected and timeline()['period'].startswith('Dec'), {'selected': state()['selected'], 'period': timeline()['period']})
 root = state()['root']
 ovm('key', 'esc')
-status = json.loads(ipc('data-goblin.fileblade', 'status'))
+status = json.loads(ipc('yuricosta.filetree', 'status'))
 check('Escape retains the ordinary blade dismissal behavior', not status['open'] and status['rootPath'] == root, {'open': status['open'], 'root': status['rootPath']})
 control('openBlade', 'left')
 control('focusBlade', 'left')

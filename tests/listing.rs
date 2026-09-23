@@ -133,7 +133,7 @@ fn git(root: &std::path::Path, arguments: &[&str]) -> bool {
         .current_dir(root)
         .args([
             "-c",
-            "user.email=fixture@fileblade",
+            "user.email=fixture@filetree",
             "-c",
             "user.name=fixture",
         ])

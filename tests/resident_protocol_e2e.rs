@@ -19,14 +19,14 @@ struct Server {
 fn handshake_resolves_the_screenshot_and_download_directories_from_xdg_user_dirs() {
     let root = TempDir::new().unwrap();
     let config = root.path().join("config");
-    std::fs::create_dir_all(config.join("omarchy/fileblade")).unwrap();
+    std::fs::create_dir_all(config.join("omarchy/filetree")).unwrap();
     std::fs::write(
         config.join("user-dirs.dirs"),
         "XDG_PICTURES_DIR=\"$HOME/Bilder\"\nXDG_DOWNLOAD_DIR=\"$HOME/Baixados\"\n",
     )
     .unwrap();
     std::fs::write(
-        config.join("omarchy/fileblade/user-dirs.dirs"),
+        config.join("omarchy/filetree/user-dirs.dirs"),
         "XDG_PICTURES_DIR=\"/wrong\"\n",
     )
     .unwrap();
@@ -122,7 +122,7 @@ impl Server {
     }
 
     fn start_with_limit(environment: &[(&str, &std::path::Path)], concurrency: usize) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .args(["serve", "--max-concurrency", &concurrency.to_string()])
             .envs(environment.iter().map(|(key, value)| (*key, *value)))
             .stdin(Stdio::piped())
@@ -244,7 +244,7 @@ fn resident_navigation_reuses_git_status_until_an_explicit_refresh() {
     let wrapper = bin.join("git");
     std::fs::write(
         &wrapper,
-        "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$FILEBLADE_TEST_GIT_LOG\"\nexec \"$FILEBLADE_TEST_REAL_GIT\" \"$@\"\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$FILETREE_TEST_GIT_LOG\"\nexec \"$FILETREE_TEST_REAL_GIT\" \"$@\"\n",
     )
     .expect("git wrapper");
     std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755))
@@ -256,8 +256,8 @@ fn resident_navigation_reuses_git_status_until_an_explicit_refresh() {
     let path = PathBuf::from(path);
     let mut server = Server::start_with(&[
         ("PATH", &path),
-        ("FILEBLADE_TEST_REAL_GIT", &real_git),
-        ("FILEBLADE_TEST_GIT_LOG", &git_log),
+        ("FILETREE_TEST_REAL_GIT", &real_git),
+        ("FILETREE_TEST_GIT_LOG", &git_log),
     ]);
     server.send(json!({"v": 1, "type": "hello"}));
     assert_eq!(server.receive()["ok"], true);
@@ -302,7 +302,7 @@ fn resident_handshake_requests_subscription_and_eof_are_coherent() {
     let hello = server.receive();
     assert_eq!(hello["type"], "hello");
     assert_eq!(hello["ok"], true);
-    assert_eq!(hello["protocol"], "fileblade");
+    assert_eq!(hello["protocol"], "filetree");
     assert_eq!(hello["limits"]["concurrency"], 4);
 
     let directory = fixture.path().to_string_lossy();
@@ -470,8 +470,8 @@ fn resident_module_dirs_returns_both_private_paths() {
     assert_eq!(response["ok"], true, "{response}");
     let payload = &response["payload"];
     assert_eq!(payload["name"], "data-goblin.blade-example+clock");
-    let state_dir = state_home.join("omarchy/fileblade/modules/data-goblin.blade-example+clock");
-    let config_dir = config_home.join("omarchy/fileblade/config/data-goblin.blade-example+clock");
+    let state_dir = state_home.join("omarchy/filetree/modules/data-goblin.blade-example+clock");
+    let config_dir = config_home.join("omarchy/filetree/config/data-goblin.blade-example+clock");
     assert_eq!(payload["state_dir"], state_dir.to_string_lossy().as_ref());
     assert_eq!(payload["config_dir"], config_dir.to_string_lossy().as_ref());
     assert!(state_dir.is_dir());
@@ -489,7 +489,7 @@ fn resident_module_dirs_returns_both_private_paths() {
     assert_eq!(refused["ok"], false, "{refused}");
     assert!(
         !config_home
-            .join("omarchy/fileblade/config/../escape")
+            .join("omarchy/filetree/config/../escape")
             .exists()
     );
     server.finish();

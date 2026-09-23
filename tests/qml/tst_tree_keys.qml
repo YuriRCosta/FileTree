@@ -98,7 +98,7 @@ TestCase {
     compare(press(Qt.Key_L), "open")
   }
   function test_unknown_metadata_survives_compile_and_json_round_trip() {
-    var document = JSON.parse('{"version":1,"filebladeVersion":"999.0.0","bindings":{"open":["F3"]},"future":{"ordered":[null,false,42]},"__proto__":{"keep":true}}')
+    var document = JSON.parse('{"version":1,"filetreeVersion":"999.0.0","bindings":{"open":["F3"]},"future":{"ordered":[null,false,42]},"__proto__":{"keep":true}}')
     var before = JSON.stringify(document)
     folds.plan = KeyBindings.compile(document)
     compare(press(Qt.Key_F3), "open")

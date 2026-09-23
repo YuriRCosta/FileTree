@@ -6,8 +6,7 @@ use std::sync::atomic::AtomicBool;
 use fileblade::updates::{RepositorySpec, check, parse_specs};
 
 fn scratch(name: &str) -> PathBuf {
-    let root =
-        std::env::temp_dir().join(format!("fileblade-updates-{name}-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("filetree-updates-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     root
@@ -98,13 +97,13 @@ fn spec(id: &str, path: &Path) -> RepositorySpec {
 #[test]
 fn specs_parse_only_well_formed_absolute_entries() {
     let parsed = parse_specs(&[
-        "data-goblin.fileblade=/tmp/a".to_string(),
+        "yuricosta.filetree=/tmp/a".to_string(),
         "bad id=/tmp/b".to_string(),
         "relative=tmp/c".to_string(),
         "noequals".to_string(),
     ]);
     assert_eq!(parsed.len(), 1);
-    assert_eq!(parsed[0].id, "data-goblin.fileblade");
+    assert_eq!(parsed[0].id, "yuricosta.filetree");
 }
 
 #[test]
@@ -190,8 +189,8 @@ fn check_refuses_non_checkouts_and_missing_upstreams() {
 
 #[test]
 fn backend_exposes_update_check_but_not_update_apply() {
-    assert!(fileblade::backend::parse(["fileblade", "update-check"]).is_ok());
-    assert!(fileblade::backend::parse(["fileblade", "update-apply"]).is_err());
+    assert!(fileblade::backend::parse(["filetree", "update-check"]).is_ok());
+    assert!(fileblade::backend::parse(["filetree", "update-apply"]).is_err());
 }
 
 #[test]

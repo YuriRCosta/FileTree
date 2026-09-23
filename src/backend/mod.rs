@@ -16,7 +16,7 @@ use documents::*;
 pub use plugin_args::*;
 use trash::*;
 #[derive(Clone, Debug, Parser)]
-#[command(name = "fileblade _backend", disable_version_flag = true)]
+#[command(name = "filetree _backend", disable_version_flag = true)]
 pub struct BackendCli {
     #[arg(long, global = true, default_value = "")]
     pub actor: String,

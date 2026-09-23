@@ -6,7 +6,7 @@ const KEYBINDINGS_VERSION: u64 = 1;
 const BUILD_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn writer(document: &Value) -> (String, bool) {
-    let stamp = document["filebladeVersion"]
+    let stamp = document["filetreeVersion"]
         .as_str()
         .unwrap_or_default()
         .to_string();
@@ -53,7 +53,7 @@ pub(crate) fn read_document() -> AppResult<Value> {
         }
     })?
     else {
-        return Ok(json!({"version":SETTINGS_VERSION,"filebladeVersion":BUILD_VERSION}));
+        return Ok(json!({"version":SETTINGS_VERSION,"filetreeVersion":BUILD_VERSION}));
     };
     let settings: Value = serde_json::from_slice(&bytes)?;
     if !settings.is_object()
@@ -82,7 +82,7 @@ pub fn change(changes: &Changes) -> AppResult<Value> {
         settings["trashRetentionDays"] = json!(days);
     }
     settings["version"] = json!(SETTINGS_VERSION);
-    settings["filebladeVersion"] = json!(BUILD_VERSION);
+    settings["filetreeVersion"] = json!(BUILD_VERSION);
     let encoded = serde_json::to_vec_pretty(&settings)?;
     if encoded.len() > 64 * 1024 {
         return Err(AppError::invalid(
@@ -124,7 +124,7 @@ pub fn keybindings() -> AppResult<Value> {
     let stamp = document.get("version").is_none() || stale_stamp;
     if stamp {
         document["version"] = json!(KEYBINDINGS_VERSION);
-        document["filebladeVersion"] = json!(BUILD_VERSION);
+        document["filetreeVersion"] = json!(BUILD_VERSION);
     }
     let encoded = serde_json::to_string_pretty(&document)?;
     if encoded.len() > 64 * 1024 {

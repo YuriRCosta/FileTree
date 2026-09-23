@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use crate::common::expanded_path;
 
-const CURRENT: &str = "omarchy/fileblade";
-const LEGACY: &str = "omarchy/filetree";
+const CURRENT: &str = "omarchy/filetree";
+const LEGACY: &str = "omarchy/fileblade";
 
 pub fn xdg_home(variable: &str, fallback: &str) -> PathBuf {
     std::env::var_os(variable)

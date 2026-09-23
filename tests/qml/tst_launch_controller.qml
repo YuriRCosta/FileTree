@@ -76,7 +76,7 @@ TestCase {
     compare(focusYields, 0)
   }
 
-  function test_unknown_directory_is_probed_then_opened_in_fileblade() {
+  function test_unknown_directory_is_probed_then_opened_in_filetree() {
     verify(subject.enqueue("/tmp/plugin-folder", "default", ""))
     compare(requests.length, 1)
     compare(requests[0].name, "stat-batch")
@@ -143,7 +143,7 @@ TestCase {
     compare(events.join(","), "yield-focus,request-launch,yield-focus,request-launch")
   }
 
-  function test_directory_open_restores_closed_fileblade() {
+  function test_directory_open_restores_closed_filetree() {
     fakeService.open = false
     verify(subject.enqueue("/tmp/folder", "default", "", 0, null, true))
     verify(fakeService.open)

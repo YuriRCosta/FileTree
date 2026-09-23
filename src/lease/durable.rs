@@ -21,7 +21,7 @@ pub fn write_private_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
         Err(rustix::io::Errno::NOENT) => {}
         Err(error) => return Err(error.into()),
     }
-    let name = format!(".fileblade-{}.tmp", uuid::Uuid::new_v4().simple());
+    let name = format!(".filetree-{}.tmp", uuid::Uuid::new_v4().simple());
     let fd = openat(
         &parent.directory,
         &name,

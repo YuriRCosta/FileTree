@@ -29,11 +29,11 @@ Item {
   readonly property string home: Quickshell.env("HOME") || "/"
   readonly property string localUser: Quickshell.env("USER") || Quickshell.env("LOGNAME") || ""
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")
-  readonly property string stateDir: stateHome + "/omarchy/fileblade"
+  readonly property string stateDir: stateHome + "/omarchy/filetree"
   readonly property string statePath: chooserSession ? "" : stateDir + "/state.json"
   readonly property string fallbackPluginDir: decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "").replace(/\/$/, ""))
   readonly property string pluginDir: manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : fallbackPluginDir
-  readonly property string cliPath: pluginDir + "/fileblade"
+  readonly property string cliPath: pluginDir + "/filetree"
   readonly property string trashResource: "trash:///"
   readonly property bool trashMode: normalizeRoot(rootPath) === trashResource
   readonly property string recentResource: "recent:///"
@@ -167,7 +167,7 @@ Item {
   }
 
   GlobalShortcut {
-    appid: "fileblade"
+    appid: "filetree"
     name: "resize-blade"
     description: "Start resizing the blade under the pointer"
     onPressed: bladeHost.beginPointerResize()
@@ -175,7 +175,7 @@ Item {
   }
 
   GlobalShortcut {
-    appid: "fileblade"
+    appid: "filetree"
     name: "resize-blade-end"
     description: "Finish resizing the blade under the pointer"
     onPressed: bladeHost.endPointerResize()

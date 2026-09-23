@@ -100,7 +100,7 @@ enum ApplyFailure {
 }
 
 pub fn journal_path() -> PathBuf {
-    if let Some(value) = std::env::var_os("FILEBLADE_JOURNAL").filter(|value| !value.is_empty()) {
+    if let Some(value) = std::env::var_os("FILETREE_JOURNAL").filter(|value| !value.is_empty()) {
         return match value.to_str() {
             Some(text) => expanded_path(text),
             None => std::path::absolute(PathBuf::from(value))

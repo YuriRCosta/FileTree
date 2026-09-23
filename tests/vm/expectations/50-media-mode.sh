@@ -9,7 +9,7 @@ import media_lib
 from media_lib import *
 
 
-ovm('ssh', 'python3 ~/.config/omarchy/plugins/data-goblin.fileblade/tests/vm/fixtures/media.py generate /tmp/brindle-media')
+ovm('ssh', 'python3 ~/.config/omarchy/plugins/yuricosta.filetree/tests/vm/fixtures/media.py generate /tmp/brindle-media')
 slots = [{'id': 'files', 'fraction': .75, 'modules': [{'module': 'files'}]},
          {'id': 'properties', 'fraction': .25, 'modules': [{'module': 'properties'}]}]
 control('setBladeSlots', 'left', 'base64:' + base64.b64encode(json.dumps(slots).encode()).decode())
@@ -59,7 +59,7 @@ current = wait(lambda s: not s['busy'] and s['count'] == 426)
 check('explicit recursion adds descendant and retains selection', current['selected'] == selected and any(p.endswith('deep.png') for p in current['paths']), {'count': current['count'], 'selected': current['selected']})
 probe('choose', 200, 'replace')
 ovm('key', 'm')
-menu = json.loads(ovm('ipc', 'data-goblin.fileblade', 'status'))
+menu = json.loads(ovm('ipc', 'yuricosta.filetree', 'status'))
 check('existing action menu names exact path', menu['actionMenuOpen'] and menu['actionMenuPath'] == state()['selected'][0], menu['actionMenuPath'])
 shot('50-actions-menu')
 ovm('key', 'esc')

@@ -22,7 +22,7 @@ LIMITS = {
     "Cargo.toml": 64 * 1024,
     "Cargo.lock": 4 * 1024 * 1024,
     "CHANGELOG.md": 256 * 1024,
-    "fileblade-bin": 64 * 1024 * 1024,
+    "filetree-bin": 64 * 1024 * 1024,
 }
 
 
@@ -46,9 +46,9 @@ def staged(path):
     if len(records) != 1:
         fail(f"{path} must have exactly one resolved entry in the index")
     mode, oid, stage = records[0].split(b"\t", 1)[0].split()
-    allowed_modes = [b"100755"] if path == "fileblade-bin" else [b"100644", b"100755"]
+    allowed_modes = [b"100755"] if path == "filetree-bin" else [b"100644", b"100755"]
     if stage != b"0" or mode not in allowed_modes:
-        fail(f"{path} must be staged as a regular file" + (" with executable mode 100755" if path == "fileblade-bin" else ""))
+        fail(f"{path} must be staged as a regular file" + (" with executable mode 100755" if path == "filetree-bin" else ""))
     if int(git("cat-file", "-s", oid.decode())) > LIMITS[path]:
         fail(f"{path} in the index exceeds {LIMITS[path]} bytes")
     return git("cat-file", "blob", oid.decode())
@@ -76,8 +76,8 @@ def toml_table(blob, path):
 
 def cargo_toml_version(blob):
     package = toml_table(blob, "Cargo.toml").get("package")
-    if not isinstance(package, dict) or package.get("name") != "fileblade":
-        fail("Cargo.toml has no [package] named fileblade")
+    if not isinstance(package, dict) or package.get("name") != "filetree":
+        fail("Cargo.toml has no [package] named filetree")
     value = package.get("version")
     if isinstance(value, dict):
         fail("Cargo.toml must declare its package version directly, without workspace inheritance")
@@ -88,10 +88,10 @@ def cargo_lock_version(blob):
     packages = toml_table(blob, "Cargo.lock").get("package")
     if not isinstance(packages, list):
         fail("Cargo.lock has no package records")
-    records = [p for p in packages if isinstance(p, dict) and p.get("name") == "fileblade"]
+    records = [p for p in packages if isinstance(p, dict) and p.get("name") == "filetree"]
     if len(records) != 1 or "source" in records[0]:
-        fail("Cargo.lock must name exactly one local fileblade package")
-    return version(records[0].get("version"), "the fileblade record in Cargo.lock")
+        fail("Cargo.lock must name exactly one local filetree package")
+    return version(records[0].get("version"), "the filetree record in Cargo.lock")
 
 
 def changelog_headings(blob):
@@ -133,8 +133,8 @@ def released_versions(headings):
 
 def binary_version(blob):
     directory = os.fsdecode(git("rev-parse", "--absolute-git-dir").removesuffix(b"\n"))
-    with tempfile.TemporaryDirectory(prefix="fileblade-version-", dir=directory) as staging:
-        path = os.path.join(staging, "fileblade-bin")
+    with tempfile.TemporaryDirectory(prefix="filetree-version-", dir=directory) as staging:
+        path = os.path.join(staging, "filetree-bin")
         with open(path, "wb") as handle:
             handle.write(blob)
         os.chmod(path, 0o700)
@@ -149,13 +149,13 @@ def binary_version(blob):
                         while True:
                             remaining = deadline - time.monotonic()
                             if remaining <= 0 or not selector.select(remaining):
-                                fail("the staged fileblade-bin exceeded the 5-second version deadline")
+                                fail("the staged filetree-bin exceeded the 5-second version deadline")
                             chunk = os.read(process.stdout.fileno(), 4097 - len(output))
                             if not chunk:
                                 break
                             output.extend(chunk)
                             if len(output) > 4096:
-                                fail("the staged fileblade-bin version response exceeds 4096 bytes")
+                                fail("the staged filetree-bin version response exceeds 4096 bytes")
                     status = process.wait(timeout=max(0.01, deadline - time.monotonic()))
                 finally:
                     try:
@@ -164,16 +164,16 @@ def binary_version(blob):
                         pass
                     process.wait()
         except (OSError, subprocess.SubprocessError) as error:
-            fail(f"the staged fileblade-bin could not report its version: {error}")
+            fail(f"the staged filetree-bin could not report its version: {error}")
     if status:
-        fail(f"the staged fileblade-bin exited {status} for --version")
-    match = re.fullmatch(rb"fileblade ([^\s]+)\n?", output)
+        fail(f"the staged filetree-bin exited {status} for --version")
+    match = re.fullmatch(rb"filetree ([^\s]+)\n?", output)
     if not match:
-        fail("the staged fileblade-bin did not answer --version as 'fileblade <version>'")
+        fail("the staged filetree-bin did not answer --version as 'filetree <version>'")
     try:
-        return version(match[1].decode("ascii"), "fileblade-bin")
+        return version(match[1].decode("ascii"), "filetree-bin")
     except UnicodeDecodeError:
-        fail("the staged fileblade-bin did not report an ASCII version")
+        fail("the staged filetree-bin did not report an ASCII version")
 
 
 def main():
@@ -196,9 +196,9 @@ def main():
     match = RELEASE_BRANCH.fullmatch(branch)
     if match and match[1] != expected:
         fail(f"branch {branch} builds {match[1]} but the staged version is {expected}")
-    binary = binary_version(staged("fileblade-bin"))
+    binary = binary_version(staged("filetree-bin"))
     if binary != expected:
-        fail(f"manifest.json is {expected} but staged fileblade-bin is {binary}; run tools/bundle build")
+        fail(f"manifest.json is {expected} but staged filetree-bin is {binary}; run tools/bundle build")
 
 
 if __name__ == "__main__":

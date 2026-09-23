@@ -9,13 +9,13 @@ unlinks the lock file. Holder JSON is diagnostic; stale PID text does not
 prevent reacquisition after the kernel releases the lock. Unsafe ownership,
 permissions, symbolic links and multiple links are refused.
 
-The native launcher sets `FILEBLADE_NATIVE_STATE_ROOT` to the selected
-`XDG_STATE_HOME/omarchy/fileblade` namespace and `FILEBLADE_APP_ROOT` to the
+The native launcher sets `FILETREE_NATIVE_STATE_ROOT` to the selected
+`XDG_STATE_HOME/omarchy/filetree` namespace and `FILETREE_APP_ROOT` to the
 runtime payload. This spike still isolates all three XDG roots. It does not
 perform core's migration or prevent an old unmodified plugin from reopening
 its separate legacy namespace.
 
-`fileblade serve --native-authority` acquires before recovery, then exposes
+`filetree serve --native-authority` acquires before recovery, then exposes
 `authority.sock` with mode 0600. `serve --native-probe` checks readiness.
 Ordinary `serve` with that environment is a view relay; it does not own the
 lease or apply parent-death termination to the authority. The launcher starts
@@ -100,14 +100,14 @@ the retained result. It requires the staged spike and harness A.
 each distinct canonical directory and records all three identities in the
 state lock's `roots` object. Another state authority sharing the config or
 recovery identity is refused. The server selects config at
-`XDG_CONFIG_HOME/omarchy/fileblade` and helper recovery at
-`XDG_STATE_HOME/fileblade`, matching core's published Roots contract.
+`XDG_CONFIG_HOME/omarchy/filetree` and helper recovery at
+`XDG_STATE_HOME/filetree`, matching core's published Roots contract.
 `roots()` exposes the canonical paths, device and inode for migration's
 identity comparison. Identity loss is latched; restoring a pathname cannot
 make the same authority valid again.
 
 The native extension root supplied to core is `native_extension_root()`:
-`XDG_CONFIG_HOME/fileblade/extensions`. FileTree settings remain at
+`XDG_CONFIG_HOME/filetree/extensions`. FileTree settings remain at
 `native_config_root()/settings.json`. Neither root supplies Omarchy plugin
 activation. Discovery, enabled entries and first-discovery receipts remain
 core's R28 implementation.

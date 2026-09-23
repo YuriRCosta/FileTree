@@ -9,7 +9,7 @@ TestCase {
 
   Item {
     id: fakeService
-    property var manifest: ({ id: "data-goblin.fileblade" })
+    property var manifest: ({ id: "yuricosta.filetree" })
     property double updateCheckedAt: 0
     property bool stateReady: false
     property var replies: ({})
@@ -22,13 +22,13 @@ TestCase {
 
   Item {
     id: fakeHost
-    property string pluginDir: "/plugins/data-goblin.fileblade"
+    property string pluginDir: "/plugins/yuricosta.filetree"
     property var config: ({})
     property var registry: ({
       providerSources: function() {
         return [
-          { id: "data-goblin.fileblade-memory", dir: "/plugins/data-goblin.fileblade-memory" },
-          { id: "data-goblin.fileblade", dir: "/plugins/data-goblin.fileblade" }
+          { id: "yuricosta.filetree-memory", dir: "/plugins/yuricosta.filetree-memory" },
+          { id: "yuricosta.filetree", dir: "/plugins/yuricosta.filetree" }
         ]
       }
     })
@@ -67,7 +67,7 @@ TestCase {
 
   function test_clean_check_shows_up_to_date_notice_then_clears() {
     fakeService.replies = checkReply([
-      { id: "data-goblin.fileblade", path: "/p", updatable: false, behind: 0, ahead: 0, dirty: false, backend_stale: false }
+      { id: "yuricosta.filetree", path: "/p", updatable: false, behind: 0, ahead: 0, dirty: false, backend_stale: false }
     ])
     controller.check()
     verify(controller.upToDateNotice)
@@ -81,8 +81,8 @@ TestCase {
 
   function test_specs_name_only_the_core_checkout() {
     var specs = controller.repositorySpecs()
-    compare(specs, ["data-goblin.fileblade=/plugins/data-goblin.fileblade"])
-    compare(controller.specArguments(specs).slice(0, 2), ["--core", "data-goblin.fileblade"])
+    compare(specs, ["yuricosta.filetree=/plugins/yuricosta.filetree"])
+    compare(controller.specArguments(specs).slice(0, 2), ["--core", "yuricosta.filetree"])
   }
 
   function test_stale_check_runs_once_per_interval() {
@@ -111,9 +111,9 @@ TestCase {
 
   function test_report_drives_availability_and_summary() {
     fakeService.replies = checkReply([
-      { id: "data-goblin.fileblade", path: "/plugins/data-goblin.fileblade", updatable: true, behind: 3, ahead: 0, dirty: false, current_version: "0.6.0", upstream_version: "0.7.0", version_change: "newer", backend_stale: false, backend_version: "0.6.0" },
-      { id: "data-goblin.fileblade-memory", path: "/plugins/data-goblin.fileblade-memory", updatable: true, behind: 1, ahead: 0, dirty: false, current_version: "1.0.0", upstream_version: "1.0.0", version_change: "same" },
-      { id: "data-goblin.fileblade-git", path: "/plugins/data-goblin.fileblade-git", updatable: false, behind: 2, ahead: 0, dirty: true, error: "" }
+      { id: "yuricosta.filetree", path: "/plugins/yuricosta.filetree", updatable: true, behind: 3, ahead: 0, dirty: false, current_version: "0.6.0", upstream_version: "0.7.0", version_change: "newer", backend_stale: false, backend_version: "0.6.0" },
+      { id: "yuricosta.filetree-memory", path: "/plugins/yuricosta.filetree-memory", updatable: true, behind: 1, ahead: 0, dirty: false, current_version: "1.0.0", upstream_version: "1.0.0", version_change: "same" },
+      { id: "yuricosta.filetree-git", path: "/plugins/yuricosta.filetree-git", updatable: false, behind: 2, ahead: 0, dirty: true, error: "" }
     ])
     controller.check()
     verify(controller.available)
@@ -131,8 +131,8 @@ TestCase {
 
   function test_unknown_version_does_not_guess_or_list_commits() {
     controller.report = { repositories: [
-      { id: "data-goblin.fileblade", updatable: true, behind: 51, current_version: "0.1.1", upstream_version: "", version_change: "unknown" },
-      { id: "data-goblin.fileblade-skills", updatable: true, behind: null, upstream_version: "" }
+      { id: "yuricosta.filetree", updatable: true, behind: 51, current_version: "0.1.1", upstream_version: "", version_change: "unknown" },
+      { id: "yuricosta.filetree-skills", updatable: true, behind: null, upstream_version: "" }
     ] }
     compare(controller.summaryLines(), [
       "An update for FileTree is available; its version could not be determined."
@@ -141,8 +141,8 @@ TestCase {
 
   function test_companion_rows_never_make_an_update_available() {
     controller.report = { repositories: [
-      { id: "data-goblin.fileblade", updatable: false },
-      { id: "data-goblin.fileblade-memory", updatable: true, upstream_version: "0.1.2", version_change: "newer" }
+      { id: "yuricosta.filetree", updatable: false },
+      { id: "yuricosta.filetree-memory", updatable: true, upstream_version: "0.1.2", version_change: "newer" }
     ] }
     compare(controller.summaryLines(), [])
     verify(!controller.available)
@@ -151,24 +151,24 @@ TestCase {
 
   function test_same_or_older_version_is_not_announced_as_a_new_release() {
     controller.report = { repositories: [
-      { id: "data-goblin.fileblade", updatable: true, current_version: "0.1.2", upstream_version: "0.1.2", version_change: "same" }
+      { id: "yuricosta.filetree", updatable: true, current_version: "0.1.2", upstream_version: "0.1.2", version_change: "same" }
     ] }
     compare(controller.summaryLines(), ["FileTree has updates available within version 0.1.2."])
     controller.report = { repositories: [
-      { id: "data-goblin.fileblade", updatable: true, current_version: "0.1.2", upstream_version: "0.1.1", version_change: "older" }
+      { id: "yuricosta.filetree", updatable: true, current_version: "0.1.2", upstream_version: "0.1.1", version_change: "older" }
     ] }
     compare(controller.summaryLines(), ["FileTree's upstream changed to version 0.1.1 (installed: 0.1.2)."])
   }
 
   function test_stale_backend_shows_reinstall_without_updates() {
     fakeService.replies = checkReply([
-      { id: "data-goblin.fileblade", path: "/p", updatable: false, behind: 0, ahead: 0, dirty: false, current_version: "0.7.0", upstream_version: "0.7.0", version_change: "newer", backend_stale: true, backend_version: "0.6.0" }
+      { id: "yuricosta.filetree", path: "/p", updatable: false, behind: 0, ahead: 0, dirty: false, current_version: "0.7.0", upstream_version: "0.7.0", version_change: "newer", backend_stale: true, backend_version: "0.6.0" }
     ])
     controller.check()
     verify(!controller.available)
     verify(controller.backendStale)
     compare(controller.chipText, "Backend update needed")
     compare(controller.summaryLines()[0], "Backend binary is 0.6.0, checkout is 0.7.0: update or reinstall FileTree")
-    compare(controller.dialogLines().slice(-1), ["Update or reinstall FileTree, then run omarchy restart shell. Check FILEBLADE_BINARY if you use a custom backend."])
+    compare(controller.dialogLines().slice(-1), ["Update or reinstall FileTree, then run omarchy restart shell. Check FILETREE_BINARY if you use a custom backend."])
   }
 }

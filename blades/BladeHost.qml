@@ -18,7 +18,7 @@ Item {
 
   readonly property string home: Quickshell.env("HOME") || "/"
   readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")
-  readonly property string configDir: configHome + "/omarchy/fileblade"
+  readonly property string configDir: configHome + "/omarchy/filetree"
   readonly property string layoutPath: service && service.chooserSession ? "" : configDir + "/blades.json"
   readonly property var edges: ["left", "right"]
   readonly property string side: layout && layout.right && Array.isArray(layout.right.slots) && layout.right.slots.length > 0 ? "right" : "left"
@@ -83,7 +83,7 @@ Item {
   property alias settingsOpen: focusController.settingsOpen
   property alias settingsEdge: focusController.settingsEdge
   property int frameWidth: 2
-  readonly property string cliPath: pluginDir + "/fileblade"
+  readonly property string cliPath: pluginDir + "/filetree"
   readonly property var service: services ? services.files : null
   property alias restoreFocusAddress: focusController.restoreFocusAddress
   property alias restoreFocusClass: focusController.restoreFocusClass
@@ -130,7 +130,7 @@ Item {
 
   PersistentProperties {
     id: persisted
-    reloadableId: host.service && host.service.chooserSession ? "fileblade-chooser-layout-" + host.service.chooserSession.handle : "kurt-filetree-blades"
+    reloadableId: host.service && host.service.chooserSession ? "filetree-chooser-layout-" + host.service.chooserSession.handle : "kurt-filetree-blades"
     property bool hydrated: false
     property var layout: ({
       left: { open: false, width: 380, mode: "docked", slots: [] },
@@ -707,7 +707,7 @@ Item {
     }
     layoutWritable = !!(response && response.missing)
     layoutRereadPending = !layoutWritable
-    if (!layoutWritable) console.warn("data-goblin.fileblade: preserving unreadable blade layout: " + String(response && response.error || "read failed"))
+    if (!layoutWritable) console.warn("yuricosta.filetree: preserving unreadable blade layout: " + String(response && response.error || "read failed"))
     if (!layoutReady) applyLayout(defaultLayout(), config.monitorMode, layoutWritable)
   }
   function applyLiveLayout(parsed) {
@@ -734,7 +734,7 @@ Item {
     if (!layoutWritable || layoutIncomplete) return
     var text = bladeLayout.serialized(layoutDocument(), 2)
     if (!text || bladeLayout.utf8Length(text + "\n") > bladeLayout.maximumLayoutBytes) {
-      console.warn("data-goblin.fileblade: refusing to overwrite blade layout above " + bladeLayout.maximumLayoutBytes + " bytes")
+      console.warn("yuricosta.filetree: refusing to overwrite blade layout above " + bladeLayout.maximumLayoutBytes + " bytes")
       return
     }
     text += "\n"

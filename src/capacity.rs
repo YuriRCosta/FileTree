@@ -91,7 +91,7 @@ pub fn usage_json(usage: Option<&Usage>) -> Value {
 
 fn hold_for_tests() {
     #[cfg(debug_assertions)]
-    if let Some(milliseconds) = std::env::var("FILEBLADE_CAPACITY_HOLD_MS")
+    if let Some(milliseconds) = std::env::var("FILETREE_CAPACITY_HOLD_MS")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
     {

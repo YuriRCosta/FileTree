@@ -1,20 +1,20 @@
-local function fileblade(method, fallback)
-  local call = "OMARCHY_SHELL_IPC_TIMEOUT=0.4s omarchy-shell data-goblin.fileblade.control " .. method .. " >/dev/null 2>&1"
+local function filetree(method, fallback)
+  local call = "OMARCHY_SHELL_IPC_TIMEOUT=0.4s omarchy-shell yuricosta.filetree.control " .. method .. " >/dev/null 2>&1"
   if fallback then return call .. " || hyprctl dispatch " .. string.format("%q", fallback) end
   return call
 end
 
-o.bind("SUPER + B", "Open or close FileTree", fileblade("toggleFocus"))
+o.bind("SUPER + B", "Open or close FileTree", filetree("toggleFocus"))
 
 for _, direction in ipairs({ { "LEFT", "l" }, { "RIGHT", "r" }, { "UP", "u" }, { "DOWN", "d" } }) do
   hl.unbind("SUPER + " .. direction[1])
-  o.bind("SUPER + " .. direction[1], "Focus " .. direction[1]:lower() .. " (blade aware)", fileblade("focusDirection " .. direction[2], string.format('hl.dsp.focus({ direction = %q })', direction[2])))
+  o.bind("SUPER + " .. direction[1], "Focus " .. direction[1]:lower() .. " (blade aware)", filetree("focusDirection " .. direction[2], string.format('hl.dsp.focus({ direction = %q })', direction[2])))
   hl.unbind("SUPER + SHIFT + " .. direction[1])
-  o.bind("SUPER + SHIFT + " .. direction[1], "Swap " .. direction[1]:lower() .. " (blade aware)", fileblade("windowSwap " .. direction[2], string.format('hl.dsp.window.swap({ direction = %q })', direction[2])))
+  o.bind("SUPER + SHIFT + " .. direction[1], "Swap " .. direction[1]:lower() .. " (blade aware)", filetree("windowSwap " .. direction[2], string.format('hl.dsp.window.swap({ direction = %q })', direction[2])))
 end
 
 hl.unbind("SUPER + W")
-o.bind("SUPER + W", "Close window or blade", fileblade("windowClose", "hl.dsp.window.close()"))
+o.bind("SUPER + W", "Close window or blade", filetree("windowClose", "hl.dsp.window.close()"))
 
 local resize_binds = {
   { "SUPER + code:20", "Expand window left", -100, 0 },
@@ -32,14 +32,14 @@ local resize_binds = {
 }
 for _, bind in ipairs(resize_binds) do
   hl.unbind(bind[1])
-  o.bind(bind[1], bind[2] .. " (blade aware)", fileblade("windowResize " .. bind[3] .. " " .. bind[4], string.format("hl.dsp.window.resize({ x = %d, y = %d, relative = true })", bind[3], bind[4])))
+  o.bind(bind[1], bind[2] .. " (blade aware)", filetree("windowResize " .. bind[3] .. " " .. bind[4], string.format("hl.dsp.window.resize({ x = %d, y = %d, relative = true })", bind[3], bind[4])))
 end
 
 -- Bound alongside Hyprland's own Super and right-button window resize, never
 -- instead of it: these are non-consuming, so a drag over a window resizes the
 -- window and the same drag over a docked blade resizes the blade
-hl.bind("SUPER + mouse:273", hl.dsp.global("fileblade:resize-blade"), { non_consuming = true })
-hl.bind("SUPER + mouse:273", hl.dsp.global("fileblade:resize-blade-end"), { release = true, non_consuming = true })
-hl.bind("mouse:273", hl.dsp.global("fileblade:resize-blade-end"), { release = true, non_consuming = true })
+hl.bind("SUPER + mouse:273", hl.dsp.global("filetree:resize-blade"), { non_consuming = true })
+hl.bind("SUPER + mouse:273", hl.dsp.global("filetree:resize-blade-end"), { release = true, non_consuming = true })
+hl.bind("mouse:273", hl.dsp.global("filetree:resize-blade-end"), { release = true, non_consuming = true })
 
-o.bind("SUPER + Z", "File tree quick navigation", fileblade("quickNav"))
+o.bind("SUPER + Z", "File tree quick navigation", filetree("quickNav"))

@@ -12,7 +12,7 @@ fn write(root: &Path, name: &str, text: &str) {
 }
 
 fn backend(home: &Path, arguments: &[&str], hidden: bool) -> Value {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_filetree"));
     command
         .env("HOME", home)
         .env("XDG_CONFIG_HOME", home.join("config"))
@@ -53,19 +53,19 @@ fn paths(value: &Value) -> Vec<String> {
 #[test]
 fn cache_and_private_paths_obey_hidden_in_every_filesystem_result_source() {
     let temporary = tempfile::Builder::new()
-        .prefix("fileblade-visibility-")
+        .prefix("filetree-visibility-")
         .tempdir()
         .unwrap();
     let home = temporary.path();
     let root = home.to_str().unwrap();
-    let visible = "git/fileblade/sqsp-cli";
+    let visible = "git/filetree/sqsp-cli";
     let hidden = [
         "verification/target/debug/incremental/s-sqsp-temp",
         ".hidden/sqsp-secret",
-        "config/omarchy/fileblade/sqsp-state",
-        "state/omarchy/fileblade/sqsp-recovery",
-        "state/fileblade/mcp-recovery/sqsp-record",
-        "cache/fileblade/sqsp-thumbnail",
+        "config/omarchy/filetree/sqsp-state",
+        "state/omarchy/filetree/sqsp-recovery",
+        "state/filetree/mcp-recovery/sqsp-record",
+        "cache/filetree/sqsp-thumbnail",
     ];
     write(home, "verification/target/CACHEDIR.TAG", TAG);
     for name in std::iter::once(visible).chain(hidden.iter().copied()) {
@@ -195,7 +195,7 @@ fn cache_and_private_paths_obey_hidden_in_every_filesystem_result_source() {
 #[test]
 fn only_a_regular_valid_cache_marker_hides_a_directory() {
     let temporary = tempfile::Builder::new()
-        .prefix("fileblade-markers-")
+        .prefix("filetree-markers-")
         .tempdir()
         .unwrap();
     let home = temporary.path();

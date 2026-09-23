@@ -33,13 +33,13 @@ Omarchy version. Include screenshots for visual or focus issues.
 
 ```bash
 git clone https://github.com/YuriRCosta/FileTree
-cd fileblade
+cd filetree
 cargo build --release --locked
-FILEBLADE_BINARY="$PWD/target/release/fileblade" ./fileblade --version
+FILETREE_BINARY="$PWD/target/release/filetree" ./filetree --version
 ```
 
 Normal installation uses the bundled static backend and requires no Cargo build.
-For development, set `FILEBLADE_BINARY`
+For development, set `FILETREE_BINARY`
 to test a local build, or run `tools/bundle build` to refresh the bundle before
 installing the checkout in a test VM. Stop the VM shell before replacing watched
 plugin files, then start a fresh shell; do not rely on hot reload to validate
@@ -75,7 +75,7 @@ assets/:         logos, icons, and other visual assets
 
 ```bash
 mkdir -p target/bundle-staging
-export FILEBLADE_BUNDLE_TMPDIR="$PWD/target/bundle-staging"
+export FILETREE_BUNDLE_TMPDIR="$PWD/target/bundle-staging"
 tools/bundle build # When native source or build inputs change.
 tests/run
 ```
@@ -93,12 +93,12 @@ surface really is a dot, knob or handle.
 solely to reproduce and attest the bundled backend; it does not run tests there.
 It isolates state in a temporary directory and requires the test dependencies,
 including Qt 6 declarative tools, Python 3, `nvim`, `git`, and `bsdtar`. Set
-`FILEBLADE_OFFLINE=1` to use cached Cargo dependencies.
+`FILETREE_OFFLINE=1` to use cached Cargo dependencies.
 
 Keep `target/` and bundle staging on a disk-backed filesystem. Bundle builds
 otherwise use the temporary directory, which may be memory-backed and fill up.
 Remove the staging directory when finished. A native change must include the
-updated `fileblade-bin`, `fileblade-bin.sha256`, and `fileblade-bin.source`.
+updated `filetree-bin`, `filetree-bin.sha256`, and `filetree-bin.source`.
 
 The gate runs Rust formatting, checks, Clippy and tests, Qt 6 lint and regression
 tests, Python support tests, and a byte-for-byte rebuild of the bundled backend.
@@ -150,7 +150,7 @@ it while files are being replaced. Restarting that replacement can trigger
 [Quickshell's shutdown IPC crash](https://github.com/quickshell-mirror/quickshell/issues/956).
 The helper avoids that overlap; it does not patch the upstream shutdown bug.
 
-Load the [binding example](examples/fileblade-bindings.lua)
+Load the [binding example](examples/filetree-bindings.lua)
 in the guest. Drive keys through QMP and clicks through virtual-pointer input;
 compare screenshots with compositor and plugin status. If a restart still
 shows old QML, clear only the guest's QML cache with its shell stopped.

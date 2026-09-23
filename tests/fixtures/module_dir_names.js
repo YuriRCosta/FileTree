@@ -7,7 +7,7 @@ var NAMES = [
   { "id": "toString", "name": "toString" },
   { "id": "hasOwnProperty", "name": "hasOwnProperty" },
   { "id": "data-goblin.blade-example/clock", "name": "data-goblin.blade-example+clock" },
-  { "id": "data-goblin.fileblade-skills", "name": "data-goblin.fileblade-skills" },
+  { "id": "yuricosta.filetree-skills", "name": "yuricosta.filetree-skills" },
   { "id": "a.b_c-d/e.f_g-h", "name": "a.b_c-d+e.f_g-h" },
   { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
   { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "name": "" },

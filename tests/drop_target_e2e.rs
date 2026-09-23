@@ -503,7 +503,7 @@ impl Drop for Server {
 }
 
 fn start_nvim(socket: &std::path::Path) -> Option<Server> {
-    let strict = std::env::var("FILEBLADE_TEST_STRICT").is_ok_and(|value| value == "1");
+    let strict = std::env::var("FILETREE_TEST_STRICT").is_ok_and(|value| value == "1");
     let directory = socket.parent()?;
     let spawned = Command::new("nvim")
         .args(["--headless", "--clean", "--listen"])

@@ -30,7 +30,7 @@ Item {
     var plugins = config && Array.isArray(config.plugins) ? config.plugins : []
     for (var i = 0; i < plugins.length; i++) {
       var entry = plugins[i]
-      if (!entry || String(entry.id || "") !== "data-goblin.fileblade") continue
+      if (!entry || String(entry.id || "") !== "yuricosta.filetree") continue
       return entry.settings && typeof entry.settings === "object" ? entry.settings : entry
     }
     return ({})

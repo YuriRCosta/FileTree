@@ -191,7 +191,7 @@ fn git_status_disables_repository_fsmonitor() {
     );
     for (key, value) in [
         ("user.name", "FileTree Test"),
-        ("user.email", "fileblade@example.invalid"),
+        ("user.email", "filetree@example.invalid"),
     ] {
         assert!(
             Command::new("git")

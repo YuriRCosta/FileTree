@@ -142,7 +142,7 @@ fn cancellation_after_output_started_removes_staging_without_publishing() {
                 entry
                     .file_name()
                     .to_string_lossy()
-                    .starts_with(".fileblade-partial-")
+                    .starts_with(".filetree-partial-")
                     && fs::metadata(entry.path().join("archive"))
                         .is_ok_and(|metadata| metadata.len() > 4096)
             });
@@ -179,7 +179,7 @@ fn assert_no_partial(root: &Path) {
         entry
             .file_name()
             .to_string_lossy()
-            .starts_with(".fileblade-partial-")
+            .starts_with(".filetree-partial-")
     }));
 }
 
@@ -189,9 +189,9 @@ fn creation_refuses_a_fault_volume_without_leaving_partial_output() {
     if !isolated::child(None) {
         return;
     }
-    let mount = std::env::var_os("FILEBLADE_ARCHIVE_FAULT_ROOT").expect("fault volume is required");
+    let mount = std::env::var_os("FILETREE_ARCHIVE_FAULT_ROOT").expect("fault volume is required");
     let expected =
-        std::env::var("FILEBLADE_ARCHIVE_FAULT_ERROR").expect("expected error is required");
+        std::env::var("FILETREE_ARCHIVE_FAULT_ERROR").expect("expected error is required");
     let root = tempfile::tempdir().unwrap();
     let source = root.path().join("source");
     fs::write(&source, vec![b'x'; 1024 * 1024]).unwrap();

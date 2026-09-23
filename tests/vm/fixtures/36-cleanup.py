@@ -120,11 +120,11 @@ def xdg_home(variable, fallback):
 
 
 def isolated_roots():
-    if os.environ.get("FILEBLADE_NATIVE_STATE_ROOT"):
+    if os.environ.get("FILETREE_NATIVE_STATE_ROOT"):
         raise RuntimeError("isolate requires the plugin storage roots")
     data = xdg_home("XDG_DATA_HOME", ".local/share")
     state = xdg_home("XDG_STATE_HOME", ".local/state")
-    roots = [("trash", data / "Trash"), ("artifact-bin", data / "fileblade/bin"), ("recovery", state / "fileblade")]
+    roots = [("trash", data / "Trash"), ("artifact-bin", data / "filetree/bin"), ("recovery", state / "filetree")]
     for _, path in roots:
         validate_path(path, "storage")
     for index, (_, path) in enumerate(roots):
@@ -165,7 +165,7 @@ def write_journal(journal):
 
 
 def document_paths():
-    expected_config = xdg_home("XDG_CONFIG_HOME", ".config") / "omarchy/fileblade"
+    expected_config = xdg_home("XDG_CONFIG_HOME", ".config") / "omarchy/filetree"
     if config != expected_config:
         raise RuntimeError("unexpected config root: " + str(config))
     validate_path(config, "config")
@@ -173,7 +173,7 @@ def document_paths():
         raise RuntimeError("missing config root: " + str(config))
     state = xdg_home("XDG_STATE_HOME", ".local/state")
     paths = [config / name for name in ("blades.json", "settings.json", "keybindings.json")]
-    paths.append(state / "omarchy/fileblade/state.json")
+    paths.append(state / "omarchy/filetree/state.json")
     for path in paths:
         validate_path(path, "config document")
     return paths
@@ -216,7 +216,7 @@ def prepare_isolation(journal):
     records = []
     for label, path in isolated_roots():
         info = directory_info(path, label)
-        archive = unique_path(path.parent, "fileblade-e36-" + label) if info is not None else None
+        archive = unique_path(path.parent, "filetree-e36-" + label) if info is not None else None
         records.append({"label": label, "path": str(path), "original": str(archive) if archive else None,
                         "identity": {"dev": info.st_dev, "ino": info.st_ino} if info is not None else None,
                         "existed": info is not None, "moved": False, "generated": None,
@@ -235,8 +235,8 @@ def prepare_isolation(journal):
 def move_generated(record, journal):
     path = Path(record["path"])
     info = directory_info(path, record["label"])
-    generated = Path(record["generated"]) if record["generated"] else unique_path(path.parent, "fileblade-e36-generated-" + record["label"])
-    if generated.parent != path.parent or not generated.name.startswith(".fileblade-e36-generated-" + record["label"] + "."):
+    generated = Path(record["generated"]) if record["generated"] else unique_path(path.parent, "filetree-e36-generated-" + record["label"])
+    if generated.parent != path.parent or not generated.name.startswith(".filetree-e36-generated-" + record["label"] + "."):
         raise RuntimeError("refusing unexpected generated " + record["label"] + " path: " + str(generated))
     if info is None:
         if record["generated"] and lstat(generated) is None:
@@ -260,7 +260,7 @@ def restore_isolation(journal):
         validate_path(path, "storage")
         original = Path(record["original"]) if record["original"] else None
         if original is not None:
-            if original.parent != path.parent or not original.name.startswith(".fileblade-e36-" + record["label"] + "."):
+            if original.parent != path.parent or not original.name.startswith(".filetree-e36-" + record["label"] + "."):
                 raise RuntimeError("refusing unexpected saved " + record["label"] + " path: " + str(original))
             validate_path(original, "saved storage")
         source_info = directory_info(path, record["label"])

@@ -1,5 +1,5 @@
 [demo]
-name = "fileblade-double-click"
+name = "filetree-double-click"
 output = "Virtual-1"
 capture = "screencopy"
 screen = [1920, 1080]

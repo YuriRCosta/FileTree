@@ -141,7 +141,7 @@ FocusScope {
       property int dragModifiers: 0
       Drag.active: false
       Drag.source: tile
-      Drag.keys: ["fileblade-entry"]
+      Drag.keys: ["filetree-entry"]
       Drag.hotSpot: dragPosition
       Drag.supportedActions: Qt.CopyAction | Qt.MoveAction
       Drag.proposedAction: dragModifiers & Qt.ControlModifier ? Qt.CopyAction : Qt.MoveAction

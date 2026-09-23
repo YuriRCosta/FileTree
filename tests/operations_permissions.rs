@@ -110,7 +110,7 @@ fn read_only_volume_refuses_permission_changes() {
     if !isolated::child(None) {
         return;
     }
-    let path = std::env::var_os("FILEBLADE_PERMISSION_FAULT_PATH")
+    let path = std::env::var_os("FILETREE_PERMISSION_FAULT_PATH")
         .expect("read-only fixture path is required");
     let path = Path::new(&path);
     let before = mode(path);

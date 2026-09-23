@@ -1,9 +1,9 @@
 set -u
 OVM=${OVM:?set OVM to the ovm harness path}
-PLUGIN=data-goblin.fileblade
-FILEBLADE_SHAPE=${FILEBLADE_SHAPE:-plugin}
+PLUGIN=yuricosta.filetree
+FILETREE_SHAPE=${FILETREE_SHAPE:-plugin}
 CONTROL_COMMAND=(omarchy-shell -q "$PLUGIN.control")
-if [[ $FILEBLADE_SHAPE == native ]]; then
+if [[ $FILETREE_SHAPE == native ]]; then
   CONTROL_COMMAND=("$OVM" ipc "$PLUGIN.control")
 fi
 ROOT_DIR=/home/omarchy/fbexp
@@ -20,7 +20,7 @@ require_guest() {
   summary
 }
 ctl() {
-  if [[ $FILEBLADE_SHAPE == native ]]; then
+  if [[ $FILETREE_SHAPE == native ]]; then
     "${CONTROL_COMMAND[@]}" "$@" >/dev/null
     return
   fi
@@ -29,7 +29,7 @@ ctl() {
   guest "$cmd" >/dev/null
 }
 ctl_out() {
-  if [[ $FILEBLADE_SHAPE == native ]]; then
+  if [[ $FILETREE_SHAPE == native ]]; then
     "${CONTROL_COMMAND[@]}" "$@"
     return
   fi
@@ -39,11 +39,11 @@ ctl_out() {
 }
 ctl_path() { ctl "$1" "$2"; }
 backend() {
-  if [[ $FILEBLADE_SHAPE == native ]]; then
+  if [[ $FILETREE_SHAPE == native ]]; then
     "$OVM" ipc _backend "$@"
     return
   fi
-  local command="$GUEST_PLUGIN/fileblade _backend" argument
+  local command="$GUEST_PLUGIN/filetree _backend" argument
   for argument in "$@"; do command+=" $(printf '%q' "$argument")"; done
   guest "$command"
 }
@@ -84,7 +84,7 @@ expect_true() {
   if eval "$3" >/dev/null 2>&1; then pass "$1" "$2"; else fail "$1" "$2" "condition failed: $3"; fi
 }
 
-blade_layer() { "$OVM" hypr layers 2>/dev/null | jq -r --arg n "omarchy-fileblade-$1" '[..|objects|select(.namespace? == $n)]|length'; }
+blade_layer() { "$OVM" hypr layers 2>/dev/null | jq -r --arg n "omarchy-filetree-$1" '[..|objects|select(.namespace? == $n)]|length'; }
 
 left_open() { [[ $(blade_layer left) == 1 ]]; }
 ensure_left_open() { left_open || { ctl toggleBladeFocus left; wait_for "[[ \$(blade_layer left) == 1 ]]" 12; }; }
@@ -107,7 +107,7 @@ wait_for() {
 }
 
 restart_shell() {
-  if [[ $FILEBLADE_SHAPE == native ]]; then
+  if [[ $FILETREE_SHAPE == native ]]; then
     "$OVM" restart >/dev/null 2>&1 || return 1
     wait_for "[[ -n \$(field rootPath) ]]" 25
     return $?
@@ -220,7 +220,7 @@ double_click() {
   fixture_source="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)/tests/vm/double-click.toml"
   [[ -f $fixture_source ]] || return 1
   fixture_data=$(base64 -w0 "$fixture_source") || return 1
-  guest "double_click_dir=\$(mktemp -d /tmp/fileblade-double-click.XXXXXX)
+  guest "double_click_dir=\$(mktemp -d /tmp/filetree-double-click.XXXXXX)
     printf '%s' $fixture_data | base64 -d > \"\$double_click_dir/template.toml\"
     sed 's/POINT_X/$point_x/g; s/POINT_Y/$point_y/g' \"\$double_click_dir/template.toml\" > \"\$double_click_dir/input.toml\"
     democtl record \"\$double_click_dir/input.toml\" --out \"\$double_click_dir/record\" >/dev/null 2>&1
@@ -288,10 +288,10 @@ GUEST_PLUGIN=/home/omarchy/.config/omarchy/plugins/$PLUGIN
 left_modules() { "$OVM" ipc "$PLUGIN" blades | jq -c '[.blades.left.slots[].modules[].module]'; }
 reset_modules() {
   [[ $(left_modules) == '["files","properties"]' ]] && return 0
-  if [[ $FILEBLADE_SHAPE == native ]]; then
+  if [[ $FILETREE_SHAPE == native ]]; then
     ctl setBladeSlots left "base64:$(printf '%s' '[{"module":"files"},{"module":"properties"}]' | base64 -w0)"
   else
-    guest "$GUEST_PLUGIN/fileblade blade set left files,properties" >/dev/null 2>&1
+    guest "$GUEST_PLUGIN/filetree blade set left files,properties" >/dev/null 2>&1
   fi
   wait_for "[[ \$(left_modules) == '[\"files\",\"properties\"]' ]]" 12
   sleep 3

@@ -13,7 +13,7 @@ fn paths(payload: &serde_json::Value) -> Vec<String> {
 #[test]
 fn visits_rank_by_decayed_score_follow_renames_and_import_recent_bookmarks() {
     let temporary = tempfile::Builder::new()
-        .prefix("fileblade-recent-")
+        .prefix("filetree-recent-")
         .tempdir()
         .unwrap();
     let root = temporary.path();

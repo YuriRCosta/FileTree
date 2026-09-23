@@ -37,7 +37,7 @@ fn escaped_mount_paths_resolve_the_original_native_directory() {
 
 fn list(location: &locations::Descriptor, path: &str) -> serde_json::Value {
     let command = fileblade::backend::parse([
-        "fileblade",
+        "filetree",
         "list",
         "--location",
         &location.id,

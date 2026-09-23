@@ -20,7 +20,7 @@ TestCase {
     var controller = { actionMenuMode: "archive-create", actionInput: "", operationError: "",
       focusTree: function() {},
       rootName: function(path) { return path.split("/").pop() },
-      backendCommand: function(kind) { return ["/fileblade", "_backend", kind] },
+      backendCommand: function(kind) { return ["/filetree", "_backend", kind] },
       history: { enqueue: function(label, args) { calls.push(args) } } }
     var prepare = new Function("root", "controller", "PathText", "Qt", methods + "\nprepare()")
     var submit = new Function("root", "controller", "PathText", methods + "\nsubmitInput()")
@@ -34,7 +34,7 @@ TestCase {
     controller.actionInput = "/target/space #%.zip"
     root.archiveFormat = "zip"
     submit(root, controller, PathText)
-    compare(calls[0], ["/fileblade", "_backend", "archive-create", "--destination", "/target/space #%.zip",
+    compare(calls[0], ["/filetree", "_backend", "archive-create", "--destination", "/target/space #%.zip",
       "--format", "zip", "--source", root.paths[0], "--source", root.paths[1]])
     compare(closed, 1)
     root.archiveMode = false
@@ -49,7 +49,7 @@ TestCase {
     }
     controller.actionInput = "640"
     submit(root, controller, PathText)
-    compare(calls[1], ["/fileblade", "_backend", "permissions-set", "--mode", "640", "--path", root.paths[0], "--path", root.paths[1]])
+    compare(calls[1], ["/filetree", "_backend", "permissions-set", "--mode", "640", "--path", root.paths[0], "--path", root.paths[1]])
     compare(closed, 2)
   }
 }

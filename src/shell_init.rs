@@ -1,46 +1,46 @@
-pub const BASH: &str = r#"fileblade-file-widget() {
+pub const BASH: &str = r#"filetree-file-widget() {
   local prefix=${READLINE_LINE:0:READLINE_POINT}
   local word=${prefix##* }
   local selected
-  selected=$(fileblade pick --mode open --multiple --root "$PWD" --query "$word" --shell-quote) || return
+  selected=$(filetree pick --mode open --multiple --root "$PWD" --query "$word" --shell-quote) || return
   READLINE_LINE="${prefix:0:${#prefix}-${#word}}${selected}${READLINE_LINE:READLINE_POINT}"
   READLINE_POINT=$((${#prefix} - ${#word} + ${#selected}))
 }
 
-__fileblade_cd__() {
+__filetree_cd__() {
   local dir
-  dir=$(fileblade pick --mode folder --root "$PWD") || return
+  dir=$(filetree pick --mode folder --root "$PWD") || return
   printf 'builtin cd -- %q' "$dir"
 }
 
 fb() {
-  builtin cd -- "$(fileblade root)"
+  builtin cd -- "$(filetree root)"
 }
 
 bind -m emacs-standard '"\C-\e(": redraw-current-line'
 bind -m vi-command '"\C-z": emacs-editing-mode'
 bind -m vi-insert '"\C-z": emacs-editing-mode'
 bind -m emacs-standard '"\C-z": vi-editing-mode'
-bind -m emacs-standard -x "\"${FILEBLADE_FILE_KEY:-\\C-t}\": fileblade-file-widget"
-bind -m vi-command -x "\"${FILEBLADE_FILE_KEY:-\\C-t}\": fileblade-file-widget"
-bind -m vi-insert -x "\"${FILEBLADE_FILE_KEY:-\\C-t}\": fileblade-file-widget"
-bind -m emacs-standard "\"${FILEBLADE_CD_KEY:-\\ec}\": \" \\C-b\\C-k \\C-u\`__fileblade_cd__\`\\e\\C-e\\C-\\e(\\C-m\\C-y\\C-h\\e \\C-y\\ey\\C-x\\C-x\\C-d\\C-y\\ey\\C-_\""
-bind -m vi-command "\"${FILEBLADE_CD_KEY:-\\ec}\": \"\\C-z${FILEBLADE_CD_KEY:-\\ec}\\C-z\""
-bind -m vi-insert "\"${FILEBLADE_CD_KEY:-\\ec}\": \"\\C-z${FILEBLADE_CD_KEY:-\\ec}\\C-z\""
+bind -m emacs-standard -x "\"${FILETREE_FILE_KEY:-\\C-t}\": filetree-file-widget"
+bind -m vi-command -x "\"${FILETREE_FILE_KEY:-\\C-t}\": filetree-file-widget"
+bind -m vi-insert -x "\"${FILETREE_FILE_KEY:-\\C-t}\": filetree-file-widget"
+bind -m emacs-standard "\"${FILETREE_CD_KEY:-\\ec}\": \" \\C-b\\C-k \\C-u\`__filetree_cd__\`\\e\\C-e\\C-\\e(\\C-m\\C-y\\C-h\\e \\C-y\\ey\\C-x\\C-x\\C-d\\C-y\\ey\\C-_\""
+bind -m vi-command "\"${FILETREE_CD_KEY:-\\ec}\": \"\\C-z${FILETREE_CD_KEY:-\\ec}\\C-z\""
+bind -m vi-insert "\"${FILETREE_CD_KEY:-\\ec}\": \"\\C-z${FILETREE_CD_KEY:-\\ec}\\C-z\""
 "#;
 
-pub const ZSH: &str = r#"fileblade-file-widget() {
+pub const ZSH: &str = r#"filetree-file-widget() {
   local word=${LBUFFER##* }
   local selected
-  selected=$(fileblade pick --mode open --multiple --root "$PWD" --query "$word" --shell-quote) || { zle redisplay; return 0 }
+  selected=$(filetree pick --mode open --multiple --root "$PWD" --query "$word" --shell-quote) || { zle redisplay; return 0 }
   LBUFFER="${LBUFFER[1,$((${#LBUFFER} - ${#word}))]}${selected}"
   zle reset-prompt
 }
 
-fileblade-cd-widget() {
+filetree-cd-widget() {
   setopt localoptions pipefail no_aliases 2> /dev/null
   local dir
-  dir=$(fileblade pick --mode folder --root "$PWD") || { zle redisplay; return 0 }
+  dir=$(filetree pick --mode folder --root "$PWD") || { zle redisplay; return 0 }
   zle push-line
   BUFFER="builtin cd -- ${(q)dir}"
   zle accept-line
@@ -51,14 +51,14 @@ fileblade-cd-widget() {
 }
 
 fb() {
-  builtin cd -- "$(fileblade root)"
+  builtin cd -- "$(filetree root)"
 }
 
-zle -N fileblade-file-widget
-zle -N fileblade-cd-widget
+zle -N filetree-file-widget
+zle -N filetree-cd-widget
 for keymap in emacs vicmd viins; do
-  bindkey -M "$keymap" "${FILEBLADE_FILE_KEY:-^T}" fileblade-file-widget
-  bindkey -M "$keymap" "${FILEBLADE_CD_KEY:-\ec}" fileblade-cd-widget
+  bindkey -M "$keymap" "${FILETREE_FILE_KEY:-^T}" filetree-file-widget
+  bindkey -M "$keymap" "${FILETREE_CD_KEY:-\ec}" filetree-cd-widget
 done
 "#;
 

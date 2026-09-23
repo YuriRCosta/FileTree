@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 src=assets/demos
-out=assets/fileblade-overview.gif
+out=assets/filetree-overview.gif
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 segments=(

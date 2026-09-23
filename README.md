@@ -5,18 +5,19 @@
 - A file tree with Git status, fuzzy search, quick navigation, favorites and folder colors
 - A properties pane under the tree with metadata and previews for the selection
 - Drag files straight into other applications, or hold space for a quick-action wheel
-- Keyboard- or mouse-first, and a `fileblade` CLI that scripts and coding agents can drive
+- Keyboard- or mouse-first, and a `filetree` CLI that scripts and coding agents can drive
 
-<p align="center"><img src="assets/fileblade-overview.gif" alt="FileTree highlights" width="720"></p>
+<p align="center"><img src="assets/filetree-overview.gif" alt="FileTree highlights" width="720"></p>
 
 > [!NOTE]
 > FileTree started as a simplified fork of [FileBlade](https://github.com/data-goblin/fileblade)
 > by Kurt Buhler. It keeps only the file manager: no extension modules, no agent blades, no
 > native app, no second blade and no window mode.
 >
-> Under the hood it still uses FileBlade's identifiers so existing installs keep working:
-> the Omarchy plugin id `data-goblin.fileblade`, the `fileblade` CLI, and the
-> `~/.config/omarchy/fileblade` and `~/.local/state/omarchy/fileblade` directories.
+> Coming from FileBlade? FileTree moves `~/.config/omarchy/fileblade` and
+> `~/.local/state/omarchy/fileblade` to their `filetree` names on first start, so the
+> layout, favorites and history carry over. Update your Hyprland bindings to call
+> `omarchy-shell yuricosta.filetree.control` as in the example file.
 
 ## Installation
 
@@ -28,25 +29,25 @@ OMARCHY_SHELL_IPC_TIMEOUT=10s omarchy plugin add https://github.com/YuriRCosta/F
 omarchy restart shell
 ```
 
-Then add the contents of [`examples/fileblade-bindings.lua`](examples/fileblade-bindings.lua)
+Then add the contents of [`examples/filetree-bindings.lua`](examples/filetree-bindings.lua)
 to `~/.config/hypr/bindings.lua` and run `hyprctl reload`. `Super+B` opens and
 closes the blade.
 
 To remove it:
 
 ```bash
-omarchy plugin remove data-goblin.fileblade
+omarchy plugin remove yuricosta.filetree
 omarchy restart shell
 ```
 
-Your layout, settings and history stay in `~/.config/omarchy/fileblade/` and
-`~/.local/state/omarchy/fileblade/`. Remove the bindings you added if you no
+Your layout, settings and history stay in `~/.config/omarchy/filetree/` and
+`~/.local/state/omarchy/filetree/`. Remove the bindings you added if you no
 longer want them.
 
 ## Using it
 
 - **Side:** open Settings (the gear in the blade footer) and pick Left or Right,
-  or run `fileblade blade side left|right`. There is only ever one blade.
+  or run `filetree blade side left|right`. There is only ever one blade.
 - **Width:** drag the blade's inner edge, hold `Super` and drag with the right
   mouse button, or use `Super+Minus` / `Super+Equals` while the blade has focus.
 - **Properties pane:** drag the divider under the tree to resize it; turn it
@@ -69,7 +70,7 @@ longer want them.
 - Media view for folders of images and videos
 - Script actions in the right-click menu
 - A drive usage bar under the toolbar
-- The `fileblade` CLI: selection, navigation, file operations and blade control,
+- The `filetree` CLI: selection, navigation, file operations and blade control,
   with JSON output for scripts and agents
 
 <details>
@@ -94,7 +95,7 @@ longer want them.
 
 <details>
 <summary><b>Drop wheel</b></summary>
-<p align="center"><img src="assets/fileblade-drop-wheel.gif" alt="Dragging a file from FileTree onto a terminal and picking a new pane from the selection wheel" width="720"></p>
+<p align="center"><img src="assets/filetree-drop-wheel.gif" alt="Dragging a file from FileTree onto a terminal and picking a new pane from the selection wheel" width="720"></p>
 </details>
 
 ## What it changes on your system
@@ -109,7 +110,7 @@ longer want them.
 - **Trash:** trashed files go to `~/.local/share/Trash`, shared with other file
   managers. Automatic cleanup is off until you choose a retention period.
 - **Audit log:** every file operation is recorded in
-  `~/.local/state/omarchy/fileblade/audit.jsonl`.
+  `~/.local/state/omarchy/filetree/audit.jsonl`.
 
 ## More
 

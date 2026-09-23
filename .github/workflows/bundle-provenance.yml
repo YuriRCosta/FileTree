@@ -11,7 +11,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: fileblade-backend-provenance
+  group: filetree-backend-provenance
   cancel-in-progress: false
 
 defaults:
@@ -53,12 +53,12 @@ jobs:
 
       - name: Rebuild and compare the committed bundle
         env:
-          CARGO_HOME: ${{ runner.temp }}/fileblade-cargo
-          FILEBLADE_BUNDLE_TMPDIR: ${{ runner.temp }}
+          CARGO_HOME: ${{ runner.temp }}/filetree-cargo
+          FILETREE_BUNDLE_TMPDIR: ${{ runner.temp }}
         run: |
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
-          bundle_expected=$(mktemp -d "$RUNNER_TEMP/fileblade-expected.XXXXXX")
-          bundle_files=(fileblade-bin fileblade-bin.sha256 fileblade-bin.source THIRD_PARTY_NOTICES.html)
+          bundle_expected=$(mktemp -d "$RUNNER_TEMP/filetree-expected.XXXXXX")
+          bundle_files=(filetree-bin filetree-bin.sha256 filetree-bin.source THIRD_PARTY_NOTICES.html)
           for bundle_file in "${bundle_files[@]}"; do
             git show "$GITHUB_SHA:$bundle_file" > "$bundle_expected/$bundle_file"
           done
@@ -75,7 +75,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: fileblade-build-${{ github.sha }}-${{ github.run_attempt }}
+          name: filetree-build-${{ github.sha }}-${{ github.run_attempt }}
           path: target/provenance-artifact/
           if-no-files-found: error
           retention-days: 1
@@ -97,9 +97,9 @@ jobs:
           path: source
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /fileblade-bin
-            /fileblade-bin.sha256
-            /fileblade-bin.source
+            /filetree-bin
+            /filetree-bin.sha256
+            /filetree-bin.source
             /THIRD_PARTY_NOTICES.html
 
       - name: Download this run's rebuilt bundle
@@ -114,17 +114,17 @@ jobs:
         run: |
           [[ "$(git -C source rev-parse HEAD)" == "$GITHUB_SHA" ]]
           [[ "$(cat bundle/source-commit.txt)" == "$GITHUB_SHA" ]]
-          for bundle_file in fileblade-bin fileblade-bin.sha256 fileblade-bin.source THIRD_PARTY_NOTICES.html; do
+          for bundle_file in filetree-bin filetree-bin.sha256 filetree-bin.source THIRD_PARTY_NOTICES.html; do
             [[ -f "bundle/$bundle_file" && ! -L "bundle/$bundle_file" ]]
             cmp -- "source/$bundle_file" "bundle/$bundle_file"
           done
-          (cd bundle && sha256sum --strict --check fileblade-bin.sha256)
+          (cd bundle && sha256sum --strict --check filetree-bin.sha256)
 
       - name: Attest the rebuilt backend
         id: attest
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
-          subject-path: bundle/fileblade-bin
+          subject-path: bundle/filetree-bin
           create-storage-record: false
 
       - name: Verify the source and signer identity
@@ -133,7 +133,7 @@ jobs:
           ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
           gh --version
-          gh attestation verify bundle/fileblade-bin \
+          gh attestation verify bundle/filetree-bin \
             --bundle "$ATTESTATION_BUNDLE" \
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/bundle-provenance.yml" \
@@ -141,12 +141,12 @@ jobs:
             --signer-digest "$GITHUB_SHA" \
             --deny-self-hosted-runners \
             --format json > bundle/verification.json
-          cp -- "$ATTESTATION_BUNDLE" bundle/fileblade-bin.sigstore.json
+          cp -- "$ATTESTATION_BUNDLE" bundle/filetree-bin.sigstore.json
 
       - name: Save the backend and verification evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: fileblade-backend-${{ github.sha }}-${{ github.run_attempt }}
+          name: filetree-backend-${{ github.sha }}-${{ github.run_attempt }}
           path: bundle/
           if-no-files-found: error
           retention-days: 90

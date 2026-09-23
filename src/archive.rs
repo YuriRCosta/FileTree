@@ -221,7 +221,7 @@ pub fn extract(
             }
         }
         let stage = target_parent.path.join(format!(
-            ".fileblade-partial-{}",
+            ".filetree-partial-{}",
             uuid::Uuid::new_v4().simple()
         ));
         secure::create_directory_noreplace(&stage, 0o700)?;

@@ -12,7 +12,7 @@ kill_windows() { "$OVM" ssh 'pkill -x foot; pkill -x nvim' >/dev/null 2>&1; wait
 
 space_helper=""
 space_pid=""
-mux_session="fileblade-e26-$$"
+mux_session="filetree-e26-$$"
 cleanup_space_helper() {
   "$OVM" release ctrl >/dev/null 2>&1
   "$OVM" release spc >/dev/null 2>&1
@@ -28,8 +28,8 @@ if [[ ! -f $space_source ]]; then
   fail harness "stage the modifier helper" "source helper is absent: $space_source"
   summary
 fi
-space_helper=$(guest 'mktemp /tmp/fileblade-drop-wheel-space.XXXXXX')
-if [[ ! $space_helper =~ ^/tmp/fileblade-drop-wheel-space\.[[:alnum:]]+$ ]]; then
+space_helper=$(guest 'mktemp /tmp/filetree-drop-wheel-space.XXXXXX')
+if [[ ! $space_helper =~ ^/tmp/filetree-drop-wheel-space\.[[:alnum:]]+$ ]]; then
   fail harness "stage the modifier helper" "guest temporary path is invalid"
   summary
 fi
@@ -156,7 +156,7 @@ TOML
 mid() { jq -r ".$1" <<<"${mid_drag:-null}" 2>/dev/null; }
 seen() { jq -r ".$1" <<<"${loaded:-null}" 2>/dev/null; }
 
-if [[ $FILEBLADE_SHAPE == native ]]; then
+if [[ $FILETREE_SHAPE == native ]]; then
   ctl setBladeSlots left "base64:$(printf '%s' '[{"id":"e26-files","modules":[{"module":"files","state":{"mediaMode":false}}]},{"id":"e26-properties","modules":[{"module":"properties"}],"fraction":0.34}]' | base64 -w0)"
   sleep 2
 fi
@@ -269,7 +269,7 @@ fi
 shot E-26-10-application-opened
 kill_windows
 
-guest "setsid foot -e tmux new-session -s $mux_session >/tmp/fileblade-e26-terminal.log 2>&1 </dev/null &"
+guest "setsid foot -e tmux new-session -s $mux_session >/tmp/filetree-e26-terminal.log 2>&1 </dev/null &"
 wait_for "[[ \$(clients) == 1 ]]" 10
 wait_for "[[ \$(guest 'tmux list-panes -t $mux_session' | wc -l) == 1 ]]" 10
 terminal=$("$OVM" hypr clients | jq -c '.[] | select(.class == "foot")')

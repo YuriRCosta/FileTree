@@ -13,8 +13,8 @@ impl Fixture {
     }
     fn run(&self, arguments: &[&str]) -> Value {
         let result = Command::new(
-            std::env::var_os("FILEBLADE_BINARY")
-                .unwrap_or_else(|| env!("CARGO_BIN_EXE_fileblade").into()),
+            std::env::var_os("FILETREE_BINARY")
+                .unwrap_or_else(|| env!("CARGO_BIN_EXE_filetree").into()),
         )
         .arg("_backend")
         .args(arguments)
@@ -31,7 +31,7 @@ impl Fixture {
             .unwrap_or_else(|_| panic!("{}", String::from_utf8_lossy(&result.stderr)))
     }
     fn config(&self) -> std::path::PathBuf {
-        self.root.path().join("config/omarchy/fileblade")
+        self.root.path().join("config/omarchy/filetree")
     }
 }
 
@@ -59,7 +59,7 @@ fn fresh_and_existing_installs_need_an_answer_and_every_offered_answer_persists(
         let path = fixture.config().join("settings.json");
         let config: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         assert_eq!(config["version"], 1);
-        assert_eq!(config["filebladeVersion"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(config["filetreeVersion"], env!("CARGO_PKG_VERSION"));
         assert_eq!(
             fs::metadata(path).unwrap().permissions().mode() & 0o777,
             0o600
@@ -77,7 +77,7 @@ fn keybindings_gain_release_metadata_without_losing_custom_bindings() {
     assert_eq!(response["ok"], true, "{response}");
     let saved: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     assert_eq!(saved["bindings"], json!({"next":["n"]}));
-    assert_eq!(saved["filebladeVersion"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(saved["filetreeVersion"], env!("CARGO_PKG_VERSION"));
     let before = fs::metadata(&path).unwrap().modified().unwrap();
     fixture.run(&["keybindings-prepare"]);
     assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), before);

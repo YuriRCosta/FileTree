@@ -76,7 +76,7 @@ fn audit_log_records_mutations_privately_and_reads_back_filtered() {
     .unwrap();
     audit::record(&event("search", &[], &ok)).unwrap();
     let path = audit::path();
-    assert_eq!(path, state.join("omarchy/fileblade/audit.jsonl"));
+    assert_eq!(path, state.join("omarchy/filetree/audit.jsonl"));
     assert_eq!(
         fs::metadata(&path).unwrap().permissions().mode() & 0o777,
         0o600

@@ -296,7 +296,7 @@ PanelWindow {
     right: surface.isRight
   }
 
-  WlrLayershell.namespace: "omarchy-fileblade-" + edge
+  WlrLayershell.namespace: "omarchy-filetree-" + edge
   WlrLayershell.layer: WlrLayer.Top
   WlrLayershell.keyboardFocus: bladeOpen || standaloneMenuHere
     ? (keyboardFocusReleased ? WlrKeyboardFocus.None : WlrKeyboardFocus.OnDemand)

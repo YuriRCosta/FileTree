@@ -80,7 +80,7 @@ else:
     }
 
     fn backend(&self, arguments: &[&str]) -> Value {
-        let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .arg("_backend")
             .args(arguments)
             .env("HOME", self.root.path())
@@ -93,7 +93,7 @@ else:
                 "PATH",
                 format!("{}:/usr/bin:/bin", self.root.path().join("bin").display()),
             )
-            .env_remove("FILEBLADE_HYPR_SOCKET")
+            .env_remove("FILETREE_HYPR_SOCKET")
             .env_remove("HYPRLAND_INSTANCE_SIGNATURE")
             .output()
             .unwrap();
@@ -271,7 +271,7 @@ fn configured_terminal_commands_and_pasted_paths_round_trip_native_bytes() {
         .path()
         .join(std::ffi::OsStr::from_bytes(b"odd-\xff'$(false)\n.txt"));
     fs::write(&path, "fixture").unwrap();
-    let config = desktop.root.path().join("config/omarchy/fileblade");
+    let config = desktop.root.path().join("config/omarchy/filetree");
     fs::create_dir_all(&config).unwrap();
     let literal = "$(false); 'quoted' \\ backslash\n\n";
     fs::write(config.join("settings.json"), json!({"version":1,"dropWheel":{"version":1,
@@ -286,8 +286,8 @@ fn configured_terminal_commands_and_pasted_paths_round_trip_native_bytes() {
     assert_eq!(result["ok"], true, "{result}");
     let command = result["commands"][0].as_array().unwrap();
     let start = command.iter().position(|arg| arg == "exec-hex").unwrap();
-    assert_eq!(command[start - 1], env!("CARGO_BIN_EXE_fileblade"));
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    assert_eq!(command[start - 1], env!("CARGO_BIN_EXE_filetree"));
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .args(command[start..].iter().map(|arg| arg.as_str().unwrap()))
         .output()
         .unwrap();
@@ -474,7 +474,7 @@ fn desktop_icons_and_application_arguments_remain_confined_and_byte_exact() {
 }
 
 #[test]
-fn absent_windows_offer_fileblade_navigation_and_failed_queries_keep_desktop_actions() {
+fn absent_windows_offer_filetree_navigation_and_failed_queries_keep_desktop_actions() {
     let mut desktop = Desktop::new("fixture");
     for class in [
         "foot",

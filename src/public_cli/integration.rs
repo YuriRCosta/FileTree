@@ -4,7 +4,7 @@ use clap::{Args, Subcommand, ValueEnum};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
-const MARKER: &str = "fileblade agent-context";
+const MARKER: &str = "filetree agent-context";
 const HOOK_TIMEOUT: u64 = 5;
 const MAX_CONFIG_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_CONTEXT_PATHS: usize = 20;
@@ -118,7 +118,7 @@ fn write_json(path: &Path, value: &Value) -> AppResult<()> {
     }
     let mut text = serde_json::to_string_pretty(value)?;
     text.push('\n');
-    let temporary = path.with_extension("fileblade-tmp");
+    let temporary = path.with_extension("filetree-tmp");
     std::fs::write(&temporary, text)?;
     std::fs::rename(&temporary, path)?;
     Ok(())
@@ -126,7 +126,7 @@ fn write_json(path: &Path, value: &Value) -> AppResult<()> {
 
 fn hook_entry(agent: Agent) -> Value {
     let command = format!(
-        "fileblade agent-context --format {}",
+        "filetree agent-context --format {}",
         match agent.format() {
             ContextFormat::Codex => "codex",
             ContextFormat::Plain => "plain",
@@ -192,7 +192,7 @@ fn edit_grouped(document: &mut Value, agent: Agent, remove: bool) -> AppResult<b
 
 fn opencode_plugin() -> String {
     String::from(
-        r#"// Written by `fileblade install integration opencode`.
+        r#"// Written by `filetree install integration opencode`.
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 
@@ -200,7 +200,7 @@ const run = promisify(execFile)
 
 async function selection() {
   try {
-    const { stdout } = await run("fileblade", ["agent-context", "--format", "plain"], { timeout: 5000 })
+    const { stdout } = await run("filetree", ["agent-context", "--format", "plain"], { timeout: 5000 })
     return String(stdout || "").trim()
   } catch {
     return ""
@@ -216,7 +216,7 @@ const hooks = {
 }
 
 export default {
-  id: "fileblade-selection",
+  id: "filetree-selection",
   effect: async () => hooks,
 }
 "#,
@@ -332,7 +332,7 @@ fn opencode_integration(remove: bool) -> AppResult<PublicResult> {
     let path = config_home()?
         .join("opencode")
         .join("plugins")
-        .join("fileblade-selection.js");
+        .join("filetree-selection.js");
     let changed = if remove {
         if path.exists() {
             std::fs::remove_file(&path)?;

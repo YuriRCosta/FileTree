@@ -232,7 +232,7 @@ fn resolve_action(document: &Value, wanted: &str) -> AppResult<ActionRow> {
     match bare.len() {
         1 => Ok(bare.remove(0)),
         0 => Err(AppError::command(format!(
-            "no script action {wanted}; fileblade actions lists them"
+            "no script action {wanted}; filetree actions lists them"
         ))),
         _ => Err(AppError::command(format!(
             "{wanted} is ambiguous: {}",

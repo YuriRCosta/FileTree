@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${OVM:?set OVM to the headless VM harness}"
-FILEBLADE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
-export FILEBLADE_EXPECTATIONS_LIB
+FILETREE_EXPECTATIONS_LIB="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+export FILETREE_EXPECTATIONS_LIB
 python3 - <<'PY'
 import json
 import math
@@ -14,8 +14,8 @@ import time
 from pathlib import Path
 
 OVM = os.environ['OVM']
-PLUGIN = 'data-goblin.fileblade'
-LIB_SH = os.environ['FILEBLADE_EXPECTATIONS_LIB']
+PLUGIN = 'yuricosta.filetree'
+LIB_SH = os.environ['FILETREE_EXPECTATIONS_LIB']
 ROOT = '/home/omarchy/fb-hunk-wheel'
 REPO = ROOT + '/repo'
 FILE = REPO + "/nested/quote' and space.txt"
@@ -33,7 +33,7 @@ def guest(command):
 
 def ctl(*args):
     result = subprocess.run(
-        ['bash', '-c', 'source "$1" && ctl "${@:2}"', 'fileblade-ctl', LIB_SH, *map(str, args)],
+        ['bash', '-c', 'source "$1" && ctl "${@:2}"', 'filetree-ctl', LIB_SH, *map(str, args)],
         capture_output=True, text=True, timeout=45)
     if result.returncode:
         raise RuntimeError(f'{args}: {result.stderr} {result.stdout}')

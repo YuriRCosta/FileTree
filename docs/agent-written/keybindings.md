@@ -2,9 +2,9 @@
 
 This file was written by an agent.
 
-Create `~/.config/omarchy/fileblade/keybindings.json` (or
-`$XDG_CONFIG_HOME/omarchy/fileblade/keybindings.json`). It is user-owned:
-FileTree preserves your bindings and adds schema `version` and `filebladeVersion`
+Create `~/.config/omarchy/filetree/keybindings.json` (or
+`$XDG_CONFIG_HOME/omarchy/filetree/keybindings.json`). It is user-owned:
+FileTree preserves your bindings and adds schema `version` and `filetreeVersion`
 metadata through the bounded backend. Unsupported versions are preserved and refused.
 Changes reload automatically.
 
@@ -32,8 +32,8 @@ defaults, remove the file or use `{"version":1,"bindings":{}}`.
 ## Versions
 
 The file carries two version fields. `version` is the format, currently 1;
-`filebladeVersion` is the FileTree that last wrote the file. The backend adds
-both when they are missing and moves `filebladeVersion` forward when an older
+`filetreeVersion` is the FileTree that last wrote the file. The backend adds
+both when they are missing and moves `filetreeVersion` forward when an older
 FileTree wrote the file. It never moves it backward: a file written by a newer
 FileTree is read but left byte-identical, and the `keybindings-prepare` answer
 reports `writtenBy` and `newerWriter: true` so the shell can say so. A `version`
@@ -48,7 +48,7 @@ that conflict with each other are still refused as a whole, since that is a
 mistake in the file rather than a version difference.
 
 `settings.json` carries the same two fields. A read never rewrites it; a
-settings change stamps `filebladeVersion` with the FileTree that made the
+settings change stamps `filetreeVersion` with the FileTree that made the
 change, whichever version that is, because the stamp names the last writer.
 `preferences-read` and `preferences-set` report `writtenBy` and `newerWriter`.
 
@@ -115,12 +115,12 @@ the effective bindings, including disabled actions.
 Malformed JSON, unknown actions/keys, ambiguous custom sequences, oversized
 files (over 64 KiB), symlinks and non-regular files are rejected. The previous
 valid configuration remains active; at startup that is the default map.
-The Files status line and `fileblade status` report the error.
+The Files status line and `filetree status` report the error.
 
 To request a reread explicitly, use:
 
 ```sh
-omarchy-shell data-goblin.fileblade.control reloadKeybindings
+omarchy-shell yuricosta.filetree.control reloadKeybindings
 ```
 
 This does not reload the plugin or restart the shell.

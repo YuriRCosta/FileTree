@@ -5,7 +5,7 @@ fixture >/dev/null
 original=$(field autoHideSearch)
 restore() {
   ctl setAutoHideSearch "$original"
-  guest "$GUEST_PLUGIN/fileblade blade set right notes" >/dev/null
+  guest "$GUEST_PLUGIN/filetree blade set right notes" >/dev/null
   ctl focusBlade left
 }
 trap restore EXIT
@@ -33,7 +33,7 @@ expect E-32-01 "Escape clears the filter" searchQuery ""
 expect_missing E-32-01 "Escape hides Files search" "$(bar_text)" "Search"
 
 for module in skills memory hooks mcp git; do
-  guest "$GUEST_PLUGIN/fileblade blade set right data-goblin.fileblade-$module/$module" >/dev/null
+  guest "$GUEST_PLUGIN/filetree blade set right yuricosta.filetree-$module/$module" >/dev/null
   ctl openBlade right
   ctl focusBlade right
   bar_x=1598

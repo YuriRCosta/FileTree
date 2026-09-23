@@ -45,7 +45,7 @@ PanelWindow {
     right: true
   }
 
-  WlrLayershell.namespace: "omarchy-fileblade-drop"
+  WlrLayershell.namespace: "omarchy-filetree-drop"
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.keyboardFocus: wheelHere && !controller.dragActive && !controller.keyboardFocusReleased ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 

@@ -63,5 +63,5 @@ strip = true
 opt-level = "s"
 
 [[bin]]
-name = "fileblade"
+name = "filetree"
 path = "src/main.rs"

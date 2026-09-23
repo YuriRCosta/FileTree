@@ -74,7 +74,7 @@ fn secure_mutations_cancel_cleanly_and_never_replace() {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".fileblade-partial-")
+            .starts_with(".filetree-partial-")
     }));
 
     let copied = temporary.path().join("copied.txt");
@@ -85,7 +85,7 @@ fn secure_mutations_cancel_cleanly_and_never_replace() {
             if entry
                 .file_name()
                 .to_string_lossy()
-                .starts_with(".fileblade-partial-")
+                .starts_with(".filetree-partial-")
             {
                 observed_private_stage = true;
                 assert_eq!(
@@ -510,13 +510,13 @@ fn journal_failures_do_not_hide_successful_create_and_rename() {
 }
 
 fn backend_with_tools(root: &Path, arguments: &[&str], tools: Option<&Path>) -> Value {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_filetree"));
     command
         .args(["--output", "json", "_backend"])
         .args(arguments)
         .env("XDG_DATA_HOME", root.join("data"))
         .env("XDG_STATE_HOME", root.join("state-home"))
-        .env("FILEBLADE_JOURNAL", root.join("state/journal.json"));
+        .env("FILETREE_JOURNAL", root.join("state/journal.json"));
     if let Some(tools) = tools {
         let mut paths = vec![tools.to_path_buf()];
         paths.extend(std::env::split_paths(
@@ -628,7 +628,7 @@ fn entry_names_refuse_only_whitespace_and_keep_every_legal_name() {
     assert!(root.join("  spaced  ").is_file());
 
     let existing = root.join(" ");
-    fs::write(&existing, "made outside fileblade").unwrap();
+    fs::write(&existing, "made outside filetree").unwrap();
     assert_eq!(
         rename_path(existing.to_str().unwrap(), "recovered.txt", "")["ok"],
         true,

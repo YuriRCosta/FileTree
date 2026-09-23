@@ -296,49 +296,49 @@ fn environment(input: EnvironmentInput<'_>) -> Vec<(String, OsString)> {
             .unwrap_or_default()
     };
     let mut values = vec![
-        ("FILEBLADE_ACTION", input.key.to_string()),
-        ("FILEBLADE_SOURCE", input.source.as_str().to_string()),
-        ("FILEBLADE_PLUGIN_ID", plugin),
-        ("FILEBLADE_PLUGIN_ROOT", path_text(input.root)),
-        ("FILEBLADE_STATE_DIR", path_text(input.state_dir)),
-        ("FILEBLADE_CONFIG_DIR", path_text(input.config_dir)),
-        ("FILEBLADE_CONTEXT", input.request.context.clone()),
-        ("FILEBLADE_ROOT", root_path),
+        ("FILETREE_ACTION", input.key.to_string()),
+        ("FILETREE_SOURCE", input.source.as_str().to_string()),
+        ("FILETREE_PLUGIN_ID", plugin),
+        ("FILETREE_PLUGIN_ROOT", path_text(input.root)),
+        ("FILETREE_STATE_DIR", path_text(input.state_dir)),
+        ("FILETREE_CONFIG_DIR", path_text(input.config_dir)),
+        ("FILETREE_CONTEXT", input.request.context.clone()),
+        ("FILETREE_ROOT", root_path),
         (
-            "FILEBLADE_TARGET",
+            "FILETREE_TARGET",
             input
                 .targets
                 .first()
                 .map(|target| path_text(target))
                 .unwrap_or_default(),
         ),
-        ("FILEBLADE_SELECTION_COUNT", input.targets.len().to_string()),
-        ("FILEBLADE_CLI", launcher()),
+        ("FILETREE_SELECTION_COUNT", input.targets.len().to_string()),
+        ("FILETREE_CLI", launcher()),
         (
-            "FILEBLADE_HOST_VERSION",
+            "FILETREE_HOST_VERSION",
             env!("CARGO_PKG_VERSION").to_string(),
         ),
-        ("FILEBLADE_SCREEN", printable(&input.request.screen, 64)),
+        ("FILETREE_SCREEN", printable(&input.request.screen, 64)),
     ];
     let (document, file) = match input.selection_file {
         Some(path) => (String::new(), path_text(path)),
         None => (input.selection.to_string(), String::new()),
     };
-    values.push(("FILEBLADE_SELECTION_JSON", document));
-    values.push(("FILEBLADE_SELECTION_FILE", file));
+    values.push(("FILETREE_SELECTION_JSON", document));
+    values.push(("FILETREE_SELECTION_FILE", file));
     values
         .into_iter()
         .map(|(key, value)| {
             let value = value.replace('\0', "");
             let path_key = matches!(
                 key,
-                "FILEBLADE_PLUGIN_ROOT"
-                    | "FILEBLADE_STATE_DIR"
-                    | "FILEBLADE_CONFIG_DIR"
-                    | "FILEBLADE_ROOT"
-                    | "FILEBLADE_TARGET"
-                    | "FILEBLADE_SELECTION_FILE"
-                    | "FILEBLADE_CLI"
+                "FILETREE_PLUGIN_ROOT"
+                    | "FILETREE_STATE_DIR"
+                    | "FILETREE_CONFIG_DIR"
+                    | "FILETREE_ROOT"
+                    | "FILETREE_TARGET"
+                    | "FILETREE_SELECTION_FILE"
+                    | "FILETREE_CLI"
             );
             let native = if path_key && !value.is_empty() {
                 parse_path(&value)
@@ -434,7 +434,7 @@ fn resolved_kind(path: &Path) -> Option<bool> {
 fn launcher() -> String {
     own_binary()
         .map(|path| path_text(&path))
-        .unwrap_or_else(|_| "fileblade".to_string())
+        .unwrap_or_else(|_| "filetree".to_string())
 }
 
 fn printable(value: &str, limit: usize) -> String {

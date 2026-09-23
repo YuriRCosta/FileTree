@@ -59,7 +59,7 @@ shot('55-density-narrow')
 time.sleep(2)
 subprocess.run(['tests/vm/stop-shell'], check=True, timeout=40)
 ovm('restart-shell')
-restart_status = json.loads(ipc('data-goblin.fileblade', 'status'))
+restart_status = json.loads(ipc('yuricosta.filetree', 'status'))
 assert restart_status['bladeModules'] and all('Unknown' not in item for item in restart_status['bladeModules']), restart_status
 print(json.dumps({'restartBladeModules': restart_status['bladeModules']}), flush=True)
 control('openBlade', 'left')

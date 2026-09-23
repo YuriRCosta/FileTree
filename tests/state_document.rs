@@ -5,7 +5,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn backend(root: &Path, arguments: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("_backend")
         .args(arguments)
         .env_clear()

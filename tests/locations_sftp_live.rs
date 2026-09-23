@@ -12,7 +12,7 @@ use std::sync::atomic::AtomicBool;
 #[ignore = "requires an isolated D VM SSH/GVfs fixture"]
 fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
     let root = PathBuf::from(
-        std::env::var_os("FILEBLADE_SFTP_PROBE_ROOT").expect("VM fixture root required"),
+        std::env::var_os("FILETREE_SFTP_PROBE_ROOT").expect("VM fixture root required"),
     );
     let cancelled = AtomicBool::new(false);
     let candidates = tailnet::discover(&cancelled).unwrap();
@@ -20,7 +20,7 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
     assert!(candidates[0].location.session_generation.is_empty());
     assert!(candidates[0].location.capabilities.is_empty());
     let discovered = backend::dispatch(
-        backend::parse(["fileblade", "locations"]).unwrap(),
+        backend::parse(["filetree", "locations"]).unwrap(),
         &cancelled,
         &mut |_| Ok(()),
     )
@@ -48,7 +48,7 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
         path: remote.to_str().unwrap().into(),
     };
     let command = backend::parse([
-        "fileblade",
+        "filetree",
         "location-connect",
         "--location",
         &candidates[0].location.id,
@@ -75,7 +75,7 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
         json!(["list"])
     );
     let inventory = backend::dispatch(
-        backend::parse(["fileblade", "locations"]).unwrap(),
+        backend::parse(["filetree", "locations"]).unwrap(),
         &cancelled,
         &mut |_| Ok(()),
     )
@@ -91,7 +91,7 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
     assert!(connected.local_representation.is_none());
     assert!(!connected.session_generation.is_empty());
     let command = backend::parse([
-        "fileblade",
+        "filetree",
         "list",
         "--location",
         &connected.id,
@@ -113,7 +113,7 @@ fn candidate_connects_lists_and_revoked_access_invalidates_generation() {
     }
     fs::set_permissions(&remote, fs::Permissions::from_mode(0o000)).unwrap();
     let command = backend::parse([
-        "fileblade",
+        "filetree",
         "list",
         "--location",
         &connected.id,

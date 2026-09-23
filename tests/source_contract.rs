@@ -146,8 +146,8 @@ fn production_runtime_is_rust_with_one_resident_qml_process() {
             path.display()
         );
     }
-    assert!(!text(&root.join("fileblade")).contains(&maintainer_home));
-    assert!(!text(&root.join("fileblade")).contains("python"));
+    assert!(!text(&root.join("filetree")).contains(&maintainer_home));
+    assert!(!text(&root.join("filetree")).contains("python"));
     let hyprland = module_text(root, "hyprland");
     assert!(!hyprland.contains("hypr_eval"));
     assert!(!hyprland.contains("layer-rules"));
@@ -160,7 +160,7 @@ fn production_runtime_is_rust_with_one_resident_qml_process() {
         assert!(
             relative.starts_with("python")
                 || relative.starts_with("tests")
-                || relative == std::path::Path::new("scripts/fileblade-extension-image.py"),
+                || relative == std::path::Path::new("scripts/filetree-extension-image.py"),
             "Python is a bundled helper under python/, a test, or the extension image tool, never a core backend: {}",
             path.display()
         );
@@ -684,8 +684,8 @@ fn single_docked_blade_routes_every_edge_to_the_configured_side() {
 
     let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
     assert!(ipc.contains("function windowToggle(): string"));
-    assert!(ipc.contains("target: \"data-goblin.fileblade\""));
-    assert!(ipc.contains("target: \"data-goblin.fileblade.control\""));
+    assert!(ipc.contains("target: \"yuricosta.filetree\""));
+    assert!(ipc.contains("target: \"yuricosta.filetree.control\""));
     assert!(!ipc.contains("requestCapability"));
     assert!(!ipc.contains("capabilityResult"));
     assert!(!ipc.contains("consumeCapability"));
@@ -980,7 +980,7 @@ fn qml_test_runner_failures_cannot_be_hidden_by_output_matching() {
     let runner = text(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/run"));
     assert!(!runner.contains(") || true"));
     assert!(runner.contains("status=$?"));
-    assert!(runner.contains("FILEBLADE_QMLTESTRUNNER"));
+    assert!(runner.contains("FILETREE_QMLTESTRUNNER"));
     assert!(runner.contains(
         "for candidate in /usr/lib/qt6/bin/qmltestrunner /usr/lib64/qt6/bin/qmltestrunner qmltestrunner-qt6"
     ));
@@ -1135,7 +1135,7 @@ fn a_plain_left_drag_always_hands_files_to_the_system() {
         "row.systemDragActive = row.systemDragWanted(dragHandler.centroid.pressedButtons, dragHandler.centroid.modifiers)"
     ));
     assert!(wheel.contains("readonly property string pathForm:"));
-    assert!(drop_target.contains("keys: [\"fileblade-entry\", \"text/uri-list\"]"));
+    assert!(drop_target.contains("keys: [\"filetree-entry\", \"text/uri-list\"]"));
     assert!(drop_target.contains("PathText.droppedPath(drop.urls[i])"));
     assert!(drop_target.contains("if (!DragPlan.canDrop(paths, rowItem.path)) return"));
     assert!(row.contains(
@@ -1183,8 +1183,8 @@ fn drop_drag_leaves_the_blade_at_the_sheet_edge_not_the_layer_edge() {
     assert!(row.contains("row.Drag.active = true"));
     assert!(row.contains("else row.Drag.drop()"));
     assert!(row.contains("if (row.dragCanceled) row.Drag.cancel()"));
-    assert!(row.contains("Drag.keys: [\"fileblade-entry\"]"));
-    assert!(drop_target.contains("keys: [\"fileblade-entry\", \"text/uri-list\"]"));
+    assert!(row.contains("Drag.keys: [\"filetree-entry\"]"));
+    assert!(drop_target.contains("keys: [\"filetree-entry\", \"text/uri-list\"]"));
     assert!(drop_target.contains("interval: 500"));
     assert!(drop_target.contains("controller.setDirectoryExpanded(rowItem.path, true)"));
     assert!(drop_target.contains(
@@ -1427,13 +1427,13 @@ fn exported_ipc_verbs_have_a_cli_caller_or_a_documented_reason() {
         let quoted = format!("\"{verb}\"");
         assert!(
             cli.contains(&quoted) || documented.contains(&verb),
-            "IPC verb {verb} has no fileblade subcommand and no entry in ARCHITECTURE.md under IPC verbs without a CLI subcommand"
+            "IPC verb {verb} has no filetree subcommand and no entry in ARCHITECTURE.md under IPC verbs without a CLI subcommand"
         );
     }
 }
 
 #[test]
-fn default_folder_opening_is_a_shared_fileblade_behavior() {
+fn default_folder_opening_is_a_shared_filetree_behavior() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let service = text(&root.join("Service.qml"));
     let launcher = text(&root.join("controllers/LaunchController.qml"));
@@ -1714,7 +1714,7 @@ fn module_directories_are_created_by_the_backend_and_exposed_on_the_context() {
         !config_root.contains("modules"),
         "config never lands in the user-module scan root: {config_root}"
     );
-    assert!(dirs.contains("stateHome + \"/omarchy/fileblade/modules/\""));
+    assert!(dirs.contains("stateHome + \"/omarchy/filetree/modules/\""));
     assert!(dirs.contains("property var known: Object.create(null)"));
     assert!(dirs.contains("readonly property int maximumModules: 128"));
     assert!(dirs.contains("return entry ? entry.result.stateDir : stateRoot + name"));
@@ -1737,8 +1737,8 @@ fn module_directories_are_created_by_the_backend_and_exposed_on_the_context() {
     let cli = module_text(root, "public_cli");
     assert!(cli.contains("\"module-dirs\".to_string()"));
     let architecture = text(&root.join("ARCHITECTURE.md"));
-    assert!(architecture.contains("~/.local/state/omarchy/fileblade/modules/<id>/:"));
-    assert!(architecture.contains("~/.config/omarchy/fileblade/config/<id>/:"));
+    assert!(architecture.contains("~/.local/state/omarchy/filetree/modules/<id>/:"));
+    assert!(architecture.contains("~/.config/omarchy/filetree/config/<id>/:"));
 }
 
 #[test]
@@ -1754,7 +1754,7 @@ fn script_actions_are_normalized_once_in_rust_and_never_echo_a_command_vector() 
         "pub const MAX_CAPTURED_RUNS: usize = 4;",
         "pub const MAX_ERRORS_PER_SOURCE: usize = 16;",
         "pub const MAX_ERRORS_TOTAL: usize = 64;",
-        "pub const SOCKET_KEY: &str = \"data-goblin.fileblade/action\";",
+        "pub const SOCKET_KEY: &str = \"yuricosta.filetree/action\";",
     ] {
         assert!(spec.contains(bound), "src/actions/spec.rs lacks {bound}");
     }
@@ -1777,8 +1777,8 @@ fn script_actions_are_normalized_once_in_rust_and_never_echo_a_command_vector() 
     let run = text(&root.join("src/actions/run.rs"));
     assert!(run.contains("if request.paths.iter().any(String::is_empty)"));
     assert!(run.contains(".retain_tail(true)"));
-    assert!(run.contains("values.push((\"FILEBLADE_SELECTION_JSON\", document));"));
-    assert!(run.contains("values.push((\"FILEBLADE_SELECTION_FILE\", file));"));
+    assert!(run.contains("values.push((\"FILETREE_SELECTION_JSON\", document));"));
+    assert!(run.contains("values.push((\"FILETREE_SELECTION_FILE\", file));"));
     let selection = text(&root.join("src/actions/run/selection.rs"));
     assert!(selection.contains("\"dir\": is_directory,"));
     assert!(run.contains("resolve_program(&action, &root, source)"));

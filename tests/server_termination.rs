@@ -6,7 +6,7 @@ use tempfile::tempdir;
 #[test]
 fn sigterm_stops_a_server_waiting_for_the_next_protocol_line() {
     let temporary = tempdir().unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .args(["serve", "--no-recover"])
         .env("XDG_STATE_HOME", temporary.path())
         .stdin(Stdio::piped())

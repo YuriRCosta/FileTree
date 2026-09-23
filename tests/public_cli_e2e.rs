@@ -43,12 +43,12 @@ impl CliHarness {
             &qs,
             r##"#!/bin/sh
 set -eu
-: > "$FILEBLADE_TEST_ARGV"
+: > "$FILETREE_TEST_ARGV"
 for argument do
-  printf '%s\n' "$argument" >> "$FILEBLADE_TEST_ARGV"
+  printf '%s\n' "$argument" >> "$FILETREE_TEST_ARGV"
 done
-printf '%s\t%s\n' "$7" "$8" >> "$FILEBLADE_TEST_CALLS"
-printf '%s\n' "$FILEBLADE_TEST_RESPONSE"
+printf '%s\t%s\n' "$7" "$8" >> "$FILETREE_TEST_CALLS"
+printf '%s\n' "$FILETREE_TEST_RESPONSE"
 "##,
         )
         .unwrap();
@@ -73,7 +73,7 @@ printf '%s\n' "$FILEBLADE_TEST_RESPONSE"
 
     fn run_in(&self, directory: &Path, arguments: &[&str], response: &str) -> Output {
         let root = self.temporary.path();
-        let mut command = Command::new(env!("CARGO_BIN_EXE_fileblade"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_filetree"));
         command
             .args(arguments)
             .current_dir(directory)
@@ -87,9 +87,9 @@ printf '%s\n' "$FILEBLADE_TEST_RESPONSE"
             .env("OMARCHY_PATH", &self.omarchy)
             .env("WAYLAND_DISPLAY", "wayland-test")
             .env("LC_ALL", "C")
-            .env("FILEBLADE_TEST_ARGV", &self.argv_log)
-            .env("FILEBLADE_TEST_CALLS", &self.calls_log)
-            .env("FILEBLADE_TEST_RESPONSE", response);
+            .env("FILETREE_TEST_ARGV", &self.argv_log)
+            .env("FILETREE_TEST_CALLS", &self.calls_log)
+            .env("FILETREE_TEST_RESPONSE", response);
         command.output().unwrap()
     }
 
@@ -137,7 +137,7 @@ fn navigate_preserves_virtual_trash_resource_in_exact_quickshell_argv() {
             harness.shell_config(),
             "call".to_string(),
             "--".to_string(),
-            "data-goblin.fileblade.control".to_string(),
+            "yuricosta.filetree.control".to_string(),
             "navigate".to_string(),
             "trash:///".to_string(),
         ]
@@ -169,7 +169,7 @@ fn json_output_decodes_the_direct_ipc_document() {
             harness.shell_config(),
             "call".to_string(),
             "--".to_string(),
-            "data-goblin.fileblade".to_string(),
+            "yuricosta.filetree".to_string(),
             "status".to_string(),
         ]
     );
@@ -190,7 +190,7 @@ fn doctor_json_failure_keeps_each_stream_machine_parseable() {
     assert_eq!(report["shell"]["ok"], false, "{report}");
     assert_eq!(
         error,
-        json!({"ok": false, "error": "fileblade is not healthy"})
+        json!({"ok": false, "error": "filetree is not healthy"})
     );
     assert_empty(&harness.data_home);
 }
@@ -219,7 +219,7 @@ fn live_trash_dispatches_directly_to_the_control_target() {
     assert_eq!(output.stdout, b"op-approved\n");
     assert_eq!(
         harness.recorded_calls(),
-        ["data-goblin.fileblade.control\ttrashSelection"]
+        ["yuricosta.filetree.control\ttrashSelection"]
     );
     assert_eq!(
         harness.recorded_arguments(),
@@ -230,7 +230,7 @@ fn live_trash_dispatches_directly_to_the_control_target() {
             harness.shell_config(),
             "call".to_string(),
             "--".to_string(),
-            "data-goblin.fileblade.control".to_string(),
+            "yuricosta.filetree.control".to_string(),
             "trashSelection".to_string(),
         ]
     );
@@ -245,7 +245,7 @@ fn live_rename_dispatches_directly_to_the_control_target() {
     assert_eq!(output.stdout, b"op-renamed\n");
     assert_eq!(
         harness.recorded_calls(),
-        ["data-goblin.fileblade.control\trenameSelection"]
+        ["yuricosta.filetree.control\trenameSelection"]
     );
     assert_eq!(
         harness.recorded_arguments(),
@@ -256,7 +256,7 @@ fn live_rename_dispatches_directly_to_the_control_target() {
             harness.shell_config(),
             "call".to_string(),
             "--".to_string(),
-            "data-goblin.fileblade.control".to_string(),
+            "yuricosta.filetree.control".to_string(),
             "renameSelection".to_string(),
             "after.txt".to_string(),
         ]
@@ -271,8 +271,8 @@ fn shell_scripts_parse_and_pick_prints_accepted_paths() {
         let output = harness.run(&["shell", shell], "");
         assert!(output.status.success(), "{}", stderr(&output));
         let script = String::from_utf8(output.stdout).unwrap();
-        assert!(script.contains("fileblade-file-widget"));
-        assert!(script.contains("fileblade pick --mode folder"));
+        assert!(script.contains("filetree-file-widget"));
+        assert!(script.contains("filetree pick --mode folder"));
         if let Ok(check) = Command::new(shell)
             .arg("-n")
             .arg("-c")
@@ -352,7 +352,7 @@ fn every_wrapped_control_verb_dials_its_ipc_method() {
         let recorded = harness.recorded_arguments();
         let call = &recorded[6..];
         assert_eq!(
-            call[0], "data-goblin.fileblade.control",
+            call[0], "yuricosta.filetree.control",
             "{arguments:?}: {recorded:?}"
         );
         assert_eq!(&call[1..], expected, "{arguments:?}: {recorded:?}");
@@ -367,7 +367,7 @@ fn modules_text_output_groups_rows_under_category_headers() {
         "modules": [
             { "id": "files", "name": "Files", "glyph": "", "description": "The file tree", "category": "Module", "source": "builtin", "singleton": true, "entry": "file:///plugin/modules/files/Module.qml", "settings": { "keys": [] }, "placed": { "edge": "left", "index": 0, "tab": 0 } },
             { "id": "notes", "name": "Notes", "glyph": "", "description": "", "category": "Module", "source": "builtin", "singleton": true, "entry": "file:///plugin/modules/notes/Module.qml", "settings": { "keys": [] }, "placed": null },
-            { "id": "agents", "name": "Agents", "glyph": "", "description": "Agent\u{7} strip", "category": "Agents\u{7}", "source": "user", "singleton": true, "entry": "file:///home/u/.config/omarchy/fileblade/modules/agents/Module.qml", "settings": { "keys": [] }, "placed": false },
+            { "id": "agents", "name": "Agents", "glyph": "", "description": "Agent\u{7} strip", "category": "Agents\u{7}", "source": "user", "singleton": true, "entry": "file:///home/u/.config/omarchy/filetree/modules/agents/Module.qml", "settings": { "keys": [] }, "placed": false },
             { "id": "data-goblin.blade-example/clock", "name": "Clock", "glyph": "", "description": "A live clock", "category": "Plugin", "source": "plugin:data-goblin.blade-example", "singleton": false, "entry": "file:///plugins/example/blades/Clock.qml", "settings": { "keys": ["format"] }, "placed": null }
         ]
     });
@@ -387,7 +387,7 @@ fn modules_text_output_groups_rows_under_category_headers() {
         ]
     );
     let recorded = harness.recorded_arguments();
-    assert_eq!(&recorded[6..], ["data-goblin.fileblade", "bladeModules"]);
+    assert_eq!(&recorded[6..], ["yuricosta.filetree", "bladeModules"]);
     let output = harness.run(&["--output", "json", "modules"], &response.to_string());
     assert!(output.status.success(), "{}", stderr(&output));
     let document: Value = serde_json::from_slice(&output.stdout).unwrap();
@@ -405,8 +405,8 @@ fn module_dirs_creates_both_paths_in_process_without_the_shell() {
     assert!(output.stderr.is_empty());
     let document: Value = serde_json::from_slice(&output.stdout).unwrap();
     let root = harness.temporary.path();
-    let state_dir = root.join("state/omarchy/fileblade/modules/notes");
-    let config_dir = root.join("config/omarchy/fileblade/config/notes");
+    let state_dir = root.join("state/omarchy/filetree/modules/notes");
+    let config_dir = root.join("config/omarchy/filetree/config/notes");
     assert_eq!(document["ok"], true);
     assert_eq!(document["name"], "notes");
     assert_eq!(document["state_dir"], state_dir.to_string_lossy().as_ref());
@@ -432,10 +432,10 @@ fn module_dirs_creates_both_paths_in_process_without_the_shell() {
     assert_eq!(
         lines,
         [
-            root.join("state/omarchy/fileblade/modules/data-goblin.blade-example+clock")
+            root.join("state/omarchy/filetree/modules/data-goblin.blade-example+clock")
                 .to_string_lossy()
                 .into_owned(),
-            root.join("config/omarchy/fileblade/config/data-goblin.blade-example+clock")
+            root.join("config/omarchy/filetree/config/data-goblin.blade-example+clock")
                 .to_string_lossy()
                 .into_owned(),
         ]
@@ -445,7 +445,7 @@ fn module_dirs_creates_both_paths_in_process_without_the_shell() {
     assert_eq!(refused.status.code(), Some(1));
     let error: Value = serde_json::from_slice(&refused.stderr).unwrap();
     assert_eq!(error["ok"], false);
-    assert!(!root.join("state/omarchy/fileblade/modules/a").exists());
+    assert!(!root.join("state/omarchy/filetree/modules/a").exists());
     assert_empty(&harness.data_home);
 }
 
@@ -505,7 +505,7 @@ fn actions_are_listed_over_the_read_target_and_grouped_by_provider() {
     assert_eq!(lines[2], "USER");
     assert!(lines[3].contains("user/wipe"), "{lines:?}");
     let arguments = harness.recorded_arguments();
-    assert_eq!(arguments[6], "data-goblin.fileblade");
+    assert_eq!(arguments[6], "yuricosta.filetree");
     assert_eq!(arguments[7], "actions");
     assert_empty(&harness.data_home);
 }
@@ -535,9 +535,9 @@ fn action_run_dials_the_control_target_then_polls_the_result() {
     assert_eq!(
         harness.recorded_calls(),
         [
-            "data-goblin.fileblade\tactions",
-            "data-goblin.fileblade.control\trunAction",
-            "data-goblin.fileblade\tactionResult",
+            "yuricosta.filetree\tactions",
+            "yuricosta.filetree.control\trunAction",
+            "yuricosta.filetree\tactionResult",
         ]
     );
     assert_empty(&harness.data_home);
@@ -560,7 +560,7 @@ fn action_run_sends_the_json_paths_and_the_confirmation_flag() {
         stderr(&output)
     );
     let arguments = harness.recorded_arguments();
-    assert_eq!(arguments[6], "data-goblin.fileblade.control");
+    assert_eq!(arguments[6], "yuricosta.filetree.control");
     assert_eq!(arguments[7], "runAction");
     assert_eq!(arguments[8], "kurt.tools/dump");
     assert_eq!(arguments[9], "base64:WyIvdG1wL2EiLCIvdG1wL2IiXQ==");
@@ -603,7 +603,7 @@ fn a_confirming_action_refuses_to_run_before_it_reaches_the_control_target() {
     );
     assert_eq!(output.status.code(), Some(1));
     assert!(stderr(&output).contains("--yes"), "{}", stderr(&output));
-    assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+    assert_eq!(harness.recorded_calls(), ["yuricosta.filetree\tactions"]);
     assert_empty(&harness.data_home);
 }
 
@@ -617,7 +617,7 @@ fn an_unknown_action_key_never_reaches_the_control_target() {
         "{}",
         stderr(&output)
     );
-    assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+    assert_eq!(harness.recorded_calls(), ["yuricosta.filetree\tactions"]);
     assert_empty(&harness.data_home);
 }
 
@@ -634,13 +634,13 @@ fn action_cli_refuses_invalid_waits_and_paths_before_the_control_target() {
         "{}",
         stderr(&wait)
     );
-    assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+    assert_eq!(harness.recorded_calls(), ["yuricosta.filetree\tactions"]);
 
     let harness = CliHarness::new();
     let empty = harness.run(&["action", "dump", ""], &action_listing().to_string());
     assert_eq!(empty.status.code(), Some(1));
     assert!(stderr(&empty).contains("every path must be given"));
-    assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+    assert_eq!(harness.recorded_calls(), ["yuricosta.filetree\tactions"]);
 
     let harness = CliHarness::new();
     let mut owned = vec!["action".to_string(), "dump".to_string()];
@@ -649,12 +649,12 @@ fn action_cli_refuses_invalid_waits_and_paths_before_the_control_target() {
     let many = harness.run(&borrowed, &action_listing().to_string());
     assert_eq!(many.status.code(), Some(1));
     assert!(stderr(&many).contains("selection too large (256)"));
-    assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+    assert_eq!(harness.recorded_calls(), ["yuricosta.filetree\tactions"]);
 
     let harness = CliHarness::new();
     let long = "x".repeat(65536);
     let large = harness.run(&["action", "dump", &long], &action_listing().to_string());
     assert_eq!(large.status.code(), Some(1));
     assert!(stderr(&large).contains("too large for shell IPC"));
-    assert_eq!(harness.recorded_calls(), ["data-goblin.fileblade\tactions"]);
+    assert_eq!(harness.recorded_calls(), ["yuricosta.filetree\tactions"]);
 }

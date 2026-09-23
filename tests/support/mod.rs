@@ -20,7 +20,7 @@ impl Resident {
 
     pub fn start_with(max_concurrency: usize, environment: &[(&str, &str)]) -> Self {
         let state = tempfile::tempdir().expect("resident state directory");
-        let mut child = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_filetree"))
             .args(["serve", "--max-concurrency", &max_concurrency.to_string()])
             .envs(environment.iter().copied())
             .env("HOME", state.path().join("home"))

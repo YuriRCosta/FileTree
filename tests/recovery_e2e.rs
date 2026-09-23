@@ -5,7 +5,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn backend(root: &Path, arguments: &[&str]) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_fileblade"))
+    let output = Command::new(env!("CARGO_BIN_EXE_filetree"))
         .arg("_backend")
         .args(arguments)
         .env_clear()
@@ -110,7 +110,7 @@ fn a_staged_item_from_a_killed_backend_is_restored_on_the_next_start() {
     );
     assert_eq!(first["ok"], true, "{first}");
 
-    let stage = folder.join(".fileblade-stage-deadbeef");
+    let stage = folder.join(".filetree-stage-deadbeef");
     fs::create_dir(&stage).unwrap();
     fs::write(stage.join("item-cafe"), "thesis").unwrap();
     write_private(
@@ -124,7 +124,7 @@ fn a_staged_item_from_a_killed_backend_is_restored_on_the_next_start() {
         })
         .to_string(),
     );
-    let partial = root.join(".fileblade-partial-0badf00d");
+    let partial = root.join(".filetree-partial-0badf00d");
     fs::create_dir(&partial).unwrap();
     fs::write(partial.join("item"), "half").unwrap();
     write_private(
@@ -170,7 +170,7 @@ fn a_staged_item_whose_original_name_is_taken_is_reported_not_overwritten() {
     );
     assert_eq!(first["ok"], true, "{first}");
 
-    let stage = folder.join(".fileblade-stage-1234");
+    let stage = folder.join(".filetree-stage-1234");
     fs::create_dir(&stage).unwrap();
     fs::write(stage.join("item-1"), "old").unwrap();
     fs::write(folder.join("report.txt"), "new").unwrap();

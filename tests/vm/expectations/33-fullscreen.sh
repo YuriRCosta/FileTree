@@ -5,7 +5,7 @@ require_guest
 wait_for 'status >/dev/null' 20
 repo=$(cd "$(dirname "$0")/../../.." && pwd)
 initial=$("$OVM" ipc "$PLUGIN" blades)
-work=$(guest 'mktemp -d /tmp/fileblade-fullscreen.XXXXXX')
+work=$(guest 'mktemp -d /tmp/filetree-fullscreen.XXXXXX')
 browser_pid=""
 shots=()
 cleanup() {

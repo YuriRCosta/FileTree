@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export FILEBLADE_TEST_STRICT="${FILEBLADE_TEST_STRICT:-1}"
-gate_state=$(mktemp -d "${TMPDIR:-/tmp}/fileblade-tests.XXXXXX")
+export FILETREE_TEST_STRICT="${FILETREE_TEST_STRICT:-1}"
+gate_state=$(mktemp -d "${TMPDIR:-/tmp}/filetree-tests.XXXXXX")
 trap 'rm -rf -- "$gate_state"' EXIT
 export XDG_STATE_HOME="$gate_state"
 PYTHONDONTWRITEBYTECODE=1 python3 tests/test_version_hook.py
 cargo_flags=(--workspace --all-targets --locked)
-if [[ "${FILEBLADE_OFFLINE:-0}" == "1" ]]; then
+if [[ "${FILETREE_OFFLINE:-0}" == "1" ]]; then
   cargo_flags+=(--offline)
 else
   cargo fetch --locked
@@ -25,7 +25,7 @@ if [[ -z "$linter" ]]; then
   exit 1
 fi
 "$linter" --import disable --unqualified disable "${qml_sources[@]}"
-runner="${FILEBLADE_QMLTESTRUNNER:-}"
+runner="${FILETREE_QMLTESTRUNNER:-}"
 if [[ -z "$runner" ]]; then
   for candidate in /usr/lib/qt6/bin/qmltestrunner /usr/lib64/qt6/bin/qmltestrunner qmltestrunner-qt6; do
     if command -v "$candidate" >/dev/null 2>&1; then runner=$(command -v "$candidate"); break; fi

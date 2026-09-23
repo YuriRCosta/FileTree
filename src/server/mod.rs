@@ -157,20 +157,20 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
             );
             let _clipboard = crate::clipboard::Session::open()?;
             if options.native_isolated {
-                let home = std::env::var_os("FILEBLADE_SPIKE_HOME")
+                let home = std::env::var_os("FILETREE_SPIKE_HOME")
                     .map(PathBuf::from)
                     .filter(|home| home.is_absolute())
                     .ok_or_else(|| {
-                        AppError::command("isolated authority requires FILEBLADE_SPIKE_HOME")
+                        AppError::command("isolated authority requires FILETREE_SPIKE_HOME")
                     })?;
                 for (role, selected) in [
-                    ("state", home.join("state/omarchy/fileblade")),
-                    ("config", home.join("config/omarchy/fileblade")),
-                    ("recovery", home.join("state/fileblade")),
+                    ("state", home.join("state/omarchy/filetree")),
+                    ("config", home.join("config/omarchy/filetree")),
+                    ("recovery", home.join("state/filetree")),
                 ] {
                     if std::fs::canonicalize(selected)? != authority.roots()[role].path {
                         return Err(AppError::command(
-                            "isolated authority roots must belong to FILEBLADE_SPIKE_HOME",
+                            "isolated authority roots must belong to FILETREE_SPIKE_HOME",
                         ));
                     }
                 }
@@ -193,7 +193,7 @@ pub fn run(options: ServeArgs, output: Arc<fileblade_output::Output>) -> AppResu
     }
     if options.native_authority || options.native_probe {
         return Err(AppError::command(
-            "native authority requires FILEBLADE_NATIVE_STATE_ROOT",
+            "native authority requires FILETREE_NATIVE_STATE_ROOT",
         ));
     }
     let output = Arc::new(Output::Stdio(output));
@@ -318,7 +318,7 @@ fn handshake(
             "v": VERSION,
             "type": "hello",
             "ok": true,
-            "protocol": "fileblade",
+            "protocol": "filetree",
             "limits": {
                 "line_bytes": MAX_LINE_BYTES,
                 "response_bytes": MAX_RESPONSE_BYTES,

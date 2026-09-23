@@ -5,7 +5,7 @@ import "../../lib/DropFocusPolicy.js" as DropFocusPolicy
 TestCase {
   name: "DropFocusPolicy"
 
-  function test_folder_only_open_stays_in_fileblade() {
+  function test_folder_only_open_stays_in_filetree() {
     verify(!DropFocusPolicy.transfersFocus("open", 0))
   }
 
@@ -29,7 +29,7 @@ TestCase {
     verify(DropFocusPolicy.transfersFocus(data.action, 0))
   }
 
-  function test_non_launching_actions_keep_fileblade_focus() {
+  function test_non_launching_actions_keep_filetree_focus() {
     verify(!DropFocusPolicy.transfersFocus("copy-paths", 2))
     verify(!DropFocusPolicy.transfersFocus("open-with", 2))
     verify(!DropFocusPolicy.transfersFocus("", 2))

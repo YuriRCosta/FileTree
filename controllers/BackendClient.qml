@@ -25,7 +25,7 @@ Item {
   property string backendVersion: ""
   property var limits: ({})
   property var paths: ({})
-  readonly property bool nativeAuthority: String(Quickshell.env("FILEBLADE_NATIVE_STATE_ROOT") || "") !== ""
+  readonly property bool nativeAuthority: String(Quickshell.env("FILETREE_NATIVE_STATE_ROOT") || "") !== ""
   signal operationAccepted(string requestId, string generation, string operationId)
   signal operationUpdated(string operationId, var frame)
   readonly property bool versionSkew: expectedVersion !== "" && backendVersion !== "" && expectedVersion !== backendVersion
@@ -278,12 +278,12 @@ Item {
       limits = frame.limits && typeof frame.limits === "object" ? frame.limits : ({})
       paths = frame.paths && typeof frame.paths === "object" ? frame.paths : ({})
       backendVersion = String(frame.version || "")
-      if (versionSkew) console.warn("data-goblin.fileblade: backend " + backendVersion + " does not match plugin " + expectedVersion + "; update or reinstall the plugin")
+      if (versionSkew) console.warn("yuricosta.filetree: backend " + backendVersion + " does not match plugin " + expectedVersion + "; update or reinstall the plugin")
       var recovered = frame.recovered
       if (recovered && Array.isArray(recovered.restored) && recovered.restored.length > 0)
-        console.warn("data-goblin.fileblade: restored " + recovered.restored.length + " staged item(s) after an interrupted operation: " + recovered.restored.join(", "))
+        console.warn("yuricosta.filetree: restored " + recovered.restored.length + " staged item(s) after an interrupted operation: " + recovered.restored.join(", "))
       if (recovered && Array.isArray(recovered.conflicts) && recovered.conflicts.length > 0)
-        console.warn("data-goblin.fileblade: " + recovered.conflicts.length + " staged item(s) could not be restored because the original name is taken; see fileblade doctor")
+        console.warn("yuricosta.filetree: " + recovered.conflicts.length + " staged item(s) could not be restored because the original name is taken; see filetree doctor")
       var frames = queued
       queued = []
       for (var index = 0; index < frames.length; index++) dispatch(frames[index])
@@ -417,8 +417,8 @@ Item {
       else root.immediateExits = 0
       if (root.immediateExits >= root.immediateExitLimit) {
         root.stalled = true
-        root.lastError = message + " (gave up after " + root.immediateExits + " immediate exits; run fileblade doctor)"
-        console.warn("data-goblin.fileblade: " + root.lastError)
+        root.lastError = message + " (gave up after " + root.immediateExits + " immediate exits; run filetree doctor)"
+        console.warn("yuricosta.filetree: " + root.lastError)
         return
       }
       root.restartDelay = Math.min(4000, Math.max(80, root.restartDelay * 2))
