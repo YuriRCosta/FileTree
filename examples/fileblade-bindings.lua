@@ -4,9 +4,7 @@ local function fileblade(method, fallback)
   return call
 end
 
-o.bind("SUPER + B", "Open or close the left blade", fileblade("toggleBladeFocus left"))
-hl.unbind("SUPER + SHIFT + B")
-o.bind("SUPER + SHIFT + B", "Open or close the right blade", fileblade("toggleBladeFocus right"))
+o.bind("SUPER + B", "Open or close FileBlade", fileblade("toggleFocus"))
 
 for _, direction in ipairs({ { "LEFT", "l" }, { "RIGHT", "r" }, { "UP", "u" }, { "DOWN", "d" } }) do
   hl.unbind("SUPER + " .. direction[1])
@@ -17,8 +15,6 @@ end
 
 hl.unbind("SUPER + W")
 o.bind("SUPER + W", "Close window or blade", fileblade("windowClose", "hl.dsp.window.close()"))
-hl.unbind("SUPER + T")
-o.bind("SUPER + T", "Toggle window floating or blade dock", fileblade("windowToggle", 'hl.dsp.window.float({ action = "toggle" })'))
 
 local resize_binds = {
   { "SUPER + code:20", "Expand window left", -100, 0 },

@@ -338,7 +338,7 @@ fn every_wrapped_control_verb_dials_its_ipc_method() {
         (&["settings"], &["toggleSettings"]),
         (&["toggle-path", "/tmp/a"], &["togglePath", "/tmp/a"]),
         (&["blade", "side", "right"], &["setBladeSide", "right"]),
-        (&["blade", "toggle-focus"], &["toggleBladeFocus", ""]),
+        (&["blade", "toggle-focus"], &["toggleFocus"]),
         (&["blade", "width", "420"], &["setBladeWidth", "", "420"]),
     ];
     for (arguments, expected) in cases {

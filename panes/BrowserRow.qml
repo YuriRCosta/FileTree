@@ -571,8 +571,7 @@ Rectangle {
     var held = Number(buttons) || 0
     var keys = Number(modifiers) || 0
     if (held & Qt.RightButton) return false
-    if (keys & (Qt.ShiftModifier | Qt.ControlModifier)) return false
-    return controller.dropWheel.systemDragOut
+    return !(keys & (Qt.ShiftModifier | Qt.ControlModifier))
   }
 
   function updateDragScroll() {

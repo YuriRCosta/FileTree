@@ -144,7 +144,6 @@ QtObject {
       modeBadge: service.modeBadge,
       pointerResizeEdge: bladeHost.pointerResizeEdge,
       pointerEdge: bladeHost.pointerEdge,
-      dragOut: service.dragOut,
       editorMode: service.editorMode,
       trashCount: service.trashCount,
       trashSelectedId: service.trashSelectedId,
@@ -682,15 +681,15 @@ QtObject {
     return service.setModeBadge(placement)
   }
 
-  function setDragOut(mode: string): string {
-    return service.setDragOut(mode)
-  }
-
   function focusBlade(edge: string): string {
     return bladeHost.focusBlade(bladeHost.side, bladeHost.preferredScreen(bladeHost.side), -1, "", true) ? "focused" : "no-screen"
   }
 
   function toggleBladeFocus(edge: string): string {
+    return toggleFocus()
+  }
+
+  function toggleFocus(): string {
     return bladeHost.toggleBladeFocus(bladeHost.side, bladeHost.preferredScreen(bladeHost.side))
   }
 

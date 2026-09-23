@@ -1103,10 +1103,9 @@ fn shared_folder_context_defaults_to_selection_and_can_follow_the_git_project() 
 }
 
 #[test]
-fn a_drag_leaving_a_blade_only_reaches_the_system_when_the_setting_asks_for_it() {
+fn a_plain_left_drag_always_hands_files_to_the_system() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let state = text(&root.join("controllers/StateController.qml"));
-    let config = text(&root.join("controllers/ConfigController.qml"));
     let settings = text(&root.join("modules/files/FilesSettings.qml"));
     let row = text(&root.join("panes/BrowserRow.qml"));
     let wheel = text(&root.join("controllers/DropWheelController.qml"));
@@ -1114,23 +1113,15 @@ fn a_drag_leaving_a_blade_only_reaches_the_system_when_the_setting_asks_for_it()
     let paths = text(&root.join("lib/PathText.js"));
     let ipc = text(&root.join("controllers/FileTreeIpc.qml"));
 
-    assert!(state.contains("property string dragOut: \"paste\""));
-    assert!(state.contains("dragOut: service.normalizeDragOut(config.dragOut)"));
-    assert!(state.contains("dragOut: dragOut,"));
-    assert!(
-        config.contains("return [\"paste\", \"system\"].indexOf(mode) >= 0 ? mode : \"paste\"")
-    );
     let service = text(&root.join("Service.qml"));
-    assert!(service.contains(
-        "function normalizeDragOut(value) { return configController.normalizeDragOut(value) }"
-    ));
-    assert!(service.contains("function setDragOut(value)"));
-    assert!(settings.contains("label: \"Drag out\""));
-    assert!(settings.contains("{ key: \"system\", label: \"System drag\" }"));
-    assert!(ipc.contains("dragOut: service.dragOut,"));
+    assert!(!state.contains("dragOut"));
+    assert!(!service.contains("dragOut"));
+    assert!(!settings.contains("Drag out"));
+    assert!(!ipc.contains("setDragOut"));
+    assert!(!wheel.contains("systemDragOut"));
 
     assert!(row.contains("if (held & Qt.RightButton) return false"));
-    assert!(row.contains("if (keys & (Qt.ShiftModifier | Qt.ControlModifier)) return false"));
+    assert!(row.contains("return !(keys & (Qt.ShiftModifier | Qt.ControlModifier))"));
     assert!(row.contains("acceptedButtons: Qt.LeftButton | Qt.RightButton"));
     assert!(row.contains("if (openWheelNow) controller.dropWheel.openAfterDrag()"));
     assert!(wheel.contains("function openAfterDrag()"));

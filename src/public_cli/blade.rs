@@ -4,7 +4,7 @@ use crate::backend::value_name;
 pub(super) fn blade(action: BladeCommand) -> AppResult<PublicResult> {
     let response = match action {
         BladeCommand::Focus => ipc("focusBlade", &[String::new()])?,
-        BladeCommand::ToggleFocus => ipc("toggleBladeFocus", &[String::new()])?,
+        BladeCommand::ToggleFocus => ipc("toggleFocus", &[])?,
         BladeCommand::Open => ipc("openBlade", &[String::new()])?,
         BladeCommand::Close => ipc("closeBlade", &[String::new()])?,
         BladeCommand::Toggle => ipc("toggleBlade", &[String::new()])?,

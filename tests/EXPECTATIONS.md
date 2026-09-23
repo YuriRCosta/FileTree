@@ -515,11 +515,11 @@ Dialog keyboard regressions: `tests/vm/trash-dialog-focus.sh`.
      the settings sheet. It is the same Font size as the General setting, so the
      percentage there follows and the choice survives a restart. Plain + and -
      keep changing the tree density and media tile size.
-147d. **E-17-15** If I set Drag out to System drag in the Files settings,
-     dragging rows hands the files to the window I drop on, so an application
-     that takes files receives them instead of their typed paths, and the drop
-     wheel stays out of that drag unless I drag with my right button;
-     Paste path restores the old behavior, and the choice survives a restart.
+147d. **E-17-15** Dragging rows with the left button always hands the files
+     to the window I drop on, so an application that takes files receives
+     them instead of their typed paths. The drop wheel stays out of that drag
+     unless I drag with my right button, and Shift or Ctrl keep the drag inside
+     FileBlade to paste a path. Settings have no Drag out choice.
 
 ## 18. Persistence
 

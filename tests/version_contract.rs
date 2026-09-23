@@ -154,8 +154,8 @@ fn marketplace_release_metadata_and_bundled_install_are_documented() {
     assert!(!preview_source.contains("Omachy"));
 
     let bindings = fs::read_to_string(root.join("examples/fileblade-bindings.lua")).unwrap();
-    assert!(bindings.contains("toggleBladeFocus left"));
-    assert!(bindings.contains("toggleBladeFocus right"));
+    assert!(bindings.contains("fileblade(\"toggleFocus\")"));
+    assert!(!bindings.contains("SUPER + SHIFT + B"));
     assert!(bindings.contains("|| hyprctl dispatch"));
 
     let ignore = fs::read_to_string(root.join(".gitignore")).unwrap();
