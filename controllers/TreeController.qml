@@ -1246,8 +1246,12 @@ Item {
   }
 
   onOpenChanged: {
-    scheduleWatcherRestart()
     gitStatusPollBackoff = 1
+    if (open && stateReady) {
+      refreshTree()
+      return
+    }
+    scheduleWatcherRestart()
     if (gitEnabled && open) scheduleGitMetadataRefresh("open")
   }
 

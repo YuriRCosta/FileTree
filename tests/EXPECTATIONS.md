@@ -86,7 +86,8 @@ Ids never get reused. When behaviour changes, edit the entry in place.
 17. **E-02-04** When I view a symbolic link, it has a distinct link icon and is
     sorted as a link rather than as its target.
 18. **E-02-05** If another application creates a file in the directory I am
-    viewing, the new file appears without me refreshing.
+    viewing, the new file appears without me refreshing, including when the
+    blade was closed at the time and I open it afterwards.
 19. **E-02-06** If another application deletes a file in the directory I am
     viewing, the file disappears without me refreshing.
 20. **E-02-07** If a collapsed folder changes and I refresh, expanding that
